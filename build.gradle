@@ -25,6 +25,7 @@ repositories {
 }
 
 dependencies {
+    compile group: 'org.bouncycastle', name: 'bcprov-jdk16', version: '1.46'
     compile group: 'com.github.softwareverde', name: 'java-util', version: 'v0.1.9+'
 
     testCompile group: 'junit', name: 'junit', version: '4.11'
@@ -36,8 +37,17 @@ task makeJar(type: Jar) {
                     'Implementation-Version': version,
                     'Main-Class': 'com.softwareverde.bitcoin.server.Main'
     }
+
     baseName = project.name + '-server'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+
+    doFirst {
+        from (configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }) {
+            exclude 'META-INF/MANIFEST.MF'
+            exclude 'META-INF/*.SF'
+            exclude 'META-INF/*.DSA'
+            exclude 'META-INF/*.RSA'
+        }
+    }
     with jar
 }
 

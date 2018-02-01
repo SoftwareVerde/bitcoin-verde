@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.PrivateKey;
+import com.softwareverde.bitcoin.secp256k1.Secp256k1;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -80,6 +82,7 @@ public class Main {
 
         final PrivateKey privateKey = PrivateKey.createNewKey();
         System.out.println(privateKey);
+        System.out.println(BitcoinUtil.toHexString(Secp256k1.getPublicKeyPoint(privateKey.getBytes())));
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
