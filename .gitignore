@@ -1,0 +1,15 @@
+.gradle
+/local.properties
+.DS_Store
+/build
+bin
+out
+
+*.png
+*.jpg
+.idea
+*.iml
+tmp
+
+.password
+
