@@ -17,6 +17,18 @@ public class BitcoinPrivateKey {
         return privateKey;
     }
 
+    public static BitcoinPrivateKey parseFromHexString(final String hexString) {
+        final BitcoinPrivateKey bitcoinPrivateKey = new BitcoinPrivateKey();
+        final byte[] decodedPrivateKeyData = BitcoinUtil.hexStringToByteArray(hexString);
+        if ((decodedPrivateKeyData == null) || (decodedPrivateKeyData.length != KEY_BYTE_COUNT)) { return null; }
+
+        for (int i=0; i<KEY_BYTE_COUNT; ++i) {
+            bitcoinPrivateKey._data[i] = decodedPrivateKeyData[i];
+        }
+
+        return bitcoinPrivateKey;
+    }
+
     private final byte[] _data = new byte[KEY_BYTE_COUNT];
 
     public byte[] getBytes() {

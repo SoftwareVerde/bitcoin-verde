@@ -22,6 +22,20 @@ public class BitcoinUtil {
         return new String(hexChars);
     }
 
+    /**
+     * Returns the decoded bytes from an uppercase (or lowercase) hex representation without any prefix.
+     */
+    public static byte[] hexStringToByteArray(final String hexString) {
+        final Integer stringLength = hexString.length();
+        if (stringLength % 2 != 0) { return null; }
+
+        final byte[] data = new byte[stringLength / 2];
+        for (int i = 0; i < stringLength; i += 2) {
+            data[i/2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4) + Character.digit(hexString.charAt(i+1), 16));
+        }
+        return data;
+    }
+
     public static byte[] sha256(final byte[] data) {
         try {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
