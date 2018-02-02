@@ -48,25 +48,27 @@ public class BitcoinUtil {
         return Base58.encode(bytes);
     }
 
-    public static byte[] base58Check(final byte addressPrefix, final byte[] data) {
-        final Integer prefixByteCount = 1;
+    public static byte[] calculateChecksummedKey(final Byte addressPrefix, final byte[] keyData) {
+        final Integer prefixByteCount = (addressPrefix == null ? 0 : 1);
         final Integer checksumByteCount = 4;
 
-        final byte[] base58CheckEncoded = new byte[prefixByteCount + data.length + checksumByteCount];
-        final byte[] versionPayload = new byte[prefixByteCount + data.length];
+        final byte[] base58CheckEncoded = new byte[prefixByteCount + keyData.length + checksumByteCount];
+        final byte[] versionPayload = new byte[prefixByteCount + keyData.length];
         {
-            base58CheckEncoded[0] = addressPrefix;
-            versionPayload[0] = addressPrefix;
-            for (int i = 0; i < data.length; ++i) {
-                versionPayload[i + 1] = data[i];
-                base58CheckEncoded[i + 1] = data[i];
+            if (addressPrefix != null) {
+                base58CheckEncoded[0] = addressPrefix;
+                versionPayload[0] = addressPrefix;
+            }
+            for (int i = 0; i < keyData.length; ++i) {
+                versionPayload[prefixByteCount + i] = keyData[i];
+                base58CheckEncoded[prefixByteCount + i] = keyData[i];
             }
         }
 
         { // Calculate the checksum...
             final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(versionPayload));
             for (int i = 0; i < checksumByteCount; ++i) {
-                base58CheckEncoded[prefixByteCount + data.length + i] = fullChecksum[i];
+                base58CheckEncoded[prefixByteCount + keyData.length + i] = fullChecksum[i];
             }
         }
 

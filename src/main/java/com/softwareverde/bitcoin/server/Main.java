@@ -80,10 +80,31 @@ public class Main {
     public void loop() {
         System.out.println("[Server Online]");
 
-        final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
-        System.out.println(privateKey);
-        System.out.println(BitcoinUtil.toHexString(Secp256k1.getPublicKeyPoint(privateKey.getBytes())));
-        System.out.println(BitcoinUtil.toBase58String(privateKey.getBitcoinAddress()));
+        final String searchString = "1Ve";
+        Boolean found = false;
+        int count = 0;
+        while (! found) {
+            count += 1;
+
+            if (count % 100 == 0) {
+                System.out.print("\33[1A\33[2K");
+                System.out.println(count);
+            }
+
+            final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
+            final String bitcoinAddress = BitcoinUtil.toBase58String(privateKey.getBitcoinAddress());
+            final String compressedBitcoinAddress = BitcoinUtil.toBase58String(privateKey.getCompressedBitcoinAddress());
+
+            if (bitcoinAddress.startsWith(searchString) || compressedBitcoinAddress.startsWith(searchString)) {
+                System.out.print("\33[1A\33[2K");
+                System.out.println(privateKey);
+                System.out.println(bitcoinAddress);
+                System.out.println(compressedBitcoinAddress);
+                found = true;
+                System.out.println("Count: "+ count);
+            }
+
+        }
         _exitFailure();
 
         while (true) {
