@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.PrivateKey;
+import com.softwareverde.bitcoin.BitcoinPrivateKey;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
@@ -80,9 +80,11 @@ public class Main {
     public void loop() {
         System.out.println("[Server Online]");
 
-        final PrivateKey privateKey = PrivateKey.createNewKey();
+        final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
         System.out.println(privateKey);
         System.out.println(BitcoinUtil.toHexString(Secp256k1.getPublicKeyPoint(privateKey.getBytes())));
+        System.out.println(BitcoinUtil.toBase58String(privateKey.getBitcoinAddress()));
+        _exitFailure();
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
