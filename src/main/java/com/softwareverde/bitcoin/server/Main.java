@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.BitcoinPrivateKey;
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;

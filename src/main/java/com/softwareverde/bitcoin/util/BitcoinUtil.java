@@ -1,12 +1,8 @@
 package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.security.encoding.Base58;
-import org.bouncycastle.crypto.digests.RIPEMD128Digest;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
-import org.bouncycastle.util.encoders.Hex;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
