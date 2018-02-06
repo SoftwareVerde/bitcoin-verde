@@ -27,25 +27,25 @@ public class VersionPayload {
     }
 
     public VersionPayload() {
-        final Long epoch = (long) 0x000000005a79d419; // (System.currentTimeMillis() / 1000L);
-        final Long nonce = 947735760792572705L; // (long) 0x0d2708a732f9d321; // (long) (Math.random() * Long.MAX_VALUE);
+        final Long epoch = (System.currentTimeMillis() / 1000L);
+        final Long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
-        _setBytes(_version, BitcoinUtil.hexStringToByteArray("0001117F")); // 0000EA62
-        _setBytes(_services, ByteUtil.longToBytes(0L));
-        _setBytes(_timestamp, ByteUtil.longToBytes(epoch));                                                                     // BitcoinUtil.hexStringToByteArray("0000000050D0B211"));
+        _setBytes(_version, BitcoinUtil.hexStringToByteArray("0001117F"));
+        _setBytes(_services, ByteUtil.longToBytes(1L));
+        _setBytes(_timestamp, ByteUtil.longToBytes(epoch));
         _setBytes(_remoteAddress, BitcoinUtil.hexStringToByteArray("370000000000000000000000000000000000FFFF18C03CDC208D"));    // TODO // 010000000000000000000000000000000000FFFF18C03CDC208D
         _setBytes(_localAddress, BitcoinUtil.hexStringToByteArray("000000000000000000000000000000000000FFFF000000000000"));     // TODO // 010000000000000000000000000000000000FFFF0A0002FF208D
-        _setBytes(_nonce, ByteUtil.longToBytes(nonce));                                                                         // BitcoinUtil.hexStringToByteArray("6517E68C5DB32E3B"));
+        _setBytes(_nonce, ByteUtil.longToBytes(nonce));
 
         {
-            final byte[] userAgentBytes = "/bitnodes.earn.com:0.1/".getBytes(); // "/Verde-Bitcoin:0.0.1/".getBytes();                                                   // /Satoshi:0.7.2/
+            final byte[] userAgentBytes = "/Verde-Bitcoin:0.0.1/".getBytes();
             final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
             _userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
             _setBytes(_userAgent, userAgentBytesEncodedLength);
             _setBytes(_userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
         }
 
-        _setBytes(_currentBlockHeight, ByteUtil.integerToBytes(0x0007e075));
+        _setBytes(_currentBlockHeight, ByteUtil.integerToBytes(0x00)); // TODO
         _setBytes(_shouldRelay, BitcoinUtil.hexStringToByteArray("00"));
     }
 
