@@ -1,0 +1,159 @@
+package com.softwareverde.bitcoin.server.socket;
+
+import com.softwareverde.async.HaltableThread;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+
+import java.io.IOException;
+import java.net.Socket;
+import java.util.ArrayDeque;
+import java.util.Queue;
+
+public class SocketConnectionManager {
+    public interface MessageReceivedCallback {
+        void onMessageReceived(byte[] message);
+    }
+
+    private final String _host;
+    private final Integer _port;
+
+    private final Queue<byte[]> _outboundMessageQueue = new ArrayDeque<byte[]>();
+
+    private SocketConnection _connection;
+    private HaltableThread _connectionThread;
+    private MessageReceivedCallback _messageReceivedCallback;
+
+    private Boolean _socketUsedToBeConnected = false;
+
+    private Long _connectionCount = 0L;
+    private Runnable _onDisconnectCallback;
+    private Runnable _onReconnectCallback;
+    private Runnable _onConnectCallback;
+
+    private Boolean _socketIsConnected() {
+        return (_connection != null && _connection.isConnected());
+    }
+
+    private void _processOutboundMessageQueue() {
+        synchronized (_outboundMessageQueue) {
+            while (! _outboundMessageQueue.isEmpty()) {
+                if ((_connection == null) || (! _connection.isConnected())) { return; }
+
+                final byte[] message = _outboundMessageQueue.remove();
+                _connection.write(message);
+            }
+        }
+    }
+
+    private void _connectSocket() {
+        if (_socketIsConnected()) { return; }
+
+        try {
+            final Socket socket = new Socket(_host, _port);
+            if (socket.isConnected()) {
+                _connection = new SocketConnection(socket);
+                _connection.setMessageReceivedCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (_messageReceivedCallback != null) {
+                            _messageReceivedCallback.onMessageReceived(_connection.popMessage());
+                        }
+                    }
+                });
+
+                final Boolean isFirstConnection = (_connectionCount == 0);
+                if (isFirstConnection) {
+                    System.out.println("SocketConnectionManager :: Connection established.");
+
+                    _processOutboundMessageQueue();
+
+                    if (_onConnectCallback != null) {
+                        (new Thread(_onConnectCallback)).start();
+                    }
+                }
+                else {
+                    System.out.println("SocketConnectionManager :: Connection regained.");
+                    _processOutboundMessageQueue();
+
+                    if (_onReconnectCallback != null) {
+                        (new Thread(_onReconnectCallback)).start();
+                    }
+                }
+
+                _socketUsedToBeConnected = true;
+                _connectionCount += 1;
+            }
+        } catch (final IOException e) { }
+    }
+
+    private void _writeOrQueueMessage(final byte[] message) {
+        synchronized (_outboundMessageQueue) {
+            if (_socketIsConnected()) {
+                _connection.write(message);
+            }
+            else {
+                _outboundMessageQueue.add(message);
+            }
+        }
+    }
+
+    public SocketConnectionManager(final String host, final Integer port) {
+        _host = host;
+        _port = port;
+
+        _connectionThread = new HaltableThread(new Runnable() {
+            @Override
+            public void run() {
+                if (_socketIsConnected()) { return; }
+
+                if (_socketUsedToBeConnected) {
+                    if (_onDisconnectCallback != null) {
+                        (new Thread(_onDisconnectCallback)).start();
+                    }
+                    _socketUsedToBeConnected = false;
+                    System.out.println("SocketConnectionManager :: Connection lost.");
+                }
+
+                _connectSocket();
+            }
+        });
+    }
+
+    public void startConnectionThread() {
+        _connectionThread.setSleepTime(1000L);
+        _connectionThread.start();
+    }
+
+    public void setOnDisconnectCallback(final Runnable callback) {
+        _onDisconnectCallback = callback;
+    }
+
+    public void setOnReconnectCallback(final Runnable callback) {
+        _onReconnectCallback = callback;
+    }
+
+    public void setOnConnectCallback(final Runnable callback) {
+        _onConnectCallback = callback;
+    }
+
+    public Boolean isConnected() {
+        return _socketIsConnected();
+    }
+
+    public void disconnect() {
+        _connection.close();
+    }
+
+    public void queueMessage(final ProtocolMessage message) {
+        (new Thread(new Runnable() {
+            @Override
+            public void run() {
+                _writeOrQueueMessage(message.serializeAsLittleEndian());
+            }
+        })).start();
+    }
+
+    public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {
+        _messageReceivedCallback = messageReceivedCallback;
+    }
+}

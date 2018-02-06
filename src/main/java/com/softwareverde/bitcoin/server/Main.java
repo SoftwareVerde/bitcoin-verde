@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.BitcoinPrivateKey;
+import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.message.VersionPayload;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
@@ -79,32 +81,31 @@ public class Main {
     public void loop() {
         System.out.println("[Server Online]");
 
-        final String searchString = "1Ve";
-        Boolean found = false;
-        int count = 0;
-        while (! found) {
-            count += 1;
-
-            if (count % 100 == 0) {
-                System.out.print("\33[1A\33[2K");
-                System.out.println(count);
+        final SocketConnectionManager socketConnectionManager = new SocketConnectionManager("btc.softwareverde.com", 8333);
+        socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
+            @Override
+            public void onMessageReceived(final byte[] message) {
+                System.out.println(BitcoinUtil.toHexString(message));
             }
+        });
+        socketConnectionManager.setOnConnectCallback(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("Socket connected.");
 
-            final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
-            final String bitcoinAddress = BitcoinUtil.toBase58String(privateKey.getBitcoinAddress());
-            final String compressedBitcoinAddress = BitcoinUtil.toBase58String(privateKey.getCompressedBitcoinAddress());
-
-            if (bitcoinAddress.startsWith(searchString) || compressedBitcoinAddress.startsWith(searchString)) {
-                System.out.print("\33[1A\33[2K");
-                System.out.println(privateKey);
-                System.out.println(bitcoinAddress);
-                System.out.println(compressedBitcoinAddress);
-                found = true;
-                System.out.println("Count: "+ count);
+                final ProtocolMessage protocolMessage = new ProtocolMessage(ProtocolMessage.Command.SUBMIT_VERSION);
+                protocolMessage.setPayload((new VersionPayload()).getBytes());
+                System.out.println(BitcoinUtil.toHexString(protocolMessage.serializeAsLittleEndian()));
+                socketConnectionManager.queueMessage(protocolMessage);
             }
-
-        }
-        _exitFailure();
+        });
+        socketConnectionManager.setOnDisconnectCallback(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("Socket disconnected.");
+            }
+        });
+        socketConnectionManager.startConnectionThread();
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
