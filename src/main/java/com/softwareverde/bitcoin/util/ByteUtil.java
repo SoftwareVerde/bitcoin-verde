@@ -39,6 +39,16 @@ public class ByteUtil {
         return copiedBytes;
     }
 
+    public static void setBytes(final byte[] destination, final byte[] value, final Integer offset) {
+        for (int i=0; (i+offset)<destination.length; ++i) {
+            destination[i + offset] = (i < value.length ? value[i] : 0x00);
+        }
+    }
+
+    public static void setBytes(final byte[] destination, final byte[] value) {
+        ByteUtil.setBytes(destination, value, 0);
+    }
+
     public static byte[] serializeVariableLengthInteger(final Long value) {
         if (value < 0xFD) {
             return new byte[] { (byte) value.intValue() };

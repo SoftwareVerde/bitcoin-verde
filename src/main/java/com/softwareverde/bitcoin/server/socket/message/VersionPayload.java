@@ -1,65 +1,111 @@
 package com.softwareverde.bitcoin.server.socket.message;
 
+import com.softwareverde.bitcoin.server.socket.Constants;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteArrayBuilder.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.ByteArrayBuilder.Endian;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class VersionPayload {
-    private final byte[] _version = new byte[4];
-    private final byte[] _services = new byte[8];
-    private final byte[] _timestamp = new byte[8];
-    private final byte[] _remoteAddress = new byte[26];
-    private final byte[] _localAddress = new byte[26];
-    private final byte[] _nonce = new byte[8];
-    private byte[] _userAgent = new byte[1];
-    private final byte[] _currentBlockHeight = new byte[4];
-    private final byte[] _shouldRelay = new byte[1];
-
-    private void _setBytes(final byte[] destination, final byte[] value, final Integer offset) {
-        for (int i=0; (i+offset)<destination.length; ++i) {
-            destination[i + offset] = (i < value.length ? value[i] : 0x00);
-        }
+    public static final Integer VERSION = 0x0001117F;
+    public static class ByteData {
+        public final byte[] version = new byte[4];
+        public final byte[] services = new byte[8];
+        public final byte[] timestamp = new byte[8];
+        public final byte[] remoteAddress = new byte[26];
+        public final byte[] localAddress = new byte[26];
+        public final byte[] nonce = new byte[8];
+        public byte[] userAgent = new byte[1];
+        public final byte[] currentBlockHeight = new byte[4];
+        public final byte[] shouldRelay = new byte[1];
     }
 
-    private void _setBytes(final byte[] destination, final byte[] value) {
-        _setBytes(destination, value, 0);
+    private final Integer _version = VERSION;
+    private BitcoinServiceType _serviceType = BitcoinServiceType.NETWORK;
+    private final Long _timestamp;
+    private final NetworkAddress _remoteAddress = new NetworkAddress();
+    private final NetworkAddress _localAddress = new NetworkAddress();
+    private final Long _nonce;
+    private Integer _currentBlockHeight;
+    private Boolean _shouldRelay = false;
+
+    private ByteData _createByteData() {
+        final ByteData byteData = new ByteData();
+
+        ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
+        ByteUtil.setBytes(byteData.services, ByteUtil.longToBytes(_serviceType.getValue()));
+        ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
+        ByteUtil.setBytes(byteData.remoteAddress, _remoteAddress.getBytes());  // BitcoinUtil.hexStringToByteArray("370000000000000000000000000000000000FFFF18C03CDC208D"));    // TODO // 010000000000000000000000000000000000FFFF18C03CDC208D
+        ByteUtil.setBytes(byteData.localAddress, _localAddress.getBytes());    // BitcoinUtil.hexStringToByteArray("000000000000000000000000000000000000FFFF000000000000"));     // TODO // 010000000000000000000000000000000000FFFF0A0002FF208D
+        ByteUtil.setBytes(byteData.nonce, ByteUtil.longToBytes(_nonce));
+
+        { // Construct User-Agent bytes...
+            final byte[] userAgentBytes = Constants.USER_AGENT.getBytes();
+            final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
+            byteData.userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
+            ByteUtil.setBytes(byteData.userAgent, userAgentBytesEncodedLength);
+            ByteUtil.setBytes(byteData.userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
+        }
+
+        ByteUtil.setBytes(byteData.currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
+
+        { // Construct Should-Relay bytes...
+            final String hexString = (_shouldRelay ? "01" : "00");
+            final byte[] newBytesValue = BitcoinUtil.hexStringToByteArray(hexString);
+            ByteUtil.setBytes(byteData.shouldRelay, newBytesValue);
+        }
+
+        return byteData;
     }
 
     public VersionPayload() {
-        final Long epoch = (System.currentTimeMillis() / 1000L);
-        final Long nonce = (long) (Math.random() * Long.MAX_VALUE);
+        _timestamp = (System.currentTimeMillis() / 1000L);
+        _nonce = (long) (Math.random() * Long.MAX_VALUE);
+        _currentBlockHeight = 0;
+    }
 
-        _setBytes(_version, BitcoinUtil.hexStringToByteArray("0001117F"));
-        _setBytes(_services, ByteUtil.longToBytes(1L));
-        _setBytes(_timestamp, ByteUtil.longToBytes(epoch));
-        _setBytes(_remoteAddress, BitcoinUtil.hexStringToByteArray("370000000000000000000000000000000000FFFF18C03CDC208D"));    // TODO // 010000000000000000000000000000000000FFFF18C03CDC208D
-        _setBytes(_localAddress, BitcoinUtil.hexStringToByteArray("000000000000000000000000000000000000FFFF000000000000"));     // TODO // 010000000000000000000000000000000000FFFF0A0002FF208D
-        _setBytes(_nonce, ByteUtil.longToBytes(nonce));
+    public Integer getVersion() { return _version; }
+    public BitcoinServiceType getServiceType() { return _serviceType; }
+    public Long getTimestamp() { return _timestamp; }
+    public NetworkAddress getLocalAddress() { return _localAddress; }
+    public NetworkAddress getRemoteAddress() { return _remoteAddress; }
+    public Long getNonce() { return _nonce; }
+    public Boolean shouldRelay() { return _shouldRelay; }
 
-        {
-            final byte[] userAgentBytes = "/Verde-Bitcoin:0.0.1/".getBytes();
-            final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
-            _userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
-            _setBytes(_userAgent, userAgentBytesEncodedLength);
-            _setBytes(_userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
-        }
+    public void setServiceType(final BitcoinServiceType bitcoinServiceType) {
+        _serviceType = bitcoinServiceType;
+    }
 
-        _setBytes(_currentBlockHeight, ByteUtil.integerToBytes(0x00)); // TODO
-        _setBytes(_shouldRelay, BitcoinUtil.hexStringToByteArray("00"));
+    public void setLocalAddress(final NetworkAddress networkAddress) {
+        _localAddress.copyFrom(networkAddress);
+    }
+
+    public void setRemoteAddress(final NetworkAddress networkAddress) {
+        _remoteAddress.copyFrom(networkAddress);
+    }
+
+    public void setCurrentBlockHeight(final Integer currentBlockHeight) {
+        _currentBlockHeight = currentBlockHeight;
+    }
+
+    public void setShouldRelay(final Boolean shouldRelay) {
+        _shouldRelay = shouldRelay;
     }
 
     public byte[] getBytes() {
+        final ByteData byteData = _createByteData();
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(_version, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_services, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_timestamp, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_remoteAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(_localAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(_nonce, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_userAgent, Endian.BIG);
-        byteArrayBuilder.appendBytes(_currentBlockHeight, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_shouldRelay, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.version, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.services, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.timestamp, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.remoteAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(byteData.localAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(byteData.nonce, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.userAgent, Endian.BIG);
+        byteArrayBuilder.appendBytes(byteData.currentBlockHeight, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.shouldRelay, Endian.LITTLE);
         return byteArrayBuilder.build();
     }
 }
