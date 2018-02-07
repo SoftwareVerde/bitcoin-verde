@@ -1,6 +1,7 @@
-package com.softwareverde.bitcoin.server.socket.message;
+package com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize;
 
 import com.softwareverde.bitcoin.server.socket.Constants;
+import com.softwareverde.bitcoin.server.socket.message.BitcoinServiceType;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteArrayBuilder.ByteArrayBuilder;

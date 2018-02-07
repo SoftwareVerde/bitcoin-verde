@@ -37,7 +37,12 @@ public class NetworkAddress {
             }
         }
 
-        ByteUtil.setBytes(byteData.port, ByteUtil.integerToBytes(_port));
+        {
+            final int portIntValue = (_port == null ? 0x0000 : _port);
+            byteData.port[0] = (byte) (portIntValue >>> 8);
+            byteData.port[1] = (byte) portIntValue;
+        }
+
         return byteData;
     }
 
@@ -45,7 +50,7 @@ public class NetworkAddress {
         _timestamp = (System.currentTimeMillis() / 1000L);
         _serviceType = BitcoinServiceType.NETWORK;
         _ip = new Ipv4();
-        _port = 8333;
+        _port = 0x0000;
     }
 
 
@@ -53,7 +58,7 @@ public class NetworkAddress {
     public BitcoinServiceType getServiceType() { return _serviceType; }
 
     public void setIp(final Ip ip) {
-        _ip = ip.duplicate();
+        _ip = ( (ip != null) ? ip.duplicate() : new Ipv4());
     }
 
     public Ip getIp() {

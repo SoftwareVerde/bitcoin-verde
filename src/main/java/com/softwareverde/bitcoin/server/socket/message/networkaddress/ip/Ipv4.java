@@ -24,6 +24,8 @@ public class Ipv4 implements Ip {
     }
 
     public static Ipv4 parse(final String string) {
+        if (string == null) { return null; }
+
         final byte[] segments = _parse(string);
         if (segments == null) { return null; }
         if (segments.length != 4) { return null; }

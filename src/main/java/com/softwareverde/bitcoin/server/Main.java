@@ -3,7 +3,8 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.BitcoinServiceType;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.socket.message.VersionPayload;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.VersionPayload;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -88,42 +89,39 @@ public class Main {
         final Integer port = 8333;
 
         final SocketConnectionManager socketConnectionManager = new SocketConnectionManager(host, port);
+
         socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final byte[] message) {
                 System.out.println(BitcoinUtil.toHexString(message));
+                System.out.println();
             }
         });
+
         socketConnectionManager.setOnConnectCallback(new Runnable() {
             @Override
             public void run() {
                 System.out.println("Socket connected.");
 
-                final ProtocolMessage protocolMessage = new ProtocolMessage(ProtocolMessage.Command.SUBMIT_VERSION);
-                final VersionPayload versionPayload = new VersionPayload();
-
-                final Ipv4 ipv4 = Ipv4.parse(socketConnectionManager.getRemoteIp());
-                if (ipv4 != null) {
+                final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
+                { // Set Remote NetworkAddress...
                     final NetworkAddress remoteNetworkAddress = new NetworkAddress();
-                    remoteNetworkAddress.setIp(ipv4);
+                    remoteNetworkAddress.setIp(Ipv4.parse(socketConnectionManager.getRemoteIp()));
                     remoteNetworkAddress.setPort(port);
                     remoteNetworkAddress.setServiceType(BitcoinServiceType.NETWORK);
-                    versionPayload.setRemoteAddress(remoteNetworkAddress);
+                    synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
                 }
-
-                protocolMessage.setPayload(versionPayload.getBytes());
-
-                System.out.println("Sending: "+ BitcoinUtil.toHexString(protocolMessage.serializeAsLittleEndian()));
-
-                socketConnectionManager.queueMessage(protocolMessage);
+                socketConnectionManager.queueMessage(synchronizeVersionMessage);
             }
         });
+
         socketConnectionManager.setOnDisconnectCallback(new Runnable() {
             @Override
             public void run() {
                 System.out.println("Socket disconnected.");
             }
         });
+
         socketConnectionManager.startConnectionThread();
 
         while (true) {
