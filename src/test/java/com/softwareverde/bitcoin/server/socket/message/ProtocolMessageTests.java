@@ -17,20 +17,23 @@ public class ProtocolMessageTests {
             "XXXX XXXX"+                        // Payload Checksum
             // Begin Payload
             "7F11 0100"+                        // Protocol Version
-            "0100 0000 0000 0000"+              // Node's Bitcoin Service Type
+            "2100 0000 0000 0000"+              // Node's Bitcoin Service Type
             "XXXX XXXX 0000 0000"+              // Message Timestamp
             "0100 0000 0000 0000 0000 0000 0000 0000 0000 FFFF C0A8 0101 208D"+ // Recipient's NetworkAddress
-            "0100 0000 0000 0000 0000 0000 0000 0000 0000 FFFF 0000 0000 0000"+ // Sender's NetworkAddress
+            "0000 0000 0000 0000 0000 0000 0000 0000 0000 FFFF 0000 0000 0000"+ // Sender's NetworkAddress
             "XXXX XXXX XXXX XXXX"+              // Nonce (NOTICE: BTC calls this "Node-Id")
             "152F 5665 7264 652D 4269 7463 6F69 6E3A XX2E XX2E XX2F"+           // Sub-Version (Length (Variable-Size-Integer) + "/Verde-Bitcoin:0.0.0/")
             "0000 0000"+
             "00"
         ;
 
+        final NodeFeatures nodeFeatures = new NodeFeatures();
+        nodeFeatures.enableFeatureFlag(NodeFeatures.Flags.BLOCKCHAIN_ENABLED);
+
         final NetworkAddress remoteNetworkAddress = new NetworkAddress();
         remoteNetworkAddress.setIp(Ipv4.parse("192.168.1.1"));
         remoteNetworkAddress.setPort(8333);
-        remoteNetworkAddress.setServiceType(BitcoinServiceType.NETWORK);
+        remoteNetworkAddress.setNodeFeatures(nodeFeatures);
 
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
         synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);

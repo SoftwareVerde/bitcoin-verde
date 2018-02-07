@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.async.HaltableThread;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.StringUtil;
 
 import java.io.IOException;
@@ -21,7 +20,7 @@ public class SocketConnectionManager {
 
     private final Queue<byte[]> _outboundMessageQueue = new ArrayDeque<byte[]>();
 
-    private SocketConnection _connection;
+    private BitcoinSocket _connection;
     private HaltableThread _connectionThread;
     private MessageReceivedCallback _messageReceivedCallback;
 
@@ -55,7 +54,7 @@ public class SocketConnectionManager {
             if (socket.isConnected()) {
                 _remoteIp = StringUtil.pregMatch("([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)", socket.getRemoteSocketAddress().toString()).get(0);
 
-                _connection = new SocketConnection(socket);
+                _connection = new BitcoinSocket(socket);
                 _connection.setMessageReceivedCallback(new Runnable() {
                     @Override
                     public void run() {

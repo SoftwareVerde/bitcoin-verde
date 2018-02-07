@@ -1,10 +1,8 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
-import com.softwareverde.bitcoin.server.socket.message.BitcoinServiceType;
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.SynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.VersionPayload;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -108,7 +106,7 @@ public class Main {
                     final NetworkAddress remoteNetworkAddress = new NetworkAddress();
                     remoteNetworkAddress.setIp(Ipv4.parse(socketConnectionManager.getRemoteIp()));
                     remoteNetworkAddress.setPort(port);
-                    remoteNetworkAddress.setServiceType(BitcoinServiceType.NETWORK);
+                    remoteNetworkAddress.setNodeFeatures(new NodeFeatures());
                     synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
                 }
                 socketConnectionManager.queueMessage(synchronizeVersionMessage);

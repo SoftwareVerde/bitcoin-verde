@@ -1,20 +1,20 @@
 package com.softwareverde.bitcoin.server.socket;
 
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SocketConnection {
+public class BitcoinSocket {
+
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
 
     private final Long _id;
     private final Socket _socket;
     private OutputStream _out;
-    // private BufferedReader _in;
     private final List<byte[]> _messages = new ArrayList<byte[]>();
     private volatile Boolean _isClosed = false;
 
@@ -22,6 +22,8 @@ public class SocketConnection {
     private Thread _readThread;
 
     private InputStream _rawInputStream;
+
+    public Integer bufferSize = 2048;
 
     private void _executeMessageReceivedCallback() {
         if (_messageReceivedCallback != null) {
@@ -56,7 +58,7 @@ public class SocketConnection {
         }
     }
 
-    public SocketConnection(final Socket socket) {
+    public BitcoinSocket(final Socket socket) {
         synchronized (_nextIdMutex) {
             _id = _nextId;
             _nextId += 1;
@@ -68,27 +70,19 @@ public class SocketConnection {
             _out = socket.getOutputStream();
 
             _rawInputStream = socket.getInputStream();
-            // _in = new BufferedReader(new InputStreamReader(_rawInputStream));
-        } catch (final IOException e) { }
+        }
+        catch (final IOException e) { }
 
         _readThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (! _isClosed) {
                     try {
-                        final Integer availableBytes = _rawInputStream.available();
-                        System.out.println("Reading... "+ availableBytes);
-
-                        if (availableBytes < 1) {
-                            try { Thread.sleep(100); } catch (final InterruptedException e) { }
-                            continue;
-                        }
-
-                        final byte[] buffer = new byte[1024];
+                        final byte[] buffer = new byte[bufferSize];
                         final Integer bytesRead = _rawInputStream.read(buffer);
                         System.out.println("Read: "+ bytesRead);
 
-                        if (bytesRead == 0) {
+                        if (bytesRead < 0) {
                             throw new IOException("Remote socket closed the connection.");
                         }
 
@@ -173,15 +167,15 @@ public class SocketConnection {
 
     @Override
     public int hashCode() {
-        return (SocketConnection.class.getSimpleName().hashCode() + _id.hashCode());
+        return (BitcoinSocket.class.getSimpleName().hashCode() + _id.hashCode());
     }
 
     @Override
-    public boolean equals(final Object obj) {
-        if (obj == null) { return false; }
-        if (! (obj instanceof SocketConnection)) { return false; }
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof BitcoinSocket)) { return false; }
 
-        final SocketConnection socketConnectionObj = (SocketConnection) obj;
-        return _id.equals(socketConnectionObj._id);
+        final BitcoinSocket socketConnectionObject = (BitcoinSocket) object;
+        return _id.equals(socketConnectionObject._id);
     }
 }

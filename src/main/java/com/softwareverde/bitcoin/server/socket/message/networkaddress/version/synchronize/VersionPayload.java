@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize;
 
 import com.softwareverde.bitcoin.server.socket.Constants;
-import com.softwareverde.bitcoin.server.socket.message.BitcoinServiceType;
+import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteArrayBuilder.ByteArrayBuilder;
@@ -12,7 +12,7 @@ public class VersionPayload {
     public static final Integer VERSION = 0x0001117F;
     public static class ByteData {
         public final byte[] version = new byte[4];
-        public final byte[] serviceType = new byte[8];
+        public final byte[] nodeFeatures = new byte[8];
         public final byte[] timestamp = new byte[8];
         public final byte[] remoteAddress = new byte[26];
         public final byte[] localAddress = new byte[26];
@@ -23,7 +23,7 @@ public class VersionPayload {
     }
 
     private final Integer _version = VERSION;
-    private BitcoinServiceType _serviceType = BitcoinServiceType.NETWORK;
+    private final NodeFeatures _nodeFeatures = new NodeFeatures();
     private final Long _timestamp;
     private NetworkAddress _remoteAddress = new NetworkAddress();
     private NetworkAddress _localAddress = new NetworkAddress();
@@ -35,7 +35,7 @@ public class VersionPayload {
         final ByteData byteData = new ByteData();
 
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
-        ByteUtil.setBytes(byteData.serviceType, ByteUtil.longToBytes(_serviceType.getValue()));
+        ByteUtil.setBytes(byteData.nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
         ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
         ByteUtil.setBytes(byteData.remoteAddress, _remoteAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(byteData.localAddress, _localAddress.getBytesWithoutTimestamp());
@@ -67,15 +67,15 @@ public class VersionPayload {
     }
 
     public Integer getVersion() { return _version; }
-    public BitcoinServiceType getServiceType() { return _serviceType; }
+    public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
     public Long getTimestamp() { return _timestamp; }
     public NetworkAddress getLocalAddress() { return _localAddress; }
     public NetworkAddress getRemoteAddress() { return _remoteAddress; }
     public Long getNonce() { return _nonce; }
     public Boolean shouldRelay() { return _shouldRelay; }
 
-    public void setServiceType(final BitcoinServiceType bitcoinServiceType) {
-        _serviceType = bitcoinServiceType;
+    public void setNodeFeatures(final NodeFeatures nodeFeatures) {
+        _nodeFeatures.setFeaturesFlags(nodeFeatures);
     }
 
     public void setLocalAddress(final NetworkAddress networkAddress) {
@@ -99,7 +99,7 @@ public class VersionPayload {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(byteData.version, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.serviceType, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.nodeFeatures, Endian.LITTLE);
         byteArrayBuilder.appendBytes(byteData.timestamp, Endian.LITTLE);
         byteArrayBuilder.appendBytes(byteData.remoteAddress, Endian.BIG);
         byteArrayBuilder.appendBytes(byteData.localAddress, Endian.BIG);
