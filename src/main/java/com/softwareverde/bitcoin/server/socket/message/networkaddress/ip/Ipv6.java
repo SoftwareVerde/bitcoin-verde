@@ -3,25 +3,84 @@ package com.softwareverde.bitcoin.server.socket.message.networkaddress.ip;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.StringUtil;
 
-import java.util.List;
-
 public class Ipv6 implements Ip {
+
+    protected static byte[] _createIpv4CompatibleIpv6(final Ipv4 ipv4) {
+        final byte[] ipSegmentBytes = new byte[16];
+        final byte[] ipv4Bytes = ipv4.getBytes();
+        ipSegmentBytes[10] = (byte) 0xFF;
+        ipSegmentBytes[11] = (byte) 0xFF;
+        for (int i=0; i<ipv4Bytes.length; ++i) {
+            ipSegmentBytes[12 + i] = ipv4Bytes[i];
+        }
+        return ipSegmentBytes;
+    }
 
     protected static byte[] _parse(final String string) {
         final String trimmedString = string.trim();
-        final String strippedIp = trimmedString.replaceAll("[^0-9A-Fa-f:]", "");
-        final Boolean stringContainedInvalidCharacters = (strippedIp.length() != trimmedString.length());
+
+        final Boolean matchesIpv4CompatibilityMode = (! StringUtil.pregMatch("^::[fF]{4}:([0-9]+)\\.([0-9]+)\\.([0-9]+)\\.([0-9]+)$", trimmedString).isEmpty());
+        if (matchesIpv4CompatibilityMode) {
+            final Integer offset = "::FFFF:".length();
+            final Ipv4 ipv4 = Ipv4.parse(trimmedString.substring(offset));
+            if (ipv4 == null) { return null; }
+
+            return _createIpv4CompatibleIpv6(ipv4);
+        }
+
+        final String strippedIpString = trimmedString.replaceAll("[^0-9A-Fa-f:]", "");
+        final Boolean stringContainedInvalidCharacters = (strippedIpString.length() != trimmedString.length());
         if (stringContainedInvalidCharacters) { return null; }
 
-        final List<String> ipSegmentStrings = StringUtil.pregMatch("^([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*):([0-9A-Fa-f]*)$", strippedIp);
-        final Integer ipSegmentStringCount = ipSegmentStrings.size();
-        if (ipSegmentStringCount != 8) { return null; }
+        final String[] ipSegmentStrings = new String[8];
+        {
+            final Boolean containsShorthandMarker = (strippedIpString.contains("::"));
+            if (containsShorthandMarker) {
+                final String firstHalf;
+                final String secondHalf;
+                {
+                    final String[] halves = strippedIpString.split("::", 2);
+                    firstHalf = halves[0];
+                    secondHalf = halves[1];
+                }
+
+                final Boolean containsMultipleShorthandMarkers = ( (firstHalf.contains("::")) || (secondHalf.contains("::")) );
+                if ( containsMultipleShorthandMarkers ) { return null; } // Ipv6 may only have one shorthand-marker.
+
+                {
+                    final String[] firstHalfSegments = firstHalf.split(":");
+                    final String[] secondHalfSegments = secondHalf.split(":");
+
+                    final Boolean containsTooManySegments = ((firstHalfSegments.length + secondHalfSegments.length) >= 8);
+                    if (containsTooManySegments) { return null; }
+
+                    for (int i=0; i < firstHalfSegments.length; ++i) {
+                        ipSegmentStrings[i] = firstHalfSegments[i];
+                    }
+
+                    for (int i=0; i < (8 - firstHalfSegments.length - secondHalfSegments.length); ++i) {
+                        ipSegmentStrings[firstHalfSegments.length + i] = "0";
+                    }
+
+                    for (int i=0; i < secondHalfSegments.length; ++i) {
+                        ipSegmentStrings[(ipSegmentStrings.length - i) - 1] = secondHalfSegments[(secondHalfSegments.length - i) - 1];
+                    }
+                }
+            }
+            else {
+                final String[] splitIpSegments = strippedIpString.split(":");
+                if (splitIpSegments.length != 8) { return null; }
+                for (int i=0; i<8; ++i) {
+                    ipSegmentStrings[i] = splitIpSegments[i];
+                }
+            }
+        }
 
         final byte[] ipSegmentBytes = new byte[16];
         for (int i=0; i<8; ++i) {
             final String ipSegmentString;
             {
-                final String originalIpSegmentString = ipSegmentStrings.get(i);
+                final String originalIpSegmentString = ipSegmentStrings[i];
                 final Integer availableCharCount = originalIpSegmentString.length();
                 final char[] charArray = new char[4];
                 for (int j=0; j<charArray.length; ++j) {
@@ -47,19 +106,37 @@ public class Ipv6 implements Ip {
 
         final Ipv6 ipv6 = new Ipv6();
         for (int i=0; i<segments.length; ++i) {
-            ipv6._segments[i] = segments[i];
+            ipv6._bytes[i] = segments[i];
         }
         return ipv6;
     }
 
-    private final byte[] _segments = new byte[16];
+    public static Ipv6 createIpv4CompatibleIpv6(final Ipv4 ipv4) {
+        final Ipv6 ipv6 = new Ipv6();
+        final byte[] bytes = _createIpv4CompatibleIpv6(ipv4);
+        for (int i=0; i<bytes.length; ++i) {
+            ipv6._bytes[i] = bytes[i];
+        }
+        return ipv6;
+    }
+
+    private final byte[] _bytes = new byte[16];
 
     @Override
     public byte[] getBytes() {
         final byte[] bytes = new byte[16];
-        for (int i=0; i<_segments.length; ++i) {
-            bytes[i] = _segments[i];
+        for (int i = 0; i< _bytes.length; ++i) {
+            bytes[i] = _bytes[i];
         }
         return bytes;
+    }
+
+    @Override
+    public Ip duplicate() {
+        final Ipv6 ipv6 = new Ipv6();
+        for (int i=0; i<_bytes.length; ++i) {
+            ipv6._bytes[i] = _bytes[i];
+        }
+        return ipv6;
     }
 }

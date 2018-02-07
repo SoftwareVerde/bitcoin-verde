@@ -37,6 +37,16 @@ public class Ipv4 implements Ip {
 
     private final byte[] _segments = new byte[4];
 
+    public Ipv4() { }
+
+    public Ipv4(final byte[] ipByteSegments) {
+        if (ipByteSegments.length == _segments.length) {
+            for (int i=0; i<_segments.length; ++i) {
+                _segments[i] = ipByteSegments[i];
+            }
+        }
+    }
+
     @Override
     public byte[] getBytes() {
         final byte[] bytes = new byte[4];
@@ -44,5 +54,14 @@ public class Ipv4 implements Ip {
             bytes[i] = _segments[i];
         }
         return bytes;
+    }
+
+    @Override
+    public Ip duplicate() {
+        final Ipv4 ipv4 = new Ipv4();
+        for (int i=0; i<_segments.length; ++i) {
+            ipv4._segments[i] = _segments[i];
+        }
+        return ipv4;
     }
 }

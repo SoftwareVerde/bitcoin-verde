@@ -11,7 +11,7 @@ public class VersionPayload {
     public static final Integer VERSION = 0x0001117F;
     public static class ByteData {
         public final byte[] version = new byte[4];
-        public final byte[] services = new byte[8];
+        public final byte[] serviceType = new byte[8];
         public final byte[] timestamp = new byte[8];
         public final byte[] remoteAddress = new byte[26];
         public final byte[] localAddress = new byte[26];
@@ -24,8 +24,8 @@ public class VersionPayload {
     private final Integer _version = VERSION;
     private BitcoinServiceType _serviceType = BitcoinServiceType.NETWORK;
     private final Long _timestamp;
-    private final NetworkAddress _remoteAddress = new NetworkAddress();
-    private final NetworkAddress _localAddress = new NetworkAddress();
+    private NetworkAddress _remoteAddress = new NetworkAddress();
+    private NetworkAddress _localAddress = new NetworkAddress();
     private final Long _nonce;
     private Integer _currentBlockHeight;
     private Boolean _shouldRelay = false;
@@ -34,10 +34,10 @@ public class VersionPayload {
         final ByteData byteData = new ByteData();
 
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
-        ByteUtil.setBytes(byteData.services, ByteUtil.longToBytes(_serviceType.getValue()));
+        ByteUtil.setBytes(byteData.serviceType, ByteUtil.longToBytes(_serviceType.getValue()));
         ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
-        ByteUtil.setBytes(byteData.remoteAddress, _remoteAddress.getBytes());  // BitcoinUtil.hexStringToByteArray("370000000000000000000000000000000000FFFF18C03CDC208D"));    // TODO // 010000000000000000000000000000000000FFFF18C03CDC208D
-        ByteUtil.setBytes(byteData.localAddress, _localAddress.getBytes());    // BitcoinUtil.hexStringToByteArray("000000000000000000000000000000000000FFFF000000000000"));     // TODO // 010000000000000000000000000000000000FFFF0A0002FF208D
+        ByteUtil.setBytes(byteData.remoteAddress, _remoteAddress.getBytesWithoutTimestamp());
+        ByteUtil.setBytes(byteData.localAddress, _localAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(byteData.nonce, ByteUtil.longToBytes(_nonce));
 
         { // Construct User-Agent bytes...
@@ -78,11 +78,11 @@ public class VersionPayload {
     }
 
     public void setLocalAddress(final NetworkAddress networkAddress) {
-        _localAddress.copyFrom(networkAddress);
+        _localAddress = networkAddress.duplicate();
     }
 
     public void setRemoteAddress(final NetworkAddress networkAddress) {
-        _remoteAddress.copyFrom(networkAddress);
+        _remoteAddress = networkAddress.duplicate();
     }
 
     public void setCurrentBlockHeight(final Integer currentBlockHeight) {
@@ -98,7 +98,7 @@ public class VersionPayload {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(byteData.version, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.services, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(byteData.serviceType, Endian.LITTLE);
         byteArrayBuilder.appendBytes(byteData.timestamp, Endian.LITTLE);
         byteArrayBuilder.appendBytes(byteData.remoteAddress, Endian.BIG);
         byteArrayBuilder.appendBytes(byteData.localAddress, Endian.BIG);

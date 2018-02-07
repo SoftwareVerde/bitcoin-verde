@@ -1,8 +1,11 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
+import com.softwareverde.bitcoin.server.socket.message.BitcoinServiceType;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.VersionPayload;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
@@ -81,7 +84,10 @@ public class Main {
     public void loop() {
         System.out.println("[Server Online]");
 
-        final SocketConnectionManager socketConnectionManager = new SocketConnectionManager("btc.softwareverde.com", 8333);
+        final String host = "btc.softwareverde.com";
+        final Integer port = 8333;
+
+        final SocketConnectionManager socketConnectionManager = new SocketConnectionManager(host, port);
         socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final byte[] message) {
@@ -94,8 +100,21 @@ public class Main {
                 System.out.println("Socket connected.");
 
                 final ProtocolMessage protocolMessage = new ProtocolMessage(ProtocolMessage.Command.SUBMIT_VERSION);
-                protocolMessage.setPayload((new VersionPayload()).getBytes());
-                System.out.println(BitcoinUtil.toHexString(protocolMessage.serializeAsLittleEndian()));
+                final VersionPayload versionPayload = new VersionPayload();
+
+                final Ipv4 ipv4 = Ipv4.parse(socketConnectionManager.getRemoteIp());
+                if (ipv4 != null) {
+                    final NetworkAddress remoteNetworkAddress = new NetworkAddress();
+                    remoteNetworkAddress.setIp(ipv4);
+                    remoteNetworkAddress.setPort(port);
+                    remoteNetworkAddress.setServiceType(BitcoinServiceType.NETWORK);
+                    versionPayload.setRemoteAddress(remoteNetworkAddress);
+                }
+
+                protocolMessage.setPayload(versionPayload.getBytes());
+
+                System.out.println("Sending: "+ BitcoinUtil.toHexString(protocolMessage.serializeAsLittleEndian()));
+
                 socketConnectionManager.queueMessage(protocolMessage);
             }
         });
