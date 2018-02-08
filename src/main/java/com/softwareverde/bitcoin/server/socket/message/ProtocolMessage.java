@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.socket.message;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteArrayBuilder.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.ByteArrayBuilder.Endian;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 /**
@@ -17,8 +17,10 @@ public class ProtocolMessage {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack");
 
         private final byte[] _bytes = new byte[12];
+        private final String _value;
 
         Command(final String value) {
+            _value = value;
             final byte[] valueBytes = value.getBytes();
 
             for (int i=0; i<_bytes.length; ++i) {
@@ -29,16 +31,14 @@ public class ProtocolMessage {
         public byte[] getBytes() {
             return ByteUtil.copyBytes(_bytes);
         }
+
+        public String getValue() {
+            return _value;
+        }
     }
 
-    protected final byte[] _magicNumber = MAIN_NET_MAGIC_NUMBER;
-    protected final Command _command;
-    private byte[] _payload;
-
-    protected byte[] _calculateChecksum() {
-        if (_payload.length == 0) { return new byte[0]; }
-
-        final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(_payload));
+    protected static byte[] _calculateChecksum(final byte[] payload) {
+        final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(payload));
         final byte[] checksum = new byte[4];
 
         for (int i = 0; i< CHECKSUM_BYTE_COUNT; ++i) {
@@ -48,27 +48,30 @@ public class ProtocolMessage {
         return checksum;
     }
 
-    protected void _setPayload(final byte[] bytes) {
-        _payload = new byte[bytes.length];
+    protected final byte[] _magicNumber = MAIN_NET_MAGIC_NUMBER;
+    protected final Command _command;
 
-        for (int i=0; i<bytes.length; ++i) {
-            _payload[i] = bytes[i];
-        }
+    protected byte[] _getPayload() {
+        return new byte[0];
     }
 
     public ProtocolMessage(final Command command) {
         _command = command;
-        _payload = new byte[0];
     }
 
-    public ProtocolMessage(final Command command, final byte[] payload) {
-        _command = command;
-        _payload = payload;
+    public byte[] getMagicNumber() {
+        return ByteUtil.copyBytes(_magicNumber);
+    }
+
+    public Command getCommand() {
+        return _command;
     }
 
     public byte[] serializeAsLittleEndian() {
-        final byte[] payloadSizeBytes = ByteUtil.integerToBytes(_payload.length);
-        final byte[] checksum = _calculateChecksum();
+        final byte[] payload = _getPayload();
+
+        final byte[] payloadSizeBytes = ByteUtil.integerToBytes(payload.length);
+        final byte[] checksum = _calculateChecksum(payload);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
@@ -76,7 +79,7 @@ public class ProtocolMessage {
         byteArrayBuilder.appendBytes(_command.getBytes(), Endian.BIG);
         byteArrayBuilder.appendBytes(payloadSizeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(checksum, Endian.BIG); // NOTICE: Bitcoin Cash wants the checksum to be big-endian.  Bitcoin Core documentation says little-endian.  Discovered via tcpdump on server.
-        byteArrayBuilder.appendBytes(_payload, Endian.BIG);
+        byteArrayBuilder.appendBytes(payload, Endian.BIG);
 
         return byteArrayBuilder.build();
     }

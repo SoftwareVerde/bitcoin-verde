@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.util.ByteArrayBuilder;
+package com.softwareverde.bitcoin.util.bytearray;
 
 import java.util.ArrayList;
 import java.util.List;

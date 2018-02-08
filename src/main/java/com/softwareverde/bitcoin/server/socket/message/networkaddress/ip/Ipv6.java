@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.socket.message.networkaddress.ip;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Ipv6 implements Ip {
@@ -98,6 +99,15 @@ public class Ipv6 implements Ip {
             ipSegmentBytes[(i * 2) + 1] = segmentBytes[1];
         }
         return ipSegmentBytes;
+    }
+
+    public static Ipv6 fromBytes(final byte[] bytes) {
+        if (bytes.length == 4) { return createIpv4CompatibleIpv6(Ipv4.fromBytes(bytes)); }
+        if (bytes.length != 16) { return null; }
+
+        final Ipv6 ipv6 = new Ipv6();
+        ByteUtil.setBytes(ipv6._bytes, bytes);
+        return ipv6;
     }
 
     public static Ipv6 parse(final String string) {

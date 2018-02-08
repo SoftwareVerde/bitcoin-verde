@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.socket.message.networkaddress.ip;
 
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
@@ -23,6 +24,14 @@ public class Ipv4 implements Ip {
         return bytes;
     }
 
+    public static Ipv4 fromBytes(final byte[] bytes) {
+        if (bytes.length != 4) { return null; }
+
+        final Ipv4 ipv4 = new Ipv4();
+        ByteUtil.setBytes(ipv4._bytes, bytes);
+        return ipv4;
+    }
+
     public static Ipv4 parse(final String string) {
         if (string == null) { return null; }
 
@@ -32,19 +41,19 @@ public class Ipv4 implements Ip {
 
         final Ipv4 ipv4 = new Ipv4();
         for (int i=0; i<segments.length; ++i) {
-            ipv4._segments[i] = segments[i];
+            ipv4._bytes[i] = segments[i];
         }
         return ipv4;
     }
 
-    private final byte[] _segments = new byte[4];
+    private final byte[] _bytes = new byte[4];
 
     public Ipv4() { }
 
     public Ipv4(final byte[] ipByteSegments) {
-        if (ipByteSegments.length == _segments.length) {
-            for (int i=0; i<_segments.length; ++i) {
-                _segments[i] = ipByteSegments[i];
+        if (ipByteSegments.length == _bytes.length) {
+            for (int i = 0; i< _bytes.length; ++i) {
+                _bytes[i] = ipByteSegments[i];
             }
         }
     }
@@ -52,8 +61,8 @@ public class Ipv4 implements Ip {
     @Override
     public byte[] getBytes() {
         final byte[] bytes = new byte[4];
-        for (int i=0; i<_segments.length; ++i) {
-            bytes[i] = _segments[i];
+        for (int i = 0; i< _bytes.length; ++i) {
+            bytes[i] = _bytes[i];
         }
         return bytes;
     }
@@ -61,8 +70,8 @@ public class Ipv4 implements Ip {
     @Override
     public Ip duplicate() {
         final Ipv4 ipv4 = new Ipv4();
-        for (int i=0; i<_segments.length; ++i) {
-            ipv4._segments[i] = _segments[i];
+        for (int i = 0; i< _bytes.length; ++i) {
+            ipv4._bytes[i] = _bytes[i];
         }
         return ipv4;
     }

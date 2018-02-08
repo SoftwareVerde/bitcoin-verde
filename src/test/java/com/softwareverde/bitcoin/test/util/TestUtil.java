@@ -47,4 +47,8 @@ public class TestUtil {
     public static void assertMatchesMaskedHexString(final String stringMask, final byte[] data) {
         assertMatchesMaskedHexString(stringMask, BitcoinUtil.toHexString(data));
     }
+
+    public static void assertEqual(final byte[] expectedBytes, final byte[] bytes) {
+        assertMatchesMaskedHexString(BitcoinUtil.toHexString(expectedBytes), BitcoinUtil.toHexString(bytes));
+    }
 }
