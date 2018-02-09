@@ -1,7 +1,10 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -123,14 +126,18 @@ public class BitcoinSocket {
         _messageReceivedCallback = callback;
     }
 
-    synchronized public void write(final byte[] outboundMessage) {
+    synchronized public void write(final ProtocolMessage outboundMessage) {
+        final byte[] bytes = outboundMessage.serializeAsLittleEndian();
+
         try {
-            _out.write(outboundMessage);
+            _out.write(bytes);
             _out.flush();
         }
         catch (final Exception e) {
             _closeSocket();
         }
+
+        System.out.println("IO: SENT: 0x"+ BitcoinUtil.toHexString(ByteUtil.copyBytes(bytes, 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT)));
     }
 
     /**

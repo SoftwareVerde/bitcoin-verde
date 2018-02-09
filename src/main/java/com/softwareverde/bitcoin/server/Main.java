@@ -3,9 +3,14 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
+import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -91,8 +96,18 @@ public class Main {
         socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final ProtocolMessage message) {
-                System.out.println("RECEIVED "+ message.getCommand() +"."); // BitcoinUtil.toHexString(message.serializeAsLittleEndian())
-                System.out.println();
+                switch (message.getCommand()) {
+                    case PING: {
+                        final PingMessage pingMessage = (PingMessage) message;
+
+                        final PongMessage pongMessage = new PongMessage();
+                        pongMessage.setNonce(pingMessage.getNonce());
+
+                        socketConnectionManager.queueMessage(pongMessage);
+                    } break;
+                }
+
+                System.out.println("RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(ByteUtil.copyBytes(message.serializeAsLittleEndian(), 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT)));
             }
         });
 
@@ -110,6 +125,9 @@ public class Main {
                     synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
                 }
                 socketConnectionManager.queueMessage(synchronizeVersionMessage);
+
+                final PingMessage pingMessage = new PingMessage();
+                socketConnectionManager.queueMessage(pingMessage);
             }
         });
 

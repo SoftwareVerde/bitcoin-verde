@@ -18,7 +18,7 @@ public class SocketConnectionManager {
     private final Integer _port;
     private String _remoteIp;
 
-    private final Queue<byte[]> _outboundMessageQueue = new ArrayDeque<byte[]>();
+    private final Queue<ProtocolMessage> _outboundMessageQueue = new ArrayDeque<ProtocolMessage>();
 
     private BitcoinSocket _connection;
     private HaltableThread _connectionThread;
@@ -40,7 +40,7 @@ public class SocketConnectionManager {
             while (! _outboundMessageQueue.isEmpty()) {
                 if ((_connection == null) || (! _connection.isConnected())) { return; }
 
-                final byte[] message = _outboundMessageQueue.remove();
+                final ProtocolMessage message = _outboundMessageQueue.remove();
                 _connection.write(message);
             }
         }
@@ -89,7 +89,7 @@ public class SocketConnectionManager {
         } catch (final IOException e) { }
     }
 
-    private void _writeOrQueueMessage(final byte[] message) {
+    private void _writeOrQueueMessage(final ProtocolMessage message) {
         synchronized (_outboundMessageQueue) {
             if (_socketIsConnected()) {
                 _connection.write(message);
@@ -151,7 +151,7 @@ public class SocketConnectionManager {
         (new Thread(new Runnable() {
             @Override
             public void run() {
-                _writeOrQueueMessage(message.serializeAsLittleEndian());
+                _writeOrQueueMessage(message);
             }
         })).start();
     }

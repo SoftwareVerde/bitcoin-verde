@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.socket.message;
 
+import com.softwareverde.bitcoin.server.socket.message.ping.PingMessageInflater;
+import com.softwareverde.bitcoin.server.socket.message.pong.PongMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.version.acknowledge.AcknowledgeVersionMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessageInflater;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -15,6 +17,8 @@ public class ProtocolMessageFactory {
     public ProtocolMessageFactory() {
         _commandInflaterMap.put(ProtocolMessage.Command.SYNCHRONIZE_VERSION, new SynchronizeVersionMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.Command.ACKNOWLEDGE_VERSION, new AcknowledgeVersionMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.Command.PING, new PingMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.Command.PONG, new PongMessageInflater());
     }
 
     public ProtocolMessage inflateMessage(final byte[] bytes) {

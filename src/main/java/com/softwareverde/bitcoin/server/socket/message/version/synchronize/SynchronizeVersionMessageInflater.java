@@ -2,45 +2,20 @@ package com.softwareverde.bitcoin.server.socket.message.version.synchronize;
 
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
-public class SynchronizeVersionMessageInflater implements ProtocolMessageInflater {
+public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
 
     @Override
     public SynchronizeVersionMessage fromBytes(final byte[] bytes) {
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
-        final ProtocolMessageHeaderParser protocolMessageHeaderParser = new ProtocolMessageHeaderParser();
-
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
-        final ProtocolMessageHeader protocolMessageHeader = protocolMessageHeaderParser.fromBytes(byteArrayReader);
 
-        { // Validate Command Type
-            if (ProtocolMessage.Command.SYNCHRONIZE_VERSION != protocolMessageHeader.command) {
-                return null;
-            }
-        }
-
-        final Integer actualPayloadByteCount = byteArrayReader.remainingByteCount();
-        { // Validate Payload Byte Count
-            if (protocolMessageHeader.payloadByteCount != actualPayloadByteCount) {
-                System.out.println("Bad Payload size. "+ protocolMessageHeader.payloadByteCount +" != "+ actualPayloadByteCount);
-                return null;
-            }
-        }
-
-        final byte[] payload = byteArrayReader.peakBytes(protocolMessageHeader.payloadByteCount, Endian.BIG);
-
-        { // Validate Checksum
-            final byte[] calculatedChecksum = ProtocolMessage.calculateChecksum(payload);
-            if (! ByteUtil.areEqual(protocolMessageHeader.payloadChecksum, calculatedChecksum)) {
-                return null;
-            }
-        }
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.Command.SYNCHRONIZE_VERSION);
+        if (protocolMessageHeader == null) { return null; }
 
         synchronizeVersionMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
@@ -61,5 +36,4 @@ public class SynchronizeVersionMessageInflater implements ProtocolMessageInflate
         synchronizeVersionMessage._relayIsEnabled = byteArrayReader.readBoolean();
         return synchronizeVersionMessage;
     }
-
 }

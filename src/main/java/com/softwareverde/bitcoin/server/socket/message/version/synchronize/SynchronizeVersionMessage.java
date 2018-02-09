@@ -12,18 +12,6 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 public class SynchronizeVersionMessage extends ProtocolMessage {
     public static final Integer VERSION = 0x0001117F;
 
-    private static class ByteData {
-        public final byte[] version = new byte[4];
-        public final byte[] nodeFeatures = new byte[8];
-        public final byte[] timestamp = new byte[8];
-        public final byte[] remoteAddress = new byte[26];
-        public final byte[] localAddress = new byte[26];
-        public final byte[] nonce = new byte[8];
-        public byte[] userAgent = new byte[1];
-        public final byte[] currentBlockHeight = new byte[4];
-        public final byte[] shouldRelay = new byte[1];
-    }
-
     protected Integer _version;
     protected String _userAgent;
     protected final NodeFeatures _nodeFeatures = new NodeFeatures();
@@ -33,35 +21,6 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
     protected Long _nonce;
     protected Integer _currentBlockHeight;
     protected Boolean _relayIsEnabled = false;
-
-    private ByteData _createByteData() {
-        final ByteData byteData = new ByteData();
-
-        ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
-        ByteUtil.setBytes(byteData.nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
-        ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
-        ByteUtil.setBytes(byteData.remoteAddress, _remoteNetworkAddress.getBytesWithoutTimestamp());
-        ByteUtil.setBytes(byteData.localAddress, _localNetworkAddress.getBytesWithoutTimestamp());
-        ByteUtil.setBytes(byteData.nonce, ByteUtil.longToBytes(_nonce));
-
-        { // Construct User-Agent bytes...
-            final byte[] userAgentBytes = _userAgent.getBytes();
-            final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
-            byteData.userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
-            ByteUtil.setBytes(byteData.userAgent, userAgentBytesEncodedLength);
-            ByteUtil.setBytes(byteData.userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
-        }
-
-        ByteUtil.setBytes(byteData.currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
-
-        { // Construct Should-Relay bytes...
-            final String hexString = (_relayIsEnabled ? "01" : "00");
-            final byte[] newBytesValue = BitcoinUtil.hexStringToByteArray(hexString);
-            ByteUtil.setBytes(byteData.shouldRelay, newBytesValue);
-        }
-
-        return byteData;
-    }
 
     public SynchronizeVersionMessage() {
         super(Command.SYNCHRONIZE_VERSION);
@@ -118,19 +77,49 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
 
     @Override
     protected byte[] _getPayload() {
-        final ByteData byteData = _createByteData();
+        final byte[] version = new byte[4];
+        final byte[] nodeFeatures = new byte[8];
+        final byte[] timestamp = new byte[8];
+        final byte[] remoteAddress = new byte[26];
+        final byte[] localAddress = new byte[26];
+        final byte[] nonce = new byte[8];
+        final byte[] userAgent;
+        final byte[] currentBlockHeight = new byte[4];
+        final byte[] shouldRelay = new byte[1];
+
+        ByteUtil.setBytes(version, ByteUtil.integerToBytes(_version));
+        ByteUtil.setBytes(nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
+        ByteUtil.setBytes(timestamp, ByteUtil.longToBytes(_timestamp));
+        ByteUtil.setBytes(remoteAddress, _remoteNetworkAddress.getBytesWithoutTimestamp());
+        ByteUtil.setBytes(localAddress, _localNetworkAddress.getBytesWithoutTimestamp());
+        ByteUtil.setBytes(nonce, ByteUtil.longToBytes(_nonce));
+
+        { // Construct User-Agent bytes...
+            final byte[] userAgentBytes = _userAgent.getBytes();
+            final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
+            userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
+            ByteUtil.setBytes(userAgent, userAgentBytesEncodedLength);
+            ByteUtil.setBytes(userAgent, userAgentBytes, userAgentBytesEncodedLength.length);
+        }
+
+        ByteUtil.setBytes(currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
+
+        { // Construct Should-Relay bytes...
+            final String hexString = (_relayIsEnabled ? "01" : "00");
+            final byte[] newBytesValue = BitcoinUtil.hexStringToByteArray(hexString);
+            ByteUtil.setBytes(shouldRelay, newBytesValue);
+        }
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(byteData.version, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.nodeFeatures, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.timestamp, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.remoteAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(byteData.localAddress, Endian.BIG);
-        byteArrayBuilder.appendBytes(byteData.nonce, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.userAgent, Endian.BIG);
-        byteArrayBuilder.appendBytes(byteData.currentBlockHeight, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(byteData.shouldRelay, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(version, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(nodeFeatures, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(timestamp, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(remoteAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(localAddress, Endian.BIG);
+        byteArrayBuilder.appendBytes(nonce, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(userAgent, Endian.BIG);
+        byteArrayBuilder.appendBytes(currentBlockHeight, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(shouldRelay, Endian.LITTLE);
         return byteArrayBuilder.build();
     }
-
 }

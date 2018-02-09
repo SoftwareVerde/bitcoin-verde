@@ -14,7 +14,8 @@ public class ProtocolMessage {
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
     public enum Command {
-        SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack");
+        SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
+        PING("ping"), PONG("pong");
 
         public static Command fromBytes(final byte[] bytes) {
             for (final Command command : Command.values()) {
