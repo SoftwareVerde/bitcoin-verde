@@ -41,7 +41,7 @@ public class ProtocolMessageTests {
         synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
 
         // Action
-        final byte[] serializedMessage = synchronizeVersionMessage.serializeAsLittleEndian();
+        final byte[] serializedMessage = synchronizeVersionMessage.getBytes();
 
         // Assert
         TestUtil.assertMatchesMaskedHexString(expectedHexStringMask, serializedMessage);

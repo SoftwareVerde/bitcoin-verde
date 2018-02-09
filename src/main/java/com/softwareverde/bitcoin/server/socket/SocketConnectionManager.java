@@ -66,7 +66,7 @@ public class SocketConnectionManager {
 
                 final Boolean isFirstConnection = (_connectionCount == 0);
                 if (isFirstConnection) {
-                    System.out.println("IO: SocketConnectionManager :: Connection established.");
+                    System.out.println("IO: SocketConnectionManager: Connection established.");
 
                     _processOutboundMessageQueue();
 
@@ -75,7 +75,7 @@ public class SocketConnectionManager {
                     }
                 }
                 else {
-                    System.out.println("IO: SocketConnectionManager :: Connection regained.");
+                    System.out.println("IO: SocketConnectionManager: Connection regained.");
                     _processOutboundMessageQueue();
 
                     if (_onReconnectCallback != null) {
@@ -114,7 +114,7 @@ public class SocketConnectionManager {
                         (new Thread(_onDisconnectCallback)).start();
                     }
                     _socketUsedToBeConnected = false;
-                    System.out.println("IO: SocketConnectionManager :: Connection lost.");
+                    System.out.println("IO: SocketConnectionManager: Connection lost.");
                 }
 
                 _connectSocket();

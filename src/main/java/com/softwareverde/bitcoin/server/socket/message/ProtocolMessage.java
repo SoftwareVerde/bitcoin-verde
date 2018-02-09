@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
  * Protocol Definition: https://en.bitcoin.it/wiki/Protocol_documentation
  */
 
-public class ProtocolMessage {
+public abstract class ProtocolMessage {
     public static final byte[] MAIN_NET_MAGIC_NUMBER = BitcoinUtil.hexStringToByteArray("E8F3E1E3"); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
@@ -61,23 +61,9 @@ public class ProtocolMessage {
     protected final byte[] _magicNumber = MAIN_NET_MAGIC_NUMBER;
     protected final Command _command;
 
-    protected byte[] _getPayload() {
-        return new byte[0];
-    }
+    protected abstract byte[] _getPayload();
 
-    public ProtocolMessage(final Command command) {
-        _command = command;
-    }
-
-    public byte[] getMagicNumber() {
-        return ByteUtil.copyBytes(_magicNumber);
-    }
-
-    public Command getCommand() {
-        return _command;
-    }
-
-    public byte[] serializeAsLittleEndian() {
+    private byte[] _getBytes() {
         final byte[] payload = _getPayload();
 
         final byte[] payloadSizeBytes = ByteUtil.integerToBytes(payload.length);
@@ -92,5 +78,25 @@ public class ProtocolMessage {
         byteArrayBuilder.appendBytes(payload, Endian.BIG);
 
         return byteArrayBuilder.build();
+    }
+
+    public ProtocolMessage(final Command command) {
+        _command = command;
+    }
+
+    public byte[] getMagicNumber() {
+        return ByteUtil.copyBytes(_magicNumber);
+    }
+
+    public Command getCommand() {
+        return _command;
+    }
+
+    public byte[] getHeaderBytes() {
+        return ByteUtil.copyBytes(_getBytes(), 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT);
+    }
+
+    public byte[] getBytes() {
+        return _getBytes();
     }
 }

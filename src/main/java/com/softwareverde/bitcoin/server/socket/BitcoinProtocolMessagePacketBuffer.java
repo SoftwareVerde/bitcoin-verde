@@ -120,6 +120,10 @@ public class BitcoinProtocolMessagePacketBuffer {
         return _byteCount;
     }
 
+    public int getBufferCount() {
+        return (_recycledByteArrays.size() + _byteArrayList.size());
+    }
+
     public byte[] readBytes(final int byteCount) {
         return _consumeContiguousBytes(byteCount);
     }

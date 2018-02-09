@@ -111,15 +111,13 @@ public class Main {
                     } break;
                 }
 
-                System.out.println("RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(ByteUtil.copyBytes(message.serializeAsLittleEndian(), 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT)));
+                // System.out.println("RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));
             }
         });
 
         socketConnectionManager.setOnConnectCallback(new Runnable() {
             @Override
             public void run() {
-                System.out.println("Socket connected.");
-
                 final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
                 { // Set Remote NetworkAddress...
                     final NetworkAddress remoteNetworkAddress = new NetworkAddress();

@@ -8,4 +8,8 @@ public class AcknowledgeVersionMessage extends ProtocolMessage {
         super(Command.ACKNOWLEDGE_VERSION);
     }
 
+    @Override
+    protected byte[] _getPayload() {
+        return new byte[0];
+    }
 }
