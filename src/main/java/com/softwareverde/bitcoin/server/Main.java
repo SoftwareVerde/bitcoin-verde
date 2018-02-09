@@ -97,13 +97,17 @@ public class Main {
             @Override
             public void onMessageReceived(final ProtocolMessage message) {
                 switch (message.getCommand()) {
+
                     case PING: {
                         final PingMessage pingMessage = (PingMessage) message;
-
                         final PongMessage pongMessage = new PongMessage();
                         pongMessage.setNonce(pingMessage.getNonce());
-
                         socketConnectionManager.queueMessage(pongMessage);
+                    } break;
+
+                    case ACKNOWLEDGE_VERSION: {
+                        final PingMessage pingMessage = new PingMessage();
+                        socketConnectionManager.queueMessage(pingMessage);
                     } break;
                 }
 
@@ -125,9 +129,6 @@ public class Main {
                     synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
                 }
                 socketConnectionManager.queueMessage(synchronizeVersionMessage);
-
-                final PingMessage pingMessage = new PingMessage();
-                socketConnectionManager.queueMessage(pingMessage);
             }
         });
 
