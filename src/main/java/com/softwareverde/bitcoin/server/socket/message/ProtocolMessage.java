@@ -15,7 +15,8 @@ public abstract class ProtocolMessage {
 
     public enum Command {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
-        PING("ping"), PONG("pong");
+        PING("ping"), PONG("pong"),
+        ADDRESS("addr");
 
         public static Command fromBytes(final byte[] bytes) {
             for (final Command command : Command.values()) {

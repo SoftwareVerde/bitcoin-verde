@@ -96,7 +96,7 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
 
         { // Construct User-Agent bytes...
             final byte[] userAgentBytes = _userAgent.getBytes();
-            final byte[] userAgentBytesEncodedLength = ByteUtil.serializeVariableLengthInteger((long) userAgentBytes.length);
+            final byte[] userAgentBytesEncodedLength = ByteUtil.variableLengthIntegerToBytes((long) userAgentBytes.length);
             userAgent = new byte[userAgentBytesEncodedLength.length + userAgentBytes.length];
             ByteUtil.setBytes(userAgent, userAgentBytesEncodedLength);
             ByteUtil.setBytes(userAgent, userAgentBytes, userAgentBytesEncodedLength.length);

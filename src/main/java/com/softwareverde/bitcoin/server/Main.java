@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
@@ -108,6 +109,13 @@ public class Main {
                     case ACKNOWLEDGE_VERSION: {
                         final PingMessage pingMessage = new PingMessage();
                         socketConnectionManager.queueMessage(pingMessage);
+                    } break;
+
+                    case ADDRESS: {
+                        final AddressMessage addressMessage = (AddressMessage) message;
+                        for (final NetworkAddress networkAddress : addressMessage.getNetworkAddresses()) {
+                            System.out.println("Network Address: "+ BitcoinUtil.toHexString(networkAddress.getBytesWithTimestamp()));
+                        }
                     } break;
                 }
 

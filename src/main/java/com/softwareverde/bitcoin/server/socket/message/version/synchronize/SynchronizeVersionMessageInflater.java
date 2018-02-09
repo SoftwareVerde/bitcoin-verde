@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.socket.message.version.synchronize;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
+import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddressInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -11,6 +11,7 @@ public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
 
     @Override
     public SynchronizeVersionMessage fromBytes(final byte[] bytes) {
+        final NetworkAddressInflater networkAddressInflater = new NetworkAddressInflater();
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
@@ -25,10 +26,10 @@ public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
         synchronizeVersionMessage._timestamp = byteArrayReader.readLong(8, Endian.LITTLE);
 
         final byte[] remoteNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._remoteNetworkAddress = NetworkAddress.fromBytes(remoteNetworkAddressBytes);
+        synchronizeVersionMessage._remoteNetworkAddress = networkAddressInflater.fromBytes(remoteNetworkAddressBytes);
 
         final byte[] localNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._localNetworkAddress = NetworkAddress.fromBytes(localNetworkAddressBytes);
+        synchronizeVersionMessage._localNetworkAddress = networkAddressInflater.fromBytes(localNetworkAddressBytes);
 
         synchronizeVersionMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
         synchronizeVersionMessage._userAgent = byteArrayReader.readVariableLengthString();

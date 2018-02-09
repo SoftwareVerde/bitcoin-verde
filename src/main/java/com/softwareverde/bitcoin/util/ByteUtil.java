@@ -103,7 +103,7 @@ public class ByteUtil {
         ByteUtil.setBytes(destination, value, 0);
     }
 
-    public static byte[] serializeVariableLengthInteger(final long value) {
+    public static byte[] variableLengthIntegerToBytes(final long value) {
         if (value < 0xFDL) {
             return new byte[] { (byte) value };
         }

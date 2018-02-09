@@ -106,6 +106,12 @@ public class ByteArrayReader {
         return (value != 0x00);
     }
 
+    public Long readVariableSizedInteger() {
+        final VariableSizedInteger variableSizedInteger = _readVariableSizedInteger(_index);
+        _index += variableSizedInteger.bytesConsumedCount;
+        return variableSizedInteger.value;
+    }
+
     public String readVariableLengthString() {
         final VariableSizedInteger stringByteCount = _readVariableSizedInteger(_index);
         _index += stringByteCount.bytesConsumedCount;
