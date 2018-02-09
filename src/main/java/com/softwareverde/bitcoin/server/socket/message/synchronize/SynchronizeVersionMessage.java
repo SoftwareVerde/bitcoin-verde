@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize;
+package com.softwareverde.bitcoin.server.socket.message.synchronize;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
@@ -11,65 +11,6 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class SynchronizeVersionMessage extends ProtocolMessage {
-    public static SynchronizeVersionMessage fromBytes(final byte[] bytes) {
-        final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
-
-        final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
-
-        final byte[] magicNumber = byteArrayReader.readBytes(4, Endian.LITTLE);
-
-        { // Validate Magic Number
-            if (! ByteUtil.areEqual(MAIN_NET_MAGIC_NUMBER, magicNumber)) {
-                return null;
-            }
-        }
-
-        final byte[] commandBytes = byteArrayReader.readBytes(12, Endian.BIG);
-        { // Validate Command Type
-            if (! ByteUtil.areEqual(Command.SYNCHRONIZE_VERSION.getBytes(), commandBytes)) {
-                return null;
-            }
-        }
-
-        final Integer payloadByteCount = byteArrayReader.readInteger(4, Endian.LITTLE);
-        final byte[] payloadChecksum = byteArrayReader.readBytes(4, Endian.BIG);
-
-        final Integer actualPayloadByteCount = byteArrayReader.remainingByteCount();
-        { // Validate Payload Byte Count
-            if (payloadByteCount.intValue() != actualPayloadByteCount.intValue()) {
-                return null;
-            }
-        }
-
-        final byte[] payload = byteArrayReader.peakBytes(payloadByteCount, Endian.BIG);
-
-        { // Validate Checksum
-            final byte[] calculatedChecksum = _calculateChecksum(payload);
-            if (! ByteUtil.areEqual(payloadChecksum, calculatedChecksum)) {
-                return null;
-            }
-        }
-
-        synchronizeVersionMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
-
-        final Long nodeFeatureFlags = byteArrayReader.readLong(8, Endian.LITTLE);
-        synchronizeVersionMessage._nodeFeatures.setFeatureFlags(nodeFeatureFlags);
-
-        synchronizeVersionMessage._timestamp = byteArrayReader.readLong(8, Endian.LITTLE);
-
-        final byte[] remoteNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._remoteNetworkAddress = NetworkAddress.fromBytes(remoteNetworkAddressBytes);
-
-        final byte[] localNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
-        synchronizeVersionMessage._localNetworkAddress = NetworkAddress.fromBytes(localNetworkAddressBytes);
-
-        synchronizeVersionMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
-        synchronizeVersionMessage._userAgent = byteArrayReader.readVariableLengthString();
-        synchronizeVersionMessage._currentBlockHeight = byteArrayReader.readInteger(4, Endian.LITTLE);
-        synchronizeVersionMessage._relayIsEnabled = byteArrayReader.readBoolean();
-        return synchronizeVersionMessage;
-    }
-
     public static final Integer VERSION = 0x0001117F;
 
     private static class ByteData {
@@ -84,15 +25,15 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
         public final byte[] shouldRelay = new byte[1];
     }
 
-    private Integer _version;
-    private String _userAgent;
-    private final NodeFeatures _nodeFeatures = new NodeFeatures();
-    private Long _timestamp;
-    private NetworkAddress _remoteNetworkAddress;
-    private NetworkAddress _localNetworkAddress;
-    private Long _nonce;
-    private Integer _currentBlockHeight;
-    private Boolean _relayIsEnabled = false;
+    protected Integer _version;
+    protected String _userAgent;
+    protected final NodeFeatures _nodeFeatures = new NodeFeatures();
+    protected Long _timestamp;
+    protected NetworkAddress _remoteNetworkAddress;
+    protected NetworkAddress _localNetworkAddress;
+    protected Long _nonce;
+    protected Integer _currentBlockHeight;
+    protected Boolean _relayIsEnabled = false;
 
     private ByteData _createByteData() {
         final ByteData byteData = new ByteData();

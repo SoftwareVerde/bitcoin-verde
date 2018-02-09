@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.socket.message;
 
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.message.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Assert;
@@ -50,6 +50,8 @@ public class ProtocolMessageTests {
     @Test
     public void should_deserialize_bitoin_xt_version_protocol_message() {
         // Setup
+        final ProtocolMessageFactory protocolMessageFactory = new ProtocolMessageFactory();
+
         final String versionMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
             "7665 7273 696F 6E00 0000 0000"+    // Command ("version")
@@ -70,7 +72,7 @@ public class ProtocolMessageTests {
         final byte[] versionMessage = BitcoinUtil.hexStringToByteArray(versionMessageHexString.replaceAll("\\s", ""));
 
         // Action
-        final SynchronizeVersionMessage synchronizeVersionMessage = SynchronizeVersionMessage.fromBytes(versionMessage);
+        final SynchronizeVersionMessage synchronizeVersionMessage = (SynchronizeVersionMessage) protocolMessageFactory.inflateMessage(versionMessage);
 
         // Assert
         Assert.assertNotNull(synchronizeVersionMessage);

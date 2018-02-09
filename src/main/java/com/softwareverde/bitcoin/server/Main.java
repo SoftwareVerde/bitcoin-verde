@@ -2,7 +2,8 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.message.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -90,8 +91,8 @@ public class Main {
 
         socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
             @Override
-            public void onMessageReceived(final byte[] message) {
-                System.out.println(BitcoinUtil.toHexString(message));
+            public void onMessageReceived(final ProtocolMessage message) {
+                System.out.println("RECEIVED "+ message.getCommand() +"."); // BitcoinUtil.toHexString(message.serializeAsLittleEndian())
                 System.out.println();
             }
         });

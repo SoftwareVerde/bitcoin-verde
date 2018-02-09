@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server.socket;
 
+import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,7 +18,7 @@ public class BitcoinSocket {
     private final Long _id;
     private final Socket _socket;
     private OutputStream _out;
-    private final List<byte[]> _messages = new ArrayList<byte[]>();
+    private final List<ProtocolMessage> _messages = new ArrayList<ProtocolMessage>();
     private volatile Boolean _isClosed = false;
 
     private Runnable _messageReceivedCallback;
@@ -23,7 +26,7 @@ public class BitcoinSocket {
 
     private InputStream _rawInputStream;
 
-    public Integer bufferSize = 2048;
+    public Integer bufferSize = 1024;
 
     private void _executeMessageReceivedCallback() {
         if (_messageReceivedCallback != null) {
@@ -36,7 +39,7 @@ public class BitcoinSocket {
      *  Is executed before any external callbacks are received.
      *  Intended for subclass extension.
      */
-    protected void _onMessageReceived(final byte[] message) {
+    protected void _onMessageReceived(final ProtocolMessage message) {
         // Nothing.
     }
 
@@ -76,26 +79,33 @@ public class BitcoinSocket {
         _readThread = new Thread(new Runnable() {
             @Override
             public void run() {
+                final BitcoinProtocolMessagePacketBuffer protocolMessageBuffer = new BitcoinProtocolMessagePacketBuffer();
+
+                protocolMessageBuffer.setBufferSize(bufferSize);
+
                 while (! _isClosed) {
                     try {
-                        final byte[] buffer = new byte[bufferSize];
+                        final byte[] buffer = protocolMessageBuffer.getRecycledBuffer();
                         final Integer bytesRead = _rawInputStream.read(buffer);
-                        System.out.println("Read: "+ bytesRead);
 
                         if (bytesRead < 0) {
-                            throw new IOException("Remote socket closed the connection.");
+                            throw new IOException("IO: Remote socket closed the connection.");
                         }
 
-                        final byte[] message = new byte[bytesRead];
-                        for (int i=0; i<bytesRead; ++i) {
-                            message[i] = (byte) buffer[i];
-                        }
+                        protocolMessageBuffer.appendBytes(buffer, bytesRead);
+                        System.out.println("IO: Received "+ bytesRead + " bytes from socket. (Buffer Size: "+ protocolMessageBuffer.getByteCount() +")");
 
-                        synchronized (_messages) {
-                            _messages.add(message);
+                        while (protocolMessageBuffer.hasMessage()) {
+                            final ProtocolMessage message = protocolMessageBuffer.popMessage();
 
-                            _onMessageReceived(message);
-                            _executeMessageReceivedCallback();
+                            if (message != null) {
+                                synchronized (_messages) {
+                                    _messages.add(message);
+
+                                    _onMessageReceived(message);
+                                    _executeMessageReceivedCallback();
+                                }
+                            }
                         }
                     }
                     catch (final IOException exception) {
@@ -127,7 +137,7 @@ public class BitcoinSocket {
      * Retrieves the oldest message from the inbound queue and returns it.
      *  Returns null if there are no pending messages.
      */
-    public byte[] popMessage() {
+    public ProtocolMessage popMessage() {
         synchronized (_messages) {
             if (_messages.isEmpty()) { return null; }
 
@@ -144,11 +154,13 @@ public class BitcoinSocket {
 
         try {
             _rawInputStream.close();
-        } catch (final Exception exception) { }
+        }
+        catch (final Exception exception) { }
 
         try {
             _readThread.join();
-        } catch (final InterruptedException e) { }
+        }
+        catch (final InterruptedException e) { }
 
         try {
             _socket.close();

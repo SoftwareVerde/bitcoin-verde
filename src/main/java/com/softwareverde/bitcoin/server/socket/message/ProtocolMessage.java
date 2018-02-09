@@ -16,6 +16,15 @@ public class ProtocolMessage {
     public enum Command {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack");
 
+        public static Command fromBytes(final byte[] bytes) {
+            for (final Command command : Command.values()) {
+                if (ByteUtil.areEqual(command._bytes, bytes)) {
+                    return command;
+                }
+            }
+            return null;
+        }
+
         private final byte[] _bytes = new byte[12];
         private final String _value;
 
@@ -37,7 +46,7 @@ public class ProtocolMessage {
         }
     }
 
-    protected static byte[] _calculateChecksum(final byte[] payload) {
+    public static byte[] calculateChecksum(final byte[] payload) {
         final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(payload));
         final byte[] checksum = new byte[4];
 
@@ -71,7 +80,7 @@ public class ProtocolMessage {
         final byte[] payload = _getPayload();
 
         final byte[] payloadSizeBytes = ByteUtil.integerToBytes(payload.length);
-        final byte[] checksum = _calculateChecksum(payload);
+        final byte[] checksum = ProtocolMessage.calculateChecksum(payload);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 

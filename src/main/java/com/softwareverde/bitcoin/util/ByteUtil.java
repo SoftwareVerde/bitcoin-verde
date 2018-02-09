@@ -85,6 +85,14 @@ public class ByteUtil {
         return copiedBytes;
     }
 
+    public static byte[] copyBytes(final byte[] bytes, final int startIndex, final int byteCount) {
+        final byte[] copiedBytes = new byte[byteCount];
+        for (int i=0; i<copiedBytes.length; ++i) {
+            copiedBytes[i] = ((startIndex + i) < bytes.length ? bytes[startIndex + i] : 0x00);
+        }
+        return copiedBytes;
+    }
+
     public static void setBytes(final byte[] destination, final byte[] value, final int offset) {
         for (int i=0; (i+offset)<destination.length; ++i) {
             destination[i + offset] = (i < value.length ? value[i] : 0x00);
