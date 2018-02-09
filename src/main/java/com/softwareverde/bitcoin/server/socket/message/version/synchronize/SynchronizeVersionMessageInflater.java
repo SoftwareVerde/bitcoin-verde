@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.socket.message.synchronize;
+package com.softwareverde.bitcoin.server.socket.message.version.synchronize;
 
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class SynchronizeVersionMessageInflater implements ProtocolMessageInflater {
+
     @Override
     public SynchronizeVersionMessage fromBytes(final byte[] bytes) {
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
@@ -60,4 +61,5 @@ public class SynchronizeVersionMessageInflater implements ProtocolMessageInflate
         synchronizeVersionMessage._relayIsEnabled = byteArrayReader.readBoolean();
         return synchronizeVersionMessage;
     }
+
 }

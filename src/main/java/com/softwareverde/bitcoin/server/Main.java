@@ -3,10 +3,9 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.socket.message.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;

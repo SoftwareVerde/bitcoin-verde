@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.socket.message.synchronize;
+package com.softwareverde.bitcoin.server.socket.message.version.synchronize;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAdd
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class SynchronizeVersionMessage extends ProtocolMessage {
@@ -133,4 +132,5 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(byteData.shouldRelay, Endian.LITTLE);
         return byteArrayBuilder.build();
     }
+
 }

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.socket.message;
 
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
-import com.softwareverde.bitcoin.server.socket.message.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Assert;

@@ -92,11 +92,18 @@ public class BitcoinProtocolMessagePacketBuffer {
         _bufferSize = bufferSize;
     }
 
-    public void appendBytes(final byte[] bytes, final int byteCount) {
+    /**
+     * Appends byteBuffer to the PacketBuffer.
+     *  - byteBuffer is not copied and is used as a part of the internal representation of this class;
+     *      therefore, it is important that any byte[] fed into appendBytes() is not used again outside of this invocation.
+     *  - byteBuffer may be kept in memory indefinitely and recycled via getRecycledBuffer().
+     *  - byteCount is used to specify the endIndex of byteBuffer.
+     */
+    public void appendBytes(final byte[] byteBuffer, final int byteCount) {
         // if (byteCount > bytes.length) { throw new RuntimeException("Invalid byteCount. Attempted to add more bytes than was available within byte array."); }
-        final int safeByteCount = Math.min(bytes.length, byteCount);
+        final int safeByteCount = Math.min(byteBuffer.length, byteCount);
 
-        _byteArrayList.add(new ByteArray(bytes, 0, safeByteCount));
+        _byteArrayList.add(new ByteArray(byteBuffer, 0, safeByteCount));
         _byteCount += safeByteCount;
     }
 
