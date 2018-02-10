@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
 
 import java.util.LinkedList;
@@ -141,6 +140,6 @@ public class BitcoinProtocolMessagePacketBuffer {
 
         final int fullPacketLength = (ProtocolMessageHeaderParser.HEADER_BYTE_COUNT + protocolMessageHeader.payloadByteCount);
         final byte[] fullPacket = _consumeContiguousBytes(fullPacketLength);
-        return _protocolMessageFactory.inflateMessage(fullPacket);
+        return _protocolMessageFactory.fromBytes(fullPacket);
     }
 }

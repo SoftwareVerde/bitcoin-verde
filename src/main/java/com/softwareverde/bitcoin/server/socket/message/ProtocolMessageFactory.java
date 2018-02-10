@@ -25,7 +25,7 @@ public class ProtocolMessageFactory {
         _commandInflaterMap.put(ProtocolMessage.MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
     }
 
-    public ProtocolMessage inflateMessage(final byte[] bytes) {
+    public ProtocolMessage fromBytes(final byte[] bytes) {
         final ProtocolMessageHeader protocolMessageHeader = _protocolMessageHeaderParser.fromBytes(bytes);
         if (protocolMessageHeader == null) { return null; }
 

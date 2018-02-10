@@ -11,7 +11,7 @@ public class BlockHeadersMessageInflater extends ProtocolMessageInflater {
 
     @Override
     public BlockHeadersMessage fromBytes(final byte[] bytes) {
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        final Integer blockHeaderHashByteCount = 32;
         final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
@@ -21,16 +21,16 @@ public class BlockHeadersMessageInflater extends ProtocolMessageInflater {
         blockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
-        final Integer bytesRequired = (blockHeaderCount * BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+        final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final byte[] blockHeaderBytes = byteArrayReader.readBytes(32, Endian.BIG);
-            blockHeadersMessage._blockHeaders.add(blockHeaderInflater.fromBytes(blockHeaderBytes));
+            final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.BIG);
+            blockHeadersMessage._blockHeaderHashes.add(blockHeaderHashBytes);
         }
 
-        final byte[] blockHeaderBytes = byteArrayReader.readBytes(32, Endian.BIG);
-        blockHeadersMessage._desiredBlockHeader = blockHeaderInflater.fromBytes(blockHeaderBytes);
+        final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.BIG);
+        blockHeadersMessage._desiredBlockHeaderHash = blockHeaderHashBytes;
 
         return blockHeadersMessage;
     }
