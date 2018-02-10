@@ -138,6 +138,15 @@ public class ByteUtil {
         }
     }
 
+    public static byte[] variableLengthStringToBytes(final String variableLengthString) {
+        final Integer stringLength = variableLengthString.length();
+        final byte[] variableLengthIntegerBytes = ByteUtil.variableLengthIntegerToBytes(stringLength);
+        final byte[] bytes = new byte[variableLengthString.length() + variableLengthIntegerBytes.length];
+        ByteUtil.setBytes(bytes, variableLengthIntegerBytes);
+        ByteUtil.setBytes(bytes, variableLengthString.getBytes(), variableLengthIntegerBytes.length);
+        return bytes;
+    }
+
     public static Boolean areEqual(final byte[] bytes0, final byte[] bytes1) {
         if (bytes0.length != bytes1.length) { return false; }
         for (int i=0; i<bytes0.length; ++i) {

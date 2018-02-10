@@ -78,8 +78,19 @@ public class ByteArrayReader {
         return bytes;
     }
 
+    public byte readByte() {
+        final byte[] bytes = _readBytes(_index, 1, Endian.BIG);
+        _index += 1;
+        return bytes[0];
+    }
+
     public byte[] peakBytes(final Integer byteCount, final Endian endian) {
         return _readBytes(_index, byteCount, endian);
+    }
+
+    public byte peakByte() {
+        final byte[] bytes = _readBytes(_index, 1, Endian.BIG);
+        return bytes[0];
     }
 
     public String readString(final Integer byteCount, final Endian endian) {

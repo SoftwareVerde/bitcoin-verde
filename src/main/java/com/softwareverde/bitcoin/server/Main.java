@@ -1,9 +1,12 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
+import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessage;
+import com.softwareverde.bitcoin.server.socket.message.error.RejectMessage;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
@@ -109,6 +112,11 @@ public class Main {
                     case ACKNOWLEDGE_VERSION: {
                         final PingMessage pingMessage = new PingMessage();
                         socketConnectionManager.queueMessage(pingMessage);
+
+                        final GetBlocksMessage getBlocksMessage = new GetBlocksMessage();
+                        getBlocksMessage.addBlockHeaderHash(BlockHeader.GENESIS_BLOCK_HEADER_HASH);
+                        socketConnectionManager.queueMessage(getBlocksMessage);
+
                     } break;
 
                     case PEER_ADDRESSES: {
@@ -116,6 +124,12 @@ public class Main {
                         for (final NetworkAddress networkAddress : addressMessage.getNetworkAddresses()) {
                             System.out.println("Network Address: "+ BitcoinUtil.toHexString(networkAddress.getBytesWithTimestamp()));
                         }
+                    } break;
+
+                    case REJECT: {
+                        final RejectMessage rejectMessage = (RejectMessage) message;
+                        final RejectMessage.RejectCode rejectCode = rejectMessage.getRejectCode();
+                        System.out.println("RECEIVED REJECT:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ rejectMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(rejectMessage.getExtraData()));
                     } break;
                 }
 

@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class BlockHeader {
     public static final Integer VERSION = 0x04;
+    public static final byte[] GENESIS_BLOCK_HEADER_HASH = BitcoinUtil.hexStringToByteArray("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f");
 
     protected Integer _version;
     protected final byte[] _previousBlockHash = new byte[32];
