@@ -17,7 +17,7 @@ public abstract class ProtocolMessage {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
         PING("ping"), PONG("pong"),
         PEER_ADDRESSES("addr"),
-        BLOCK_HEADERS("getheaders");
+        GET_BLOCK_HEADERS("getheaders"), GET_BLOCKS("getblocks");
 
         public static MessageType fromBytes(final byte[] bytes) {
             for (final MessageType command : MessageType.values()) {

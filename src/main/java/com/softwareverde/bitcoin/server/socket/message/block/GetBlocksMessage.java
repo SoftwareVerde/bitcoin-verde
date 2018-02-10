@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.socket.message.block.header;
+package com.softwareverde.bitcoin.server.socket.message.block;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
@@ -10,19 +10,22 @@ import com.softwareverde.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BlockHeadersMessage extends ProtocolMessage {
+public class GetBlocksMessage extends ProtocolMessage {
+    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 500;
+
     protected Integer _version;
     protected List<byte[]> _blockHeaderHashes = new ArrayList<byte[]>();
-    protected byte[] _desiredBlockHeaderHash;
+    protected final byte[] _desiredBlockHeaderHash = new byte[32];
 
-    public BlockHeadersMessage() {
-        super(MessageType.BLOCK_HEADERS);
+    public GetBlocksMessage() {
+        super(MessageType.GET_BLOCKS);
         _version = Constants.PROTOCOL_VERSION;
     }
 
     public Integer getVersion() { return _version; }
 
     public void addBlockHeaderHash(final byte[] blockHeaderHash) {
+        if (_blockHeaderHashes.size() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
 
@@ -35,7 +38,11 @@ public class BlockHeadersMessage extends ProtocolMessage {
     }
 
     public byte[] getDesiredBlockHeaderHash() {
-        return _desiredBlockHeaderHash;
+        return ByteUtil.copyBytes(_desiredBlockHeaderHash);
+    }
+
+    public void setDesiredBlockHeaderHash(final byte[] blockHeaderHash) {
+        ByteUtil.setBytes(_desiredBlockHeaderHash, blockHeaderHash);
     }
 
     @Override

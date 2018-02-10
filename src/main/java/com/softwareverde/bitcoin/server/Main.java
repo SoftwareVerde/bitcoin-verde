@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.server.socket.message.version.synchronize.Synch
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
