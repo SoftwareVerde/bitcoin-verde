@@ -10,7 +10,7 @@ public class PongMessage extends ProtocolMessage {
     protected Long _nonce;
 
     public PongMessage() {
-        super(Command.PONG);
+        super(MessageType.PONG);
 
         _nonce = (long) (Math.random() * Long.MAX_VALUE);
     }

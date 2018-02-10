@@ -7,11 +7,11 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 public abstract class ProtocolMessageInflater {
     public abstract ProtocolMessage fromBytes(byte[] bytes);
 
-    protected ProtocolMessageHeader _parseHeader(final ByteArrayReader byteArrayReader, final ProtocolMessage.Command command) {
+    protected ProtocolMessageHeader _parseHeader(final ByteArrayReader byteArrayReader, final ProtocolMessage.MessageType command) {
         final ProtocolMessageHeaderParser protocolMessageHeaderParser = new ProtocolMessageHeaderParser();
         final ProtocolMessageHeader protocolMessageHeader = protocolMessageHeaderParser.fromBytes(byteArrayReader);
 
-        { // Validate Command Type
+        { // Validate MessageType Type
             if (command != protocolMessageHeader.command) {
                 return null;
             }

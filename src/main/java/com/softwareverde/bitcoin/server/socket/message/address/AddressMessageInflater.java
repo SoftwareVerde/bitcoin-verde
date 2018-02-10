@@ -18,7 +18,7 @@ public class AddressMessageInflater extends ProtocolMessageInflater {
         final AddressMessage addressMessage = new AddressMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.Command.ADDRESS);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.PEER_ADDRESSES);
         if (protocolMessageHeader == null) { return null; }
 
         final int networkAddressCount = byteArrayReader.readVariableSizedInteger().intValue();

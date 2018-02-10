@@ -10,7 +10,7 @@ public class PingMessage extends ProtocolMessage {
     protected Long _nonce;
 
     public PingMessage() {
-        super(Command.PING);
+        super(MessageType.PING);
 
         _nonce = (long) (Math.random() * Long.MAX_VALUE);
     }

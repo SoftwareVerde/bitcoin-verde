@@ -13,7 +13,7 @@ public class PongMessageInflater extends ProtocolMessageInflater {
         final PongMessage pingMessage = new PongMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.Command.PONG);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.PONG);
         if (protocolMessageHeader == null) { return null; }
 
         pingMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);

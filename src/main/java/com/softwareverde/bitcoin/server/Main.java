@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
 import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
@@ -11,7 +10,6 @@ import com.softwareverde.bitcoin.server.socket.message.version.synchronize.Synch
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -111,7 +109,7 @@ public class Main {
                         socketConnectionManager.queueMessage(pingMessage);
                     } break;
 
-                    case ADDRESS: {
+                    case PEER_ADDRESSES: {
                         final AddressMessage addressMessage = (AddressMessage) message;
                         for (final NetworkAddress networkAddress : addressMessage.getNetworkAddresses()) {
                             System.out.println("Network Address: "+ BitcoinUtil.toHexString(networkAddress.getBytesWithTimestamp()));

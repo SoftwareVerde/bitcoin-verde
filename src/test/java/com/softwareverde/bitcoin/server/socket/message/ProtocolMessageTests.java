@@ -14,7 +14,7 @@ public class ProtocolMessageTests {
         // Setup
         final String expectedHexStringMask =
             "E3E1 F3E8"+                        // Magic Number
-            "7665 7273 696F 6E00 0000 0000"+    // Version Command
+            "7665 7273 696F 6E00 0000 0000"+    // Version MessageType
             "6B00 0000"+                        // Payload Length
             "XXXX XXXX"+                        // Payload Checksum
             // Begin Payload
@@ -54,7 +54,7 @@ public class ProtocolMessageTests {
 
         final String versionMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
-            "7665 7273 696F 6E00 0000 0000"+    // Command ("version")
+            "7665 7273 696F 6E00 0000 0000"+    // MessageType ("version")
             "7E00 0000"+                        // Payload Byte Count
             "419D 9392"+                        // Checksum
             // Begin Payload
@@ -78,7 +78,7 @@ public class ProtocolMessageTests {
         Assert.assertNotNull(synchronizeVersionMessage);
 
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("E8F3E1E3"), synchronizeVersionMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.Command.SYNCHRONIZE_VERSION, synchronizeVersionMessage.getCommand());
+        Assert.assertEquals(ProtocolMessage.MessageType.SYNCHRONIZE_VERSION, synchronizeVersionMessage.getCommand());
 
         Assert.assertEquals(0x0000000000000037L, synchronizeVersionMessage.getNodeFeatures().getFeatureFlags().longValue());
         Assert.assertEquals(0x000000005A7B4EE5L, synchronizeVersionMessage.getTimestamp().longValue());

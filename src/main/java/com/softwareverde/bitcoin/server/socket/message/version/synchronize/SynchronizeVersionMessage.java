@@ -4,14 +4,11 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class SynchronizeVersionMessage extends ProtocolMessage {
-    public static final Integer VERSION = 0x0001117F;
-
     protected Integer _version;
     protected String _userAgent;
     protected final NodeFeatures _nodeFeatures = new NodeFeatures();
@@ -23,8 +20,8 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
     protected Boolean _relayIsEnabled = false;
 
     public SynchronizeVersionMessage() {
-        super(Command.SYNCHRONIZE_VERSION);
-        _version = VERSION;
+        super(MessageType.SYNCHRONIZE_VERSION);
+        _version = Constants.PROTOCOL_VERSION;
 
         _nodeFeatures.enableFeatureFlag(NodeFeatures.Flags.BLOCKCHAIN_ENABLED);
         _nodeFeatures.enableFeatureFlag(NodeFeatures.Flags.BITCOIN_CASH_ENABLED);
@@ -77,15 +74,15 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
 
     @Override
     protected byte[] _getPayload() {
-        final byte[] version = new byte[4];
-        final byte[] nodeFeatures = new byte[8];
-        final byte[] timestamp = new byte[8];
-        final byte[] remoteAddress = new byte[26];
-        final byte[] localAddress = new byte[26];
-        final byte[] nonce = new byte[8];
+        final byte[] version            = new byte[4];
+        final byte[] nodeFeatures       = new byte[8];
+        final byte[] timestamp          = new byte[8];
+        final byte[] remoteAddress      = new byte[26];
+        final byte[] localAddress       = new byte[26];
+        final byte[] nonce              = new byte[8];
         final byte[] userAgent;
         final byte[] currentBlockHeight = new byte[4];
-        final byte[] shouldRelay = new byte[1];
+        final byte[] shouldRelay        = new byte[1];
 
         ByteUtil.setBytes(version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
@@ -104,11 +101,7 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
 
         ByteUtil.setBytes(currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
 
-        { // Construct Should-Relay bytes...
-            final String hexString = (_relayIsEnabled ? "01" : "00");
-            final byte[] newBytesValue = BitcoinUtil.hexStringToByteArray(hexString);
-            ByteUtil.setBytes(shouldRelay, newBytesValue);
-        }
+        shouldRelay[0] = (byte) (_relayIsEnabled ? 0x01 : 0x00);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(version, Endian.LITTLE);

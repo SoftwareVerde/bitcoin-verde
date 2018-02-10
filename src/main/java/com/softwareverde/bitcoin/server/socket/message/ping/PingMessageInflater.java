@@ -13,7 +13,7 @@ public class PingMessageInflater extends ProtocolMessageInflater {
         final PingMessage pingMessage = new PingMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.Command.PING);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.PING);
         if (protocolMessageHeader == null) { return null; }
 
         pingMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);

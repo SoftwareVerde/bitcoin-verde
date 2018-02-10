@@ -13,13 +13,14 @@ public abstract class ProtocolMessage {
     public static final byte[] MAIN_NET_MAGIC_NUMBER = BitcoinUtil.hexStringToByteArray("E8F3E1E3"); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
-    public enum Command {
+    public enum MessageType {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
         PING("ping"), PONG("pong"),
-        ADDRESS("addr");
+        PEER_ADDRESSES("addr"),
+        BLOCK_HEADERS("getheaders");
 
-        public static Command fromBytes(final byte[] bytes) {
-            for (final Command command : Command.values()) {
+        public static MessageType fromBytes(final byte[] bytes) {
+            for (final MessageType command : MessageType.values()) {
                 if (ByteUtil.areEqual(command._bytes, bytes)) {
                     return command;
                 }
@@ -30,7 +31,7 @@ public abstract class ProtocolMessage {
         private final byte[] _bytes = new byte[12];
         private final String _value;
 
-        Command(final String value) {
+        MessageType(final String value) {
             _value = value;
             final byte[] valueBytes = value.getBytes();
 
@@ -60,7 +61,7 @@ public abstract class ProtocolMessage {
     }
 
     protected final byte[] _magicNumber = MAIN_NET_MAGIC_NUMBER;
-    protected final Command _command;
+    protected final MessageType _command;
 
     protected abstract byte[] _getPayload();
 
@@ -81,7 +82,7 @@ public abstract class ProtocolMessage {
         return byteArrayBuilder.build();
     }
 
-    public ProtocolMessage(final Command command) {
+    public ProtocolMessage(final MessageType command) {
         _command = command;
     }
 
@@ -89,7 +90,7 @@ public abstract class ProtocolMessage {
         return ByteUtil.copyBytes(_magicNumber);
     }
 
-    public Command getCommand() {
+    public MessageType getCommand() {
         return _command;
     }
 

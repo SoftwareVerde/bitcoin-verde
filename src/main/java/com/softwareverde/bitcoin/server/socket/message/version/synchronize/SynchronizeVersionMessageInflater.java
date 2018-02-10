@@ -15,7 +15,7 @@ public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.Command.SYNCHRONIZE_VERSION);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.SYNCHRONIZE_VERSION);
         if (protocolMessageHeader == null) { return null; }
 
         synchronizeVersionMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);

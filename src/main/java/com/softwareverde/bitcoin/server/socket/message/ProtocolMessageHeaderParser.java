@@ -15,7 +15,7 @@ public class ProtocolMessageHeaderParser {
         }
 
         final byte[] commandBytes = byteArrayReader.readBytes(12, Endian.BIG);
-        final ProtocolMessage.Command command = ProtocolMessage.Command.fromBytes(commandBytes);
+        final ProtocolMessage.MessageType command = ProtocolMessage.MessageType.fromBytes(commandBytes);
 
         final Integer payloadByteCount = byteArrayReader.readInteger(4, Endian.LITTLE);
         final byte[] payloadChecksum = byteArrayReader.readBytes(4, Endian.BIG);

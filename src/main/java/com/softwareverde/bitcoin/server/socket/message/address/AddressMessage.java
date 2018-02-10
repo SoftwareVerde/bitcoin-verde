@@ -14,7 +14,7 @@ public class AddressMessage extends ProtocolMessage {
     protected final List<NetworkAddress> _networkAddresses = new ArrayList<NetworkAddress>();
 
     public AddressMessage() {
-        super(Command.ADDRESS);
+        super(MessageType.PEER_ADDRESSES);
     }
 
     public void addAddress(final NetworkAddress networkAddress) {
