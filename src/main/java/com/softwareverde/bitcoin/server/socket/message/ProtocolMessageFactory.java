@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.socket.message.address.AddressMessageInf
 import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.block.header.GetBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.error.RejectMessageInflater;
-import com.softwareverde.bitcoin.server.socket.message.inventory.InventoryMessageInflater;
+import com.softwareverde.bitcoin.server.socket.message.inventory.list.InventoryMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.version.acknowledge.AcknowledgeVersionMessageInflater;

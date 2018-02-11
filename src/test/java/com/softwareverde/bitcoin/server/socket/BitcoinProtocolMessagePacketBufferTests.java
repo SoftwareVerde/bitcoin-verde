@@ -70,12 +70,12 @@ public class BitcoinProtocolMessagePacketBufferTests {
 
             for (int j = 0; j < recycledBytes.length; ++j) {
                 if (j < 10) {
-                    // Byte Index is within the "usable" range, so populate them with data we want...
+                    // Byte Index is within the "usable" range, so populate them with request we want...
                     recycledBytes[j] = (byte) x;
                     x += 1;
                 }
                 else {
-                    // Bytes Index is outside the "usable" range, so populate them with data we would recognize that we don't want...
+                    // Bytes Index is outside the "usable" range, so populate them with request we would recognize that we don't want...
                     recycledBytes[j] = 0x77;
                 }
             }

@@ -1,9 +1,10 @@
-package com.softwareverde.bitcoin.server.socket.message.inventory;
+package com.softwareverde.bitcoin.server.socket.message.inventory.list;
 
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.server.socket.message.inventory.data.header.DataHeader;
+import com.softwareverde.bitcoin.server.socket.message.inventory.data.header.DataHeaderType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -23,9 +24,9 @@ public class InventoryMessageInflater extends ProtocolMessageInflater {
             final Integer inventoryTypeCode = byteArrayReader.readInteger(4, Endian.LITTLE);
             final byte[] objectHash = byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE);
 
-            final InventoryMessage.InventoryType inventoryType = InventoryMessage.InventoryType.fromValue(inventoryTypeCode);
-            final InventoryMessage.InventoryItem inventoryItem = new InventoryMessage.InventoryItem(inventoryType, objectHash);
-            inventoryMessage.addInventoryItem(inventoryItem);
+            final DataHeaderType dataType = DataHeaderType.fromValue(inventoryTypeCode);
+            final DataHeader dataHeader = new DataHeader(dataType, objectHash);
+            inventoryMessage.addInventoryItem(dataHeader);
         }
 
         return inventoryMessage;

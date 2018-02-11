@@ -1,21 +1,20 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
 import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
 import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
 import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessage;
 import com.softwareverde.bitcoin.server.socket.message.error.RejectMessage;
-import com.softwareverde.bitcoin.server.socket.message.inventory.InventoryMessage;
+import com.softwareverde.bitcoin.server.socket.message.inventory.data.header.DataHeader;
+import com.softwareverde.bitcoin.server.socket.message.inventory.list.InventoryMessage;
+import com.softwareverde.bitcoin.server.socket.message.inventory.request.GetDataMessage;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
 import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
@@ -135,11 +134,16 @@ public class Main {
 
                     case INVENTORY: {
                         final InventoryMessage inventoryMessage = (InventoryMessage) message;
-                        final List<InventoryMessage.InventoryItem> inventoryItems = inventoryMessage.getInventoryItems();
-                        for (final InventoryMessage.InventoryItem inventoryItem : inventoryItems) {
-                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(inventoryItem.getObjectHash());
-                            System.out.println("Inventory Item: "+ inventoryItem.getInventoryType().toString() +" - 0x"+ BitcoinUtil.toHexString(inventoryItem.getObjectHash()));
+                        final List<DataHeader> dataHeaders = inventoryMessage.getDataHeaders();
+                        for (final DataHeader dataHeader : dataHeaders) {
+                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(dataHeader.getObjectHash());
+                            System.out.println("Inventory Item: "+ dataHeader.getDataHeaderType().toString() +" - 0x"+ BitcoinUtil.toHexString(dataHeader.getObjectHash()));
                         }
+
+                        final GetDataMessage getDataMessage = new GetDataMessage();
+                        getDataMessage.addInventoryItem(dataHeaders.get(0));
+                        System.out.println(BitcoinUtil.toHexString(getDataMessage.getBytes()));
+                        socketConnectionManager.queueMessage(getDataMessage);
                     } break;
                 }
 
