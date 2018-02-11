@@ -1,19 +1,19 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.server.socket.SocketConnectionManager;
-import com.softwareverde.bitcoin.server.socket.message.NodeFeatures;
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
-import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessage;
-import com.softwareverde.bitcoin.server.socket.message.error.RejectMessage;
-import com.softwareverde.bitcoin.server.socket.message.inventory.data.header.DataHeader;
-import com.softwareverde.bitcoin.server.socket.message.inventory.list.InventoryMessage;
-import com.softwareverde.bitcoin.server.socket.message.inventory.request.GetDataMessage;
-import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
-import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
-import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.NetworkAddress;
-import com.softwareverde.bitcoin.server.socket.message.networkaddress.ip.Ipv4;
+import com.softwareverde.bitcoin.server.socket.ConnectionManager;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessage;
+import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.data.hash.DataHash;
+import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
+import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
+import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessage;
+import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
@@ -96,9 +96,9 @@ public class Main {
         final String host = "btc.softwareverde.com";
         final Integer port = 8333;
 
-        final SocketConnectionManager socketConnectionManager = new SocketConnectionManager(host, port);
+        final ConnectionManager connectionManager = new ConnectionManager(host, port);
 
-        socketConnectionManager.setMessageReceivedCallback(new SocketConnectionManager.MessageReceivedCallback() {
+        connectionManager.setMessageReceivedCallback(new ConnectionManager.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final ProtocolMessage message) {
                 switch (message.getCommand()) {
@@ -107,43 +107,43 @@ public class Main {
                         final PingMessage pingMessage = (PingMessage) message;
                         final PongMessage pongMessage = new PongMessage();
                         pongMessage.setNonce(pingMessage.getNonce());
-                        socketConnectionManager.queueMessage(pongMessage);
+                        connectionManager.queueMessage(pongMessage);
                     } break;
 
                     case ACKNOWLEDGE_VERSION: {
                         final PingMessage pingMessage = new PingMessage();
-                        socketConnectionManager.queueMessage(pingMessage);
+                        connectionManager.queueMessage(pingMessage);
 
                         final GetBlocksMessage getBlocksMessage = new GetBlocksMessage();
-                        socketConnectionManager.queueMessage(getBlocksMessage);
+                        connectionManager.queueMessage(getBlocksMessage);
 
                     } break;
 
-                    case PEER_ADDRESSES: {
-                        final AddressMessage addressMessage = (AddressMessage) message;
-                        for (final NetworkAddress networkAddress : addressMessage.getNetworkAddresses()) {
-                            System.out.println("Network Address: "+ BitcoinUtil.toHexString(networkAddress.getBytesWithTimestamp()));
+                    case NODE_ADDRESSES: {
+                        final NodeIpAddressMessage nodeIpAddressMessage = (NodeIpAddressMessage) message;
+                        for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
+                            System.out.println("Network Address: "+ BitcoinUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
                         }
                     } break;
 
                     case REJECT: {
-                        final RejectMessage rejectMessage = (RejectMessage) message;
-                        final RejectMessage.RejectCode rejectCode = rejectMessage.getRejectCode();
-                        System.out.println("RECEIVED REJECT:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ rejectMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(rejectMessage.getExtraData()));
+                        final ErrorMessage errorMessage = (ErrorMessage) message;
+                        final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
+                        System.out.println("RECEIVED REJECT:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(errorMessage.getExtraData()));
                     } break;
 
                     case INVENTORY: {
-                        final InventoryMessage inventoryMessage = (InventoryMessage) message;
-                        final List<DataHeader> dataHeaders = inventoryMessage.getDataHeaders();
-                        for (final DataHeader dataHeader : dataHeaders) {
-                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(dataHeader.getObjectHash());
-                            System.out.println("Inventory Item: "+ dataHeader.getDataHeaderType().toString() +" - 0x"+ BitcoinUtil.toHexString(dataHeader.getObjectHash()));
+                        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) message;
+                        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+                        for (final DataHash dataHash : dataHashes) {
+                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(dataHash.getObjectHash());
+                            // System.out.println("Inventory Item: "+ dataHash.getDataHashType().toString() +" - 0x"+ BitcoinUtil.toHexString(dataHash.getObjectHash()));
                         }
 
-                        final GetDataMessage getDataMessage = new GetDataMessage();
-                        getDataMessage.addInventoryItem(dataHeaders.get(0));
-                        System.out.println(BitcoinUtil.toHexString(getDataMessage.getBytes()));
-                        socketConnectionManager.queueMessage(getDataMessage);
+                        final RequestDataMessage requestDataMessage = new RequestDataMessage();
+                        requestDataMessage.addInventoryItem(dataHashes.get(0));
+                        System.out.println(BitcoinUtil.toHexString(requestDataMessage.getBytes()));
+                        connectionManager.queueMessage(requestDataMessage);
                     } break;
                 }
 
@@ -151,29 +151,29 @@ public class Main {
             }
         });
 
-        socketConnectionManager.setOnConnectCallback(new Runnable() {
+        connectionManager.setOnConnectCallback(new Runnable() {
             @Override
             public void run() {
                 final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
-                { // Set Remote NetworkAddress...
-                    final NetworkAddress remoteNetworkAddress = new NetworkAddress();
-                    remoteNetworkAddress.setIp(Ipv4.parse(socketConnectionManager.getRemoteIp()));
-                    remoteNetworkAddress.setPort(port);
-                    remoteNetworkAddress.setNodeFeatures(new NodeFeatures());
-                    synchronizeVersionMessage.setRemoteAddress(remoteNetworkAddress);
+                { // Set Remote NodeIpAddress...
+                    final NodeIpAddress remoteNodeIpAddress = new NodeIpAddress();
+                    remoteNodeIpAddress.setIp(Ipv4.parse(connectionManager.getRemoteIp()));
+                    remoteNodeIpAddress.setPort(port);
+                    remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
+                    synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
                 }
-                socketConnectionManager.queueMessage(synchronizeVersionMessage);
+                connectionManager.queueMessage(synchronizeVersionMessage);
             }
         });
 
-        socketConnectionManager.setOnDisconnectCallback(new Runnable() {
+        connectionManager.setOnDisconnectCallback(new Runnable() {
             @Override
             public void run() {
                 System.out.println("Socket disconnected.");
             }
         });
 
-        socketConnectionManager.startConnectionThread();
+        connectionManager.startConnectionThread();
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }

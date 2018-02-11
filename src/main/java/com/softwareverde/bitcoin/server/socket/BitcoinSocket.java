@@ -1,9 +1,7 @@
 package com.softwareverde.bitcoin.server.socket;
 
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.socket.message.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,7 +79,7 @@ public class BitcoinSocket {
         _readThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                final BitcoinProtocolMessagePacketBuffer protocolMessageBuffer = new BitcoinProtocolMessagePacketBuffer();
+                final PacketBuffer protocolMessageBuffer = new PacketBuffer();
 
                 protocolMessageBuffer.setBufferSize(bufferSize);
 
