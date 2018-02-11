@@ -164,9 +164,9 @@ public class ProtocolMessageTests {
         final List<byte[]> blockHeaderHashes = getBlockHeadersMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());
 
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("13D688A998A26CE7D0496EB49A408621F7342BED3E227E000000000000000000"), blockHeaderHashes.get(0));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("4DE3422EF535C1992B31CEFE6F0F2E78D9A42FB13DCF26030000000000000000"), blockHeaderHashes.get(1));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("6FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D6190000000000"), blockHeaderHashes.get(29));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29));
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), getBlockHeadersMessage.getDesiredBlockHeaderHash());
     }
 
@@ -230,9 +230,9 @@ public class ProtocolMessageTests {
         final List<byte[]> blockHeaderHashes = getBlocksMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());
 
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("13D688A998A26CE7D0496EB49A408621F7342BED3E227E000000000000000000"), blockHeaderHashes.get(0));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("4DE3422EF535C1992B31CEFE6F0F2E78D9A42FB13DCF26030000000000000000"), blockHeaderHashes.get(1));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("6FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D6190000000000"), blockHeaderHashes.get(29));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29));
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), getBlocksMessage.getDesiredBlockHeaderHash());
     }
 }

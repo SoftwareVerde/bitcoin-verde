@@ -27,11 +27,11 @@ public class GetBlocksMessageInflater extends ProtocolMessageInflater {
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.BIG);
+            final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
             getBlocksMessage._blockHeaderHashes.add(blockHeaderHashBytes);
         }
 
-        final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.BIG);
+        final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
         ByteUtil.setBytes(getBlocksMessage._desiredBlockHeaderHash, blockHeaderHashBytes);
 
         return getBlocksMessage;

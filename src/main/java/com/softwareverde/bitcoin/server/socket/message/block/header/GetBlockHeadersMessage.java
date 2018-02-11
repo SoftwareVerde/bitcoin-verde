@@ -63,8 +63,8 @@ public class GetBlockHeadersMessage extends ProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash, Endian.BIG);
+        byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash, Endian.LITTLE);
         return byteArrayBuilder.build();
     }
 }

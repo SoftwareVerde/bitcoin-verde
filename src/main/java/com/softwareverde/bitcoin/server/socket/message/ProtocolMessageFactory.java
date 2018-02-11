@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.socket.message.address.AddressMessageInf
 import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.block.header.GetBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.error.RejectMessageInflater;
+import com.softwareverde.bitcoin.server.socket.message.inventory.InventoryMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessageInflater;
 import com.softwareverde.bitcoin.server.socket.message.version.acknowledge.AcknowledgeVersionMessageInflater;
@@ -27,6 +28,7 @@ public class ProtocolMessageFactory {
         _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCK_HEADERS, new GetBlockHeadersMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCKS, new GetBlocksMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.REJECT, new RejectMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.INVENTORY, new InventoryMessageInflater());
     }
 
     public ProtocolMessage fromBytes(final byte[] bytes) {

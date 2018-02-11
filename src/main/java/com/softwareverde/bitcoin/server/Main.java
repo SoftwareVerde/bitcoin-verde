@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.socket.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.message.address.AddressMessage;
 import com.softwareverde.bitcoin.server.socket.message.block.GetBlocksMessage;
 import com.softwareverde.bitcoin.server.socket.message.error.RejectMessage;
+import com.softwareverde.bitcoin.server.socket.message.inventory.InventoryMessage;
 import com.softwareverde.bitcoin.server.socket.message.ping.PingMessage;
 import com.softwareverde.bitcoin.server.socket.message.pong.PongMessage;
 import com.softwareverde.bitcoin.server.socket.message.version.synchronize.SynchronizeVersionMessage;
@@ -20,6 +21,7 @@ import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.List;
 
 public class Main {
     protected final Configuration _configuration;
@@ -129,6 +131,15 @@ public class Main {
                         final RejectMessage rejectMessage = (RejectMessage) message;
                         final RejectMessage.RejectCode rejectCode = rejectMessage.getRejectCode();
                         System.out.println("RECEIVED REJECT:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ rejectMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(rejectMessage.getExtraData()));
+                    } break;
+
+                    case INVENTORY: {
+                        final InventoryMessage inventoryMessage = (InventoryMessage) message;
+                        final List<InventoryMessage.InventoryItem> inventoryItems = inventoryMessage.getInventoryItems();
+                        for (final InventoryMessage.InventoryItem inventoryItem : inventoryItems) {
+                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(inventoryItem.getObjectHash());
+                            System.out.println("Inventory Item: "+ inventoryItem.getInventoryType().toString() +" - 0x"+ BitcoinUtil.toHexString(inventoryItem.getObjectHash()));
+                        }
                     } break;
                 }
 
