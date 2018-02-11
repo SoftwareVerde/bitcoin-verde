@@ -114,7 +114,6 @@ public class Main {
                         socketConnectionManager.queueMessage(pingMessage);
 
                         final GetBlocksMessage getBlocksMessage = new GetBlocksMessage();
-                        getBlocksMessage.addBlockHeaderHash(BlockHeader.GENESIS_BLOCK_HEADER_HASH);
                         socketConnectionManager.queueMessage(getBlocksMessage);
 
                     } break;
