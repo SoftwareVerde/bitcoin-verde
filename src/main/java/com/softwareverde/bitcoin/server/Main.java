@@ -1,5 +1,8 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.socket.ConnectionManager;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
@@ -7,7 +10,6 @@ import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.data.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
@@ -145,6 +147,13 @@ public class Main {
                         System.out.println(BitcoinUtil.toHexString(requestDataMessage.getBytes()));
                         connectionManager.queueMessage(requestDataMessage);
                     } break;
+
+                    case BLOCK: {
+                        final BlockMessage blockMessage = (BlockMessage) message;
+                        System.out.println("BLOCK: ");
+                        System.out.println(blockMessage.getBlock().getTransactions().size());
+                        System.out.println(BitcoinUtil.toHexString(blockMessage.getBlock().getBytes()));
+                    }
                 }
 
                 // System.out.println("RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));

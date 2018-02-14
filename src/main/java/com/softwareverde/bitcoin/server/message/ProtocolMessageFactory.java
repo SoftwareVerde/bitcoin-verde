@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.server.message.type.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.header.GetBlockHeadersMessageInflater;
@@ -31,6 +32,7 @@ public class ProtocolMessageFactory {
         _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCKS, new GetBlocksMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.REJECT, new ErrorMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.INVENTORY, new QueryResponseMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.BLOCK, new BlockMessageInflater());
     }
 
     public ProtocolMessage fromBytes(final byte[] bytes) {

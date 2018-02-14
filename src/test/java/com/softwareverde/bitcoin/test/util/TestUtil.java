@@ -14,7 +14,7 @@ public class TestUtil {
      */
     public static void assertMatchesMaskedHexString(final String stringMask, final String string) {
         if (string == null) {
-            _fail("Unexpected null value within <string>.");
+            _fail("Unexpected null value within value.");
         }
 
         final String uppercaseString = string.toUpperCase();
@@ -27,7 +27,7 @@ public class TestUtil {
             final char maskCharacter = uppercaseStrippedStringMask.charAt(i);
 
             if (i >= uppercaseStringLength) {
-                _fail("<string> does not match string mask. (Expected length: "+ uppercaseStrippedStringMaskLength +", found: "+ uppercaseStringLength +".)");
+                _fail("Provided value does not match expected value. (Expected length: "+ uppercaseStrippedStringMaskLength +", found: "+ uppercaseStringLength +".)");
             }
 
             if (maskCharacter == 'X') { continue; }
@@ -39,7 +39,7 @@ public class TestUtil {
 
                 final String context = string.substring(contextStartIndex, Math.max(0, i)) + "[" + string.charAt(i) + "]" + string.substring(Math.min((uppercaseStringLength-1), i+1), contextEndIndex);
 
-                _fail("<string> does not match mask at index: "+ i +". (Expected '"+ maskCharacter +"', found '"+ stringCharacter +"'.)\n    Context: "+ context);
+                _fail("Provided value does not match expected value at index: "+ i +". (Expected '"+ maskCharacter +"', found '"+ stringCharacter +"'.)\n    Context: "+ context);
             }
         }
     }

@@ -49,15 +49,15 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
     }
 
     public void setLocalAddress(final NodeIpAddress nodeIpAddress) {
-        _localNodeIpAddress = nodeIpAddress.duplicate();
+        _localNodeIpAddress = nodeIpAddress.copy();
     }
 
     public NodeIpAddress getLocalNodeIpAddress() {
-        return _localNodeIpAddress.duplicate();
+        return _localNodeIpAddress.copy();
     }
 
     public void setRemoteAddress(final NodeIpAddress nodeIpAddress) {
-        _remoteNodeIpAddress = nodeIpAddress.duplicate();
+        _remoteNodeIpAddress = nodeIpAddress.copy();
     }
 
     public NodeIpAddress getRemoteNodeIpAddress() {

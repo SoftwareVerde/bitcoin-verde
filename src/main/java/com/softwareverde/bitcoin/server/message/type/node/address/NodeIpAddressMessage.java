@@ -17,7 +17,7 @@ public class NodeIpAddressMessage extends ProtocolMessage {
     }
 
     public void addAddress(final NodeIpAddress nodeIpAddress) {
-        _nodeIpAddresses.add(nodeIpAddress.duplicate());
+        _nodeIpAddresses.add(nodeIpAddress.copy());
     }
 
     public List<NodeIpAddress> getNodeIpAddresses() {

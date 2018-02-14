@@ -68,7 +68,7 @@ public class Ipv4 implements Ip {
     }
 
     @Override
-    public Ip duplicate() {
+    public Ip copy() {
         final Ipv4 ipv4 = new Ipv4();
         for (int i = 0; i< _bytes.length; ++i) {
             ipv4._bytes[i] = _bytes[i];

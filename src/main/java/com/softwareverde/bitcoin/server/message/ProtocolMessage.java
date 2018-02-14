@@ -7,7 +7,9 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 /**
- * Protocol Definition: https://en.bitcoin.it/wiki/Protocol_documentation
+ * Protocol Definition:
+ *  https://bitcoin.org/en/developer-reference
+ *  https://en.bitcoin.it/wiki/Protocol_documentation
  */
 
 public abstract class ProtocolMessage {
@@ -19,7 +21,8 @@ public abstract class ProtocolMessage {
         PING("ping"), PONG("pong"),
         NODE_ADDRESSES("addr"),
         GET_BLOCK_HEADERS("getheaders"), GET_BLOCKS("getblocks"), INVENTORY("inv"), GET_DATA("getdata"),
-        REJECT("reject");
+        REJECT("reject"),
+        BLOCK("block");
 
         public static MessageType fromBytes(final byte[] bytes) {
             for (final MessageType command : MessageType.values()) {

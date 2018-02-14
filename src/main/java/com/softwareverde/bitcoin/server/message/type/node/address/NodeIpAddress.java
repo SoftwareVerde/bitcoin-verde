@@ -63,11 +63,11 @@ public class NodeIpAddress {
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
 
     public void setIp(final Ip ip) {
-        _ip = ( (ip != null) ? ip.duplicate() : new Ipv4());
+        _ip = ( (ip != null) ? ip.copy() : new Ipv4());
     }
 
     public Ip getIp() {
-        return _ip.duplicate();
+        return _ip.copy();
     }
 
     public void setPort(final Integer port) { _port = port; }
@@ -96,12 +96,12 @@ public class NodeIpAddress {
         return byteArrayBuilder.build();
     }
 
-    public NodeIpAddress duplicate() {
+    public NodeIpAddress copy() {
         final NodeIpAddress nodeIpAddress = new NodeIpAddress();
 
         nodeIpAddress._timestamp = _timestamp;
         nodeIpAddress._nodeFeatures.setFeaturesFlags(_nodeFeatures);
-        nodeIpAddress._ip = _ip.duplicate();
+        nodeIpAddress._ip = _ip.copy();
         nodeIpAddress._port = _port;
 
         return nodeIpAddress;

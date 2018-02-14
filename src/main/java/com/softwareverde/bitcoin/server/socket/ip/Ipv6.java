@@ -142,7 +142,7 @@ public class Ipv6 implements Ip {
     }
 
     @Override
-    public Ip duplicate() {
+    public Ip copy() {
         final Ipv6 ipv6 = new Ipv6();
         for (int i=0; i<_bytes.length; ++i) {
             ipv6._bytes[i] = _bytes[i];
