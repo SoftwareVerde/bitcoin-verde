@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.block;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -33,7 +32,7 @@ public class BlockMessageInflaterTests {
         TestUtil.assertEqual(new byte[]{ }, block.getPreviousBlockHash());
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("4A5E1E4BAAB89F3A32518A88C31BC87F618F76673E2CC77AB2127B7AFDEDA33B"), block.getMerkleRoot());
         Assert.assertEquals(1231006505L, block.getTimestamp().longValue());
-        Assert.assertEquals(1, block.getDifficulty().intValue());
+        Assert.assertEquals(1L, block.getDifficulty().longValue());
         Assert.assertEquals(2083236893L, block.getNonce().longValue());
 
         final List<Transaction> transactions = block.getTransactions();

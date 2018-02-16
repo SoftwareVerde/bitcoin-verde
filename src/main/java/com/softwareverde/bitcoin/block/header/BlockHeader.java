@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.block.header.difficulty.DifficultyEncoder;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;

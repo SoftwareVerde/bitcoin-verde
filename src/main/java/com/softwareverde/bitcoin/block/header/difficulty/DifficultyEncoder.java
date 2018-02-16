@@ -1,8 +1,6 @@
-package com.softwareverde.bitcoin.block.header;
+package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
-
-import java.math.BigInteger;
 
 public class DifficultyEncoder {
     public Long decodeDifficulty(final byte[] bytes) {

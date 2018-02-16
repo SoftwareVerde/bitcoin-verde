@@ -1,6 +1,5 @@
-package com.softwareverde.bitcoin.server.message.type.block;
+package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.block.header.DifficultyEncoder;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Assert;
@@ -13,6 +12,20 @@ public class DifficultyEncoderTests {
         final DifficultyEncoder difficultyEncoder = new DifficultyEncoder();
         final byte[] encodedDifficulty = BitcoinUtil.hexStringToByteArray("01003456");
         final Long expectedDifficulty = 0x00L;
+
+        // Action
+        final Long difficulty = difficultyEncoder.decodeDifficulty(encodedDifficulty);
+
+        // Assert
+        Assert.assertEquals(expectedDifficulty, difficulty);
+    }
+
+    @Test
+    public void should_decode_mainnet_1_difficulty() {
+        // Setup
+        final DifficultyEncoder difficultyEncoder = new DifficultyEncoder();
+        final byte[] encodedDifficulty = BitcoinUtil.hexStringToByteArray("1D00FFFF");
+        final Long expectedDifficulty = 0x01L;
 
         // Action
         final Long difficulty = difficultyEncoder.decodeDifficulty(encodedDifficulty);
