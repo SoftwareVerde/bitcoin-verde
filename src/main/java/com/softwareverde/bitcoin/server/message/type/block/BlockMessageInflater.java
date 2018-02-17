@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class BlockMessageInflater extends ProtocolMessageInflater {

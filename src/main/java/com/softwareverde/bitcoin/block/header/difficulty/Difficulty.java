@@ -2,8 +2,11 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
 
+import java.math.BigDecimal;
+
 public class Difficulty {
-    public static final Long BASE_DIFFICULTY = 0x1D00FFFFL;
+    public static final Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
+    public static final Integer BASE_DIFFICULTY_SIGNIFICAND = 0x00FFFF;
 
     private Integer _exponent;
     private final byte[] _significand = new byte[3];
@@ -51,5 +54,15 @@ public class Difficulty {
         }
 
         return true;
+    }
+
+    public BigDecimal getDifficultyRatio() {
+        final BigDecimal currentValue = BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
+        final BigDecimal baseDifficultyValue = BigDecimal.valueOf(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
+        return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
+    }
+
+    public Difficulty copy() {
+        return new Difficulty(_significand, _exponent);
     }
 }

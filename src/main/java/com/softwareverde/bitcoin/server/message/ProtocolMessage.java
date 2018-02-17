@@ -2,9 +2,9 @@ package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
-import com.softwareverde.bitcoin.util.ByteUtil;
 
 /**
  * Protocol Definition:

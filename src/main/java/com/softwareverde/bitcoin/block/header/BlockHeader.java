@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.block.header.difficulty.DifficultyEncoder;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
@@ -14,7 +14,7 @@ public class BlockHeader {
     protected final byte[] _previousBlockHash = new byte[32];
     protected final byte[] _merkleRoot = new byte[32];
     protected Long _timestamp;
-    protected Long _difficulty;
+    protected Difficulty _difficulty;
     protected Long _nonce;
 
     protected static class ByteData {
@@ -38,14 +38,12 @@ public class BlockHeader {
     }
 
     protected ByteData _createByteData() {
-        final DifficultyEncoder difficultyEncoder = new DifficultyEncoder();
-
         final ByteData byteData = new ByteData();
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(byteData.previousBlockHash, _previousBlockHash);
         ByteUtil.setBytes(byteData.merkleRoot, _merkleRoot);
         ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
-        ByteUtil.setBytes(byteData.difficulty, difficultyEncoder.encodeDifficulty(_difficulty));
+        ByteUtil.setBytes(byteData.difficulty, _difficulty.encode());
         ByteUtil.setBytes(byteData.nonce, ByteUtil.longToBytes(_nonce));
         return byteData;
     }
@@ -68,8 +66,8 @@ public class BlockHeader {
     public void setTimestamp(final Long timestamp) { _timestamp = timestamp; }
     public Long getTimestamp() { return _timestamp; }
 
-    public void setDifficulty(final Long difficulty) { _difficulty = difficulty; }
-    public Long getDifficulty() { return _difficulty; }
+    public void setDifficulty(final Difficulty difficulty) { _difficulty = difficulty; }
+    public Difficulty getDifficulty() { return _difficulty; }
 
     public void setNonce(final Long nonce) { _nonce = nonce; }
     public Long getNonce() { return  _nonce; }

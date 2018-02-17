@@ -1,20 +1,19 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.socket.ConnectionManager;
-import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
+import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessage;
-import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessage;
+import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
+import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.ConnectionManager;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 

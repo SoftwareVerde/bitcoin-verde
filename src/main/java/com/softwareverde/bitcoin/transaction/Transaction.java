@@ -1,23 +1,21 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
-import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class Transaction {
-    public static final Long MAX_LOCK_TIME = 0xFFFFFFFFL;
-
     protected Integer _version;
     protected Boolean _hasWitnessData = false;
     protected final List<TransactionInput> _transactionInputs = new ArrayList<TransactionInput>();
     protected final List<TransactionOutput> _transactionOutputs = new ArrayList<TransactionOutput>();
-    protected Long _lockTime = null;
+    protected LockTime _lockTime = new LockTime();
 
     public Integer getVersion() { return _version; }
     public void setVersion(final Integer version) { _version = version; }
@@ -45,8 +43,8 @@ public class Transaction {
     public void addTransactionOutput(final TransactionOutput transactionOutput) { _transactionOutputs.add(transactionOutput.copy()); }
     public void clearTransactionOutputs() { _transactionOutputs.clear(); }
 
-    public Long getLockTime() { return _lockTime; }
-    public void setLockTime(final Long lockTime) { _lockTime = lockTime; }
+    public LockTime getLockTime() { return _lockTime.copy(); }
+    public void setLockTime(final LockTime lockTime) { _lockTime = lockTime.copy(); }
 
     public Integer getByteCount() {
         final Integer versionByteCount = 4;
@@ -81,7 +79,7 @@ public class Transaction {
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(_version));
 
         final byte[] lockTimeBytes = new byte[4];
-        ByteUtil.setBytes(lockTimeBytes, ByteUtil.integerToBytes(_lockTime.intValue()));
+        ByteUtil.setBytes(lockTimeBytes, _lockTime.getBytes());
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 

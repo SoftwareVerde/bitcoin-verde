@@ -9,7 +9,7 @@ public class ByteArrayReader {
     /**
      * Copies byteCount number of _bytes starting at index (inclusive).
      *  If the end of _bytes is reached before byteCount is reached, the buffer is filled with 0x00.
-     *  Does not increment _index to match the number of bytes read.
+     *  Does not increment _previousTransactionOutputIndex to match the number of bytes read.
      *  Bytes are transferred to the buffer in reverse order by Endian.LITTLE is specified.
      */
     protected byte[] _readBytes(final int index, final int byteCount, final Endian endian) {

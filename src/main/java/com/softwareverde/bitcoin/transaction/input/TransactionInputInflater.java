@@ -8,6 +8,7 @@ public class TransactionInputInflater {
         final TransactionInput transactionInput = new TransactionInput();
 
         transactionInput._previousTransactionOutputHash = byteArrayReader.readBytes(32, Endian.LITTLE);
+        transactionInput._previousTransactionOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         transactionInput._signatureScript = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);

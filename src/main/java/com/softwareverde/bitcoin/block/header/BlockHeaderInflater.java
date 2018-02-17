@@ -1,13 +1,12 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.block.header.difficulty.DifficultyEncoder;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class BlockHeaderInflater {
     protected BlockHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final DifficultyEncoder difficultyEncoder = new DifficultyEncoder();
         final BlockHeader blockHeader = new BlockHeader();
 
         // 0100 0000                                                                        // Version
@@ -24,7 +23,7 @@ public class BlockHeaderInflater {
         blockHeader._timestamp = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final byte[] difficultyBytes = byteArrayReader.readBytes(4, Endian.LITTLE);
-        blockHeader._difficulty = difficultyEncoder.decodeDifficulty(difficultyBytes);
+        blockHeader._difficulty = Difficulty.decode(difficultyBytes);
         blockHeader._nonce = byteArrayReader.readLong(4, Endian.LITTLE);
         // blockHeader._transactionCount = byteArrayReader.readVariableSizedInteger().intValue(); // Always 0 for Block Headers...
 

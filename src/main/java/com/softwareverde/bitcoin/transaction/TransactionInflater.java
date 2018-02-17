@@ -30,7 +30,8 @@ public class TransactionInflater {
             transaction._transactionOutputs.add(transactionOutput);
         }
 
-        transaction._lockTime = byteArrayReader.readLong(4, Endian.LITTLE);
+        final Long lockTimeTimestamp = byteArrayReader.readLong(4, Endian.LITTLE);
+        transaction._lockTime.setLockTime(lockTimeTimestamp);
 
         return transaction;
     }
