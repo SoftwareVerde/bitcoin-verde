@@ -49,8 +49,8 @@ public class DifficultyTests {
     public void should_not_be_satisfied_by_larger_hash() {
         // Setup
         final Difficulty difficulty = new Difficulty(BitcoinUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
-        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray("00000001FFFF0000000000000000000000000000000000000000000000000000");
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray( "00000001FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
         final Boolean isSatisfied = difficulty.isSatisfiedBy(sha256Hash);
@@ -63,8 +63,8 @@ public class DifficultyTests {
     public void should_be_satisfied_by_equal_hash() {
         // Setup
         final Difficulty difficulty = new Difficulty(BitcoinUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
-        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000");
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray( "00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
         final Boolean isSatisfied = difficulty.isSatisfiedBy(sha256Hash);
@@ -74,11 +74,25 @@ public class DifficultyTests {
     }
 
     @Test
-    public void should_be_satisfied_by_smaller_hash() {
+    public void should_be_satisfied_by_smaller_hash_0() {
         // Setup
         final Difficulty difficulty = new Difficulty(BitcoinUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
-        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray("00000000FFFE0000000000000000000000000000000000000000000000000000");
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray( "00000000FFFE0000000000000000000000000000000000000000000000000000");
+
+        // Action
+        final Boolean isSatisfied = difficulty.isSatisfiedBy(sha256Hash);
+
+        // Assert
+        Assert.assertTrue(isSatisfied);
+    }
+
+    @Test
+    public void should_be_satisfied_by_smaller_hash_1() {
+        // Setup
+        final Difficulty difficulty = new Difficulty(BitcoinUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        final byte[] sha256Hash = BitcoinUtil.hexStringToByteArray( "000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
         // Action
         final Boolean isSatisfied = difficulty.isSatisfiedBy(sha256Hash);

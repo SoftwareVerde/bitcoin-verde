@@ -31,7 +31,7 @@ public class BlockHeader {
             byteArrayBuilder.appendBytes(this.previousBlockHash, Endian.LITTLE);
             byteArrayBuilder.appendBytes(this.merkleRoot, Endian.LITTLE);
             byteArrayBuilder.appendBytes(this.timestamp, Endian.LITTLE);
-            byteArrayBuilder.appendBytes(this.difficulty, Endian.BIG);
+            byteArrayBuilder.appendBytes(this.difficulty, Endian.LITTLE);
             byteArrayBuilder.appendBytes(this.nonce, Endian.LITTLE);
             return byteArrayBuilder.build();
         }
@@ -42,9 +42,19 @@ public class BlockHeader {
         ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(byteData.previousBlockHash, _previousBlockHash);
         ByteUtil.setBytes(byteData.merkleRoot, _merkleRoot);
-        ByteUtil.setBytes(byteData.timestamp, ByteUtil.longToBytes(_timestamp));
+
+        final byte[] timestampBytes = ByteUtil.longToBytes(_timestamp);
+        for (int i=0; i<byteData.timestamp.length; ++i) {
+            byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
+        }
+
         ByteUtil.setBytes(byteData.difficulty, _difficulty.encode());
-        ByteUtil.setBytes(byteData.nonce, ByteUtil.longToBytes(_nonce));
+
+        final byte[] nonceBytes = ByteUtil.longToBytes(_nonce);
+        for (int i=0; i<byteData.nonce.length; ++i) {
+            byteData.nonce[(byteData.nonce.length - i) - 1] = nonceBytes[(nonceBytes.length - i) - 1];
+        }
+
         return byteData;
     }
 
@@ -72,10 +82,10 @@ public class BlockHeader {
     public void setNonce(final Long nonce) { _nonce = nonce; }
     public Long getNonce() { return  _nonce; }
 
-    public byte[] getHash() {
+    public byte[] calculateSha256Hash() {
         final ByteData byteData = _createByteData();
         final byte[] serializedByteData = byteData.serialize();
-        return BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData));
+        return ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData)));
     }
 
     public byte[] getBytes() {

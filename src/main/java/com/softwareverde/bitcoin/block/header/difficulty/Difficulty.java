@@ -48,9 +48,10 @@ public class Difficulty {
         final byte[] bytes = _convertToBytes();
 
         for (int i=0; i<bytes.length; ++i) {
-            final byte difficultyByte = bytes[i];
-            final byte sha256Byte = sha256[i];
-            if (sha256Byte > difficultyByte) { return false; }
+            final int difficultyByte = ByteUtil.byteToInteger(bytes[i]);
+            final int sha256Byte = ByteUtil.byteToInteger(sha256[i]);
+            if (sha256Byte == difficultyByte) { continue; }
+            return (sha256Byte < difficultyByte);
         }
 
         return true;
