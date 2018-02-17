@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
@@ -149,9 +150,8 @@ public class Main {
 
                     case BLOCK: {
                         final BlockMessage blockMessage = (BlockMessage) message;
-                        System.out.println("BLOCK: ");
-                        System.out.println(blockMessage.getBlock().getTransactions().size());
-                        System.out.println(BitcoinUtil.toHexString(blockMessage.getBlock().getBytes()));
+                        final Block block = blockMessage.getBlock();
+                        System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (block.validate() ? "VALIDATED" : "INVALID"));
                     }
                 }
 

@@ -39,6 +39,14 @@ public class Block extends BlockHeader {
         return transactions;
     }
 
+    public Boolean validate() {
+        final byte[] sha256Hash = _calculateSha256Hash();
+        final Boolean difficultyIsSatisfied = (_difficulty.isSatisfiedBy(sha256Hash));
+        if (! difficultyIsSatisfied) { return false; }
+
+        return true; // TODO: Validate Transactions
+    }
+
     @Override
     protected Integer _getTransactionCount() {
         return _transactions.size();

@@ -58,6 +58,12 @@ public class BlockHeader {
         return byteData;
     }
 
+    protected byte[] _calculateSha256Hash() {
+        final ByteData byteData = _createByteData();
+        final byte[] serializedByteData = byteData.serialize();
+        return ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData)));
+    }
+
     protected Integer _getTransactionCount() { return 0; }
 
     public BlockHeader() {
@@ -83,9 +89,7 @@ public class BlockHeader {
     public Long getNonce() { return  _nonce; }
 
     public byte[] calculateSha256Hash() {
-        final ByteData byteData = _createByteData();
-        final byte[] serializedByteData = byteData.serialize();
-        return ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData)));
+        return _calculateSha256Hash();
     }
 
     public byte[] getBytes() {
