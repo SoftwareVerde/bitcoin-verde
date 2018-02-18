@@ -100,9 +100,10 @@ public class BlockTracker {
     protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
         final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction);
+        System.out.println("(Inputs: "+ totalInputValue+"; Outputs: "+ totalOutputValue +")");
         if (totalInputValue == null) { return false; }
 
-        return (! (totalOutputValue > totalInputValue));
+        return (totalOutputValue <= totalInputValue);
     }
 
     public void addBlock(final Block block) {
@@ -129,5 +130,9 @@ public class BlockTracker {
         }
 
         return true;
+    }
+
+    public Integer getBlockCount() {
+        return _blocks.size();
     }
 }

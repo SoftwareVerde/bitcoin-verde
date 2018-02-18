@@ -100,7 +100,7 @@ public class BitcoinSocket {
 
                             if (message != null) {
                                 synchronized (_messages) {
-                                    System.out.println("IO: RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));
+                                    System.out.println("IO: RECEIVED "+ message.getCommand() +" MESSAGE. HEADER: "+ BitcoinUtil.toHexString(message.getHeaderBytes()));
 
                                     _messages.add(message);
 

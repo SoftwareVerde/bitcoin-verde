@@ -35,6 +35,7 @@ public class TransactionOutput {
     public TransactionOutput copy() {
         final TransactionOutput transactionOutput = new TransactionOutput();
         transactionOutput._value = _value;
+        transactionOutput._index = _index;
         transactionOutput._script = ByteUtil.copyBytes(_script);
         return transactionOutput;
     }

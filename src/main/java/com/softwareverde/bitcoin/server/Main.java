@@ -181,7 +181,7 @@ public class Main {
                         final Block block = blockMessage.getBlock();
 
                         final Boolean blockIsValid = blockTracker.validateBlock(block);
-                        System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (blockIsValid ? "VALIDATED" : "INVALID"));
+                        System.out.println("BLOCK #"+ (blockTracker.getBlockCount() + 1) +" : "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (blockIsValid ? "VALIDATED" : "INVALID"));
 
                         if (blockIsValid) {
                             blockTracker.addBlock(block);
