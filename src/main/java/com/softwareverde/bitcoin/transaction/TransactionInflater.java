@@ -25,7 +25,7 @@ public class TransactionInflater {
         final Integer transactionOutputCount = byteArrayReader.readVariableSizedInteger().intValue();
         for (int i=0; i<transactionOutputCount; ++i) {
             if (byteArrayReader.remainingByteCount() <= 1) { return null; }
-            final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(byteArrayReader);
+            final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
             if (transactionOutput == null) { return null; }
             transaction._transactionOutputs.add(transactionOutput);
         }

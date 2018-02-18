@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -16,6 +17,42 @@ public class Transaction {
     protected final List<TransactionInput> _transactionInputs = new ArrayList<TransactionInput>();
     protected final List<TransactionOutput> _transactionOutputs = new ArrayList<TransactionOutput>();
     protected LockTime _lockTime = new LockTime();
+
+    /**
+     * NOTE: Math with Satoshis
+     *  The maximum number of satoshis is 210,000,000,000,000, which is less than the value a Java Long can hold.
+     *  Therefore, using BigInteger is not be necessary any transaction calculation.
+     */
+
+    protected byte[] _getBytes() {
+        final byte[] versionBytes = new byte[4];
+        ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(_version));
+
+        final byte[] lockTimeBytes = new byte[4];
+        ByteUtil.setBytes(lockTimeBytes, _lockTime.getBytes());
+
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+
+        byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
+
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionInputs.size()), Endian.BIG);
+        for (final TransactionInput transactionInput : _transactionInputs) {
+            byteArrayBuilder.appendBytes(transactionInput.getBytes(), Endian.BIG);
+        }
+
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionOutputs.size()), Endian.BIG);
+        for (final TransactionOutput transactionOutput : _transactionOutputs) {
+            byteArrayBuilder.appendBytes(transactionOutput.getBytes(), Endian.BIG);
+        }
+
+        byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
+
+        return byteArrayBuilder.build();
+    }
+
+    public byte[] calculateSha256Hash() {
+        return ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(_getBytes())));
+    }
 
     public Integer getVersion() { return _version; }
     public void setVersion(final Integer version) { _version = version; }
@@ -46,6 +83,16 @@ public class Transaction {
     public LockTime getLockTime() { return _lockTime.copy(); }
     public void setLockTime(final LockTime lockTime) { _lockTime = lockTime.copy(); }
 
+    public Long getTotalOutputValue() {
+        long totalValue = 0L;
+
+        for (final TransactionOutput transactionOutput : _transactionOutputs) {
+            totalValue += transactionOutput.getValue();
+        }
+
+        return totalValue;
+    }
+
     public Integer getByteCount() {
         final Integer versionByteCount = 4;
 
@@ -75,29 +122,7 @@ public class Transaction {
     }
 
     public byte[] getBytes() {
-        final byte[] versionBytes = new byte[4];
-        ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(_version));
-
-        final byte[] lockTimeBytes = new byte[4];
-        ByteUtil.setBytes(lockTimeBytes, _lockTime.getBytes());
-
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-
-        byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
-
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionInputs.size()), Endian.BIG);
-        for (final TransactionInput transactionInput : _transactionInputs) {
-            byteArrayBuilder.appendBytes(transactionInput.getBytes(), Endian.BIG);
-        }
-
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_transactionOutputs.size()), Endian.BIG);
-        for (final TransactionOutput transactionOutput : _transactionOutputs) {
-            byteArrayBuilder.appendBytes(transactionOutput.getBytes(), Endian.BIG);
-        }
-
-        byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
-
-        return byteArrayBuilder.build();
+        return _getBytes();
     }
 
     public Transaction copy() {

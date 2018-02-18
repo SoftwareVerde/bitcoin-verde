@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.database.BlockTracker;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
@@ -22,9 +23,32 @@ import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
+    protected static class DataHashManager {
+        private Integer _index = 0;
+        private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
+
+        public void setDataHashes(final List<DataHash> dataHashes) {
+            _index = 0;
+            _dataHashes.clear();
+            _dataHashes.addAll(dataHashes);
+        }
+
+        public DataHash getNextDataHash() {
+            final DataHash dataHash = _dataHashes.get(_index);
+            _index += 1;
+            return dataHash;
+        }
+
+        public Boolean hasNextDataHash() {
+            return (_index < _dataHashes.size());
+        }
+    }
+    protected final DataHashManager _dataHashManager = new DataHashManager();
+
     protected final Configuration _configuration;
     protected final Environment _environment;
 
@@ -78,6 +102,12 @@ public class Main {
         }
     }
 
+    protected void _requestNextBlock(final ConnectionManager connectionManager) {
+        final RequestDataMessage requestDataMessage = new RequestDataMessage();
+        requestDataMessage.addInventoryItem(_dataHashManager.getNextDataHash());
+        connectionManager.queueMessage(requestDataMessage);
+    }
+
     public Main(final String[] commandLineArguments) {
         if (commandLineArguments.length != 1) {
             _printUsage();
@@ -118,7 +148,6 @@ public class Main {
 
                         final GetBlocksMessage getBlocksMessage = new GetBlocksMessage();
                         connectionManager.queueMessage(getBlocksMessage);
-
                     } break;
 
                     case NODE_ADDRESSES: {
@@ -136,22 +165,31 @@ public class Main {
 
                     case INVENTORY: {
                         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) message;
-                        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-                        for (final DataHash dataHash : dataHashes) {
-                            // final ByteArrayReader byteArrayReader = new ByteArrayReader(dataHash.getObjectHash());
-                            // System.out.println("Inventory Item: "+ dataHash.getDataHashType().toString() +" - 0x"+ BitcoinUtil.toHexString(dataHash.getObjectHash()));
+                        synchronized (_dataHashManager) {
+                            _dataHashManager.setDataHashes(queryResponseMessage.getDataHashes());
                         }
 
-                        final RequestDataMessage requestDataMessage = new RequestDataMessage();
-                        requestDataMessage.addInventoryItem(dataHashes.get(0));
-                        System.out.println(BitcoinUtil.toHexString(requestDataMessage.getBytes()));
-                        connectionManager.queueMessage(requestDataMessage);
+                        if (_dataHashManager.hasNextDataHash()) {
+                            _requestNextBlock(connectionManager);
+                        }
                     } break;
 
                     case BLOCK: {
+                        final BlockTracker blockTracker = BlockTracker.getInstance();
+
                         final BlockMessage blockMessage = (BlockMessage) message;
                         final Block block = blockMessage.getBlock();
-                        System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (block.validate() ? "VALIDATED" : "INVALID"));
+
+                        final Boolean blockIsValid = blockTracker.validateBlock(block);
+                        System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (blockIsValid ? "VALIDATED" : "INVALID"));
+
+                        if (blockIsValid) {
+                            blockTracker.addBlock(block);
+
+                            if (_dataHashManager.hasNextDataHash()) {
+                                _requestNextBlock(connectionManager);
+                            }
+                        }
                     }
                 }
 

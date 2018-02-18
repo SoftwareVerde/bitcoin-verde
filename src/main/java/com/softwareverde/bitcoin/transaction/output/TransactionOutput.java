@@ -6,15 +6,17 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class TransactionOutput {
     protected Long _value = 0L;
+    protected Integer _index = 0;
     protected byte[] _script = new byte[0];
 
-    public Long getValue() {
-        return _value;
-    }
+    public Long getValue() { return _value; }
+    public void setValue(final Long value) { _value = value; }
 
-    public byte[] getScript() {
-        return ByteUtil.copyBytes(_script);
-    }
+    public Integer getIndex() { return _index; }
+    public void setIndex(final Integer index) { _index = index; }
+
+    public byte[] getScript() { return ByteUtil.copyBytes(_script); }
+    public void setScript(final byte[] bytes) { _script = bytes; }
 
     public Integer getByteCount() {
         final Integer valueByteCount = 8;

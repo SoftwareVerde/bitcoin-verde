@@ -39,12 +39,13 @@ public class Block extends BlockHeader {
         return transactions;
     }
 
-    public Boolean validate() {
+    public Boolean validateBlockHeader() {
         final byte[] sha256Hash = _calculateSha256Hash();
         final Boolean difficultyIsSatisfied = (_difficulty.isSatisfiedBy(sha256Hash));
         if (! difficultyIsSatisfied) { return false; }
 
-        return true; // TODO: Validate Transactions
+        // TODO: Validate satoshis generated within the coinbase transaction
+        return true;
     }
 
     @Override
