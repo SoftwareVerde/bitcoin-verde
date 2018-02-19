@@ -1,39 +1,40 @@
-package com.softwareverde.bitcoin.server.message.type.query.block.header;
+package com.softwareverde.bitcoin.server.message.type.query.block;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
-public class GetBlockHeadersMessageInflater extends ProtocolMessageInflater {
+public class QueryBlocksMessageInflater extends ProtocolMessageInflater {
 
     @Override
-    public GetBlockHeadersMessage fromBytes(final byte[] bytes) {
+    public QueryBlocksMessage fromBytes(final byte[] bytes) {
         final Integer blockHeaderHashByteCount = 32;
-        final GetBlockHeadersMessage getBlockHeadersMessage = new GetBlockHeadersMessage();
+        final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.GET_BLOCK_HEADERS);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.GET_BLOCKS);
         if (protocolMessageHeader == null) { return null; }
 
-        getBlockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
+        queryBlocksMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
-        if (blockHeaderCount >= GetBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
+        if (blockHeaderCount >= QueryBlocksMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
 
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-            getBlockHeadersMessage._blockHeaderHashes.add(blockHeaderHashBytes);
+            final ImmutableHash blockHeaderHash = new ImmutableHash(byteArrayReader.readBytes(32, Endian.LITTLE));
+            queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        ByteUtil.setBytes(getBlockHeadersMessage._desiredBlockHeaderHash, blockHeaderHashBytes);
+        queryBlocksMessage._desiredBlockHeaderHash.setBytes(blockHeaderHashBytes);
 
-        return getBlockHeadersMessage;
+        return queryBlocksMessage;
     }
 }

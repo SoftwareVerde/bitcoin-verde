@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class DataHash {
     private final DataHashType _dataHashType;
-    private final Hash _objectHash;
+    private final ImmutableHash _objectHash;
 
     public DataHash(final DataHashType dataHashType, final ImmutableHash objectHash) {
         _dataHashType = dataHashType;
@@ -19,7 +19,7 @@ public class DataHash {
         return _dataHashType;
     }
 
-    public Hash getObjectHash() {
+    public ImmutableHash getObjectHash() {
         return _objectHash;
     }
 

@@ -28,6 +28,10 @@ public class MutableHash implements Hash {
         ByteUtil.setBytes(_bytes, values);
     }
 
+    public void setBytes(final Hash hash) {
+        ByteUtil.setBytes(_bytes, hash.getBytes());
+    }
+
     public void setBytes(final byte[] values, final int offset) {
         ByteUtil.setBytes(_bytes, values, offset);
     }

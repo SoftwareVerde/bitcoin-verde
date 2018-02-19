@@ -87,7 +87,7 @@ public class Main {
 
         node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
             @Override
-            public void onBlockDownloaded(final Block block) {
+            public void onResult(final Block block) {
                 System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
             }
         });

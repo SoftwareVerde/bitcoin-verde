@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.query.block;
+package com.softwareverde.bitcoin.server.message.type.query.block.header;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
@@ -10,15 +10,15 @@ import com.softwareverde.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GetBlocksMessage extends ProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 500;
+public class QueryBlockHeadersMessage extends ProtocolMessage {
+    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000;
 
     protected Integer _version;
     protected List<byte[]> _blockHeaderHashes = new ArrayList<byte[]>();
     protected final byte[] _desiredBlockHeaderHash = new byte[32];
 
-    public GetBlocksMessage() {
-        super(MessageType.GET_BLOCKS);
+    public QueryBlockHeadersMessage() {
+        super(MessageType.GET_BLOCK_HEADERS);
         _version = Constants.PROTOCOL_VERSION;
     }
 

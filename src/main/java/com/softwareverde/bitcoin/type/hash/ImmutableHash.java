@@ -9,6 +9,11 @@ public class ImmutableHash implements Hash {
         _mutableHash = new MutableHash();
     }
 
+    public ImmutableHash(final MutableHash mutableHash) {
+        _mutableHash = new MutableHash();
+        _mutableHash.setBytes(mutableHash);
+    }
+
     public ImmutableHash(final byte[] bytes) {
         _mutableHash = new MutableHash(ByteUtil.copyBytes(bytes));
     }

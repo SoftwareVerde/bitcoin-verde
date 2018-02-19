@@ -1,7 +1,9 @@
-package com.softwareverde.bitcoin.server.message.type.query.block.header;
+package com.softwareverde.bitcoin.server.message.type.query.block;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -10,21 +12,21 @@ import com.softwareverde.util.Util;
 import java.util.ArrayList;
 import java.util.List;
 
-public class GetBlockHeadersMessage extends ProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000;
+public class QueryBlocksMessage extends ProtocolMessage {
+    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 500;
 
     protected Integer _version;
-    protected List<byte[]> _blockHeaderHashes = new ArrayList<byte[]>();
-    protected final byte[] _desiredBlockHeaderHash = new byte[32];
+    protected List<ImmutableHash> _blockHeaderHashes = new ArrayList<ImmutableHash>();
+    protected final MutableHash _desiredBlockHeaderHash = new MutableHash();
 
-    public GetBlockHeadersMessage() {
-        super(MessageType.GET_BLOCK_HEADERS);
+    public QueryBlocksMessage() {
+        super(MessageType.GET_BLOCKS);
         _version = Constants.PROTOCOL_VERSION;
     }
 
     public Integer getVersion() { return _version; }
 
-    public void addBlockHeaderHash(final byte[] blockHeaderHash) {
+    public void addBlockHeaderHash(final ImmutableHash blockHeaderHash) {
         if (_blockHeaderHashes.size() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
@@ -33,16 +35,16 @@ public class GetBlockHeadersMessage extends ProtocolMessage {
         _blockHeaderHashes.clear();
     }
 
-    public List<byte[]> getBlockHeaderHashes() {
+    public List<ImmutableHash> getBlockHeaderHashes() {
         return Util.copyList(_blockHeaderHashes);
     }
 
-    public byte[] getDesiredBlockHeaderHash() {
-        return ByteUtil.copyBytes(_desiredBlockHeaderHash);
+    public ImmutableHash getDesiredBlockHeaderHash() {
+        return new ImmutableHash(_desiredBlockHeaderHash);
     }
 
-    public void setDesiredBlockHeaderHash(final byte[] blockHeaderHash) {
-        ByteUtil.setBytes(_desiredBlockHeaderHash, blockHeaderHash);
+    public void setDesiredBlockHeaderHash(final ImmutableHash blockHeaderHash) {
+        _desiredBlockHeaderHash.setBytes(blockHeaderHash);
     }
 
     @Override
@@ -55,16 +57,16 @@ public class GetBlockHeadersMessage extends ProtocolMessage {
         final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final byte[] blockHeaderHash = _blockHeaderHashes.get(i);
+            final ImmutableHash blockHeaderHash = _blockHeaderHashes.get(i);
             final int startIndex = (blockHeaderHashByteCount * i);
-            ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash, startIndex);
+            ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);
         }
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash.getBytes(), Endian.LITTLE);
         return byteArrayBuilder.build();
     }
 }

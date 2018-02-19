@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.database.BlockTracker;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
@@ -10,7 +9,7 @@ import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressM
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessage;
-import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
@@ -18,6 +17,7 @@ import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
+import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -28,15 +28,43 @@ public class Node extends NodeConnectionDelegate {
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
-    public interface DownloadBlockCallback {
-        void onBlockDownloaded(Block block);
-    }
+    public interface QueryCallback extends Callback<List<ImmutableHash>> { }
+    public interface DownloadBlockCallback extends Callback<Block> { }
 
     protected Long _id;
-    protected final List<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
     protected Boolean _handshakeIsComplete = false;
+    protected final List<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
+
+    protected final Map<DataHashType, Set<QueryCallback>> _queryRequests = new HashMap<DataHashType, Set<QueryCallback>>();
     protected final Map<Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Hash, Set<DownloadBlockCallback>>();
+
+    protected <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
+        Set<S> destinationSet = destinationMap.get(key);
+        if (destinationSet == null) {
+            destinationSet = new HashSet<S>();
+            destinationMap.put(key, destinationSet);
+        }
+        destinationSet.add(value);
+    }
+
+    protected <T, S> void _storeInMapList(final Map<T, List<S>> destinationList, final T key, final S value) {
+        List<S> destinationSet = destinationList.get(key);
+        if (destinationSet == null) {
+            destinationSet = new ArrayList<S>();
+            destinationList.put(key, destinationSet);
+        }
+        destinationSet.add(value);
+    }
+
+    protected <U, T, S extends Callback<U>> void _executeCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
+        final Set<S> callbackSet = callbackMap.remove(key);
+        if (callbackSet == null) { return; }
+
+        for (final S callback : callbackSet) {
+            callback.onResult(value);
+        }
+    }
 
     protected void _queueMessage(final ProtocolMessage message) {
         if (_handshakeIsComplete) {
@@ -95,14 +123,18 @@ public class Node extends NodeConnectionDelegate {
 
     @Override
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
+        final Map<DataHashType, List<ImmutableHash>> dataHashesMap = new HashMap<DataHashType, List<ImmutableHash>>();
+
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
         for (final DataHash dataHash : dataHashes) {
             final DataHashType dataHashType = dataHash.getDataHashType();
-            if (! _availableDataHashes.containsKey(dataHashType)) {
-                _availableDataHashes.put(dataHashType, new HashSet<DataHash>());
-            }
+            _storeInMapSet(_availableDataHashes, dataHashType, dataHash);
+            _storeInMapList(dataHashesMap, dataHashType, dataHash.getObjectHash());
+        }
 
-            _availableDataHashes.get(dataHashType).add(dataHash);
+        for (final DataHashType dataHashType : dataHashesMap.keySet()) {
+            final List<ImmutableHash> objectHashes = dataHashesMap.get(dataHashType);
+            _executeCallbacks(_queryRequests, dataHashType, objectHashes);
         }
     }
 
@@ -112,12 +144,13 @@ public class Node extends NodeConnectionDelegate {
         final Boolean blockHeaderIsValid = block.validateBlockHeader();
 
         final Hash blockHash = block.calculateSha256Hash();
-        final Set<DownloadBlockCallback> downloadBlockCallbacks = _downloadBlockRequests.remove(blockHash);
-        if (downloadBlockCallbacks == null) { return; }
+        _executeCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
+    }
 
-        for (DownloadBlockCallback downloadBlockCallback : downloadBlockCallbacks) {
-            downloadBlockCallback.onBlockDownloaded((blockHeaderIsValid ? block : null));
-        }
+    protected void _queryForBlockHashesAfter(final ImmutableHash blockHash) {
+        final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+        queryBlocksMessage.addBlockHeaderHash(blockHash);
+        _queueMessage(queryBlocksMessage);
     }
 
     protected void _requestBlock(final ImmutableHash blockHash) {
@@ -134,13 +167,13 @@ public class Node extends NodeConnectionDelegate {
         }
     }
 
+    public void getBlockHashesAfter(final ImmutableHash blockHash, final QueryCallback queryCallback) {
+        _storeInMapSet(_queryRequests, DataHashType.BLOCK, queryCallback);
+        _queryForBlockHashesAfter(blockHash);
+    }
+
     public void requestBlock(final ImmutableHash blockHash, final DownloadBlockCallback downloadBlockCallback) {
-        if (!_downloadBlockRequests.containsKey(blockHash)) {
-            _downloadBlockRequests.put(blockHash, new HashSet<DownloadBlockCallback>());
-        }
-
-        _downloadBlockRequests.get(blockHash).add(downloadBlockCallback);
-
+        _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
         _requestBlock(blockHash);
     }
 
