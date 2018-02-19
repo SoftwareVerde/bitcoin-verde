@@ -1,54 +1,15 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.database.BlockTracker;
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
-import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
-import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
-import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessage;
-import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
-import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessage;
-import com.softwareverde.bitcoin.server.message.type.query.block.GetBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
-import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.socket.ConnectionManager;
-import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
+import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Main {
-    protected static class DataHashManager {
-        private Integer _index = 0;
-        private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
-
-        public void setDataHashes(final List<DataHash> dataHashes) {
-            _index = 0;
-            _dataHashes.clear();
-            _dataHashes.addAll(dataHashes);
-        }
-
-        public DataHash getNextDataHash() {
-            final DataHash dataHash = _dataHashes.get(_index);
-            _index += 1;
-            return dataHash;
-        }
-
-        public Boolean hasNextDataHash() {
-            return (_index < _dataHashes.size());
-        }
-    }
-    protected final DataHashManager _dataHashManager = new DataHashManager();
-
     protected final Configuration _configuration;
     protected final Environment _environment;
 
@@ -102,12 +63,6 @@ public class Main {
         }
     }
 
-    protected void _requestNextBlock(final ConnectionManager connectionManager) {
-        final RequestDataMessage requestDataMessage = new RequestDataMessage();
-        requestDataMessage.addInventoryItem(_dataHashManager.getNextDataHash());
-        connectionManager.queueMessage(requestDataMessage);
-    }
-
     public Main(final String[] commandLineArguments) {
         if (commandLineArguments.length != 1) {
             _printUsage();
@@ -128,98 +83,14 @@ public class Main {
         final String host = "btc.softwareverde.com";
         final Integer port = 8333;
 
-        final ConnectionManager connectionManager = new ConnectionManager(host, port);
+        final Node node = new Node(host, port);
 
-        connectionManager.setMessageReceivedCallback(new ConnectionManager.MessageReceivedCallback() {
+        node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
             @Override
-            public void onMessageReceived(final ProtocolMessage message) {
-                switch (message.getCommand()) {
-
-                    case PING: {
-                        final PingMessage pingMessage = (PingMessage) message;
-                        final PongMessage pongMessage = new PongMessage();
-                        pongMessage.setNonce(pingMessage.getNonce());
-                        connectionManager.queueMessage(pongMessage);
-                    } break;
-
-                    case ACKNOWLEDGE_VERSION: {
-                        final PingMessage pingMessage = new PingMessage();
-                        connectionManager.queueMessage(pingMessage);
-
-                        final GetBlocksMessage getBlocksMessage = new GetBlocksMessage();
-                        connectionManager.queueMessage(getBlocksMessage);
-                    } break;
-
-                    case NODE_ADDRESSES: {
-                        final NodeIpAddressMessage nodeIpAddressMessage = (NodeIpAddressMessage) message;
-                        for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
-                            System.out.println("Network Address: "+ BitcoinUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
-                        }
-                    } break;
-
-                    case REJECT: {
-                        final ErrorMessage errorMessage = (ErrorMessage) message;
-                        final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
-                        System.out.println("RECEIVED REJECT:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(errorMessage.getExtraData()));
-                    } break;
-
-                    case INVENTORY: {
-                        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) message;
-                        synchronized (_dataHashManager) {
-                            _dataHashManager.setDataHashes(queryResponseMessage.getDataHashes());
-                        }
-
-                        if (_dataHashManager.hasNextDataHash()) {
-                            _requestNextBlock(connectionManager);
-                        }
-                    } break;
-
-                    case BLOCK: {
-                        final BlockTracker blockTracker = BlockTracker.getInstance();
-
-                        final BlockMessage blockMessage = (BlockMessage) message;
-                        final Block block = blockMessage.getBlock();
-
-                        final Boolean blockIsValid = blockTracker.validateBlock(block);
-                        System.out.println("BLOCK #"+ (blockTracker.getBlockCount() + 1) +" : "+ BitcoinUtil.toHexString(block.calculateSha256Hash()) + " | "+ (blockIsValid ? "VALIDATED" : "INVALID"));
-
-                        if (blockIsValid) {
-                            blockTracker.addBlock(block);
-
-                            if (_dataHashManager.hasNextDataHash()) {
-                                _requestNextBlock(connectionManager);
-                            }
-                        }
-                    }
-                }
-
-                // System.out.println("RECEIVED "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));
+            public void onBlockDownloaded(final Block block) {
+                System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
             }
         });
-
-        connectionManager.setOnConnectCallback(new Runnable() {
-            @Override
-            public void run() {
-                final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
-                { // Set Remote NodeIpAddress...
-                    final NodeIpAddress remoteNodeIpAddress = new NodeIpAddress();
-                    remoteNodeIpAddress.setIp(Ipv4.parse(connectionManager.getRemoteIp()));
-                    remoteNodeIpAddress.setPort(port);
-                    remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
-                    synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
-                }
-                connectionManager.queueMessage(synchronizeVersionMessage);
-            }
-        });
-
-        connectionManager.setOnDisconnectCallback(new Runnable() {
-            @Override
-            public void run() {
-                System.out.println("Socket disconnected.");
-            }
-        });
-
-        connectionManager.startConnectionThread();
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }

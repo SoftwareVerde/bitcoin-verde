@@ -20,8 +20,8 @@ public abstract class ProtocolMessage {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
         PING("ping"), PONG("pong"),
         NODE_ADDRESSES("addr"),
-        GET_BLOCK_HEADERS("getheaders"), GET_BLOCKS("getblocks"), INVENTORY("inv"), GET_DATA("getdata"),
-        REJECT("reject"),
+        GET_BLOCK_HEADERS("getheaders"), GET_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), GET_DATA("getdata"),
+        ERROR("reject"),
         BLOCK("block");
 
         public static MessageType fromBytes(final byte[] bytes) {

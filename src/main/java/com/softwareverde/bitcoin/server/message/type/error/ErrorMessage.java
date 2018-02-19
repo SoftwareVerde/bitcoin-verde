@@ -79,7 +79,7 @@ public class ErrorMessage extends ProtocolMessage {
     protected byte[] _extraData;
 
     public ErrorMessage() {
-        super(MessageType.REJECT);
+        super(MessageType.ERROR);
         _rejectDescription = "";
         _rejectCode = RejectCode.REJECT;
         _extraData = new byte[0];

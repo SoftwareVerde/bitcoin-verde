@@ -28,12 +28,12 @@ public class BlockMessageInflaterTests {
         final Block block = blockMessage.getBlock();
         Assert.assertNotNull(block);
 
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), block.calculateSha256Hash());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), block.calculateSha256Hash().getBytes());
         Assert.assertTrue(block.getDifficulty().isSatisfiedBy(block.calculateSha256Hash()));
 
         Assert.assertEquals(1, block.getVersion().intValue());
-        TestUtil.assertEqual(new byte[]{ }, block.getPreviousBlockHash());
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("4A5E1E4BAAB89F3A32518A88C31BC87F618F76673E2CC77AB2127B7AFDEDA33B"), block.getMerkleRoot());
+        TestUtil.assertEqual(new byte[]{ }, block.getPreviousBlockHash().getBytes());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("4A5E1E4BAAB89F3A32518A88C31BC87F618F76673E2CC77AB2127B7AFDEDA33B"), block.getMerkleRoot().getBytes());
         Assert.assertEquals(1231006505L, block.getTimestamp().longValue());
         Assert.assertEquals(1.0, Math.round(block.getDifficulty().getDifficultyRatio().doubleValue() * 100.0) / 100.0, 0.0001);
         Assert.assertEquals(2083236893L, block.getNonce().longValue());

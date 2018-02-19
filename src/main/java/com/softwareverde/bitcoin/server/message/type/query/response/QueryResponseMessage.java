@@ -15,7 +15,7 @@ public class QueryResponseMessage extends ProtocolMessage {
     private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
 
     public QueryResponseMessage() {
-        super(MessageType.INVENTORY);
+        super(MessageType.QUERY_RESPONSE);
     }
 
     public List<DataHash> getDataHashes() {

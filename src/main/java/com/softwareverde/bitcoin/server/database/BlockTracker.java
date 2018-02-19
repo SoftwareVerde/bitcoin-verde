@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
@@ -59,7 +60,7 @@ public class BlockTracker {
     }
 
     protected Block _genesisBlock = null;
-    protected final Map<byte[], Block> _blocks = new HashMap<byte[], Block>();
+    protected final Map<Hash, Block> _blocks = new HashMap<Hash, Block>();
     protected final Map<TransactionOutputId, TransactionOutput> _unspentTransactionOutputs = new HashMap<TransactionOutputId, TransactionOutput>();
 
     protected BlockTracker() { }

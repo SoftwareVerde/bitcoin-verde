@@ -1,7 +1,8 @@
-package com.softwareverde.bitcoin.server.socket;
+package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.async.HaltableThread;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.socket.BitcoinSocket;
 import com.softwareverde.util.StringUtil;
 
 import java.io.IOException;
@@ -9,7 +10,7 @@ import java.net.Socket;
 import java.util.ArrayDeque;
 import java.util.Queue;
 
-public class ConnectionManager {
+public class NodeConnection {
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
     }
@@ -66,7 +67,7 @@ public class ConnectionManager {
 
                 final Boolean isFirstConnection = (_connectionCount == 0);
                 if (isFirstConnection) {
-                    System.out.println("IO: ConnectionManager: Connection established.");
+                    System.out.println("IO: NodeConnection: Connection established.");
 
                     _processOutboundMessageQueue();
 
@@ -75,7 +76,7 @@ public class ConnectionManager {
                     }
                 }
                 else {
-                    System.out.println("IO: ConnectionManager: Connection regained.");
+                    System.out.println("IO: NodeConnection: Connection regained.");
                     _processOutboundMessageQueue();
 
                     if (_onReconnectCallback != null) {
@@ -100,7 +101,7 @@ public class ConnectionManager {
         }
     }
 
-    public ConnectionManager(final String host, final Integer port) {
+    public NodeConnection(final String host, final Integer port) {
         _host = host;
         _port = port;
 
@@ -114,7 +115,7 @@ public class ConnectionManager {
                         (new Thread(_onDisconnectCallback)).start();
                     }
                     _socketUsedToBeConnected = false;
-                    System.out.println("IO: ConnectionManager: Connection lost.");
+                    System.out.println("IO: NodeConnection: Connection lost.");
                 }
 
                 _connectSocket();
@@ -163,4 +164,8 @@ public class ConnectionManager {
     public String getRemoteIp() {
         return _remoteIp;
     }
+
+    public String getHost() { return _host; }
+
+    public Integer getPort() { return _port; }
 }

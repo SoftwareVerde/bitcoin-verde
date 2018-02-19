@@ -6,8 +6,8 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class BlockHeaderInflater {
-    protected BlockHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final BlockHeader blockHeader = new BlockHeader();
+    protected MutableBlockHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+        final MutableBlockHeader blockHeader = new MutableBlockHeader();
 
         // 0100 0000                                                                        // Version
         // 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000  // Previous Block Hash
@@ -30,11 +30,11 @@ public class BlockHeaderInflater {
         return blockHeader;
     }
 
-    public BlockHeader fromBytes(final ByteArrayReader byteArrayReader) {
+    public MutableBlockHeader fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public BlockHeader fromBytes(final byte[] bytes) {
+    public MutableBlockHeader fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }

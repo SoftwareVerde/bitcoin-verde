@@ -1,7 +1,10 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -9,15 +12,14 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Block extends BlockHeader {
-
+public class Block extends MutableBlockHeader {
     protected final List<Transaction> _transactions = new ArrayList<Transaction>();
 
     public Block() { }
     public Block(final BlockHeader blockHeader) {
         _version = blockHeader.getVersion();
-        ByteUtil.setBytes(_previousBlockHash, blockHeader.getPreviousBlockHash());
-        ByteUtil.setBytes(_merkleRoot, blockHeader.getMerkleRoot());
+        ByteUtil.setBytes(_previousBlockHash, blockHeader.getPreviousBlockHash().getBytes());
+        ByteUtil.setBytes(_merkleRoot, blockHeader.getMerkleRoot().getBytes());
         _timestamp = blockHeader.getTimestamp();
         _difficulty = blockHeader.getDifficulty();
         _nonce = blockHeader.getNonce();
@@ -40,7 +42,7 @@ public class Block extends BlockHeader {
     }
 
     public Boolean validateBlockHeader() {
-        final byte[] sha256Hash = _calculateSha256Hash();
+        final ImmutableHash sha256Hash = _calculateSha256Hash();
         final Boolean difficultyIsSatisfied = (_difficulty.isSatisfiedBy(sha256Hash));
         if (! difficultyIsSatisfied) { return false; }
 

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.util;
 
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.security.encoding.Base58;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
@@ -20,6 +21,9 @@ public class BitcoinUtil {
             hexChars[j * 2 + 1] = HEX_ALPHABET[v & 0x0F];
         }
         return new String(hexChars);
+    }
+    public static String toHexString(final ByteArray bytes) {
+        return toHexString(bytes.getBytes());
     }
 
     /**

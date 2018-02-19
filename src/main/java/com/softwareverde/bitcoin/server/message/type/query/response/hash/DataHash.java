@@ -1,23 +1,25 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class DataHash {
     private final DataHashType _dataHashType;
-    private byte[] _objectHash = new byte[32];
+    private final Hash _objectHash;
 
-    public DataHash(final DataHashType dataHashType, final byte[] objectHash) {
+    public DataHash(final DataHashType dataHashType, final ImmutableHash objectHash) {
         _dataHashType = dataHashType;
-        ByteUtil.setBytes(_objectHash, objectHash);
+        _objectHash = objectHash;
     }
 
     public DataHashType getDataHashType() {
         return _dataHashType;
     }
 
-    public byte[] getObjectHash() {
+    public Hash getObjectHash() {
         return _objectHash;
     }
 
@@ -28,7 +30,7 @@ public class DataHash {
         ByteUtil.setBytes(inventoryTypeBytes, ByteUtil.integerToBytes(_dataHashType.getValue()));
 
         byteArrayBuilder.appendBytes(inventoryTypeBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_objectHash, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_objectHash.getBytes(), Endian.LITTLE);
 
         return byteArrayBuilder.build();
     }

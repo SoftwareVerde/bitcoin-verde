@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.math.BigDecimal;
@@ -42,14 +44,12 @@ public class Difficulty {
         return bytes;
     }
 
-    public Boolean isSatisfiedBy(final byte[] sha256) {
-        if (sha256.length != 32) { return false; }
-
+    public Boolean isSatisfiedBy(final ImmutableHash hash) {
         final byte[] bytes = _convertToBytes();
 
         for (int i=0; i<bytes.length; ++i) {
             final int difficultyByte = ByteUtil.byteToInteger(bytes[i]);
-            final int sha256Byte = ByteUtil.byteToInteger(sha256[i]);
+            final int sha256Byte = ByteUtil.byteToInteger(hash.get(i));
             if (sha256Byte == difficultyByte) { continue; }
             return (sha256Byte < difficultyByte);
         }

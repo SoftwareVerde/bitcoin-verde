@@ -30,8 +30,8 @@ public class ProtocolMessageFactory {
         _commandInflaterMap.put(ProtocolMessage.MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCK_HEADERS, new GetBlockHeadersMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCKS, new GetBlocksMessageInflater());
-        _commandInflaterMap.put(ProtocolMessage.MessageType.REJECT, new ErrorMessageInflater());
-        _commandInflaterMap.put(ProtocolMessage.MessageType.INVENTORY, new QueryResponseMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.ERROR, new ErrorMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.QUERY_RESPONSE, new QueryResponseMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.BLOCK, new BlockMessageInflater());
     }
 

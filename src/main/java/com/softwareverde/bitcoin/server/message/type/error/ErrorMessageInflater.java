@@ -13,7 +13,7 @@ public class ErrorMessageInflater extends ProtocolMessageInflater {
         final ErrorMessage errorMessage = new ErrorMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.REJECT);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.ERROR);
         if (protocolMessageHeader == null) { return null; }
 
         final ErrorMessage.RejectMessageType rejectMessageType = ErrorMessage.RejectMessageType.fromString(byteArrayReader.readVariableLengthString());
