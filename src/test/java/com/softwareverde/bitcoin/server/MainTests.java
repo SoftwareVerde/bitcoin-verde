@@ -12,13 +12,6 @@ public class MainTests {
     protected void _loop() {
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
-
-            if ((Math.random() * 777) % 1000 < 10) {
-                System.gc();
-            }
-
-            // _printMemoryUsage();
-            // _checkForDeadlockedThreads();
         }
     }
 

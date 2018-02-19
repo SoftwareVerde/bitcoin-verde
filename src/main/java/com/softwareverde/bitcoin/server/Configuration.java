@@ -13,11 +13,17 @@ public class Configuration {
         private String _username;
         private String _password;
         private String _schema;
+        private Integer _port;
+        private String _dataDirectory;
+        private String _tmpDirectory;
 
         public String getConnectionUrl() { return _connectionUrl; }
         public String getUsername() { return _username; }
         public String getPassword() { return _password; }
         public String getSchema() { return _schema; }
+        public Integer getPort() { return _port; }
+        public String getDataDirectory() { return _dataDirectory; }
+        public String getTmpDirectory() { return _tmpDirectory; }
     }
 
     public static class ServerProperties {
@@ -36,6 +42,9 @@ public class Configuration {
         _databaseProperties._username = _properties.getProperty("database.username", "");
         _databaseProperties._password = _properties.getProperty("database.password", "");
         _databaseProperties._schema = _properties.getProperty("database.schema", "");
+        _databaseProperties._port = Util.parseInt(_properties.getProperty("database.port", "8336"));
+        _databaseProperties._dataDirectory = _properties.getProperty("database.dataDirectory", "data");
+        _databaseProperties._tmpDirectory = _properties.getProperty("database.tmpDirectory", "tmp");
     }
 
     private void _loadServerProperties() {

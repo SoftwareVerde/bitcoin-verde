@@ -1,15 +1,29 @@
 package com.softwareverde.bitcoin.server;
 
+import ch.vorburger.mariadb4j.DB;
+import ch.vorburger.mariadb4j.DBConfiguration;
+import ch.vorburger.mariadb4j.DBConfigurationBuilder;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
+import java.util.List;
 
 public class Main {
+    private static class Database {
+        public final DB databaseInstance;
+        public final DatabaseConnectionFactory databaseConnectionFactory;
+
+        public Database(final DB database, final DatabaseConnectionFactory databaseConnectionFactory) {
+            this.databaseInstance = database;
+            this.databaseConnectionFactory = databaseConnectionFactory;
+        }
+    }
+
     protected final Configuration _configuration;
     protected final Environment _environment;
 
@@ -35,32 +49,69 @@ public class Main {
         return new Configuration(configurationFile);
     }
 
-    protected void _printMemoryUsage() {
-        final Runtime runtime = Runtime.getRuntime();
-        final Long maxMemory = runtime.maxMemory();
-        final Long freeMemory = runtime.freeMemory();
-        final Long reservedMemory = runtime.totalMemory();
-        final Long currentMemoryUsage = reservedMemory - freeMemory;
+    protected Database _loadDatabase(final Configuration.DatabaseProperties databaseProperties) {
+        final String databaseName   = "bitcoin";
+        final String username       = "root";
+        final String password       = "";
 
-        final Long toMegabytes = 1048576L;
-        System.out.print("\33[1A\33[2K");
-        System.out.println((currentMemoryUsage/toMegabytes) +"mb / "+ (maxMemory/toMegabytes) +"mb ("+ String.format("%.2f", (currentMemoryUsage.floatValue() / maxMemory.floatValue() * 100.0F)) +"%)");
-    }
+        final DatabaseConnectionFactory databaseConnectionFactory;
+        final DBConfiguration dbConfiguration;
+        {
+            final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();
+            configBuilder.setPort(databaseProperties.getPort());
+            configBuilder.setDataDir(databaseProperties.getDataDirectory());
+            configBuilder.setLibDir(databaseProperties.getTmpDirectory());
+            dbConfiguration = configBuilder.build();
 
-    protected void _checkForDeadlockedThreads() {
-        final ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-        final long[] threadIds = bean.findDeadlockedThreads(); // Returns null if no threads are deadlocked.
+            final String connectionString = configBuilder.getURL(databaseName);
+            databaseConnectionFactory = new DatabaseConnectionFactory(connectionString, username, password);
+        }
 
-        if (threadIds != null) {
-            final ThreadInfo[] threadInfo = bean.getThreadInfo(threadIds);
+        final DB databaseInstance;
+        {
+            DB db = null;
+            try {
+                System.out.println("[Starting Database]");
+                db = DB.newEmbeddedDB(dbConfiguration);
+                db.start();
+                db.createDB(databaseName); // NOTE: Executes as "CREATE IF NOT EXISTS", and is necessary for the connection string.
+            }
+            catch (final Exception exception) {
+                exception.printStackTrace();
+                _exitFailure();
+            }
+            databaseInstance = db;
+        }
 
-            for (final ThreadInfo info : threadInfo) {
-                final StackTraceElement[] stack = info.getStackTrace();
-                for (final StackTraceElement stackTraceElement : stack) {
-                    System.out.println(stackTraceElement);
+        { // Initialize Database...
+            final Integer databaseVersionNumber;
+            {
+                Integer versionNumber = 0;
+                try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    final List<Row> rows = databaseConnection.query("SELECT version FROM metadata ORDER BY id DESC LIMIT 1", null);
+                    if (! rows.isEmpty()) {
+                        final Row row = rows.get(0);
+                        versionNumber = row.getInteger("version");
+                    }
+                }
+                catch (final Exception exception) { }
+                databaseVersionNumber = versionNumber;
+            }
+
+            try {
+                if (databaseVersionNumber < Constants.DATABASE_VERSION) {
+                    System.out.println("[Upgrading Database]");
+                    databaseInstance.run("DROP DATABASE IF EXISTS test;");
+                    databaseInstance.source("queries/init.sql", null, null, "bitcoin");
                 }
             }
+            catch (final Exception exception) {
+                exception.printStackTrace();
+                _exitFailure();
+            }
         }
+
+        return new Database(databaseInstance, databaseConnectionFactory);
     }
 
     public Main(final String[] commandLineArguments) {
@@ -72,7 +123,12 @@ public class Main {
         final String configurationFilename = commandLineArguments[0];
 
         _configuration = _loadConfigurationFile(configurationFilename);
-        _environment = new Environment();
+
+        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Database database = _loadDatabase(databaseProperties);
+        System.out.println("[Database Online]");
+
+        _environment = new Environment(database.databaseInstance, database.databaseConnectionFactory);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
     }
@@ -94,13 +150,6 @@ public class Main {
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
-
-            if ((Math.random() * 777) % 1000 < 10) {
-                System.gc();
-            }
-
-            // _printMemoryUsage();
-            // _checkForDeadlockedThreads();
         }
     }
 
