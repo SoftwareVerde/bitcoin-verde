@@ -30,7 +30,7 @@ dependencies {
     compile group: 'com.github.softwareverde',  name: 'java-tls',       version: 'v0.1.0+'
     compile group: 'com.github.softwareverde',  name: 'java-async',     version: 'v0.2.0+'
     compile group: 'com.github.softwareverde',  name: 'java-db-mysql',  version: 'v2.0.2+'
-    compile group: 'com.github.vorburger',      name: 'mariaDB4j',      version: 'mariaDB4j-2.2.3'
+    compile group: 'com.github.softwareverde',  name: 'mariaDB4j',      version: 'master-SNAPSHOT'
 
     // Logging
     compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.9'

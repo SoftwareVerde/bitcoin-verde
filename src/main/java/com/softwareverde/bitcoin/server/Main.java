@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
@@ -50,21 +52,33 @@ public class Main {
     }
 
     protected Database _loadDatabase(final Configuration.DatabaseProperties databaseProperties) {
-        final String databaseName   = "bitcoin";
-        final String username       = "root";
-        final String password       = "";
+        final String rootUsername = "root";
+        final String rootPassword = "";
+        final String rootHost = "127.0.0.1";
+        final String newRootPassword = databaseProperties.getRootPassword();
 
+        final String databaseSchema     = databaseProperties.getSchema();
+        final String databaseUsername   = databaseProperties.getUsername();
+        final String databasePassword   = databaseProperties.getPassword();
+
+        final String maintenanceUsername = (databaseUsername + "_maintenance");
+        final String maintenancePassword = newRootPassword;
+
+        final DatabaseConnectionFactory defaultCredentialsDatabaseConnectionFactory;
         final DatabaseConnectionFactory databaseConnectionFactory;
         final DBConfiguration dbConfiguration;
         {
             final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();
             configBuilder.setPort(databaseProperties.getPort());
             configBuilder.setDataDir(databaseProperties.getDataDirectory());
-            configBuilder.setLibDir(databaseProperties.getTmpDirectory());
+            configBuilder.setSecurityDisabled(false);
             dbConfiguration = configBuilder.build();
 
-            final String connectionString = configBuilder.getURL(databaseName);
-            databaseConnectionFactory = new DatabaseConnectionFactory(connectionString, username, password);
+            final String connectionString = configBuilder.getURL(databaseSchema);
+            databaseConnectionFactory = new DatabaseConnectionFactory(connectionString, databaseUsername, databasePassword);
+
+            final String defaultCredentialsConnectionString = configBuilder.getURL(""); // NOTE: Should not be null.
+            defaultCredentialsDatabaseConnectionFactory = new DatabaseConnectionFactory(defaultCredentialsConnectionString, rootUsername, rootPassword);
         }
 
         final DB databaseInstance;
@@ -74,13 +88,71 @@ public class Main {
                 System.out.println("[Starting Database]");
                 db = DB.newEmbeddedDB(dbConfiguration);
                 db.start();
-                db.createDB(databaseName); // NOTE: Executes as "CREATE IF NOT EXISTS", and is necessary for the connection string.
             }
             catch (final Exception exception) {
                 exception.printStackTrace();
                 _exitFailure();
             }
             databaseInstance = db;
+        }
+
+        { // Check for default username/password...
+            try (final MysqlDatabaseConnection databaseConnection = defaultCredentialsDatabaseConnectionFactory.newConnection()) {
+                try {
+                    System.out.println("[Configuring Database]");
+                    databaseConnection.executeDdl("DROP DATABASE IF EXISTS `test`");
+                    databaseConnection.executeDdl("CREATE DATABASE IF NOT EXISTS `"+ databaseSchema +"`");
+
+                    { // Restrict root to localhost and set root password...
+                        databaseConnection.executeSql(
+                            new Query("DELETE FROM mysql.user WHERE user != ? OR host != ?")
+                                .setParameter(rootUsername)
+                                .setParameter(rootHost)
+                        );
+                        databaseConnection.executeSql(
+                            new Query("ALTER USER ?@? IDENTIFIED BY ?")
+                                .setParameter(rootUsername)
+                                .setParameter(rootHost)
+                                .setParameter(newRootPassword)
+                        );
+                    }
+
+                    { // Create maintenance user and permissions...
+                        databaseConnection.executeSql(
+                            new Query("CREATE USER ? IDENTIFIED BY ?")
+                                .setParameter(maintenanceUsername)
+                                .setParameter(maintenancePassword)
+                        );
+                        databaseConnection.executeSql(
+                            new Query("GRANT ALL PRIVILEGES ON `" + databaseSchema + "`.* TO ? IDENTIFIED BY ?")
+                                .setParameter(maintenanceUsername)
+                                .setParameter(maintenancePassword)
+                        );
+                    }
+
+                    { // Create regular user and permissions...
+                        databaseConnection.executeSql(
+                            new Query("CREATE USER ? IDENTIFIED BY ?")
+                                .setParameter(databaseUsername)
+                                .setParameter(databasePassword)
+                        );
+                        databaseConnection.executeSql(
+                            new Query("GRANT SELECT, INSERT, DELETE, UPDATE, EXECUTE ON `" + databaseSchema + "`.* TO ? IDENTIFIED BY ?")
+                                .setParameter(databaseUsername)
+                                .setParameter(databasePassword)
+                        );
+                    }
+
+                    databaseConnection.executeSql("FLUSH PRIVILEGES", null);
+                }
+                catch (final DatabaseException exception) {
+                    exception.printStackTrace();
+                    _exitFailure();
+                }
+            }
+            catch (final DatabaseException exception) {
+                // Failing to connect with default credentials indicates the server has already been configured...
+            }
         }
 
         { // Initialize Database...
@@ -101,8 +173,7 @@ public class Main {
             try {
                 if (databaseVersionNumber < Constants.DATABASE_VERSION) {
                     System.out.println("[Upgrading Database]");
-                    databaseInstance.run("DROP DATABASE IF EXISTS test;");
-                    databaseInstance.source("queries/init.sql", null, null, "bitcoin");
+                    databaseInstance.source("queries/init.sql", maintenanceUsername, maintenancePassword, databaseSchema);
                 }
             }
             catch (final Exception exception) {

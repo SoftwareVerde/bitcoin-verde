@@ -9,21 +9,21 @@ import java.util.Properties;
 
 public class Configuration {
     public static class DatabaseProperties {
+        private String _rootPassword;
         private String _connectionUrl;
         private String _username;
         private String _password;
         private String _schema;
         private Integer _port;
         private String _dataDirectory;
-        private String _tmpDirectory;
 
+        public String getRootPassword() { return  _rootPassword; }
         public String getConnectionUrl() { return _connectionUrl; }
         public String getUsername() { return _username; }
         public String getPassword() { return _password; }
         public String getSchema() { return _schema; }
         public Integer getPort() { return _port; }
         public String getDataDirectory() { return _dataDirectory; }
-        public String getTmpDirectory() { return _tmpDirectory; }
     }
 
     public static class ServerProperties {
@@ -38,13 +38,13 @@ public class Configuration {
 
     private void _loadDatabaseProperties() {
         _databaseProperties = new DatabaseProperties();
+        _databaseProperties._rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
         _databaseProperties._connectionUrl = _properties.getProperty("database.url", "");
-        _databaseProperties._username = _properties.getProperty("database.username", "");
+        _databaseProperties._username = _properties.getProperty("database.username", "root");
         _databaseProperties._password = _properties.getProperty("database.password", "");
-        _databaseProperties._schema = _properties.getProperty("database.schema", "");
+        _databaseProperties._schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
         _databaseProperties._port = Util.parseInt(_properties.getProperty("database.port", "8336"));
         _databaseProperties._dataDirectory = _properties.getProperty("database.dataDirectory", "data");
-        _databaseProperties._tmpDirectory = _properties.getProperty("database.tmpDirectory", "tmp");
     }
 
     private void _loadServerProperties() {
