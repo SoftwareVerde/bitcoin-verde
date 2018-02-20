@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -29,6 +30,13 @@ public class BlockDatabaseManager {
 
         final Row row = rows.get(0);
         return row.getLong("id");
+    }
+
+    protected void _storeBlockTransactions(final Long blockId, final Block block) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+        for (final Transaction transaction : block.getTransactions()) {
+            transactionDatabaseManager.storeTransaction(blockId, transaction);
+        }
     }
 
     protected void _updateBlockHeader(final Long blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -62,16 +70,31 @@ public class BlockDatabaseManager {
         );
     }
 
-    public Long storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        final Long existingBlockId = _getBlockIdFromHash(blockHeader.calculateSha256Hash());
-
-        if (existingBlockId != null) {
-            _updateBlockHeader(existingBlockId, blockHeader);
-            return existingBlockId;
+    protected Long _storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        final Long blockId;
+        {
+            final Long existingBlockId = _getBlockIdFromHash(blockHeader.calculateSha256Hash());
+            if (existingBlockId != null) {
+                _updateBlockHeader(existingBlockId, blockHeader);
+                blockId = existingBlockId;
+            }
+            else {
+                blockId = _insertBlockHeader(blockHeader);
+            }
         }
+        return blockId;
+    }
 
-        final Long newBlockId = _insertBlockHeader(blockHeader);
-        return newBlockId;
+    public Long storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        return _storeBlockHeader(blockHeader);
+    }
+
+    public Long storeBlock(final Block block) throws DatabaseException {
+        final Long blockId = _storeBlockHeader(block);
+
+        _storeBlockTransactions(blockId, block);
+
+        return blockId;
     }
 
     public Hash getMostRecentBlockHash() throws DatabaseException {
@@ -80,5 +103,9 @@ public class BlockDatabaseManager {
 
         final Row row = rows.get(0);
         return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));
+    }
+
+    public Long getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
+        return _getBlockIdFromHash(blockHash);
     }
 }

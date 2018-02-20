@@ -1,18 +1,19 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class TransactionInputInflater {
-    protected TransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final TransactionInput transactionInput = new TransactionInput();
+    protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+        final MutableTransactionInput transactionInput = new MutableTransactionInput();
 
-        transactionInput._previousTransactionOutputHash = byteArrayReader.readBytes(32, Endian.LITTLE);
+        transactionInput._previousTransactionOutputHash = new MutableHash(byteArrayReader.readBytes(32, Endian.LITTLE));
         transactionInput._previousTransactionOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         transactionInput._signatureScript = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);
-        transactionInput._sequenceNumber = byteArrayReader.readInteger(4, Endian.LITTLE);
+        transactionInput._sequenceNumber = byteArrayReader.readLong(4, Endian.LITTLE);
 
         return transactionInput;
     }

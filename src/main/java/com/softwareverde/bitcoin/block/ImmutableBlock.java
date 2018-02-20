@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
@@ -23,7 +24,7 @@ public class ImmutableBlock implements Block {
 
         final MutableBlock mutableBlock = new MutableBlock(block);
         for (final Transaction transaction : block.getTransactions()) {
-            mutableBlock.addTransaction(transaction.copy()); // TODO refactor as: mutableBlock.addTransaction(new ImmutableTransaction(transaction));
+            mutableBlock.addTransaction(new ImmutableTransaction(transaction));
         }
         _block = mutableBlock;
     }

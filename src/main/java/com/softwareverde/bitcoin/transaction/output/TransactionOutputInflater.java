@@ -5,9 +5,9 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class TransactionOutputInflater {
     protected TransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
-        final TransactionOutput transactionOutput = new TransactionOutput();
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
 
-        transactionOutput._value = byteArrayReader.readLong(8, Endian.LITTLE);
+        transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
 
         transactionOutput._index = index;
 

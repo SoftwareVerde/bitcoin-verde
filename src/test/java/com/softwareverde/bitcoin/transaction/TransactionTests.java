@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Test;
 
@@ -16,11 +17,11 @@ public class TransactionTests {
 
         // Action
         final byte[] transactionBytes = transaction.getBytes();
-        final byte[] transactionHash = transaction.calculateSha256Hash();
+        final Hash transactionHash = transaction.calculateSha256Hash();
 
         // Assert
         TestUtil.assertEqual(expectedTransactionBytes, transactionBytes);
-        TestUtil.assertEqual(expectedTransactionHash, transactionHash);
+        TestUtil.assertEqual(expectedTransactionHash, transactionHash.getBytes());
     }
 
     @Test
@@ -35,10 +36,10 @@ public class TransactionTests {
 
         // Action
         final byte[] transactionBytes = transaction.getBytes();
-        final byte[] transactionHash = transaction.calculateSha256Hash();
+        final Hash transactionHash = transaction.calculateSha256Hash();
 
         // Assert
         TestUtil.assertEqual(expectedTransactionBytes, transactionBytes);
-        TestUtil.assertEqual(expectedTransactionHash, transactionHash);
+        TestUtil.assertEqual(expectedTransactionHash, transactionHash.getBytes());
     }
 }

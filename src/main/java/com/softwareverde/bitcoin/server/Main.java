@@ -217,9 +217,12 @@ public class Main {
 
                 try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                    blockDatabaseManager.storeBlockHeader(block);
+                    blockDatabaseManager.storeBlock(block);
                 }
-                catch (final DatabaseException e) { }
+                catch (final DatabaseException exception) {
+                    exception.printStackTrace();
+                    _exitFailure();
+                }
 
                 lastBlockHash.value = block.calculateSha256Hash();
 
@@ -273,18 +276,34 @@ public class Main {
 
         final Node node = new Node(host, port);
 
-        node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
-            @Override
-            public void onResult(final Block block) {
-                try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                    blockDatabaseManager.storeBlockHeader(block);
-                }
-                catch (final DatabaseException e) { }
+        final Boolean hasGenesisBlock;
+        {
+            Hash lastKnownHash = null;
+            try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
             }
-        });
+            catch (final DatabaseException e) { }
+            hasGenesisBlock = (lastKnownHash != null);
+        }
 
-        _downloadAllBlocks(node);
+        if (! hasGenesisBlock) {
+            node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
+                @Override
+                public void onResult(final Block block) {
+                    try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                        blockDatabaseManager.storeBlock(block);
+                    }
+                    catch (final DatabaseException exception) { }
+
+                    _downloadAllBlocks(node);
+                }
+            });
+        }
+        else {
+            _downloadAllBlocks(node);
+        }
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }

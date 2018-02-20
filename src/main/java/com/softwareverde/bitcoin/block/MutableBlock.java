@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
+import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
@@ -34,7 +35,7 @@ public class MutableBlock extends MutableBlockHeader implements Block {
     public List<Transaction> getTransactions() {
         final List<Transaction> transactions = new ArrayList<Transaction>(_transactions.size());
         for (final Transaction transaction : _transactions) {
-            transactions.add(transaction.copy());
+            transactions.add(new ImmutableTransaction(transaction));
         }
         return transactions;
     }

@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
@@ -22,16 +23,16 @@ public class BlockTracker {
     }
 
     public static class TransactionOutputId {
-        protected final byte[] _transactionHash;
+        protected final Hash _transactionHash;
         protected final Integer _outputIndex;
 
-        public TransactionOutputId(final byte[] transactionHash, final Integer outputIndex) {
-            _transactionHash = ByteUtil.copyBytes(transactionHash);
+        public TransactionOutputId(final Hash transactionHash, final Integer outputIndex) {
+            _transactionHash = new ImmutableHash(transactionHash);
             _outputIndex = outputIndex;
         }
 
-        public byte[] getTransactionHash() {
-            return ByteUtil.copyBytes(_transactionHash);
+        public Hash getTransactionHash() {
+            return _transactionHash;
         }
 
         public Integer getOutputIndex() {
@@ -41,7 +42,7 @@ public class BlockTracker {
         @Override
         public int hashCode() {
             long sum = _outputIndex;
-            for (byte b : _transactionHash) {
+            for (byte b : _transactionHash.getBytes()) {
                 sum += ByteUtil.byteToLong(b);
             }
             return Long.valueOf(sum).hashCode();
@@ -53,7 +54,7 @@ public class BlockTracker {
             if (! (obj instanceof TransactionOutputId)) { return false; }
 
             final TransactionOutputId object = (TransactionOutputId) obj;
-            if (! ByteUtil.areEqual(_transactionHash, object._transactionHash)) { return false; }
+            if (! ByteUtil.areEqual(_transactionHash.getBytes(), object._transactionHash.getBytes())) { return false; }
             if (! _outputIndex.equals(object._outputIndex)) { return false; }
             return true;
         }
@@ -72,11 +73,11 @@ public class BlockTracker {
     protected void _processTransactions(final Block block) {
         final List<Transaction> transactions = block.getTransactions();
         for (final Transaction transaction : transactions) {
-            final byte[] transactionHash = transaction.calculateSha256Hash();
+            final Hash transactionHash = transaction.calculateSha256Hash();
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 final Integer outputIndex = transactionOutput.getIndex();
                 _unspentTransactionOutputs.put(new TransactionOutputId(transactionHash, outputIndex), transactionOutput);
-                System.out.println("\t TX: "+ BitcoinUtil.toHexString(transactionHash) +":"+ outputIndex + " = "+ transactionOutput.getValue());
+                System.out.println("\t TX: "+ BitcoinUtil.toHexString(transactionHash) +":"+ outputIndex + " = "+ transactionOutput.getAmount());
             }
         }
     }
@@ -85,7 +86,7 @@ public class BlockTracker {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
-            final byte[] transactionInputOutputHash = transactionInput.getPreviousTransactionOutput();
+            final Hash transactionInputOutputHash = transactionInput.getPreviousTransactionOutput();
             final Integer transactionInputOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
             final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputId(transactionInputOutputHash, transactionInputOutputIndex));
             if (transactionOutput == null) {
@@ -93,7 +94,7 @@ public class BlockTracker {
                 return null;
             }
 
-            totalInputValue += transactionOutput.getValue();
+            totalInputValue += transactionOutput.getAmount();
         }
         return totalInputValue;
     }

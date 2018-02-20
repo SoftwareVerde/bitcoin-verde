@@ -2,14 +2,15 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
+import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class TransactionInflater {
-    protected Transaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final Transaction transaction = new Transaction();
+    protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+        final MutableTransaction transaction = new MutableTransaction();
         transaction._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
@@ -30,8 +31,12 @@ public class TransactionInflater {
             transaction._transactionOutputs.add(transactionOutput);
         }
 
-        final Long lockTimeTimestamp = byteArrayReader.readLong(4, Endian.LITTLE);
-        transaction._lockTime.setLockTime(lockTimeTimestamp);
+        {
+            final MutableLockTime mutableLockTime = new MutableLockTime();
+            final Long lockTimeTimestamp = byteArrayReader.readLong(4, Endian.LITTLE);
+            mutableLockTime.setLockTime(lockTimeTimestamp);
+            transaction._lockTime = mutableLockTime;
+        }
 
         return transaction;
     }
