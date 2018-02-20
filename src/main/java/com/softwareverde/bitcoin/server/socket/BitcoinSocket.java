@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,7 +75,7 @@ public class BitcoinSocket {
 
             _rawInputStream = socket.getInputStream();
         }
-        catch (final IOException e) { }
+        catch (final IOException exception) { }
 
         _readThread = new Thread(new Runnable() {
             @Override
@@ -93,14 +94,14 @@ public class BitcoinSocket {
                         }
 
                         protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                        System.out.println("IO: [Received "+ bytesRead + " bytes from socket.] (Buffer Size: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +")");
+                        System.out.println("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
 
                         while (protocolMessageBuffer.hasMessage()) {
                             final ProtocolMessage message = protocolMessageBuffer.popMessage();
 
                             if (message != null) {
                                 synchronized (_messages) {
-                                    System.out.println("IO: RECEIVED "+ message.getCommand() +" MESSAGE. HEADER: "+ BitcoinUtil.toHexString(message.getHeaderBytes()));
+                                    System.out.println("IO: Received "+ message.getCommand() +" message.");
 
                                     _messages.add(message);
 
@@ -136,7 +137,7 @@ public class BitcoinSocket {
             _closeSocket();
         }
 
-        System.out.println("IO: SENT "+ outboundMessage.getCommand() +" 0x"+ BitcoinUtil.toHexString(outboundMessage.getHeaderBytes()));
+        System.out.println("IO: Sent "+ outboundMessage.getCommand() +" message.");
     }
 
     /**

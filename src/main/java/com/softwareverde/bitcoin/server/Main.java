@@ -191,7 +191,19 @@ public class Main {
     }
 
     protected void _downloadAllBlocks(final Node node) {
-        final Container<Hash> lastBlockHash = new Container<Hash>(Block.GENESIS_BLOCK_HEADER_HASH);
+        final Hash resumeAfterHash;
+        {
+            Hash lastKnownHash = null;
+            try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
+            }
+            catch (final DatabaseException e) { }
+
+            resumeAfterHash = ((lastKnownHash == null) ? Block.GENESIS_BLOCK_HEADER_HASH : lastKnownHash);
+        }
+
+        final Container<Hash> lastBlockHash = new Container<Hash>(resumeAfterHash);
         final Container<Node.QueryCallback> getBlocksHashesAfterCallback = new Container<Node.QueryCallback>();
 
         final List<Hash> availableBlockHashes = new ArrayList<Hash>();
@@ -207,9 +219,7 @@ public class Main {
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                     blockDatabaseManager.storeBlockHeader(block);
                 }
-                catch (final DatabaseException e) {
-                    e.printStackTrace();
-                }
+                catch (final DatabaseException e) { }
 
                 lastBlockHash.value = block.calculateSha256Hash();
 

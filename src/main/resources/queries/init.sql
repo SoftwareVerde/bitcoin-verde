@@ -17,7 +17,8 @@ CREATE TABLE blocks (
     nonce bigint unsigned,
     PRIMARY KEY (id),
     UNIQUE KEY hash_uq (hash),
-    FOREIGN KEY previous_block_id_ix (previous_block_id) REFERENCES blocks (id)
+    FOREIGN KEY previous_block_id_ix (previous_block_id) REFERENCES blocks (id),
+    INDEX timestamp_ix (timestamp) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 

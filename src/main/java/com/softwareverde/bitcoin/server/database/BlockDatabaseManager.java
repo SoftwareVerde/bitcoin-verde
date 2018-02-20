@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -70,5 +72,13 @@ public class BlockDatabaseManager {
 
         final Long newBlockId = _insertBlockHeader(blockHeader);
         return newBlockId;
+    }
+
+    public Hash getMostRecentBlockHash() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY timestamp DESC LIMIT 1"));
+        if (rows.isEmpty()) { return Block.GENESIS_BLOCK_HEADER_HASH; }
+
+        final Row row = rows.get(0);
+        return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));
     }
 }

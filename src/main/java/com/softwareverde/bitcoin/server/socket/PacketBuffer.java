@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.Util;
 
 import java.util.LinkedList;
@@ -31,12 +33,17 @@ public class PacketBuffer {
         }
     }
 
+    private final int _netMagicNumberByteCount = ProtocolMessage.MAIN_NET_MAGIC_NUMBER.length;
+    private final byte[] _reversedMainNetMagicNumber = ByteUtil.reverseBytes(ProtocolMessage.MAIN_NET_MAGIC_NUMBER);
+
     private int _bufferSize = 1024;
     private final List<ByteArray> _recycledByteArrays = new LinkedList<ByteArray>();
     private final List<ByteArray> _byteArrayList = new LinkedList<ByteArray>();
     private final ProtocolMessageHeaderParser _protocolMessageHeaderParser = new ProtocolMessageHeaderParser();
     private final ProtocolMessageFactory _protocolMessageFactory = new ProtocolMessageFactory();
     private int _byteCount = 0;
+
+    private final byte[] _packetStartingBytesBuffer = new byte[_netMagicNumberByteCount];
 
     private byte[] _readContiguousBytes(final int desiredByteCount, final boolean shouldConsumeBytes) {
         final byte[] bytes = new byte[desiredByteCount];
@@ -85,6 +92,11 @@ public class PacketBuffer {
         return _protocolMessageHeaderParser.fromBytes(packetHeader);
     }
 
+    private void _resetBuffer() {
+        final byte[] discardedPacket = _readContiguousBytes(_byteCount, true);
+        System.out.println("IO: DISCARDED PACKET: "+ BitcoinUtil.toHexString(discardedPacket));
+    }
+
     public PacketBuffer() { }
 
     public void setBufferSize(final int bufferSize) {
@@ -97,10 +109,22 @@ public class PacketBuffer {
      *      therefore, it is important that any byte[] fed into appendBytes() is not used again outside of this invocation.
      *  - byteBuffer may be kept in memory indefinitely and recycled via getRecycledBuffer().
      *  - byteCount is used to specify the endIndex of byteBuffer.
+     *  - if byteBuffer's bytes begin with ProtocolMessage.MAIN_NET_MAGIC_NUMBER, then the previous non-message packets
+     *      are assumed to be corrupted, and are discarded.
      */
     public void appendBytes(final byte[] byteBuffer, final int byteCount) {
         // if (byteCount > bytes.length) { throw new RuntimeException("Invalid byteCount. Attempted to add more bytes than was available within byte array."); }
         final int safeByteCount = Math.min(byteBuffer.length, byteCount);
+
+        if (_byteCount > 0) {
+            if (safeByteCount >= _netMagicNumberByteCount) {
+                ByteUtil.setBytes(_packetStartingBytesBuffer, byteBuffer);
+                final Boolean startsWithMagicNumber = (ByteUtil.areEqual(_packetStartingBytesBuffer, _reversedMainNetMagicNumber));
+                if (startsWithMagicNumber) {
+                    _resetBuffer();
+                }
+            }
+        }
 
         _byteArrayList.add(new ByteArray(byteBuffer, 0, safeByteCount));
         _byteCount += safeByteCount;
@@ -130,7 +154,8 @@ public class PacketBuffer {
     public boolean hasMessage() {
         final ProtocolMessageHeader protocolMessageHeader = _peakProtocolHeader();
         if (protocolMessageHeader == null) { return false; }
-        return (_byteCount >= protocolMessageHeader.payloadByteCount);
+        final Integer expectedMessageLength = (protocolMessageHeader.payloadByteCount + ProtocolMessageHeaderParser.HEADER_BYTE_COUNT);
+        return (_byteCount >= expectedMessageLength);
     }
 
     public ProtocolMessage popMessage() {
