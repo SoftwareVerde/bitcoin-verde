@@ -15,7 +15,7 @@ public class QueryBlockHeadersMessageInflater extends ProtocolMessageInflater {
         final QueryBlockHeadersMessage queryBlockHeadersMessage = new QueryBlockHeadersMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.GET_BLOCK_HEADERS);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.QUERY_BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
         queryBlockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);

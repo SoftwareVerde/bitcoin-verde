@@ -2,9 +2,8 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.node.Node;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import org.junit.Test;
 
 import java.util.List;
 
@@ -24,7 +23,7 @@ public class MainTests {
 
         node.getBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new Node.QueryCallback() {
             @Override
-            public void onResult(final List<ImmutableHash> blockHashes) {
+            public void onResult(final List<Hash> blockHashes) {
                 System.out.println(blockHashes.size());
 
                 node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {

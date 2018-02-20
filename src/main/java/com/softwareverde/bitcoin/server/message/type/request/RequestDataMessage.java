@@ -16,7 +16,7 @@ public class RequestDataMessage extends ProtocolMessage {
     private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
 
     public RequestDataMessage() {
-        super(MessageType.GET_DATA);
+        super(MessageType.REQUEST_OBJECT);
     }
 
     public List<DataHash> getDataHashes() {

@@ -22,4 +22,12 @@ public class MutableMerkleRoot implements MerkleRoot {
     public byte[] getBytes() {
         return _mutableHash.getBytes();
     }
+
+    public void setBytes(final byte[] bytes) {
+        _mutableHash.setBytes(bytes);
+    }
+
+    public void setBytes(final MerkleRoot merkleRoot) {
+        _mutableHash.setBytes(merkleRoot);
+    }
 }

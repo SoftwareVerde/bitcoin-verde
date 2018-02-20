@@ -18,7 +18,7 @@ public class QueryBlockHeadersMessage extends ProtocolMessage {
     protected final byte[] _desiredBlockHeaderHash = new byte[32];
 
     public QueryBlockHeadersMessage() {
-        super(MessageType.GET_BLOCK_HEADERS);
+        super(MessageType.QUERY_BLOCK_HEADERS);
         _version = Constants.PROTOCOL_VERSION;
     }
 

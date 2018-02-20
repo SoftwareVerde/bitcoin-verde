@@ -8,18 +8,24 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class DataHash {
     private final DataHashType _dataHashType;
-    private final ImmutableHash _objectHash;
+    private final Hash _objectHash;
 
-    public DataHash(final DataHashType dataHashType, final ImmutableHash objectHash) {
+    public DataHash(final DataHashType dataHashType, final Hash objectHash) {
         _dataHashType = dataHashType;
-        _objectHash = objectHash;
+
+        if (objectHash instanceof ImmutableHash) {
+            _objectHash = objectHash;
+        }
+        else {
+            _objectHash = new ImmutableHash(objectHash);
+        }
     }
 
     public DataHashType getDataHashType() {
         return _dataHashType;
     }
 
-    public ImmutableHash getObjectHash() {
+    public Hash getObjectHash() {
         return _objectHash;
     }
 

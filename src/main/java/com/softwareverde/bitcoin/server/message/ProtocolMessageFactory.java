@@ -28,8 +28,8 @@ public class ProtocolMessageFactory {
         _commandInflaterMap.put(ProtocolMessage.MessageType.PING, new PingMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.PONG, new PongMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater());
-        _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCK_HEADERS, new QueryBlockHeadersMessageInflater());
-        _commandInflaterMap.put(ProtocolMessage.MessageType.GET_BLOCKS, new QueryBlocksMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.QUERY_BLOCK_HEADERS, new QueryBlockHeadersMessageInflater());
+        _commandInflaterMap.put(ProtocolMessage.MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.QUERY_RESPONSE, new QueryResponseMessageInflater());
         _commandInflaterMap.put(ProtocolMessage.MessageType.BLOCK, new BlockMessageInflater());

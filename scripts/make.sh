@@ -2,7 +2,7 @@
 
 ./scripts/clean.sh
 
-rm -rf out
+rm -rf out 2>/dev/null
 
 ./scripts/make-jar.sh
 

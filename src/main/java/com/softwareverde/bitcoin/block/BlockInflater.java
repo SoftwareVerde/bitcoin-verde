@@ -16,7 +16,7 @@ public class BlockInflater {
         final TransactionInflater transactionInflater = new TransactionInflater();
 
         final Long transactionCount = byteArrayReader.readVariableSizedInteger();
-        final Block block = new Block(blockHeader);
+        final MutableBlock block = new MutableBlock(blockHeader);
         for (long i=0; i<transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }

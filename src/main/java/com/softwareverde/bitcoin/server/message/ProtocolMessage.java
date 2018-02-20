@@ -20,7 +20,7 @@ public abstract class ProtocolMessage {
         SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
         PING("ping"), PONG("pong"),
         NODE_ADDRESSES("addr"),
-        GET_BLOCK_HEADERS("getheaders"), GET_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), GET_DATA("getdata"),
+        QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), REQUEST_OBJECT("getdata"),
         ERROR("reject"),
         BLOCK("block");
 

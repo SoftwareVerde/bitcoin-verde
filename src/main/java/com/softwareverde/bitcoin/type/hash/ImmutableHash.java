@@ -9,7 +9,7 @@ public class ImmutableHash implements Hash {
         _mutableHash = new MutableHash();
     }
 
-    public ImmutableHash(final MutableHash mutableHash) {
+    public ImmutableHash(final Hash mutableHash) {
         _mutableHash = new MutableHash();
         _mutableHash.setBytes(mutableHash);
     }

@@ -13,6 +13,10 @@ public class ImmutableMerkleRoot implements MerkleRoot {
         _mutableMerkleRoot = new MutableMerkleRoot(ByteUtil.copyBytes(bytes));
     }
 
+    public ImmutableMerkleRoot(final MerkleRoot merkleRoot) {
+        _mutableMerkleRoot = new MutableMerkleRoot(ByteUtil.copyBytes(merkleRoot.getBytes()));
+    }
+
     @Override
     public byte get(final int index) {
         return _mutableMerkleRoot.get(index);

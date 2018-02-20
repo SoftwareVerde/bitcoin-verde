@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.block.header;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 public interface BlockHeader {
@@ -12,10 +12,12 @@ public interface BlockHeader {
 
     Integer getVersion();
     Hash getPreviousBlockHash();
-    MutableMerkleRoot getMerkleRoot();
+    MerkleRoot getMerkleRoot();
     Long getTimestamp();
     Difficulty getDifficulty();
     Long getNonce();
     Hash calculateSha256Hash();
     byte[] getBytes();
+
+    Boolean validateBlockHeader();
 }

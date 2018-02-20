@@ -17,7 +17,7 @@ public class RequestDataMessageInflater extends ProtocolMessageInflater {
         final RequestDataMessage inventoryMessage = new RequestDataMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.GET_DATA);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.REQUEST_OBJECT);
         if (protocolMessageHeader == null) { return null; }
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();

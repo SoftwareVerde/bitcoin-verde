@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.message.type.query.block;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -16,7 +16,7 @@ public class QueryBlocksMessageInflater extends ProtocolMessageInflater {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.GET_BLOCKS);
+        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.QUERY_BLOCKS);
         if (protocolMessageHeader == null) { return null; }
 
         queryBlocksMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
@@ -28,12 +28,12 @@ public class QueryBlocksMessageInflater extends ProtocolMessageInflater {
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final ImmutableHash blockHeaderHash = new ImmutableHash(byteArrayReader.readBytes(32, Endian.LITTLE));
+            final Hash blockHeaderHash = new MutableHash(byteArrayReader.readBytes(32, Endian.LITTLE));
             queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        queryBlocksMessage._desiredBlockHeaderHash.setBytes(blockHeaderHashBytes);
+        queryBlocksMessage._desiredBlockHeaderHash = new MutableHash(blockHeaderHashBytes);
 
         return queryBlocksMessage;
     }

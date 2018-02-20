@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlo
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Assert;
@@ -162,7 +161,7 @@ public class ProtocolMessageTests {
         Assert.assertNotNull(queryBlockHeadersMessage);
 
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("E8F3E1E3"), queryBlockHeadersMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.MessageType.GET_BLOCK_HEADERS, queryBlockHeadersMessage.getCommand());
+        Assert.assertEquals(ProtocolMessage.MessageType.QUERY_BLOCK_HEADERS, queryBlockHeadersMessage.getCommand());
 
         final List<byte[]> blockHeaderHashes = queryBlockHeadersMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());
@@ -228,7 +227,7 @@ public class ProtocolMessageTests {
         Assert.assertNotNull(queryBlocksMessage);
 
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("E8F3E1E3"), queryBlocksMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.MessageType.GET_BLOCKS, queryBlocksMessage.getCommand());
+        Assert.assertEquals(ProtocolMessage.MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
 
         final List<ImmutableHash> blockHeaderHashes = queryBlocksMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());

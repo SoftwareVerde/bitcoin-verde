@@ -4,15 +4,20 @@ import ch.vorburger.mariadb4j.DB;
 import ch.vorburger.mariadb4j.DBConfiguration;
 import ch.vorburger.mariadb4j.DBConfigurationBuilder;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.util.Container;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
@@ -185,6 +190,52 @@ public class Main {
         return new Database(databaseInstance, databaseConnectionFactory);
     }
 
+    protected void _downloadAllBlocks(final Node node) {
+        final Container<Hash> lastBlockHash = new Container<Hash>(Block.GENESIS_BLOCK_HEADER_HASH);
+        final Container<Node.QueryCallback> getBlocksHashesAfterCallback = new Container<Node.QueryCallback>();
+
+        final List<Hash> availableBlockHashes = new ArrayList<Hash>();
+
+        final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
+            @Override
+            public void onResult(final Block block) {
+                System.out.println("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
+
+                if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
+
+                try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                    blockDatabaseManager.storeBlockHeader(block);
+                }
+                catch (final DatabaseException e) {
+                    e.printStackTrace();
+                }
+
+                lastBlockHash.value = block.calculateSha256Hash();
+
+                if (! availableBlockHashes.isEmpty()) {
+                    node.requestBlock(availableBlockHashes.remove(0), this);
+                }
+                else {
+                    node.getBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
+                }
+            }
+        };
+
+        getBlocksHashesAfterCallback.value = new Node.QueryCallback() {
+            @Override
+            public void onResult(final List<Hash> blockHashes) {
+                availableBlockHashes.addAll(blockHashes);
+
+                if (! availableBlockHashes.isEmpty()) {
+                    node.requestBlock(availableBlockHashes.remove(0), downloadBlockCallback);
+                }
+            }
+        };
+
+        node.getBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
+    }
+
     public Main(final String[] commandLineArguments) {
         if (commandLineArguments.length != 1) {
             _printUsage();
@@ -215,9 +266,15 @@ public class Main {
         node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                System.out.println("BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
+                try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                    blockDatabaseManager.storeBlockHeader(block);
+                }
+                catch (final DatabaseException e) { }
             }
         });
+
+        _downloadAllBlocks(node);
 
         while (true) {
             try { Thread.sleep(500); } catch (final Exception e) { }
