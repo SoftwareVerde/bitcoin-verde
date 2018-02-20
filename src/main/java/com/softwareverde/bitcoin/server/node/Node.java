@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.*;
@@ -105,7 +106,7 @@ public class Node extends NodeConnectionDelegate {
 
     @Override
     protected void _onDisconnect() {
-        System.out.println("Socket disconnected.");
+        Logger.log("Socket disconnected.");
     }
 
     @Override
@@ -126,14 +127,14 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
-            System.out.println("Network Address: "+ BitcoinUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
+            Logger.log("Network Address: "+ BitcoinUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
         }
     }
 
     @Override
     protected void _onErrorMessageReceived(final ErrorMessage errorMessage) {
         final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
-        System.out.println("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(errorMessage.getExtraData()));
+        Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ BitcoinUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ BitcoinUtil.toHexString(errorMessage.getExtraData()));
     }
 
     @Override

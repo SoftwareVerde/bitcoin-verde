@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderPars
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.io.Logger;
 
 public abstract class ProtocolMessageInflater {
     public abstract ProtocolMessage fromBytes(byte[] bytes);
@@ -22,7 +23,7 @@ public abstract class ProtocolMessageInflater {
         final Integer actualPayloadByteCount = byteArrayReader.remainingByteCount();
         { // Validate Payload Byte Count
             if (protocolMessageHeader.payloadByteCount != actualPayloadByteCount) {
-                System.out.println("Bad Payload size. "+ protocolMessageHeader.payloadByteCount +" != "+ actualPayloadByteCount);
+                Logger.log("Bad Payload size. "+ protocolMessageHeader.payloadByteCount +" != "+ actualPayloadByteCount);
                 return null;
             }
         }

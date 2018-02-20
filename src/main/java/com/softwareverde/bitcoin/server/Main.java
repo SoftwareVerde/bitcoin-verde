@@ -14,6 +14,8 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.TransactionUtil;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 
 import java.io.File;
@@ -90,7 +92,7 @@ public class Main {
         {
             DB db = null;
             try {
-                System.out.println("[Starting Database]");
+                Logger.log("[Starting Database]");
                 db = DB.newEmbeddedDB(dbConfiguration);
                 db.start();
             }
@@ -104,7 +106,7 @@ public class Main {
         { // Check for default username/password...
             try (final MysqlDatabaseConnection databaseConnection = defaultCredentialsDatabaseConnectionFactory.newConnection()) {
                 try {
-                    System.out.println("[Configuring Database]");
+                    Logger.log("[Configuring Database]");
                     databaseConnection.executeDdl("DROP DATABASE IF EXISTS `test`");
                     databaseConnection.executeDdl("CREATE DATABASE IF NOT EXISTS `"+ databaseSchema +"`");
 
@@ -177,7 +179,7 @@ public class Main {
 
             try {
                 if (databaseVersionNumber < Constants.DATABASE_VERSION) {
-                    System.out.println("[Upgrading Database]");
+                    Logger.log("[Upgrading Database]");
                     databaseInstance.source("queries/init.sql", maintenanceUsername, maintenancePassword, databaseSchema);
                 }
             }
@@ -211,13 +213,15 @@ public class Main {
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                System.out.println("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
+                Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
 
                 try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                    TransactionUtil.startTransaction(databaseConnection);
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                     blockDatabaseManager.storeBlock(block);
+                    TransactionUtil.commitTransaction(databaseConnection);
                 }
                 catch (final DatabaseException exception) {
                     exception.printStackTrace();
@@ -261,7 +265,7 @@ public class Main {
 
         final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
         final Database database = _loadDatabase(databaseProperties);
-        System.out.println("[Database Online]");
+        Logger.log("[Database Online]");
 
         _environment = new Environment(database.databaseInstance, database.databaseConnectionFactory);
 
@@ -269,7 +273,7 @@ public class Main {
     }
 
     public void loop() {
-        System.out.println("[Server Online]");
+        Logger.log("[Server Online]");
 
         final String host = "btc.softwareverde.com";
         final Integer port = 8333;

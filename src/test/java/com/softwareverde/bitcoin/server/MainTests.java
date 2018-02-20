@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
 
 import java.util.List;
 
@@ -24,12 +25,12 @@ public class MainTests {
         node.getBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new Node.QueryCallback() {
             @Override
             public void onResult(final List<Hash> blockHashes) {
-                System.out.println(blockHashes.size());
+                Logger.log(blockHashes.size());
 
                 node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                     @Override
                     public void onResult(final Block block) {
-                        System.out.println("BLOCK: " + BitcoinUtil.toHexString(block.calculateSha256Hash()));
+                        Logger.log("BLOCK: " + BitcoinUtil.toHexString(block.calculateSha256Hash()));
                     }
                 });
             }

@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
 
 public abstract class NodeConnectionDelegate {
     protected final NodeConnection _connection;
@@ -47,7 +48,7 @@ public abstract class NodeConnectionDelegate {
                         _onBlockMessageReceived((BlockMessage) message);
                     } break;
                     default: {
-                        System.out.println("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));
+                        Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ BitcoinUtil.toHexString(message.getHeaderBytes()));
                     } break;
                 }
             }

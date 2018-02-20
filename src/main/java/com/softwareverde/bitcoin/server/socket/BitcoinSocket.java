@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.socket;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.io.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -94,14 +95,14 @@ public class BitcoinSocket {
                         }
 
                         protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                        System.out.println("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
+                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
 
                         while (protocolMessageBuffer.hasMessage()) {
                             final ProtocolMessage message = protocolMessageBuffer.popMessage();
 
                             if (message != null) {
                                 synchronized (_messages) {
-                                    System.out.println("IO: Received "+ message.getCommand() +" message.");
+                                    Logger.log("IO: Received "+ message.getCommand() +" message.");
 
                                     _messages.add(message);
 
@@ -137,7 +138,7 @@ public class BitcoinSocket {
             _closeSocket();
         }
 
-        System.out.println("IO: Sent "+ outboundMessage.getCommand() +" message.");
+        Logger.log("IO: Sent "+ outboundMessage.getCommand() +" message.");
     }
 
     /**

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.node;
 import com.softwareverde.async.HaltableThread;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.BitcoinSocket;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.StringUtil;
 
 import java.io.IOException;
@@ -67,7 +68,7 @@ public class NodeConnection {
 
                 final Boolean isFirstConnection = (_connectionCount == 0);
                 if (isFirstConnection) {
-                    System.out.println("IO: NodeConnection: Connection established.");
+                    Logger.log("IO: NodeConnection: Connection established.");
 
                     _processOutboundMessageQueue();
 
@@ -76,7 +77,7 @@ public class NodeConnection {
                     }
                 }
                 else {
-                    System.out.println("IO: NodeConnection: Connection regained.");
+                    Logger.log("IO: NodeConnection: Connection regained.");
                     _processOutboundMessageQueue();
 
                     if (_onReconnectCallback != null) {
@@ -115,7 +116,7 @@ public class NodeConnection {
                         (new Thread(_onDisconnectCallback)).start();
                     }
                     _socketUsedToBeConnected = false;
-                    System.out.println("IO: NodeConnection: Connection lost.");
+                    Logger.log("IO: NodeConnection: Connection lost.");
                 }
 
                 _connectSocket();

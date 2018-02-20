@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.io.Logger;
 
 import java.util.HashMap;
 import java.util.List;
@@ -77,7 +78,6 @@ public class BlockTracker {
             for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                 final Integer outputIndex = transactionOutput.getIndex();
                 _unspentTransactionOutputs.put(new TransactionOutputId(transactionHash, outputIndex), transactionOutput);
-                System.out.println("\t TX: "+ BitcoinUtil.toHexString(transactionHash) +":"+ outputIndex + " = "+ transactionOutput.getAmount());
             }
         }
     }
@@ -90,7 +90,7 @@ public class BlockTracker {
             final Integer transactionInputOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
             final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputId(transactionInputOutputHash, transactionInputOutputIndex));
             if (transactionOutput == null) {
-                System.out.println("Couldn't Find: "+ BitcoinUtil.toHexString(transactionInputOutputHash) +":"+ transactionInputOutputIndex);
+                Logger.log("Validate Tx: Couldn't Find: "+ BitcoinUtil.toHexString(transactionInputOutputHash) +":"+ transactionInputOutputIndex);
                 return null;
             }
 
@@ -102,7 +102,7 @@ public class BlockTracker {
     protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
         final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction);
-        System.out.println("(Inputs: "+ totalInputValue+"; Outputs: "+ totalOutputValue +")");
+        Logger.log("(Inputs: "+ totalInputValue+"; Outputs: "+ totalOutputValue +")");
         if (totalInputValue == null) { return false; }
 
         return (totalOutputValue <= totalInputValue);

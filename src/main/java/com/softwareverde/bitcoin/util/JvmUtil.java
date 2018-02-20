@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
+import com.softwareverde.io.Logger;
+
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -17,7 +19,7 @@ public class JvmUtil {
         final Long currentMemoryUsage = reservedMemory - freeMemory;
 
         final Long toMegabytes = 1048576L;
-        System.out.println((currentMemoryUsage/toMegabytes) +"mb / "+ (maxMemory/toMegabytes) +"mb ("+ String.format("%.2f", (currentMemoryUsage.floatValue() / maxMemory.floatValue() * 100.0F)) +"%)");
+        Logger.log((currentMemoryUsage/toMegabytes) +"mb / "+ (maxMemory/toMegabytes) +"mb ("+ String.format("%.2f", (currentMemoryUsage.floatValue() / maxMemory.floatValue() * 100.0F)) +"%)");
     }
 
     public static void checkForDeadlockedThreads() {
@@ -30,7 +32,7 @@ public class JvmUtil {
             for (final ThreadInfo info : threadInfo) {
                 final StackTraceElement[] stack = info.getStackTrace();
                 for (final StackTraceElement stackTraceElement : stack) {
-                    System.out.println(stackTraceElement);
+                    Logger.log(stackTraceElement);
                 }
             }
         }
