@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.transaction.output;
 public interface TransactionOutput {
     Long getAmount();
     Integer getIndex();
-    byte[] getScript();
+    byte[] getLockingScript();
     Integer getByteCount();
     byte[] getBytes();
 }

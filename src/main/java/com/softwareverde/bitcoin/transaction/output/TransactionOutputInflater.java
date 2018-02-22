@@ -12,7 +12,7 @@ public class TransactionOutputInflater {
         transactionOutput._index = index;
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
-        transactionOutput._script = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);
+        transactionOutput._lockingScript = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);
 
         return transactionOutput;
     }

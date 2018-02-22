@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
+import org.junit.Test;
 
 import java.util.List;
 
@@ -15,7 +16,7 @@ public class MainTests {
         }
     }
 
-    // @Test
+//    @Test
     public void execute() {
         final String host = "btc.softwareverde.com";
         final Integer port = 8333;

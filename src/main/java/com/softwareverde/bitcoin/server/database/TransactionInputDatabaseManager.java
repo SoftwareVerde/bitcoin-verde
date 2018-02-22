@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -34,10 +33,10 @@ public class TransactionInputDatabaseManager {
         final Long previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
 
         _databaseConnection.executeSql(
-            new Query("UPDATE transaction_inputs SET transaction_id = ?, previous_transaction_output_id = ?, signature_script = ?, sequence_number = ? WHERE id = ?")
+            new Query("UPDATE transaction_inputs SET transaction_id = ?, previous_transaction_output_id = ?, unlocking_script = ?, sequence_number = ? WHERE id = ?")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getSignatureScript())
+                .setParameter(transactionInput.getUnlockingScript())
                 .setParameter(transactionInput.getSequenceNumber())
                 .setParameter(transactionInputId)
         );
@@ -47,10 +46,10 @@ public class TransactionInputDatabaseManager {
         final Long previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
 
         return _databaseConnection.executeSql(
-            new Query("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, signature_script, sequence_number) VALUES (?, ?, ?, ?)")
+            new Query("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, unlocking_script, sequence_number) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getSignatureScript())
+                .setParameter(transactionInput.getUnlockingScript())
                 .setParameter(transactionInput.getSequenceNumber())
         );
     }

@@ -14,7 +14,7 @@ public class ImmutableTransactionInput implements TransactionInput {
         }
 
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setSignatureScript(ByteUtil.copyBytes(transactionInput.getSignatureScript()));
+        mutableTransactionInput.setUnlockingScript(ByteUtil.copyBytes(transactionInput.getUnlockingScript()));
         mutableTransactionInput.setPreviousTransactionOutput(new ImmutableHash(transactionInput.getPreviousTransactionOutput()));
         mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
         mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
@@ -32,8 +32,8 @@ public class ImmutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public byte[] getSignatureScript() {
-        return ByteUtil.copyBytes(_transactionInput.getSignatureScript());
+    public byte[] getUnlockingScript() {
+        return ByteUtil.copyBytes(_transactionInput.getUnlockingScript());
     }
 
     @Override

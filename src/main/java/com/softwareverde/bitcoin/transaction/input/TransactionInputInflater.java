@@ -12,7 +12,7 @@ public class TransactionInputInflater {
         transactionInput._previousTransactionOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
-        transactionInput._signatureScript = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);
+        transactionInput._unlockingScript = byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE);
         transactionInput._sequenceNumber = byteArrayReader.readLong(4, Endian.LITTLE);
 
         return transactionInput;

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -27,22 +26,22 @@ public class TransactionOutputDatabaseManager {
 
     protected void _updateTransactionOutput(final Long transactionOutputId, final Long transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         _databaseConnection.executeSql(
-            new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ?, script = ? WHERE id = ?")
+            new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getScript())
+                .setParameter(transactionOutput.getLockingScript())
                 .setParameter(transactionOutputId)
         );
     }
 
     protected Long _insertTransactionOutput(final Long transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         return _databaseConnection.executeSql(
-            new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, script) VALUES (?, ?, ?, ?)")
+            new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getScript())
+                .setParameter(transactionOutput.getLockingScript())
         );
     }
 

@@ -18,7 +18,7 @@ public class ImmutableTransactionOutput implements TransactionOutput {
         final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
         mutableTransactionOutput.setIndex(transactionOutput.getIndex());
         mutableTransactionOutput.setAmount(transactionOutput.getAmount());
-        mutableTransactionOutput.setScript(ByteUtil.copyBytes(transactionOutput.getScript()));
+        mutableTransactionOutput.setLockingScript(ByteUtil.copyBytes(transactionOutput.getLockingScript()));
         _transactionOutput = mutableTransactionOutput;
     }
 
@@ -33,8 +33,8 @@ public class ImmutableTransactionOutput implements TransactionOutput {
     }
 
     @Override
-    public byte[] getScript() {
-        return ByteUtil.copyBytes(_transactionOutput.getScript());
+    public byte[] getLockingScript() {
+        return ByteUtil.copyBytes(_transactionOutput.getLockingScript());
     }
 
     @Override

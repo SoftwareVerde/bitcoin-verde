@@ -7,7 +7,7 @@ public interface TransactionInput {
 
     Hash getPreviousTransactionOutput();
     Integer getPreviousTransactionOutputIndex();
-    byte[] getSignatureScript();
+    byte[] getUnlockingScript();
     Long getSequenceNumber();
     Integer getByteCount();
     byte[] getBytes();

@@ -51,13 +51,13 @@ public class BlockMessageInflaterTests {
         final TransactionInput transactionInput = transactionInputs.get(0);
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getPreviousTransactionOutput().getBytes());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getPreviousTransactionOutputIndex().intValue());
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("736B6E616220726F662074756F6C69616220646E6F63657320666F206B6E697262206E6F20726F6C6C65636E61684320393030322F6E614A2F33302073656D6954206568544504011D00FFFF04"), transactionInput.getSignatureScript());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("736B6E616220726F662074756F6C69616220646E6F63657320666F206B6E697262206E6F20726F6C6C65636E61684320393030322F6E614A2F33302073656D6954206568544504011D00FFFF04"), transactionInput.getUnlockingScript());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().intValue());
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         Assert.assertEquals(1, transactionOutputs.size());
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
         Assert.assertEquals(5000000000L, transactionOutput.getAmount().longValue());
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("AC5F1DF16B2B704C8A578D0BBAF74D385CDE12C11EE50455F3C438EF4C3FBCF649B6DE611FEAE06279A60939E028A8D65C10B73071A6F16719274855FEB0FD8A670441"), transactionOutput.getScript());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("AC5F1DF16B2B704C8A578D0BBAF74D385CDE12C11EE50455F3C438EF4C3FBCF649B6DE611FEAE06279A60939E028A8D65C10B73071A6F16719274855FEB0FD8A670441"), transactionOutput.getLockingScript());
     }
 }

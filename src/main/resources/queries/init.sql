@@ -38,7 +38,7 @@ CREATE TABLE transaction_outputs (
     transaction_id int unsigned NOT NULL,
     `index` int unsigned NOT NULL,
     amount bigint unsigned NOT NULL,
-    script blob NOT NULL,
+    locking_script blob NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
     FOREIGN KEY transaction_outputs_tx_id_ix (transaction_id) REFERENCES transactions (id)
@@ -48,7 +48,7 @@ CREATE TABLE transaction_inputs (
     id int unsigned NOT NULL AUTO_INCREMENT,
     transaction_id int unsigned NOT NULL,
     previous_transaction_output_id int unsigned,
-    signature_script blob NOT NULL,
+    unlocking_script blob NOT NULL,
     sequence_number int unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_output_id),

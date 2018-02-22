@@ -11,7 +11,7 @@ public class MutableTransactionInput implements TransactionInput {
 
     protected Hash _previousTransactionOutputHash;
     protected Integer _previousTransactionOutputIndex = 0;
-    protected byte[] _signatureScript = new byte[0];
+    protected byte[] _unlockingScript = new byte[0];
     protected Long _sequenceNumber = MAX_SEQUENCE_NUMBER;
 
     public MutableTransactionInput() {
@@ -23,11 +23,11 @@ public class MutableTransactionInput implements TransactionInput {
 
         if (transactionInput instanceof MutableTransactionInput) {
             _previousTransactionOutputHash = new ImmutableHash(transactionInput.getPreviousTransactionOutput());
-            _signatureScript = ByteUtil.copyBytes(transactionInput.getSignatureScript());
+            _unlockingScript = ByteUtil.copyBytes(transactionInput.getUnlockingScript());
         }
         else {
             _previousTransactionOutputHash = transactionInput.getPreviousTransactionOutput();
-            _signatureScript = transactionInput.getSignatureScript();
+            _unlockingScript = transactionInput.getUnlockingScript();
         }
     }
 
@@ -44,9 +44,9 @@ public class MutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public byte[] getSignatureScript() { return _signatureScript; }
-    public void setSignatureScript(final byte[] signatureScript) {
-        _signatureScript = signatureScript;
+    public byte[] getUnlockingScript() { return _unlockingScript; }
+    public void setUnlockingScript(final byte[] signatureScript) {
+        _unlockingScript = signatureScript;
     }
 
     @Override
@@ -62,8 +62,8 @@ public class MutableTransactionInput implements TransactionInput {
         final Integer scriptByteCount;
         {
             Integer byteCount = 0;
-            byteCount += ByteUtil.variableLengthIntegerToBytes(_signatureScript.length).length;
-            byteCount += _signatureScript.length;
+            byteCount += ByteUtil.variableLengthIntegerToBytes(_unlockingScript.length).length;
+            byteCount += _unlockingScript.length;
             scriptByteCount = byteCount;
         }
 
@@ -84,8 +84,8 @@ public class MutableTransactionInput implements TransactionInput {
 
         byteArrayBuilder.appendBytes(_previousTransactionOutputHash.getBytes(), Endian.LITTLE);
         byteArrayBuilder.appendBytes(indexBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_signatureScript.length), Endian.BIG);
-        byteArrayBuilder.appendBytes(_signatureScript, Endian.LITTLE); // TODO: Unsure if Big or Little endian...
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_unlockingScript.length), Endian.BIG);
+        byteArrayBuilder.appendBytes(_unlockingScript, Endian.LITTLE); // TODO: Unsure if Big or Little endian...
         byteArrayBuilder.appendBytes(sequenceBytes, Endian.LITTLE);
 
         return byteArrayBuilder.build();
