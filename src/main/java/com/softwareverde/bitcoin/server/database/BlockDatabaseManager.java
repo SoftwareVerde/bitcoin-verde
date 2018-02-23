@@ -99,7 +99,7 @@ public class BlockDatabaseManager {
 
     public Hash getMostRecentBlockHash() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY timestamp DESC LIMIT 1"));
-        if (rows.isEmpty()) { return Block.GENESIS_BLOCK_HEADER_HASH; }
+        if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
         return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));

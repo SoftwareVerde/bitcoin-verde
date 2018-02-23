@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -18,7 +17,9 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -253,6 +254,12 @@ public class Main {
         node.getBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
     }
 
+    protected void _promptToDownloadAllBlocks(final Node node) {
+        System.out.println("Press any key to download the Blockchain...");
+        try { (new BufferedInputStream(System.in)).read(); } catch (final IOException exception) { }
+        _downloadAllBlocks(node);
+    }
+
     public Main(final String[] commandLineArguments) {
         if (commandLineArguments.length != 1) {
             _printUsage();
@@ -301,12 +308,12 @@ public class Main {
                     }
                     catch (final DatabaseException exception) { }
 
-                    _downloadAllBlocks(node);
+                    _promptToDownloadAllBlocks(node);
                 }
             });
         }
         else {
-            _downloadAllBlocks(node);
+            _promptToDownloadAllBlocks(node);
         }
 
         while (true) {

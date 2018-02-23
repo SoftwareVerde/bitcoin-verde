@@ -163,7 +163,9 @@ public class Node extends NodeConnectionDelegate {
                         @Override
                         public void onResult(final Block block) {
                             final Set<BlockHashQueryCallback> blockHashQueryCallbackSet = _queryRequests.get(dataHashType);
-                            for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(_queryRequests.get(dataHashType))) {
+                            if (blockHashQueryCallbackSet == null) { return; }
+
+                            for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
                                 if (block.getPreviousBlockHash().equals(blockHashQueryCallback.afterBlockHash)) {
                                     blockHashQueryCallbackSet.remove(blockHashQueryCallback);
                                     blockHashQueryCallback.onResult(objectHashes);
