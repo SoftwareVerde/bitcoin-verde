@@ -24,6 +24,8 @@ public class BlockInflater {
             block._transactions.add(transaction);
         }
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return block;
     }
 

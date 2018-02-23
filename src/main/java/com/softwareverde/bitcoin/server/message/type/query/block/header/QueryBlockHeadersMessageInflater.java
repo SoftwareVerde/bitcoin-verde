@@ -34,6 +34,8 @@ public class QueryBlockHeadersMessageInflater extends ProtocolMessageInflater {
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
         ByteUtil.setBytes(queryBlockHeadersMessage._desiredBlockHeaderHash, blockHeaderHashBytes);
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return queryBlockHeadersMessage;
     }
 }

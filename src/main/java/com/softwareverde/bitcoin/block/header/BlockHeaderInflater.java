@@ -28,6 +28,8 @@ public class BlockHeaderInflater {
         blockHeader._nonce = byteArrayReader.readLong(4, Endian.LITTLE);
         // blockHeader._transactionCount = byteArrayReader.readVariableSizedInteger().intValue(); // Always 0 for Block Headers...
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return blockHeader;
     }
 

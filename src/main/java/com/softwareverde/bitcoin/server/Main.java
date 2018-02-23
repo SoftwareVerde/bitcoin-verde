@@ -4,6 +4,7 @@ import ch.vorburger.mariadb4j.DB;
 import ch.vorburger.mariadb4j.DBConfiguration;
 import ch.vorburger.mariadb4j.DBConfigurationBuilder;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.node.Node;
@@ -220,8 +221,18 @@ public class Main {
 
                 try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
                     TransactionUtil.startTransaction(databaseConnection);
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                    blockDatabaseManager.storeBlock(block);
+
+                    final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+                    final Boolean blockIsValid = blockValidator.validateBlock(block);
+
+                    if (blockIsValid) {
+                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                        blockDatabaseManager.storeBlock(block);
+                    }
+                    else {
+                        Logger.log("Invalid block: "+ block.calculateSha256Hash());
+                    }
+
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
                 catch (final DatabaseException exception) {

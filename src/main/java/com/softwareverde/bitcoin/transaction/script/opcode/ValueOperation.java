@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
+import java.util.List;
+
 public class ValueOperation extends Operation {
     public static final Type TYPE = Type.OP_VALUE;
 
@@ -73,7 +75,17 @@ public class ValueOperation extends Operation {
         _value = ByteUtil.copyBytes(value);
     }
 
+    public ValueOperation(final byte[] value) {
+        super(null, null);
+        _value = ByteUtil.copyBytes(value);
+    }
+
     public byte[] getValue() {
         return ByteUtil.copyBytes(_value);
+    }
+
+    @Override
+    public void applyTo(final List<Operation> stack) {
+
     }
 }

@@ -73,6 +73,11 @@ public class TransactionDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
+    public TransactionOutput findTransactionOutput(final Long transactionId, final Integer OutputIndex) {
+
+        return null;
+    }
+
     public Long storeTransaction(final Long blockId, final Transaction transaction) throws DatabaseException {
         final Long transactionId;
         {
@@ -90,5 +95,9 @@ public class TransactionDatabaseManager {
         _storeTransactionInputs(transactionId, transaction);
         _storeTransactionOutputs(transactionId, transaction);
         return transactionId;
+    }
+
+    public Long getTransactionIdFromHash(final Hash transactionHash) throws DatabaseException {
+        return _getTransactionIdFromHash(transactionHash);
     }
 }

@@ -32,6 +32,8 @@ public class QueryResponseMessageInflater extends ProtocolMessageInflater {
             queryResponseMessage.addInventoryItem(dataHash);
         }
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return queryResponseMessage;
     }
 }

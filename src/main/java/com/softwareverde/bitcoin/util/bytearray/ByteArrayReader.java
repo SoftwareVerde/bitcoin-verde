@@ -3,14 +3,16 @@ package com.softwareverde.bitcoin.util.bytearray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class ByteArrayReader {
-    private final byte[] _bytes;
-    private int _index;
+    protected final byte[] _bytes;
+    protected int _index;
+    protected Boolean _ranOutOfBytes = false;
 
     /**
      * Copies byteCount number of _bytes starting at index (inclusive).
      *  If the end of _bytes is reached before byteCount is reached, the buffer is filled with 0x00.
-     *  Does not increment _previousTransactionOutputIndex to match the number of bytes read.
+     *  Does not increment _index to match the number of bytes read.
      *  Bytes are transferred to the buffer in reverse order by Endian.LITTLE is specified.
+     *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
      */
     protected byte[] _readBytes(final int index, final int byteCount, final Endian endian) {
         final byte[] bytes = new byte[byteCount];
@@ -21,10 +23,26 @@ public class ByteArrayReader {
                 bytes[writeIndex] = _bytes[index + i];
             }
             else {
+                _ranOutOfBytes = true;
                 bytes[writeIndex] = (byte) 0x00;
             }
         }
         return bytes;
+    }
+
+    /**
+     * Returns the byte at the specified index.
+     *  If index is out of bounds, 0x00 is returned.
+     *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
+     */
+    protected byte _readByte(final int index) {
+        if (index < _bytes.length) {
+            return _bytes[index];
+        }
+        else {
+            _ranOutOfBytes = true;
+            return (byte) 0x00;
+        }
     }
 
     private static class VariableSizedInteger {
@@ -38,24 +56,23 @@ public class ByteArrayReader {
     }
 
     protected VariableSizedInteger _readVariableSizedInteger(final int index) {
-        long value;
+        final int prefix = ByteUtil.byteToInteger(_readByte(index));
 
-        value = ByteUtil.bytesToLong(_readBytes(index, 1, Endian.LITTLE));
-        if (value < 0xFDL) {
-            return new VariableSizedInteger(value, 1);
+        if (prefix < 0xFD) {
+            return new VariableSizedInteger(prefix, 1);
         }
 
-        value = ByteUtil.bytesToLong(_readBytes(index+1, 2, Endian.LITTLE));
-        if (value <= 0xFFFFL) {
+        if (prefix < 0xFE) {
+            final long value = ByteUtil.bytesToLong(_readBytes(index+1, 2, Endian.LITTLE));
             return new VariableSizedInteger(value, 3);
         }
 
-        value = ByteUtil.bytesToLong(_readBytes(index+1, 4, Endian.LITTLE));
-        if (value <= 0xFFFFFFFFL) {
+        if (prefix < 0xFF) {
+            final long value = ByteUtil.bytesToLong(_readBytes(index+1, 4, Endian.LITTLE));
             return new VariableSizedInteger(value, 5);
         }
 
-        value = ByteUtil.bytesToLong(_readBytes(index+1, 8, Endian.LITTLE));
+        final long value = ByteUtil.bytesToLong(_readBytes(index+1, 8, Endian.LITTLE));
         return new VariableSizedInteger(value, 9);
     }
 
@@ -112,7 +129,7 @@ public class ByteArrayReader {
     }
 
     public Boolean readBoolean() {
-        final byte value = _bytes[_index];
+        final byte value = _readByte(_index);
         _index += 1;
         return (value != 0x00);
     }
@@ -135,4 +152,7 @@ public class ByteArrayReader {
         return new String(stringBytes);
     }
 
+    public Boolean wentOutOfBounds() {
+        return _ranOutOfBytes;
+    }
 }

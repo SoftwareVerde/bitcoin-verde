@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.output;
 
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -7,19 +9,14 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 public class MutableTransactionOutput implements TransactionOutput {
     protected Long _amount = 0L;
     protected Integer _index = 0;
-    protected byte[] _lockingScript = new byte[0];
+    protected Script _lockingScript = null;
 
     public MutableTransactionOutput() { }
     public MutableTransactionOutput(final TransactionOutput transactionOutput) {
         _amount = transactionOutput.getAmount();
         _index = transactionOutput.getIndex();
 
-        if (transactionOutput instanceof ImmutableTransactionOutput) {
-            _lockingScript = ByteUtil.copyBytes(transactionOutput.getLockingScript());
-        }
-        else {
-            _lockingScript = transactionOutput.getLockingScript();
-        }
+        _lockingScript = transactionOutput.getLockingScript();
     }
 
     @Override
@@ -31,8 +28,9 @@ public class MutableTransactionOutput implements TransactionOutput {
     public void setIndex(final Integer index) { _index = index; }
 
     @Override
-    public byte[] getLockingScript() { return ByteUtil.copyBytes(_lockingScript); }
-    public void setLockingScript(final byte[] bytes) { _lockingScript = bytes; }
+    public Script getLockingScript() { return _lockingScript; }
+    public void setLockingScript(final Script lockingScript) { _lockingScript = lockingScript; }
+    public void setLockingScript(final byte[] bytes) { _lockingScript = new MutableScript(bytes); }
 
     @Override
     public Integer getByteCount() {
@@ -41,8 +39,8 @@ public class MutableTransactionOutput implements TransactionOutput {
         final Integer scriptByteCount;
         {
             Integer byteCount = 0;
-            byteCount += ByteUtil.variableLengthIntegerToBytes(_lockingScript.length).length;
-            byteCount += _lockingScript.length;
+            byteCount += ByteUtil.variableLengthIntegerToBytes(_lockingScript.getByteCount()).length;
+            byteCount += _lockingScript.getByteCount();
             scriptByteCount = byteCount;
         }
 
@@ -54,10 +52,12 @@ public class MutableTransactionOutput implements TransactionOutput {
         final byte[] valueBytes = new byte[8];
         ByteUtil.setBytes(valueBytes, ByteUtil.longToBytes(_amount));
 
+        final byte[] lockingScriptBytes = _lockingScript.getBytes();
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_lockingScript.length), Endian.BIG);
-        byteArrayBuilder.appendBytes(_lockingScript, Endian.LITTLE); // TODO: Unsure if Big or Little endian.
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.length), Endian.BIG);
+        byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.LITTLE); // TODO: Unsure if Big or Little endian.
 
         return byteArrayBuilder.build();
     }

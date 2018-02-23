@@ -30,6 +30,8 @@ public class NodeIpAddressInflater {
         }
         nodeIpAddress._port = byteArrayReader.readInteger(2, Endian.BIG);
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return nodeIpAddress;
     }
 }

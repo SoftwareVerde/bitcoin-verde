@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -14,7 +16,7 @@ public class ImmutableTransactionInput implements TransactionInput {
         }
 
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setUnlockingScript(ByteUtil.copyBytes(transactionInput.getUnlockingScript()));
+        mutableTransactionInput.setUnlockingScript(new ImmutableScript(transactionInput.getUnlockingScript()));
         mutableTransactionInput.setPreviousTransactionOutput(new ImmutableHash(transactionInput.getPreviousTransactionOutput()));
         mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
         mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
@@ -32,8 +34,8 @@ public class ImmutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public byte[] getUnlockingScript() {
-        return ByteUtil.copyBytes(_transactionInput.getUnlockingScript());
+    public Script getUnlockingScript() {
+        return _transactionInput.getUnlockingScript();
     }
 
     @Override

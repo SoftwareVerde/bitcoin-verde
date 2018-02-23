@@ -9,7 +9,7 @@ import java.util.List;
 
 import static com.softwareverde.bitcoin.transaction.script.opcode.Operation.SubType.*;
 
-public class Operation {
+public abstract class Operation {
     public enum SubType {
         // VALUE
         PUSH_ZERO           (0x00),
@@ -212,10 +212,10 @@ public class Operation {
         }
     }
 
-    private final byte _byte;
+    private final Byte _byte;
     private final Type _type;
 
-    protected Operation(final byte value, final Type type) {
+    protected Operation(final Byte value, final Type type) {
         _byte = value;
         _type = type;
     }
@@ -227,4 +227,6 @@ public class Operation {
     public Type getType() {
         return _type;
     }
+
+    public abstract void applyTo(final List<Operation> stack);
 }

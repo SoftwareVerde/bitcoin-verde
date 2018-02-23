@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.hash.Hash;
 
 public interface TransactionInput {
@@ -7,7 +8,7 @@ public interface TransactionInput {
 
     Hash getPreviousTransactionOutput();
     Integer getPreviousTransactionOutputIndex();
-    byte[] getUnlockingScript();
+    Script getUnlockingScript();
     Long getSequenceNumber();
     Integer getByteCount();
     byte[] getBytes();

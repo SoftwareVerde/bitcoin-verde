@@ -28,6 +28,8 @@ public class NodeIpAddressMessageInflater extends ProtocolMessageInflater {
             nodeIpAddressMessage._nodeIpAddresses.add(nodeIpAddress);
         }
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return nodeIpAddressMessage;
     }
 }

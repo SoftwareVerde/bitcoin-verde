@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.output;
 
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.transaction.script.Script;
 
 public class ImmutableTransactionOutput implements TransactionOutput {
     protected final TransactionOutput _transactionOutput;
@@ -18,7 +18,7 @@ public class ImmutableTransactionOutput implements TransactionOutput {
         final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
         mutableTransactionOutput.setIndex(transactionOutput.getIndex());
         mutableTransactionOutput.setAmount(transactionOutput.getAmount());
-        mutableTransactionOutput.setLockingScript(ByteUtil.copyBytes(transactionOutput.getLockingScript()));
+        mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
         _transactionOutput = mutableTransactionOutput;
     }
 
@@ -33,8 +33,8 @@ public class ImmutableTransactionOutput implements TransactionOutput {
     }
 
     @Override
-    public byte[] getLockingScript() {
-        return ByteUtil.copyBytes(_transactionOutput.getLockingScript());
+    public Script getLockingScript() {
+        return _transactionOutput.getLockingScript();
     }
 
     @Override

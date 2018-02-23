@@ -37,6 +37,8 @@ public abstract class ProtocolMessageInflater {
             }
         }
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return protocolMessageHeader;
     }
 }

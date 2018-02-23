@@ -16,7 +16,7 @@ public class TransactionInflater {
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
         final Integer transactionInputCount = byteArrayReader.readVariableSizedInteger().intValue();
         for (int i=0; i<transactionInputCount; ++i) {
-            if (byteArrayReader.remainingByteCount() <= 1) { return null; }
+            if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final TransactionInput transactionInput = transactionInputInflater.fromBytes(byteArrayReader);
             if (transactionInput == null) { return null; }
             transaction._transactionInputs.add(transactionInput);
@@ -25,7 +25,7 @@ public class TransactionInflater {
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
         final Integer transactionOutputCount = byteArrayReader.readVariableSizedInteger().intValue();
         for (int i=0; i<transactionOutputCount; ++i) {
-            if (byteArrayReader.remainingByteCount() <= 1) { return null; }
+            if (byteArrayReader.remainingByteCount() < 1) { return null; }
             final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(i, byteArrayReader);
             if (transactionOutput == null) { return null; }
             transaction._transactionOutputs.add(transactionOutput);
@@ -37,6 +37,8 @@ public class TransactionInflater {
             mutableLockTime.setLockTime(lockTimeTimestamp);
             transaction._lockTime = mutableLockTime;
         }
+
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
 
         return transaction;
     }

@@ -26,6 +26,8 @@ public class RequestDataMessageInflater extends ProtocolMessageInflater {
             inventoryMessage.addInventoryItem(dataHash);
         }
 
+        if (byteArrayReader.wentOutOfBounds()) { return null; }
+
         return inventoryMessage;
     }
 }
