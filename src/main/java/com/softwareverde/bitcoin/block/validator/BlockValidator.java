@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.block.validator;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -20,6 +22,8 @@ import java.util.List;
 public class BlockValidator {
     protected final BlockDatabaseManager _blockDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
+    protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
+    protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
 
     public static class TransactionOutputIdentifier {
         protected final Hash _transactionHash;
@@ -42,10 +46,13 @@ public class BlockValidator {
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final Long transactionOutputId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getTransactionHash());
+            final Long transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getTransactionHash());
+            if (transactionId == null) { return null; }
+
+            final Long transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
             if (transactionOutputId == null) { return null; }
 
-            return _transactionDatabaseManager.findTransactionOutput(transactionOutputId, transactionOutputIndex);
+            return _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -98,6 +105,8 @@ public class BlockValidator {
     public BlockValidator(final MysqlDatabaseConnection databaseConnection) {
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
 
     }
 

@@ -11,4 +11,6 @@ public interface Script extends ByteArray {
     void resetPosition();
 
     int getByteCount();
+
+    Boolean didOverflow();
 }

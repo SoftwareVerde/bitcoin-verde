@@ -9,9 +9,13 @@ public class Value {
         return new Value(bytes);
     }
 
+    public static Value fromBytes(final byte[] bytes) {
+        return new Value(bytes);
+    }
+
     protected byte[] _bytes;
 
-    public Value(final byte[] bytes) {
+    protected Value(final byte[] bytes) {
         _bytes = ByteUtil.copyBytes(bytes);
     }
 

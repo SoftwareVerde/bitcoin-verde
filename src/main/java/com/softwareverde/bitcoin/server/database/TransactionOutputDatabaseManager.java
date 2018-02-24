@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -45,6 +46,22 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
+    protected TransactionOutput _getTransactionOutput(final Long transactionOutputId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+
+        final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+        mutableTransactionOutput.setIndex(row.getInteger("index"));
+        mutableTransactionOutput.setAmount(row.getLong("amount"));
+        mutableTransactionOutput.setLockingScript(row.getBytes("locking_script"));
+        return mutableTransactionOutput;
+    }
+
     public TransactionOutputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
@@ -61,5 +78,9 @@ public class TransactionOutputDatabaseManager {
 
     public Long findTransactionOutput(final Long transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         return _findTransactionOutput(transactionId, transactionOutputIndex);
+    }
+
+    public TransactionOutput getTransactionOutput(final Long transactionOutputId) throws DatabaseException {
+        return _getTransactionOutput(transactionOutputId);
     }
 }

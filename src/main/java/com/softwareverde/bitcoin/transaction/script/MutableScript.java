@@ -5,9 +5,13 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 public class MutableScript implements Script {
     protected final byte[] _bytes;
     protected int _index = 0;
+    protected Boolean _didOverflow = false;
 
     protected byte _getNextByte(final Boolean shouldConsumeByte) {
-        if (_index >= _bytes.length) { return 0x00; }
+        if (_index >= _bytes.length) {
+            _didOverflow = true;
+            return 0x00;
+        }
 
         final byte b = _bytes[(_bytes.length - _index) - 1];
 
@@ -66,6 +70,11 @@ public class MutableScript implements Script {
     @Override
     public int getByteCount() {
         return _bytes.length;
+    }
+
+    @Override
+    public Boolean didOverflow() {
+        return _didOverflow;
     }
 
     @Override

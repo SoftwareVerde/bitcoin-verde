@@ -2,7 +2,9 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
@@ -160,7 +162,7 @@ public abstract class Operation {
     }
 
     public enum Type {
-        OP_VALUE        (PUSH_ZERO, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
+        OP_PUSH         (PUSH_ZERO, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
         OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN),
         OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_TRUE_THEN_DUPLICATE, DROP, REMOVE_2ND_FROM_TOP, MOVE_TO_TOP, ROTATE_TOP_3, SWAP_TOP_2, DROP_2, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
@@ -207,11 +209,12 @@ public abstract class Operation {
     public static Operation fromScript(final Script script) {
         if (! script.hasNextByte()) { return null; }
 
+        Logger.log("OP: "+ BitcoinUtil.toHexString(new byte[] { script.peakNextByte() }));
         final Type type = Type.getType(script.peakNextByte());
         if (type == null) { return null; }
 
         switch (type) {
-            case OP_VALUE: { return ValueOperation.fromScript(script); }
+            case OP_PUSH: { return PushOperation.fromScript(script); }
             case OP_DYNAMIC_VALUE: { return DynamicValueOperation.fromScript(script); }
             case OP_CONTROL:
             case OP_STACK:
@@ -227,8 +230,8 @@ public abstract class Operation {
         }
     }
 
-    private final byte _opcodeByte;
-    private final Type _type;
+    protected final byte _opcodeByte;
+    protected final Type _type;
 
     protected Operation(final byte value, final Type type) {
         _opcodeByte = value;
@@ -244,4 +247,9 @@ public abstract class Operation {
     }
 
     public abstract Boolean applyTo(final Stack stack);
+
+    @Override
+    public String toString() {
+        return "Operation 0x" + BitcoinUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type + "-" + _type.getSubtype(_opcodeByte);
+    }
 }

@@ -14,7 +14,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.transaction.JdbcDatabaseTransaction;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
