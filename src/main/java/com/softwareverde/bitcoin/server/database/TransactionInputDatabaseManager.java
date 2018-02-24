@@ -13,7 +13,7 @@ public class TransactionInputDatabaseManager {
 
     protected Long _findPreviousTransactionOutputId(final Long transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
-        return transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousTransactionOutputIndex());
+        return transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getOutputTransactionIndex());
     }
 
     protected Long _findTransactionInputId(final Long transactionId, final Long previousTransactionOutputId) throws DatabaseException {
@@ -36,7 +36,7 @@ public class TransactionInputDatabaseManager {
             new Query("UPDATE transaction_inputs SET transaction_id = ?, previous_transaction_output_id = ?, unlocking_script = ?, sequence_number = ? WHERE id = ?")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getUnlockingScript())
+                .setParameter(transactionInput.getUnlockingScript().getBytes())
                 .setParameter(transactionInput.getSequenceNumber())
                 .setParameter(transactionInputId)
         );
@@ -49,7 +49,7 @@ public class TransactionInputDatabaseManager {
             new Query("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, unlocking_script, sequence_number) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getUnlockingScript())
+                .setParameter(transactionInput.getUnlockingScript().getBytes())
                 .setParameter(transactionInput.getSequenceNumber())
         );
     }

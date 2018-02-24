@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
-
-import java.util.List;
 
 public class ValueOperation extends Operation {
     public static final Type TYPE = Type.OP_VALUE;
@@ -70,13 +70,8 @@ public class ValueOperation extends Operation {
 
     protected final byte[] _value;
 
-    protected ValueOperation(final byte b, final byte[] value) {
-        super(b, TYPE);
-        _value = ByteUtil.copyBytes(value);
-    }
-
-    public ValueOperation(final byte[] value) {
-        super(null, null);
+    protected ValueOperation(final byte opcodeByte, final byte[] value) {
+        super(opcodeByte, TYPE);
         _value = ByteUtil.copyBytes(value);
     }
 
@@ -85,7 +80,8 @@ public class ValueOperation extends Operation {
     }
 
     @Override
-    public void applyTo(final List<Operation> stack) {
-
+    public Boolean applyTo(final Stack stack) {
+        stack.push(new Value(_value));
+        return true;
     }
 }

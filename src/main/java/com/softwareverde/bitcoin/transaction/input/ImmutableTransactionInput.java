@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class ImmutableTransactionInput implements TransactionInput {
     private final TransactionInput _transactionInput;
@@ -17,20 +16,20 @@ public class ImmutableTransactionInput implements TransactionInput {
 
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setUnlockingScript(new ImmutableScript(transactionInput.getUnlockingScript()));
-        mutableTransactionInput.setPreviousTransactionOutput(new ImmutableHash(transactionInput.getPreviousTransactionOutput()));
-        mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
+        mutableTransactionInput.setPreviousTransactionOutput(new ImmutableHash(transactionInput.getOutputTransactionHash()));
+        mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getOutputTransactionIndex());
         mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
         _transactionInput = mutableTransactionInput;
     }
 
     @Override
-    public Hash getPreviousTransactionOutput() {
-        return new ImmutableHash(_transactionInput.getPreviousTransactionOutput());
+    public Hash getOutputTransactionHash() {
+        return new ImmutableHash(_transactionInput.getOutputTransactionHash());
     }
 
     @Override
-    public Integer getPreviousTransactionOutputIndex() {
-        return _transactionInput.getPreviousTransactionOutputIndex();
+    public Integer getOutputTransactionIndex() {
+        return _transactionInput.getOutputTransactionIndex();
     }
 
     @Override

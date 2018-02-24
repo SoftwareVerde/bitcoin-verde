@@ -152,7 +152,7 @@ public class ByteArrayReader {
         return new String(stringBytes);
     }
 
-    public Boolean wentOutOfBounds() {
+    public Boolean didOverflow() {
         return _ranOutOfBytes;
     }
 }

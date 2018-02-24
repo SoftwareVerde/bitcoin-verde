@@ -2,11 +2,9 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.ValueOperation;
-import com.softwareverde.bitcoin.util.ByteUtil;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
 
 /**
  * NOTE: It seems that all values within Bitcoin Core scripts are stored as little-endian.
@@ -20,29 +18,30 @@ public class ScriptRunner {
         lockingScript.resetPosition();
         unlockingScript.resetPosition();
 
-        final List<Operation> stack = new ArrayList<Operation>();
+        final Stack stack = new Stack();
+
+        Logger.log("Running script: "+ BitcoinUtil.toHexString(lockingScript));
 
         while (lockingScript.hasNextByte()) {
-            final Operation opcode = Operation.fromScript(lockingScript);
-            stack.add(opcode);
+            final Operation opcode = Operation.fromScript(lockingScript); // TODO: Change to inflater...
+            Logger.log(opcode);
+            if (opcode == null) { return false; }
+
+            final Boolean wasSuccessful = opcode.applyTo(stack);
+            if (! wasSuccessful) { return false; }
         }
 
+        Logger.log("Running script: "+ BitcoinUtil.toHexString(unlockingScript));
         while (unlockingScript.hasNextByte()) {
-            final Operation opcode = Operation.fromScript(unlockingScript);
-            stack.add(opcode);
-        }
+            final Operation opcode = Operation.fromScript(lockingScript); // TODO: Change to inflater...
+            Logger.log(opcode);
+            if (opcode == null) { return false; }
 
-        while (! stack.isEmpty()) {
-            final Operation operation = stack.remove(stack.size() - 1);
-            operation.applyTo(stack);
+            final Boolean wasSuccessful = opcode.applyTo(stack);
+            if (! wasSuccessful) { return false; }
         }
 
         if (stack.isEmpty()) { return false; }
-
-        final Operation topOperationWithinStack = stack.get(stack.size() - 1);
-        if (! (topOperationWithinStack instanceof ValueOperation)) { return false; }
-
-        final ValueOperation valueOperation = ((ValueOperation) topOperationWithinStack);
-        return (ByteUtil.bytesToLong(valueOperation.getValue()) > 0);
+        return (stack.pop().asLong() > 0L);
     }
 }

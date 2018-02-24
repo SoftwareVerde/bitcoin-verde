@@ -6,8 +6,8 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 public interface TransactionInput {
     static final Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
 
-    Hash getPreviousTransactionOutput();
-    Integer getPreviousTransactionOutputIndex();
+    Hash getOutputTransactionHash();
+    Integer getOutputTransactionIndex();
     Script getUnlockingScript();
     Long getSequenceNumber();
     Integer getByteCount();

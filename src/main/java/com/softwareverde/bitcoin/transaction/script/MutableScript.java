@@ -9,7 +9,7 @@ public class MutableScript implements Script {
     protected byte _getNextByte(final Boolean shouldConsumeByte) {
         if (_index >= _bytes.length) { return 0x00; }
 
-        final byte b = _bytes[_index];
+        final byte b = _bytes[(_bytes.length - _index) - 1];
 
         if (shouldConsumeByte) {
             _index += 1;

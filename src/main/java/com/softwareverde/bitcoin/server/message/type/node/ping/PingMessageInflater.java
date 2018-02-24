@@ -18,7 +18,7 @@ public class PingMessageInflater extends ProtocolMessageInflater {
 
         pingMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         return pingMessage;
     }

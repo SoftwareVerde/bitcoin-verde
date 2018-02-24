@@ -24,7 +24,7 @@ public class ErrorMessageInflater extends ProtocolMessageInflater {
 
         errorMessage._extraData = byteArrayReader.readBytes(byteArrayReader.remainingByteCount(), Endian.BIG);
 
-        // if (byteArrayReader.wentOutOfBounds()) { return null; }
+        // if (byteArrayReader.didOverflow()) { return null; }
 
         return errorMessage;
     }

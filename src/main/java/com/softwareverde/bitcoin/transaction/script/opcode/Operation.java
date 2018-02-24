@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.Util;
 
@@ -12,21 +13,23 @@ import static com.softwareverde.bitcoin.transaction.script.opcode.Operation.SubT
 public abstract class Operation {
     public enum SubType {
         // VALUE
+        PUSH_NEGATIVE_ONE   (0x4F),
         PUSH_ZERO           (0x00),
+        PUSH_VALUE          (0x51, 0x60),
         PUSH_DATA           (0x01, 0x4B),
         PUSH_DATA_BYTE      (0x4C),
         PUSH_DATA_SHORT     (0x4D),
         PUSH_DATA_INTEGER   (0x4E),
-        PUSH_NEGATIVE_ONE   (0x4F),
-        PUSH_VALUE          (0x51, 0x60),
-        PUSH_STACK_SIZE     (0x74),
-        DUPLICATE_TOP_VALUE (0x76),
-        DUPLICATE_N_FROM_TOP (0x79),
-        COPY_2ND_FROM_TOP   (0x78),
-        DUPLICATE_2         (0x6E),
-        DUPLICATE_3         (0x6F),
-        COPY_2ND_AND_3RD_FROM_TOP (0x70),
-        DUPLICATE_TOP_MOVE_BACK_2 (0x7D),
+
+        // DYNAMIC VALUE
+        PUSH_STACK_SIZE             (0x74),
+        COPY_1ST                    (0x76),
+        COPY_NTH                    (0x79),
+        COPY_2ND                    (0x78),
+        COPY_2ND_THEN_1ST           (0x6E),
+        COPY_3RD_THEN_2ND_THEN_1ST  (0x6F),
+        COPY_4TH_THEN_3RD           (0x70),
+        COPY_1ST_THEN_MOVE_TO_3RD   (0x7D),
 
         // CONTROL
         IF                  (0x63),
@@ -158,6 +161,7 @@ public abstract class Operation {
 
     public enum Type {
         OP_VALUE        (PUSH_ZERO, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
+        OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN),
         OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_TRUE_THEN_DUPLICATE, DROP, REMOVE_2ND_FROM_TOP, MOVE_TO_TOP, ROTATE_TOP_3, SWAP_TOP_2, DROP_2, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
         OP_STRING       (STRING_CONCATENATE, STRING_SUBSTRING, STRING_LEFT, STRING_RIGHT, STRING_PUSH_LENGTH, STRING_1ST_AND_2ND_LENGTH_NOT_EMPTY, STRING_1ST_OR_2ND_LENGTH_NOT_EMPTY),
@@ -207,26 +211,37 @@ public abstract class Operation {
         if (type == null) { return null; }
 
         switch (type) {
-            case OP_VALUE:
+            case OP_VALUE: { return ValueOperation.fromScript(script); }
+            case OP_DYNAMIC_VALUE: { return DynamicValueOperation.fromScript(script); }
+            case OP_CONTROL:
+            case OP_STACK:
+            case OP_STRING:
+            case OP_BITWISE:
+            case OP_COMPARISON:
+            case OP_ARITHMETIC:
+            case OP_CRYPTOGRAPHIC:
+            case OP_LOCK_TIME:
+            case OP_NO_OPERATION:
+
             default: return null;
         }
     }
 
-    private final Byte _byte;
+    private final byte _opcodeByte;
     private final Type _type;
 
-    protected Operation(final Byte value, final Type type) {
-        _byte = value;
+    protected Operation(final byte value, final Type type) {
+        _opcodeByte = value;
         _type = type;
     }
 
-    public byte getByte() {
-        return _byte;
+    public byte getOpcodeByte() {
+        return _opcodeByte;
     }
 
     public Type getType() {
         return _type;
     }
 
-    public abstract void applyTo(final List<Operation> stack);
+    public abstract Boolean applyTo(final Stack stack);
 }

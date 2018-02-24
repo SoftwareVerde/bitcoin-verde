@@ -20,27 +20,27 @@ public class MutableTransactionInput implements TransactionInput {
         _previousTransactionOutputHash = new MutableHash();
     }
     public MutableTransactionInput(final TransactionInput transactionInput) {
-        _previousTransactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
+        _previousTransactionOutputIndex = transactionInput.getOutputTransactionIndex();
         _sequenceNumber = transactionInput.getSequenceNumber();
 
         if (transactionInput instanceof MutableTransactionInput) {
-            _previousTransactionOutputHash = new ImmutableHash(transactionInput.getPreviousTransactionOutput());
+            _previousTransactionOutputHash = new ImmutableHash(transactionInput.getOutputTransactionHash());
             _unlockingScript = transactionInput.getUnlockingScript();
         }
         else {
-            _previousTransactionOutputHash = transactionInput.getPreviousTransactionOutput();
+            _previousTransactionOutputHash = transactionInput.getOutputTransactionHash();
             _unlockingScript = transactionInput.getUnlockingScript();
         }
     }
 
     @Override
-    public Hash getPreviousTransactionOutput() { return _previousTransactionOutputHash; }
+    public Hash getOutputTransactionHash() { return _previousTransactionOutputHash; }
     public void setPreviousTransactionOutput(final Hash previousTransactionOutputHash) {
         _previousTransactionOutputHash = previousTransactionOutputHash;
     }
 
     @Override
-    public Integer getPreviousTransactionOutputIndex() { return _previousTransactionOutputIndex; }
+    public Integer getOutputTransactionIndex() { return _previousTransactionOutputIndex; }
     public void setPreviousTransactionOutputIndex(final Integer index) {
         _previousTransactionOutputIndex = index;
     }

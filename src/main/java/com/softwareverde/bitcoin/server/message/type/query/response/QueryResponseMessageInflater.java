@@ -5,9 +5,7 @@ import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
-import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -32,7 +30,7 @@ public class QueryResponseMessageInflater extends ProtocolMessageInflater {
             queryResponseMessage.addInventoryItem(dataHash);
         }
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         return queryResponseMessage;
     }

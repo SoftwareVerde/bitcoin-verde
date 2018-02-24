@@ -40,4 +40,9 @@ public class ImmutableHash implements Hash {
         final Hash object = (Hash) obj;
         return ByteUtil.areEqual(_mutableHash._bytes, object.getBytes());
     }
+
+    @Override
+    public String toString() {
+        return _mutableHash.toString();
+    }
 }

@@ -30,7 +30,7 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getLockingScript())
+                .setParameter(transactionOutput.getLockingScript().getBytes())
                 .setParameter(transactionOutputId)
         );
     }
@@ -41,7 +41,7 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getLockingScript())
+                .setParameter(transactionOutput.getLockingScript().getBytes())
         );
     }
 

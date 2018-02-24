@@ -36,7 +36,7 @@ public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
         synchronizeVersionMessage._currentBlockHeight = byteArrayReader.readInteger(4, Endian.LITTLE);
         synchronizeVersionMessage._relayIsEnabled = byteArrayReader.readBoolean();
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         return synchronizeVersionMessage;
     }

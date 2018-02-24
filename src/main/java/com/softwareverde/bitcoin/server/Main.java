@@ -14,6 +14,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.transaction.JdbcDatabaseTransaction;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
@@ -195,10 +196,12 @@ public class Main {
     }
 
     protected void _downloadAllBlocks(final Node node) {
+        final BitcoinDatabase database = _environment.getDatabase();
+
         final Hash resumeAfterHash;
         {
             Hash lastKnownHash = null;
-            try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                 lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
             }
@@ -218,8 +221,7 @@ public class Main {
                 Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
-
-                try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+                try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final BlockValidator blockValidator = new BlockValidator(databaseConnection);
@@ -231,12 +233,13 @@ public class Main {
                     }
                     else {
                         Logger.log("Invalid block: "+ block.calculateSha256Hash());
+                        _exitFailure();
                     }
 
                     TransactionUtil.commitTransaction(databaseConnection);
                 }
                 catch (final DatabaseException exception) {
-                    exception.printStackTrace();
+                    Logger.log(exception);
                     _exitFailure();
                 }
 
@@ -298,10 +301,12 @@ public class Main {
 
         final Node node = new Node(host, port);
 
+        final BitcoinDatabase database = _environment.getDatabase();
+
         final Boolean hasGenesisBlock;
         {
             Hash lastKnownHash = null;
-            try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
+            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                 lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
             }
@@ -313,9 +318,21 @@ public class Main {
             node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
-                    try (final MysqlDatabaseConnection databaseConnection = _environment.newDatabaseConnection()) {
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                        blockDatabaseManager.storeBlock(block);
+                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                        TransactionUtil.startTransaction(databaseConnection);
+
+                        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+                        final Boolean blockIsValid = blockValidator.validateBlock(block);
+
+                        if (blockIsValid) {
+                            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                            blockDatabaseManager.storeBlock(block);
+                        }
+                        else {
+                            Logger.log("Invalid block: "+ block.calculateSha256Hash());
+                        }
+
+                        TransactionUtil.commitTransaction(databaseConnection);
                     }
                     catch (final DatabaseException exception) { }
 

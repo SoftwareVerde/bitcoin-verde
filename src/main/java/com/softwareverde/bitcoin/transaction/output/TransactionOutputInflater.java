@@ -14,7 +14,7 @@ public class TransactionOutputInflater {
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         transactionOutput._lockingScript = new MutableScript(byteArrayReader.readBytes(scriptByteCount, Endian.LITTLE));
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         return transactionOutput;
     }

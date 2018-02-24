@@ -57,11 +57,12 @@ public class BlockValidator {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
-            final Hash transactionInputOutputHash = transactionInput.getPreviousTransactionOutput();
-            final Integer transactionInputOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
-            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInputOutputHash, transactionInputOutputIndex));
+            final Hash outputTransactionHash = transactionInput.getOutputTransactionHash();
+            final Integer transactionOutputIndex = transactionInput.getOutputTransactionIndex();
+            Logger.log("Tx Input, searching for Output: "+ BitcoinUtil.toHexString(outputTransactionHash) + ":"+ transactionOutputIndex);
+            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex));
             if (transactionOutput == null) {
-                Logger.log("Validate Tx: Unable to find transaction: "+ BitcoinUtil.toHexString(transactionInputOutputHash) +":"+ transactionInputOutputIndex);
+                Logger.log("Not found.");
                 return null;
             }
 
@@ -73,7 +74,7 @@ public class BlockValidator {
     protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
         final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction);
-        Logger.log("(Inputs: "+ totalInputValue+"; Outputs: "+ totalOutputValue +")");
+        Logger.log("Total Out: "+ totalOutputValue +"; Total In: "+ totalInputValue);
         if (totalInputValue == null) { return false; }
 
         return (totalOutputValue <= totalInputValue);
@@ -82,7 +83,7 @@ public class BlockValidator {
     protected Boolean _validateTransactionInputsAreUnlocked(final Transaction transaction) {
         final ScriptRunner scriptRunner = new ScriptRunner();
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutput(), transactionInput.getPreviousTransactionOutputIndex()));
+            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getOutputTransactionHash(), transactionInput.getOutputTransactionIndex()));
             if (transactionOutput == null) { return false; }
 
             final Script lockingScript = transactionOutput.getLockingScript();
@@ -109,10 +110,16 @@ public class BlockValidator {
 
             final Transaction blockTransaction = blockTransactions.get(i);
             final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockTransaction);
-            if (! transactionExpenditureIsValid) { return false; }
+            if (! transactionExpenditureIsValid) {
+                Logger.log("BLOCK VALIDATION: Failed because of expenditures did not match.");
+                return false;
+            }
 
             final Boolean transactionInputsAreUnlocked = _validateTransactionInputsAreUnlocked(blockTransaction);
-            if (! transactionInputsAreUnlocked) { return false; }
+            if (! transactionInputsAreUnlocked) {
+                Logger.log("BLOCK VALIDATION: Failed because of invalid transaction.");
+                return false;
+            }
         }
 
         return true;

@@ -38,7 +38,7 @@ public class TransactionInflater {
             transaction._lockTime = mutableLockTime;
         }
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         return transaction;
     }

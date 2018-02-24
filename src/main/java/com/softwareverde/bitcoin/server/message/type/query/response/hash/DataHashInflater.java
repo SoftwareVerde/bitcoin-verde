@@ -11,7 +11,7 @@ public class DataHashInflater {
         final Integer inventoryTypeCode = byteArrayReader.readInteger(4, Endian.LITTLE);
         final ImmutableHash objectHash = new ImmutableHash(byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE));
 
-        if (byteArrayReader.wentOutOfBounds()) { return null; }
+        if (byteArrayReader.didOverflow()) { return null; }
 
         final DataHashType dataType = DataHashType.fromValue(inventoryTypeCode);
         return new DataHash(dataType, objectHash);

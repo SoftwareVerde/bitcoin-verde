@@ -3,7 +3,9 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
@@ -69,13 +71,37 @@ public class TransactionDatabaseManager {
         );
     }
 
+    protected TransactionOutput _getTransactionOutput(final Long transactionOutputId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+
+        final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+        mutableTransactionOutput.setIndex(row.getInteger("index"));
+        mutableTransactionOutput.setAmount(row.getLong("amount"));
+        mutableTransactionOutput.setLockingScript(row.getBytes("locking_script"));
+        return mutableTransactionOutput;
+    }
+
     public TransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 
-    public TransactionOutput findTransactionOutput(final Long transactionId, final Integer OutputIndex) {
+    public TransactionOutput findTransactionOutput(final Long transactionId, final Integer outputIndex) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
+                .setParameter(transactionId)
+                .setParameter(outputIndex)
+        );
+        if (rows.isEmpty()) { return null; }
 
-        return null;
+        final Row row = rows.get(0);
+        final Long transactionOutputId = row.getLong("id");
+        return _getTransactionOutput(transactionOutputId);
     }
 
     public Long storeTransaction(final Long blockId, final Transaction transaction) throws DatabaseException {

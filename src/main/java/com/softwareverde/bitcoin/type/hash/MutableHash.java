@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.type.hash;
 
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class MutableHash implements Hash {
@@ -51,5 +52,10 @@ public class MutableHash implements Hash {
         if (! (obj instanceof Hash)) { return false; }
         final Hash object = (Hash) obj;
         return ByteUtil.areEqual(_bytes, object.getBytes());
+    }
+
+    @Override
+    public String toString() {
+        return BitcoinUtil.toHexString(_bytes);
     }
 }
