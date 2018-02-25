@@ -40,6 +40,16 @@ public class BitcoinUtil {
         return data;
     }
 
+    public static byte[] sha1(final byte[] data) {
+        try {
+            final MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
+            return messageDigest.digest(data);
+        }
+        catch (final NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static byte[] sha256(final byte[] data) {
         try {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
@@ -88,4 +98,6 @@ public class BitcoinUtil {
 
         return base58CheckEncoded;
     }
+
+    protected BitcoinUtil() { }
 }

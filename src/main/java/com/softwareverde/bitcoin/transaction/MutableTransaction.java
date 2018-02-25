@@ -6,12 +6,14 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,6 +55,24 @@ public class MutableTransaction implements Transaction {
         byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
 
         return byteArrayBuilder.build();
+    }
+
+    public Hash calculateSha256HashForSignature(final Integer inputIndexToBeSigned) {
+        final MutableTransaction mutableTransaction = new MutableTransaction();
+        mutableTransaction._version = _version;
+        mutableTransaction._hasWitnessData = _hasWitnessData;
+        mutableTransaction._transactionInputs.addAll(_transactionInputs); // TODO: Clone these inputs to prevent mutation.
+        mutableTransaction._transactionOutputs.addAll(_transactionOutputs); // TODO: Clone these outputs to prevent mutation.
+        mutableTransaction._lockTime = _lockTime;
+
+        if (mutableTransaction._transactionInputs.size() <= inputIndexToBeSigned) {
+            return null; // TODO: Bitcoin Core / Bitcoinj appears to be returning 0x01 for its hash in this case...
+        }
+        final Script inputUnlockingScript = mutableTransaction._transactionInputs.get(inputIndexToBeSigned).getUnlockingScript();
+        // TODO/RESUME: remove signature from inputUnlockingScript...
+
+        final byte[] bytes = _getBytes();
+        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(bytes))));
     }
 
     @Override

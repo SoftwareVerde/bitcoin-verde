@@ -27,6 +27,10 @@ public class Value {
         return ByteUtil.bytesToLong(_bytes);
     }
 
+    public ScriptSignature asScriptSignature() {
+        return ScriptSignature.fromBytes(ByteUtil.copyBytes(_bytes));
+    }
+
     public byte[] getBytes() {
         return ByteUtil.copyBytes(_bytes);
     }

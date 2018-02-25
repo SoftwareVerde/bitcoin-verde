@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -42,17 +43,17 @@ public abstract class Operation {
         RETURN              (0x6A),
 
         // STACK
-        POP_TO_ALT_STACK        (0x6B),
-        POP_FROM_ALT_STACK      (0x6C),
-        IF_TRUE_THEN_DUPLICATE  (0x73),
-        DROP                    (0x75),
-        REMOVE_2ND_FROM_TOP     (0x77),
-        MOVE_TO_TOP             (0x7A),
-        ROTATE_TOP_3            (0x7B),
-        SWAP_TOP_2              (0x7C),
-        DROP_2                  (0x6D),
-        MOVE_5TH_AND_6TH_TO_TOP (0x71),
-        SWAP_1ST_2ND_WITH_3RD_4TH (0x72),
+        POP_TO_ALT_STACK            (0x6B),
+        POP_FROM_ALT_STACK          (0x6C),
+        IF_1ST_TRUE_THEN_COPY_1ST   (0x73),
+        POP                         (0x75),
+        REMOVE_2ND_FROM_TOP         (0x77),
+        MOVE_TO_1ST                 (0x7A),
+        ROTATE_TOP_3                (0x7B),
+        SWAP_1ST_WITH_2ND           (0x7C),
+        POP_THEN_POP                (0x6D),
+        MOVE_5TH_AND_6TH_TO_TOP     (0x71),
+        SWAP_1ST_2ND_WITH_3RD_4TH   (0x72),
 
         // STRING
         STRING_CONCATENATE  (0x7E, false),
@@ -106,11 +107,15 @@ public abstract class Operation {
         SHA_256                             (0xA8),
         SHA_256_THEN_RIPEMD_160             (0xA9),
         DOUBLE_SHA_256                      (0xAA),
-        CODE_SEPARATOR                      (0xAB),
         CHECK_SIGNATURE                     (0xAC),
         CHECK_SIGNATURE_THEN_VERIFY         (0xAD),
         CHECK_MULTISIGNATURE                (0xAE),
         CHECK_MULTISIGNATURE_THEN_VERIFY    (0xAF),
+
+        CODE_SEPARATOR                      (0xAB), // NOTE: Tentatively, this may intentionally be implemented as a NOP.
+                                                    //  Its intended use is to designate where signed-content is supposed to begin (rendering parts of the script mutable).
+                                                    //  Its use seems rare and borderline useless, and is likely a security risk.
+                                                    //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
 
         // LOCK TIME
         CHECK_LOCK_TIME_THEN_VERIFY         (0xb1),
@@ -165,7 +170,7 @@ public abstract class Operation {
         OP_PUSH         (PUSH_ZERO, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
         OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN),
-        OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_TRUE_THEN_DUPLICATE, DROP, REMOVE_2ND_FROM_TOP, MOVE_TO_TOP, ROTATE_TOP_3, SWAP_TOP_2, DROP_2, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
+        OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_1ST_TRUE_THEN_COPY_1ST, POP, REMOVE_2ND_FROM_TOP, MOVE_TO_1ST, ROTATE_TOP_3, SWAP_1ST_WITH_2ND, POP_THEN_POP, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
         OP_STRING       (STRING_CONCATENATE, STRING_SUBSTRING, STRING_LEFT, STRING_RIGHT, STRING_PUSH_LENGTH, STRING_1ST_AND_2ND_LENGTH_NOT_EMPTY, STRING_1ST_OR_2ND_LENGTH_NOT_EMPTY),
         OP_BITWISE      (BITWISE_INVERT, BITWISE_AND, BITWISE_OR, BITWISE_XOR, SHIFT_LEFT, SHIFT_RIGHT),
         OP_COMPARISON   (IS_EQUAL, IS_EQUAL_THEN_VERIFY, IS_FALSE, IS_NUMERICALLY_EQUAL, IS_NUMERICALLY_EQUAL_THEN_VERIFY, IS_NUMERICALLY_NOT_EQUAL, IS_LESS_THAN, IS_GREATER_THAN, IS_LESS_THAN_OR_EQUAL, IS_GREATER_THAN_OR_EQUAL, IS_WITHIN_RANGE),
@@ -246,7 +251,7 @@ public abstract class Operation {
         return _type;
     }
 
-    public abstract Boolean applyTo(final Stack stack);
+    public abstract Boolean applyTo(final Stack stack, final ScriptRunner.Context context);
 
     @Override
     public String toString() {
