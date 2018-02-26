@@ -18,6 +18,11 @@ public class ByteArrayBuilder {
         _totalByteCount += bytes.length;
     }
 
+    public void appendByte(final byte b) {
+        _byteArrays.add(new byte[] { b });
+        _totalByteCount += 1;
+    }
+
     public byte[] build() {
         final byte[] data = new byte[_totalByteCount];
 
@@ -30,5 +35,14 @@ public class ByteArrayBuilder {
         }
 
         return data;
+    }
+
+    public Integer getByteCount() {
+        return _totalByteCount;
+    }
+
+    public void clear() {
+        _totalByteCount = 0;
+        _byteArrays.clear();
     }
 }

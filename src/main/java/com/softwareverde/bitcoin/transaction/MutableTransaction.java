@@ -1,19 +1,23 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
-import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,7 +35,7 @@ public class MutableTransaction implements Transaction {
      *  Therefore, using BigInteger is not be necessary any transaction calculation.
      */
 
-    protected byte[] _getBytes() {
+    protected ByteArrayBuilder _toByteArrayBuilder() {
         final byte[] versionBytes = new byte[4];
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(_version));
 
@@ -54,30 +58,103 @@ public class MutableTransaction implements Transaction {
 
         byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
 
-        return byteArrayBuilder.build();
+        return byteArrayBuilder;
     }
 
-    public Hash calculateSha256HashForSignature(final Integer inputIndexToBeSigned) {
+    @Override
+    public Hash calculateSha256HashForSigning(final Integer inputIndexToBeSigned, final TransactionOutput transactionOutputBeingSpent, final ScriptSignature.HashType hashType) {
+        // 1. Clear all input scripts... unsure if with zeroes, or completely empty, or a single zero byte...
+        // 2. Set the input associated with the inputIndexToBeSigned to the value of its corresponding output-script from the previous transaction...
+        // 3. Append the signatureHashType byte to the serialized transaction bytes.
+        // 4. Hash tx hash twice
+
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction._version = _version;
         mutableTransaction._hasWitnessData = _hasWitnessData;
-        mutableTransaction._transactionInputs.addAll(_transactionInputs); // TODO: Clone these inputs to prevent mutation.
-        mutableTransaction._transactionOutputs.addAll(_transactionOutputs); // TODO: Clone these outputs to prevent mutation.
+
+        for (int i=0; i<_transactionInputs.size(); ++i) {
+            final TransactionInput transactionInput = _transactionInputs.get(i);
+            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+            mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
+            mutableTransactionInput.setPreviousTransactionOutputHash(transactionInput.getPreviousTransactionOutputHash());
+
+            final Script unlockingScript;
+            if (i == inputIndexToBeSigned) {
+                unlockingScript = transactionOutputBeingSpent.getLockingScript();
+            }
+            else {
+                unlockingScript = Script.EMPTY_SCRIPT;
+            }
+            mutableTransactionInput.setUnlockingScript(unlockingScript);
+
+            mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+            mutableTransaction._transactionInputs.add(mutableTransactionInput);
+        }
+
+        for (final TransactionOutput transactionOutput : _transactionOutputs) {
+            final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+            mutableTransactionOutput.setAmount(transactionOutput.getAmount());
+            mutableTransactionOutput.setLockingScript(new MutableScript(transactionOutput.getLockingScript().getBytes()));
+            mutableTransactionOutput.setIndex(transactionOutput.getIndex());
+            mutableTransaction._transactionOutputs.add(mutableTransactionOutput);
+        }
+
         mutableTransaction._lockTime = _lockTime;
 
-        if (mutableTransaction._transactionInputs.size() <= inputIndexToBeSigned) {
-            return null; // TODO: Bitcoin Core / Bitcoinj appears to be returning 0x01 for its hash in this case...
-        }
-        final Script inputUnlockingScript = mutableTransaction._transactionInputs.get(inputIndexToBeSigned).getUnlockingScript();
-        // TODO/RESUME: remove signature from inputUnlockingScript...
+        final ByteArrayBuilder byteArrayBuilder = mutableTransaction._toByteArrayBuilder();
+        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
+        System.out.println(BitcoinUtil.toHexString(byteArrayBuilder.build()));
+        // return new MutableHash(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build())));
+        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()))));
 
-        final byte[] bytes = _getBytes();
-        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(bytes))));
+//
+//        if (mutableTransaction._transactionInputs.size() <= inputIndexToBeSigned) {
+//            return null; // TODO: Bitcoin Core / Bitcoinj appears to be returning 0x01 for its hash in this case...
+//        }
+//        final Script inputUnlockingScript = mutableTransaction._transactionInputs.get(inputIndexToBeSigned).getUnlockingScript();
+//        inputUnlockingScript.resetPosition();
+//        inputUnlockingScript.removeSignatures();
+//        // TODO/RESUME: remove signature from inputUnlockingScript...
+//
+//        int matchIndex = 0;
+//        ByteArrayBuilder queuedBytes = new ByteArrayBuilder();
+//        final byte[] normalBytes = _getBytes();
+//        ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+//        for (int i=0;i<normalBytes.length; ++i) {
+//            if (normalBytes[i] != scriptSignature[i + matchIndex]) {
+//                if (queuedBytes.getByteCount() > 0) {
+//                    byteArrayBuilder.appendBytes(queuedBytes.build(), Endian.BIG);
+//                }
+//                queuedBytes.clear();
+//                matchIndex = 0;
+//
+//                byteArrayBuilder.appendByte(normalBytes[i]);
+//            }
+//            else {
+//                queuedBytes.appendByte(normalBytes[i]);
+//                matchIndex += 1;
+//            }
+//
+//            if (queuedBytes.getByteCount() == scriptSignature.length) {
+//                queuedBytes.clear();
+//                matchIndex = 0;
+//            }
+//        }
+//        if (queuedBytes.getByteCount() > 0) {
+//            byteArrayBuilder.appendBytes(queuedBytes.build(), Endian.BIG);
+//        }
+
+//        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()))));
+
+//        final byte[] bytes = BitcoinUtil.hexStringToByteArray(BitcoinUtil.toHexString(_getBytes()).replaceAll(BitcoinUtil.toHexString(scriptSignature), ""));
+//        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(bytes))));
     }
 
     @Override
     public Hash calculateSha256Hash() {
-        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(_getBytes()))));
+        final ByteArrayBuilder byteArrayBuilder = _toByteArrayBuilder();
+        final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
+        return new MutableHash(ByteUtil.reverseBytes(doubleSha256));
     }
 
     @Override
@@ -156,6 +233,6 @@ public class MutableTransaction implements Transaction {
 
     @Override
     public byte[] getBytes() {
-        return _getBytes();
+        return _toByteArrayBuilder().build();
     }
 }

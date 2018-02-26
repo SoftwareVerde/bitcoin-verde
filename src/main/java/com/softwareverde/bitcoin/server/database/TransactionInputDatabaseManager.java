@@ -13,7 +13,7 @@ public class TransactionInputDatabaseManager {
 
     protected Long _findPreviousTransactionOutputId(final Long transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
-        return transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getOutputTransactionIndex());
+        return transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousTransactionOutputIndex());
     }
 
     protected Long _findTransactionInputId(final Long transactionId, final Long previousTransactionOutputId) throws DatabaseException {

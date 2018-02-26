@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
@@ -64,8 +65,8 @@ public class BlockValidator {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
-            final Hash outputTransactionHash = transactionInput.getOutputTransactionHash();
-            final Integer transactionOutputIndex = transactionInput.getOutputTransactionIndex();
+            final Hash outputTransactionHash = transactionInput.getPreviousTransactionOutputHash();
+            final Integer transactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
             Logger.log("Tx Input, searching for Output: "+ BitcoinUtil.toHexString(outputTransactionHash) + ":"+ transactionOutputIndex);
             final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex));
             if (transactionOutput == null) {
@@ -88,14 +89,21 @@ public class BlockValidator {
     }
 
     protected Boolean _validateTransactionInputsAreUnlocked(final Transaction transaction) {
+        final Context context = new Context();
+        context.setTransaction(transaction);
+
         final ScriptRunner scriptRunner = new ScriptRunner();
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getOutputTransactionHash(), transactionInput.getOutputTransactionIndex()));
+            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutputHash(), transactionInput.getPreviousTransactionOutputIndex()));
             if (transactionOutput == null) { return false; }
 
             final Script lockingScript = transactionOutput.getLockingScript();
             final Script unlockingScript = transactionInput.getUnlockingScript();
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript);
+
+            context.setTransactionInput(transactionInput);
+            context.setTransactionOutput(transactionOutput);
+
+            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) { return false; }
         }
 

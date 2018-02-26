@@ -49,8 +49,8 @@ public class BlockMessageInflaterTests {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         Assert.assertEquals(1, transactionInputs.size());
         final TransactionInput transactionInput = transactionInputs.get(0);
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getOutputTransactionHash().getBytes());
-        Assert.assertEquals(0xFFFFFFFF, transactionInput.getOutputTransactionIndex().intValue());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getPreviousTransactionOutputHash().getBytes());
+        Assert.assertEquals(0xFFFFFFFF, transactionInput.getPreviousTransactionOutputIndex().intValue());
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("736B6E616220726F662074756F6C69616220646E6F63657320666F206B6E697262206E6F20726F6C6C65636E61684320393030322F6E614A2F33302073656D6954206568544504011D00FFFF04"), transactionInput.getUnlockingScript().getBytes());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().intValue());
 

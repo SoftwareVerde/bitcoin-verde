@@ -9,6 +9,12 @@ public class Value {
         return new Value(bytes);
     }
 
+    public static Value fromBoolean(final Boolean booleanValue) {
+        final byte[] bytes = new byte[4];
+        ByteUtil.setBytes(bytes, ByteUtil.integerToBytes(booleanValue ? 1 : 0));
+        return new Value(bytes);
+    }
+
     public static Value fromBytes(final byte[] bytes) {
         return new Value(bytes);
     }

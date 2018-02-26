@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -20,27 +21,27 @@ public class MutableTransactionInput implements TransactionInput {
         _previousTransactionOutputHash = new MutableHash();
     }
     public MutableTransactionInput(final TransactionInput transactionInput) {
-        _previousTransactionOutputIndex = transactionInput.getOutputTransactionIndex();
+        _previousTransactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
         _sequenceNumber = transactionInput.getSequenceNumber();
 
         if (transactionInput instanceof MutableTransactionInput) {
-            _previousTransactionOutputHash = new ImmutableHash(transactionInput.getOutputTransactionHash());
+            _previousTransactionOutputHash = new ImmutableHash(transactionInput.getPreviousTransactionOutputHash());
             _unlockingScript = transactionInput.getUnlockingScript();
         }
         else {
-            _previousTransactionOutputHash = transactionInput.getOutputTransactionHash();
+            _previousTransactionOutputHash = transactionInput.getPreviousTransactionOutputHash();
             _unlockingScript = transactionInput.getUnlockingScript();
         }
     }
 
     @Override
-    public Hash getOutputTransactionHash() { return _previousTransactionOutputHash; }
-    public void setPreviousTransactionOutput(final Hash previousTransactionOutputHash) {
+    public Hash getPreviousTransactionOutputHash() { return _previousTransactionOutputHash; }
+    public void setPreviousTransactionOutputHash(final Hash previousTransactionOutputHash) {
         _previousTransactionOutputHash = previousTransactionOutputHash;
     }
 
     @Override
-    public Integer getOutputTransactionIndex() { return _previousTransactionOutputIndex; }
+    public Integer getPreviousTransactionOutputIndex() { return _previousTransactionOutputIndex; }
     public void setPreviousTransactionOutputIndex(final Integer index) {
         _previousTransactionOutputIndex = index;
     }

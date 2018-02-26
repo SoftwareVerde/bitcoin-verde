@@ -16,20 +16,20 @@ public class ImmutableTransactionInput implements TransactionInput {
 
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setUnlockingScript(new ImmutableScript(transactionInput.getUnlockingScript()));
-        mutableTransactionInput.setPreviousTransactionOutput(new ImmutableHash(transactionInput.getOutputTransactionHash()));
-        mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getOutputTransactionIndex());
+        mutableTransactionInput.setPreviousTransactionOutputHash(new ImmutableHash(transactionInput.getPreviousTransactionOutputHash()));
+        mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
         mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
         _transactionInput = mutableTransactionInput;
     }
 
     @Override
-    public Hash getOutputTransactionHash() {
-        return new ImmutableHash(_transactionInput.getOutputTransactionHash());
+    public Hash getPreviousTransactionOutputHash() {
+        return new ImmutableHash(_transactionInput.getPreviousTransactionOutputHash());
     }
 
     @Override
-    public Integer getOutputTransactionIndex() {
-        return _transactionInput.getOutputTransactionIndex();
+    public Integer getPreviousTransactionOutputIndex() {
+        return _transactionInput.getPreviousTransactionOutputIndex();
     }
 
     @Override

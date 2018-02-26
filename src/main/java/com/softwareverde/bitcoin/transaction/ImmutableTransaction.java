@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -38,6 +39,11 @@ public class ImmutableTransaction implements Transaction {
             mutableTransaction.addTransactionOutput(new ImmutableTransactionOutput(transactionOutput));
         }
         _transaction = mutableTransaction;
+    }
+
+    @Override
+    public Hash calculateSha256HashForSigning(final Integer inputIndexToBeSigned, final TransactionOutput transactionOutputBeingSpent, final ScriptSignature.HashType hashType) {
+        return new ImmutableHash(_transaction.calculateSha256HashForSigning(inputIndexToBeSigned, transactionOutputBeingSpent, hashType));
     }
 
     @Override

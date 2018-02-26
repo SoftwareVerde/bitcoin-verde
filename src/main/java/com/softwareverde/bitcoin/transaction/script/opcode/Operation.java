@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -225,9 +226,9 @@ public abstract class Operation {
             case OP_STACK:
             case OP_STRING:
             case OP_BITWISE:
-            case OP_COMPARISON:
+            case OP_COMPARISON: { return ComparisonOperation.fromScript(script); }
             case OP_ARITHMETIC:
-            case OP_CRYPTOGRAPHIC:
+            case OP_CRYPTOGRAPHIC: { return CryptographicOperation.fromScript(script); }
             case OP_LOCK_TIME:
             case OP_NO_OPERATION:
 
@@ -251,7 +252,7 @@ public abstract class Operation {
         return _type;
     }
 
-    public abstract Boolean applyTo(final Stack stack, final ScriptRunner.Context context);
+    public abstract Boolean applyTo(final Stack stack, final Context context);
 
     @Override
     public String toString() {

@@ -81,4 +81,9 @@ public class MutableScript implements Script {
     public byte[] getBytes() {
         return ByteUtil.copyBytes(_bytes);
     }
+
+    @Override
+    public void removeSignatures() {
+
+    }
 }

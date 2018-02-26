@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -85,7 +87,7 @@ public class PushOperation extends Operation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack) {
+    public Boolean applyTo(final Stack stack, final Context context) {
         stack.push(_value);
         return true;
     }
