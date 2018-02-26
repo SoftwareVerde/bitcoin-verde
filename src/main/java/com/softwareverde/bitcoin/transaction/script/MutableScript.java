@@ -13,7 +13,7 @@ public class MutableScript implements Script {
             return 0x00;
         }
 
-        final byte b = _bytes[(_bytes.length - _index) - 1];
+        final byte b = _bytes[_index]; // _bytes[(_bytes.length - _index) - 1];
 
         if (shouldConsumeByte) {
             _index += 1;

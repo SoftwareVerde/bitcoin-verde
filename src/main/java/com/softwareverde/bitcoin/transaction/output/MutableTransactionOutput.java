@@ -57,7 +57,7 @@ public class MutableTransactionOutput implements TransactionOutput {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.length), Endian.BIG);
-        byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.LITTLE); // TODO: Unsure if Big or Little endian.
+        byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
 
         return byteArrayBuilder.build();
     }

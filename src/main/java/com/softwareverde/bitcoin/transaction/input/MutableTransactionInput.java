@@ -93,7 +93,7 @@ public class MutableTransactionInput implements TransactionInput {
         byteArrayBuilder.appendBytes(_previousTransactionOutputHash.getBytes(), Endian.LITTLE);
         byteArrayBuilder.appendBytes(indexBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.length), Endian.BIG);
-        byteArrayBuilder.appendBytes(unlockingScriptBytes, Endian.LITTLE); // TODO: Unsure if Big or Little endian...
+        byteArrayBuilder.appendBytes(unlockingScriptBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(sequenceBytes, Endian.LITTLE);
 
         return byteArrayBuilder.build();

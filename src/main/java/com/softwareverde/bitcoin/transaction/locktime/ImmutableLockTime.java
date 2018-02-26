@@ -8,6 +8,9 @@ public class ImmutableLockTime implements LockTime {
     public ImmutableLockTime() {
         _lockTime = new MutableLockTime();
     }
+    public ImmutableLockTime(final Long lockTimeLong) {
+        _lockTime = new MutableLockTime(lockTimeLong);
+    }
     public ImmutableLockTime(final LockTime lockTime) {
         if (lockTime instanceof ImmutableLockTime) {
             _lockTime = lockTime;

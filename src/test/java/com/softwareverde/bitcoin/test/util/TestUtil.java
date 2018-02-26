@@ -38,8 +38,9 @@ public class TestUtil {
                 final Integer contextEndIndex = Math.min(uppercaseStringLength, i+24);
 
                 final String context = string.substring(contextStartIndex, Math.max(0, i)) + "[" + string.charAt(i) + "]" + string.substring(Math.min((uppercaseStringLength-1), i+1), contextEndIndex);
+                final String expectedContext = stringMask.substring(contextStartIndex, Math.max(0, i)) + "[" + stringMask.charAt(i) + "]" + stringMask.substring(Math.min((uppercaseStringLength-1), i+1), contextEndIndex);
 
-                _fail("Provided value does not match expected value at index: "+ i +". (Expected '"+ maskCharacter +"', found '"+ stringCharacter +"'.)\n    Context: "+ context);
+                _fail("Provided value does not match expected value at index: "+ i +". (Found '"+ stringCharacter +"', expected '"+ maskCharacter +"'.)\n    Found:    "+ context +"\n    Expected: "+ expectedContext);
             }
         }
     }

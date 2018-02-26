@@ -105,7 +105,7 @@ public class MutableTransaction implements Transaction {
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
         System.out.println(BitcoinUtil.toHexString(byteArrayBuilder.build()));
         // return new MutableHash(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build())));
-        return new MutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()))));
+        return new MutableHash(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build())));
 
 //
 //        if (mutableTransaction._transactionInputs.size() <= inputIndexToBeSigned) {

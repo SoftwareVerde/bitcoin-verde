@@ -6,6 +6,9 @@ public class MutableLockTime implements LockTime {
     protected Long _lockTime = MAX_TIMESTAMP;
 
     public MutableLockTime() { }
+    public MutableLockTime(final Long lockTimeLong) {
+        _lockTime = lockTimeLong;
+    }
     public MutableLockTime(final LockTime lockTime) {
         _lockTime = (lockTime.isTimestamp() ? lockTime.getTimestamp() : lockTime.getBlockHeight());
     }

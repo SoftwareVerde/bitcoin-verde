@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -134,11 +135,13 @@ public class ScriptRunnerTests {
 
     @Test
     public void should_create_hash_for_signing() {
-        // Setup
-        final String expectedHashToSign = "9302bda273a887cb40c13e02a50b4071a31fd3aae3ae04021b0b843dd61ad18e";
+        // Example taken from: https://bitcoin.stackexchange.com/questions/3374/how-to-redeem-a-basic-tx
 
-        final Script transactionOutputBeingSpentUnlockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76a914010966776006953d5567439e5e39f86a0d273bee88ac"));
-        final Script newOutputLockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76a914097072524438d003d23a2f23edb65aae1bb3e46988ac"));
+        // Setup
+        final String expectedHashToSign = "9302BDA273A887CB40C13E02A50B4071A31FD3AAE3AE04021B0B843DD61AD18E";
+
+        final Script transactionOutputBeingSpentUnlockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76A914010966776006953D5567439E5E39F86A0D273BEE88AC"));
+        final Script newOutputLockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76A914097072524438D003D23A2F23EDB65AAE1BB3E46988AC"));
 
         final MutableTransactionOutput transactionOutputBeingSpent = new MutableTransactionOutput();
         transactionOutputBeingSpent.setIndex(1);
@@ -146,7 +149,7 @@ public class ScriptRunnerTests {
         transactionOutputBeingSpent.setLockingScript(transactionOutputBeingSpentUnlockingScript);
 
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
-        transactionInput.setPreviousTransactionOutputHash(new ImmutableHash(BitcoinUtil.hexStringToByteArray("eccf7e3034189b851985d871f91384b8ee357cd47c3024736e5676eb2debb3f2")));
+        transactionInput.setPreviousTransactionOutputHash(new ImmutableHash(BitcoinUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
         transactionInput.setPreviousTransactionOutputIndex(1);
         transactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
         transactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
@@ -158,12 +161,13 @@ public class ScriptRunnerTests {
         transactionOutput.setAmount(99900000L);
         transactionOutput.setIndex(0);
         transaction.addTransactionOutput(transactionOutput);
+        transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         // Action
         final Hash hashForSigning = transaction.calculateSha256HashForSigning(0, transactionOutputBeingSpent, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
 
         // Assert
-        TestUtil.assertEqual(expectedHashToSign.getBytes(), hashForSigning.getBytes());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(expectedHashToSign), hashForSigning.getBytes());
     }
 }
 
