@@ -99,5 +99,16 @@ public class BitcoinUtil {
         return base58CheckEncoded;
     }
 
+    public static String reverseEndianString(final String string) {
+        final int charCount = string.length();
+        final char[] reverseArray = new char[charCount];
+        for (int i=0; i<charCount/2; ++i) {
+            int index = (charCount - (i*2)) - 1;
+            reverseArray[i*2] = string.charAt(index - 1);
+            reverseArray[(i*2) + 1] = string.charAt(index);
+        }
+        return new String(reverseArray);
+    }
+
     protected BitcoinUtil() { }
 }

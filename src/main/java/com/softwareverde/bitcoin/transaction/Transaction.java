@@ -11,6 +11,7 @@ import java.util.List;
 public interface Transaction {
     Hash calculateSha256Hash();
     Hash calculateSha256HashForSigning(Integer inputIndexToBeSigned, TransactionOutput transactionOutputBeingSpent, ScriptSignature.HashType hashType);
+    byte[] getBytesForSigning(Integer inputIndexToBeSigned, TransactionOutput transactionOutputBeingSpent, ScriptSignature.HashType hashType);
 
     Integer getVersion();
     Boolean hasWitnessData();

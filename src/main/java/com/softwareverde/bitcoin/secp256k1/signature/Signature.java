@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -57,5 +58,23 @@ public class Signature {
 
     public byte[] getS() {
         return ByteUtil.copyBytes(_s);
+    }
+
+    public byte[] encodeAsDer() {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte(DER_MAGIC_NUMBER);
+
+        final int byteCount = (_r.length + _s.length + 2 + 2);
+        byteArrayBuilder.appendByte((byte) byteCount);
+
+        byteArrayBuilder.appendByte(DER_INTEGER_TYPE);
+        byteArrayBuilder.appendByte((byte) _r.length);
+        byteArrayBuilder.appendBytes(_r, Endian.BIG);
+
+        byteArrayBuilder.appendByte(DER_INTEGER_TYPE);
+        byteArrayBuilder.appendByte((byte) _s.length);
+        byteArrayBuilder.appendBytes(_s, Endian.BIG);
+
+        return byteArrayBuilder.build();
     }
 }

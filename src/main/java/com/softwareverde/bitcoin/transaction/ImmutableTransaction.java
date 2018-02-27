@@ -42,6 +42,11 @@ public class ImmutableTransaction implements Transaction {
     }
 
     @Override
+    public byte[] getBytesForSigning(final Integer inputIndexToBeSigned, final TransactionOutput transactionOutputBeingSpent, final ScriptSignature.HashType hashType) {
+        return _transaction.getBytesForSigning(inputIndexToBeSigned, transactionOutputBeingSpent, hashType);
+    }
+
+    @Override
     public Hash calculateSha256HashForSigning(final Integer inputIndexToBeSigned, final TransactionOutput transactionOutputBeingSpent, final ScriptSignature.HashType hashType) {
         return new ImmutableHash(_transaction.calculateSha256HashForSigning(inputIndexToBeSigned, transactionOutputBeingSpent, hashType));
     }

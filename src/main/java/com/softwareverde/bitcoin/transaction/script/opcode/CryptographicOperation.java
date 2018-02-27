@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class CryptographicOperation extends Operation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
