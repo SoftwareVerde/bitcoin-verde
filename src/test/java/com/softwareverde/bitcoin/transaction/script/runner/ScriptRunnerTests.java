@@ -173,61 +173,18 @@ public class ScriptRunnerTests {
     public void should_verify_signed_transaction() {
         // Example taken from: https://bitcoin.stackexchange.com/questions/32628/redeeming-a-raw-transaction-step-by-step-example-required
 
-        // Private Key: 0ECD20654C2E2BE708495853E8DA35C664247040C00BD10B9B13E5E86E6A808D
-        // Unlocking Script: 493046022100CF4D7571DD47A4D47F5CB767D54D6702530A3555726B27B6AC56117F5E7808FE0221008CBB42233BB04D7F28A715CF7C938E238AFDE90207E9D103DD9018E12CB7180E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9
-
-        // Setup
-//        final String expectedHashToSign = BitcoinUtil.reverseEndianString("1CDE0239B55717CCA8003104ABC2EC2673D4F6FABEA0B74351940E382E88486F");
-
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000000175DB462B20DD144DD143F5314270569C0A61191F1378C164CE4262E9BFF1B079000000008B4830450221008F906B9FE728CB17C81DECCD6704F664ED1AC920223BB2ECA918F066269C703302203B1C496FD4C3FA5071262B98447FBCA5E3ED7A52EFE3DA26AA58F738BD342D31014104BCA69C59DC7A6D8EF4D3043BDCB626E9E29837B9BEB143168938AE8165848BFC788D6FF4CDF1EF843E6A9CCDA988B323D12A367DD758261DD27A63F18F56CE77FFFFFFFF0133F50100000000001976A914DD6CCE9F255A8CC17BDA8BA0373DF8E861CB866E88AC00000000"));
-
-//        final Script outputBeingSpentLockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76A914DD6CCE9F255A8CC17BDA8BA0373DF8E861CB866E88AC"));
-//        final Script newOutputLockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("76A914A2FD2E039A86DBCF0E1A664729E09E8007F8951088AC"));
-//        final Script unlockingScript = new ImmutableScript(BitcoinUtil.hexStringToByteArray("493046022100CF4D7571DD47A4D47F5CB767D54D6702530A3555726B27B6AC56117F5E7808FE0221008CBB42233BB04D7F28A715CF7C938E238AFDE90207E9D103DD9018E12CB7180E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9"));
-
-//        final MutableTransactionOutput transactionOutputBeingSpent = new MutableTransactionOutput();
-//        transactionOutputBeingSpent.setIndex(0);
-//        transactionOutputBeingSpent.setAmount(128307L);
-//        transactionOutputBeingSpent.setLockingScript(outputBeingSpentLockingScript);
-
         final Transaction transaction = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000001BE66E10DA854E7AEA9338C1F91CD489768D1D6D7189F586D7A3613F2A24D5396000000008B483045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9FFFFFFFF0123CE0100000000001976A9142BC89C2702E0E618DB7D59EB5CE2F0F147B4075488AC00000000"));
-//        final MutableTransaction transaction = new MutableTransaction();
-//        {
-//            final MutableTransactionInput transactionInput = new MutableTransactionInput();
-//            transactionInput.setPreviousTransactionOutputHash(new ImmutableHash(BitcoinUtil.hexStringToByteArray("96534DA2F213367A6D589F18D7D6D1689748CD911F8C33A9AEE754A80DE166BE")));
-//            transactionInput.setPreviousTransactionOutputIndex(0);
-//            transactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
-//            transactionInput.setUnlockingScript(unlockingScript);
-//            transaction.setVersion(1);
-//            transaction.addTransactionInput(transactionInput);
-//            final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-//            transactionOutput.setLockingScript(newOutputLockingScript);
-//            transactionOutput.setAmount(118307L);
-//            transactionOutput.setIndex(0);
-//            transaction.addTransactionOutput(transactionOutput);
-//            transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
-//        }
-
-        final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);
 
         final ScriptRunner scriptRunner = new ScriptRunner();
         final Context context = new Context();
         context.setTransaction(transaction);
 
-        // System.out.println(BitcoinUtil.toHexString(transaction0.getBytesForSigning(0, transactionOutputBeingSpent, ScriptSignature.HashType.SIGNATURE_HASH_ALL)));
-        System.out.println(BitcoinUtil.toHexString(transaction.getBytesForSigning(0, transactionOutputBeingSpent, ScriptSignature.HashType.SIGNATURE_HASH_ALL)));
-
-        final Hash hashForSigning = transaction.calculateSha256HashForSigning(0, transactionOutputBeingSpent, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
-//        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(expectedHashToSign), hashForSigning.getBytes());
-
-
-        // Signature: 3045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E01
-        // Public Key: 042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int inputIndex=0; inputIndex<transactionInputs.size(); ++inputIndex) {
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
-            // final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);
+            final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(inputIndex);
 
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);

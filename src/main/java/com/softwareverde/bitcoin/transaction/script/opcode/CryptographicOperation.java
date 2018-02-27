@@ -83,6 +83,7 @@ public class CryptographicOperation extends Operation {
 
             }
 
+            case CHECK_SIGNATURE_THEN_VERIFY:
             case CHECK_SIGNATURE: {
                 final Value publicKeyValue = stack.pop();
                 final Value signatureValue = stack.pop();
@@ -98,11 +99,13 @@ public class CryptographicOperation extends Operation {
                 final Hash transactionHash = transaction.calculateSha256HashForSigning(transactionInputIndexBeingSigned, transactionOutputBeingSpent, scriptSignature.getHashType());
 
                 final Boolean signatureIsValid = Secp256k1.verifySignature(scriptSignature.getSignature(), publicKeyValue.getBytes(), transactionHash.getBytes());
-                return signatureIsValid;
-            }
 
-            case CHECK_SIGNATURE_THEN_VERIFY: {
+                if (_subType == SubType.CHECK_SIGNATURE_THEN_VERIFY) {
+                    if (! signatureIsValid) { return false; }
+                }
 
+                stack.push(Value.fromBoolean(signatureIsValid));
+                return (! stack.didOverflow());
             }
 
             case CHECK_MULTISIGNATURE: {
