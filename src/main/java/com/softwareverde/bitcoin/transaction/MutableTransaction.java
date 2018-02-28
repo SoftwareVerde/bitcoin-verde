@@ -98,7 +98,6 @@ public class MutableTransaction implements Transaction {
 
         final ByteArrayBuilder byteArrayBuilder = mutableTransaction._toByteArrayBuilder();
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
-        // System.out.println(BitcoinUtil.toHexString(byteArrayBuilder.build()));
         return byteArrayBuilder.build();
     }
 
@@ -144,7 +143,6 @@ public class MutableTransaction implements Transaction {
 
         final ByteArrayBuilder byteArrayBuilder = mutableTransaction._toByteArrayBuilder();
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
-        // System.out.println(BitcoinUtil.toHexString(byteArrayBuilder.build()));
         return new MutableHash(BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build())));
     }
 

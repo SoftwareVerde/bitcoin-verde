@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.io.Logger;
 
 import java.io.IOException;

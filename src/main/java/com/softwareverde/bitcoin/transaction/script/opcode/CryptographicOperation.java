@@ -5,13 +5,11 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class CryptographicOperation extends Operation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
@@ -96,6 +94,8 @@ public class CryptographicOperation extends Operation {
                 final Transaction transaction = context.getTransaction();
                 final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
                 final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
+
+
                 final Hash transactionHash = transaction.calculateSha256HashForSigning(transactionInputIndexBeingSigned, transactionOutputBeingSpent, scriptSignature.getHashType());
 
                 final Boolean signatureIsValid = Secp256k1.verifySignature(scriptSignature.getSignature(), publicKeyValue.getBytes(), transactionHash.getBytes());

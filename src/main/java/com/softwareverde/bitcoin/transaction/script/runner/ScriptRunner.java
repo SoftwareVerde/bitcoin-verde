@@ -1,12 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
 
 /**
@@ -23,26 +19,29 @@ public class ScriptRunner {
 
         final Stack stack = new Stack();
 
-        Logger.log("Running script: "+ BitcoinUtil.toHexString(unlockingScript));
-        while (unlockingScript.hasNextByte()) {
-            final Operation opcode = Operation.fromScript(unlockingScript); // TODO: Change to inflater...
-            if (opcode == null) { return false; }
+        try {
+            while (unlockingScript.hasNextByte()) {
+                final Operation opcode = Operation.fromScript(unlockingScript); // TODO: Change to inflater...
+                if (opcode == null) { return false; }
 
-            final Boolean wasSuccessful = opcode.applyTo(stack, context);
-            if (! wasSuccessful) { return false; }
+                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+                if (! wasSuccessful) { return false; }
+            }
+
+            while (lockingScript.hasNextByte()) {
+                final Operation opcode = Operation.fromScript(lockingScript); // TODO: Change to inflater...
+                if (opcode == null) { return false; }
+
+                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+                if (! wasSuccessful) { return false; }
+            }
         }
-
-        Logger.log("Running script: "+ BitcoinUtil.toHexString(lockingScript));
-        while (lockingScript.hasNextByte()) {
-            final Operation opcode = Operation.fromScript(lockingScript); // TODO: Change to inflater...
-            Logger.log(opcode);
-            if (opcode == null) { return false; }
-
-            final Boolean wasSuccessful = opcode.applyTo(stack, context);
-            if (! wasSuccessful) { return false; }
+        catch (final Operation.ScriptOperationExecutionException exception) {
+            Logger.log(exception);
+            return false;
         }
 
         if (stack.isEmpty()) { return false; }
-        return (stack.pop().asLong() > 0L);
+        return (stack.pop().asBoolean());
     }
 }

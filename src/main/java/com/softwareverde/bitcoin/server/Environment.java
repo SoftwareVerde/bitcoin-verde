@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server;
 
 import ch.vorburger.mariadb4j.DB;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Container;
 
 public class Environment {

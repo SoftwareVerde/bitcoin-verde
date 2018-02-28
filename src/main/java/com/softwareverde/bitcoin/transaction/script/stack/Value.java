@@ -11,7 +11,7 @@ public class Value {
 
     public static Value fromBoolean(final Boolean booleanValue) {
         final byte[] bytes = new byte[4];
-        ByteUtil.setBytes(bytes, ByteUtil.integerToBytes(booleanValue ? 1 : 0));
+        bytes[bytes.length - 1] = (byte) (booleanValue ? 0x01 : 0x00);
         return new Value(bytes);
     }
 
@@ -31,6 +31,13 @@ public class Value {
 
     public Long asLong() {
         return ByteUtil.bytesToLong(_bytes);
+    }
+
+    public Boolean asBoolean() {
+        for (int i=0; i<_bytes.length; ++i) {
+            if (_bytes[i] != 0x00) { return true; }
+        }
+        return false;
     }
 
     public ScriptSignature asScriptSignature() {

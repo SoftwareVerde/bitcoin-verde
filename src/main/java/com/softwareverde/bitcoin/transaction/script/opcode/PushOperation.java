@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -45,7 +44,6 @@ public class PushOperation extends Operation {
             // Interprets the opcode's value as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA: {
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
-                Logger.log("PUSH DATA COUNT: "+ byteCount);
                 value = Value.fromBytes(script.getNextBytes(byteCount));
             } break;
 

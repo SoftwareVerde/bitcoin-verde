@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -15,63 +14,65 @@ import java.util.List;
 import static com.softwareverde.bitcoin.transaction.script.opcode.Operation.SubType.*;
 
 public abstract class Operation {
+    public static class ScriptOperationExecutionException extends Exception { }
+
     public enum SubType {
         // VALUE
-        PUSH_NEGATIVE_ONE   (0x4F),
-        PUSH_ZERO           (0x00),
-        PUSH_VALUE          (0x51, 0x60),
-        PUSH_DATA           (0x01, 0x4B),
-        PUSH_DATA_BYTE      (0x4C),
-        PUSH_DATA_SHORT     (0x4D),
-        PUSH_DATA_INTEGER   (0x4E),
+        PUSH_NEGATIVE_ONE                   (0x4F),
+        PUSH_ZERO                           (0x00),
+        PUSH_VALUE                          (0x51, 0x60),
+        PUSH_DATA                           (0x01, 0x4B),
+        PUSH_DATA_BYTE                      (0x4C),
+        PUSH_DATA_SHORT                     (0x4D),
+        PUSH_DATA_INTEGER                   (0x4E),
 
         // DYNAMIC VALUE
-        PUSH_STACK_SIZE             (0x74),
-        COPY_1ST                    (0x76),
-        COPY_NTH                    (0x79),
-        COPY_2ND                    (0x78),
-        COPY_2ND_THEN_1ST           (0x6E),
-        COPY_3RD_THEN_2ND_THEN_1ST  (0x6F),
-        COPY_4TH_THEN_3RD           (0x70),
-        COPY_1ST_THEN_MOVE_TO_3RD   (0x7D),
+        PUSH_STACK_SIZE                     (0x74),
+        COPY_1ST                            (0x76),
+        COPY_NTH                            (0x79),
+        COPY_2ND                            (0x78),
+        COPY_2ND_THEN_1ST                   (0x6E),
+        COPY_3RD_THEN_2ND_THEN_1ST          (0x6F),
+        COPY_4TH_THEN_3RD                   (0x70),
+        COPY_1ST_THEN_MOVE_TO_3RD           (0x7D),
 
         // CONTROL
-        IF                  (0x63),
-        NOT_IF              (0x64),
-        ELSE                (0x67),
-        END_IF              (0x68),
-        VERIFY              (0x69),
-        RETURN              (0x6A),
+        IF                                  (0x63),
+        NOT_IF                              (0x64),
+        ELSE                                (0x67),
+        END_IF                              (0x68),
+        VERIFY                              (0x69),
+        RETURN                              (0x6A),
 
         // STACK
-        POP_TO_ALT_STACK            (0x6B),
-        POP_FROM_ALT_STACK          (0x6C),
-        IF_1ST_TRUE_THEN_COPY_1ST   (0x73),
-        POP                         (0x75),
-        REMOVE_2ND_FROM_TOP         (0x77),
-        MOVE_TO_1ST                 (0x7A),
-        ROTATE_TOP_3                (0x7B),
-        SWAP_1ST_WITH_2ND           (0x7C),
-        POP_THEN_POP                (0x6D),
-        MOVE_5TH_AND_6TH_TO_TOP     (0x71),
-        SWAP_1ST_2ND_WITH_3RD_4TH   (0x72),
+        POP_TO_ALT_STACK                    (0x6B),
+        POP_FROM_ALT_STACK                  (0x6C),
+        IF_1ST_TRUE_THEN_COPY_1ST           (0x73),
+        POP                                 (0x75),
+        REMOVE_2ND_FROM_TOP                 (0x77),
+        MOVE_TO_1ST                         (0x7A),
+        ROTATE_TOP_3                        (0x7B),
+        SWAP_1ST_WITH_2ND                   (0x7C),
+        POP_THEN_POP                        (0x6D),
+        MOVE_5TH_AND_6TH_TO_TOP             (0x71),
+        SWAP_1ST_2ND_WITH_3RD_4TH           (0x72),
 
         // STRING
-        STRING_CONCATENATE  (0x7E, false),
-        STRING_SUBSTRING    (0x7F, false),
-        STRING_LEFT         (0x80, false),
-        STRING_RIGHT        (0x81, false),
-        STRING_PUSH_LENGTH  (0x82),
+        STRING_CONCATENATE                  (0x7E, false),
+        STRING_SUBSTRING                    (0x7F, false),
+        STRING_LEFT                         (0x80, false),
+        STRING_RIGHT                        (0x81, false),
+        STRING_PUSH_LENGTH                  (0x82),
         STRING_1ST_AND_2ND_LENGTH_NOT_EMPTY (0x9A),
         STRING_1ST_OR_2ND_LENGTH_NOT_EMPTY  (0x9B),
 
         // BITWISE
-        BITWISE_INVERT              (0x83, false),
-        BITWISE_AND                 (0x84, false),
-        BITWISE_OR                  (0x85, false),
-        BITWISE_XOR                 (0x86, false),
-        SHIFT_LEFT                  (0x98, false),
-        SHIFT_RIGHT                 (0x99, false),
+        BITWISE_INVERT                      (0x83, false),
+        BITWISE_AND                         (0x84, false),
+        BITWISE_OR                          (0x85, false),
+        BITWISE_XOR                         (0x86, false),
+        SHIFT_LEFT                          (0x98, false),
+        SHIFT_RIGHT                         (0x99, false),
 
         // COMPARISON
         IS_EQUAL                            (0x87),
@@ -87,20 +88,20 @@ public abstract class Operation {
         IS_WITHIN_RANGE                     (0xA5),
 
         // ARITHMETIC
-        ADD_ONE             (0x8B),
-        SUBTRACT_ONE        (0x8C),
-        MULTIPLY_BY_TWO     (0x8D, false),
-        DIVIDE_BY_TWO       (0x8E, false),
-        NEGATE              (0x8F),
-        ABSOLUTE_VALUE      (0x90),
-        NOT                 (0x91),
-        ADD                 (0x93),
-        SUBTRACT            (0x94),
-        MULTIPLY            (0x95, false),
-        DIVIDE              (0x96, false),
-        MODULUS             (0x97, false),
-        MIN                 (0xA3),
-        MAX                 (0xA4),
+        ADD_ONE                             (0x8B),
+        SUBTRACT_ONE                        (0x8C),
+        MULTIPLY_BY_TWO                     (0x8D, false),
+        DIVIDE_BY_TWO                       (0x8E, false),
+        NEGATE                              (0x8F),
+        ABSOLUTE_VALUE                      (0x90),
+        NOT                                 (0x91),
+        ADD                                 (0x93),
+        SUBTRACT                            (0x94),
+        MULTIPLY                            (0x95, false),
+        DIVIDE                              (0x96, false),
+        MODULUS                             (0x97, false),
+        MIN                                 (0xA3),
+        MAX                                 (0xA4),
 
         // CRYPTOGRAPHIC
         RIPEMD_160                          (0xA6),
@@ -123,9 +124,9 @@ public abstract class Operation {
         CHECK_SEQUENCE_NUMBER_THEN_VERIFY   (0xb2),
 
         // NO OPERATION
-        NO_OPERATION    (0x61),
-        NO_OPERATION_1  (0xB0),
-        NO_OPERATION_2  (0xB3, 0xB9)
+        NO_OPERATION                        (0x61),
+        NO_OPERATION_1                      (0xB0),
+        NO_OPERATION_2                      (0xB3, 0xB9)
 
         ; // END ENUMS
 
@@ -215,7 +216,6 @@ public abstract class Operation {
     public static Operation fromScript(final Script script) {
         if (! script.hasNextByte()) { return null; }
 
-        Logger.log("OP: "+ BitcoinUtil.toHexString(new byte[] { script.peakNextByte() }));
         final Type type = Type.getType(script.peakNextByte());
         if (type == null) { return null; }
 
@@ -252,7 +252,7 @@ public abstract class Operation {
         return _type;
     }
 
-    public abstract Boolean applyTo(final Stack stack, final Context context);
+    public abstract Boolean applyTo(final Stack stack, final Context context) throws ScriptOperationExecutionException;
 
     @Override
     public String toString() {
