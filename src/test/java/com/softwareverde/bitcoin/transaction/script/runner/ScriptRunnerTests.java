@@ -173,6 +173,7 @@ public class ScriptRunnerTests {
     public void should_verify_signed_transaction() {
         // Example taken from: https://bitcoin.stackexchange.com/questions/32628/redeeming-a-raw-transaction-step-by-step-example-required
 
+        // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000000175DB462B20DD144DD143F5314270569C0A61191F1378C164CE4262E9BFF1B079000000008B4830450221008F906B9FE728CB17C81DECCD6704F664ED1AC920223BB2ECA918F066269C703302203B1C496FD4C3FA5071262B98447FBCA5E3ED7A52EFE3DA26AA58F738BD342D31014104BCA69C59DC7A6D8EF4D3043BDCB626E9E29837B9BEB143168938AE8165848BFC788D6FF4CDF1EF843E6A9CCDA988B323D12A367DD758261DD27A63F18F56CE77FFFFFFFF0133F50100000000001976A914DD6CCE9F255A8CC17BDA8BA0373DF8E861CB866E88AC00000000"));
         final Transaction transaction = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000001BE66E10DA854E7AEA9338C1F91CD489768D1D6D7189F586D7A3613F2A24D5396000000008B483045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9FFFFFFFF0123CE0100000000001976A9142BC89C2702E0E618DB7D59EB5CE2F0F147B4075488AC00000000"));
@@ -200,84 +201,4 @@ public class ScriptRunnerTests {
             Assert.assertTrue(inputIsUnlocked);
         }
     }
-}
-
-
-
-
-
-
-// https://klmoney.wordpress.com/bitcoin-dissecting-transactions-part-2-building-a-transaction-by-hand/
-// https://bitcoin.stackexchange.com/questions/36440/signing-a-raw-transaction-with-python-ecdsa-or-openssl?rq=1
-// https://bitcoin.stackexchange.com/questions/57644/what-are-the-parts-of-a-bitcoin-transaction-input-script
-// https://bitcoin.stackexchange.com/questions/58621/manually-signing-bitcoin-transaction
-// https://bitcoin.stackexchange.com/questions/2177/how-to-calculate-a-hash-of-a-tx
-// http://chainquery.com/bitcoin-api/decodescript
-//
-// 01000000
-// 01
-// 5a800fd903679acfe9d4e2fedb752b24c4d7a574b4c82a113dfb993b3864b772
-// 00000000
-// 00
-// ffffffff
-// 01c09ee605000000001976a914dd6cce9f255a8cc17bda8ba0373df8e861cb866e88ac00000000
-
-// 01000000
-// 01
-// 5a800fd903679acfe9d4e2fedb752b24c4d7a574b4c82a113dfb993b3864b772
-// 01000000
-// 00
-// ffffffff
-// 01c09ee605000000
-// 001976a914e900510876cb689f1db6fa982376c301362b740c88ac00000000
-
-// 01000000
-// 01
-// 5a800fd903679acfe9d4e2fedb752b24c4d7a574b4c82a113dfb993b3864b772
-// 01000000
-// 1976a914953de657be4b305f606d9a9fbd35b070a682475788acffffffff01c09ee605000000001976a914dd6cce9f255a8cc17bda8ba0373df8e861cb866e88ac0000000001000000
-
-class Temp {
-    final byte[] ORIGINAL_TRANSACTION = BitcoinUtil.hexStringToByteArray(
-            "E3E1F3E8626C6F636B00000000000000EA01000030099421" + // Message Header
-            // Block Header
-            "01000000" +                                                            // Version
-            "55BD840A78798AD0DA853F68974F3D183E2BD1DB6A842C1FEECF222A00000000" +    // Previous Block Hash
-            "FF104CCB05421AB93E63F8C3CE5C2C2E9DBB37DE2764B3A3175C8166562CAC7D" +    // Merkle Root
-            "51B96A49" +                                                            // Timestamp
-            "FFFF001D" +                                                            // Difficulty
-            "283E9E70" +                                                            // Nonce
-            // Block Data
-            "02" +          // Transaction Count
-            // Transaction 1
-            "01000000" +    // Transaction Version
-            "01" +          // Transaction-Input Count
-            // Transaction 1, Transaction-Input 1
-            "0000000000000000000000000000000000000000000000000000000000000000" + // Previous Transaction Hash
-            "FFFFFFFF" +    // Previous Transaction Output Index
-            "07" +          // Script Byte Count
-            "04FFFF001D0102" + // Locking Script
-            "FFFFFFFF" +    // Sequence Number
-            "01" +          // Transaction-Output Count
-            "00F2052A01000000" + // Amount
-            "43" +          // Script Byte Count
-            "4104D46C4968BDE02899D2AA0963367C7A6CE34EEC332B32E42E5F3407E052D64AC625DA6F0718E7B302140434BD725706957C092DB53805B821A85B23A7AC61725BAC" + // Script
-            "00000000" +    // Locktime
-            // Transaction 2
-            "01000000" +    // Transaction Version
-            "01" +          // Transaction Input Count
-            "C997A5E56E104102FA209C6A852DD90660A20B2D9C352423EDCE25857FCD3704" + // Previous Transaction Hash
-            "00000000" +    // Previous Transaction Output Index
-            "48" +          // Script Byte Count
-            "47304402204E45E16932B8AF514961A1D3A1A25FDF3F4F7732E9D624C6C61548AB5FB8CD410220181522EC8ECA07DE4860A4ACDD12909D831CC56CBBAC4622082221A8768D1D0901" + // Script
-            "FFFFFFFF" +    // Sequence Number
-            "02" +          // Transaction-Output Count
-            "00CA9A3B00000000" + // Amount
-            "43" +          // Script Byte Count
-            "4104AE1A62FE09C5F51B13905F07F06B99A2F7159B2225F374CD378D71302FA28414E7AAB37397F554A7DF5F142C21C1B7303B8A0626F1BADED5C72A704F7E6CD84CAC" +
-            "00286BEE00000000" + // Amount
-            "43" +          // Script Byte Count
-            "410411DB93E1DCDB8A016B49840F8C53BC1EB68A382E97B1482ECAD7B148A6909A5CB2E0EADDFB84CCF9744464F82E160BFA9B8B64F9D4C03F999B8643F656B412A3AC" + // Script
-            "00000000"      // Locktime
-    );
 }
