@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
-import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
@@ -130,15 +129,21 @@ public class Main {
 
     public Main(final String[] commandLineArguments) {
 
-try {
-    final Miner miner = new Miner();
-    miner.mineFakeBlock();
-    _exitFailure();
-}
-catch (final Exception exception) {
-    exception.printStackTrace();
-    _exitFailure();
-}
+        /*
+            // Mine Hardcoded Block...
+            try {
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(""));
+                final Block prototypeBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(""));
+                final Miner miner = new Miner();
+                miner.mineBlock(previousBlock, prototypeBlock);
+                _exitFailure();
+            }
+            catch (final Exception exception) {
+                exception.printStackTrace();
+                _exitFailure();
+            }
+        */
 
         if (commandLineArguments.length != 1) {
             _printUsage();
