@@ -198,6 +198,18 @@ public class BlockDatabaseManager {
         );
     }
 
+    public Long getBlockChainIdForBlockId(final Long blockId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, block_chain_id FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getLong("block_chain_id");
+    }
+
     public Long getBlockHeightForBlockId(final Long blockId) throws DatabaseException {
         return _getBlockHeightForBlockId(blockId);
     }

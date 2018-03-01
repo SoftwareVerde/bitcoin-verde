@@ -100,7 +100,7 @@ public class ChainDatabaseManager {
         if (! newBlockIsContentiousBlock) {
             if (previousBlockChainId != null) {
                 _databaseConnection.executeSql(
-                    new Query("UPDATE block_chains SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_height + 1) WHERE id = ?")
+                    new Query("UPDATE block_chains SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
                         .setParameter(newBlockId)
                         .setParameter(previousBlockChainId)
                 );
@@ -133,13 +133,17 @@ public class ChainDatabaseManager {
                 );
 
                 refactoredChainBlockCount = rows.size();
+                refactoredChainTailBlockId = previousBlockId;
 
-                final Row headBlockRow = rows.get(rows.size() - 1);
-                final Row tailBlockRow = rows.get(0);
-
-                refactoredChainHeadBlockId = headBlockRow.getLong("id");
-                refactoredChainTailBlockId = previousBlockId; // tailBlockRow.getLong("id");
-                refactoredChainBlockHeight = headBlockRow.getLong("block_height");
+                if (refactoredChainBlockCount > 0) {
+                    final Row headBlockRow = rows.get(rows.size() - 1);
+                    refactoredChainHeadBlockId = headBlockRow.getLong("id");
+                    refactoredChainBlockHeight = headBlockRow.getLong("block_height");
+                }
+                else {
+                    refactoredChainHeadBlockId = null;
+                    refactoredChainBlockHeight = null;
+                }
             }
 
             // 3.3 Update the newBaseBlockChain to revert its head_block_id, block_height, and block_count.
@@ -152,21 +156,23 @@ public class ChainDatabaseManager {
             );
 
             // 3.2.2 Update the new block chain to point to the correct tail_block_id, head_block_id, block_height, and block_count.
-            final Long refactoredBlockChainId = _databaseConnection.executeSql(
-                new Query("INSERT INTO block_chains (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
-                    .setParameter(refactoredChainHeadBlockId)
-                    .setParameter(refactoredChainTailBlockId)
-                    .setParameter(refactoredChainBlockHeight)
-                    .setParameter(refactoredChainBlockCount)
-            );
+            if (refactoredChainBlockCount > 0) {
+                final Long refactoredBlockChainId = _databaseConnection.executeSql(
+                    new Query("INSERT INTO block_chains (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+                        .setParameter(refactoredChainHeadBlockId)
+                        .setParameter(refactoredChainTailBlockId)
+                        .setParameter(refactoredChainBlockHeight)
+                        .setParameter(refactoredChainBlockCount)
+                );
 
-            // 3.2.1 Update these blocks to belong to the new block chain.
-            _databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_chain_id = ? WHERE block_chain_id = ? AND block_height > ?")
-                    .setParameter(refactoredBlockChainId)
-                    .setParameter(previousBlockChainId)
-                    .setParameter(previousBlockBlockHeight)
-            );
+                // 3.2.1 Update these blocks to belong to the new block chain.
+                _databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET block_chain_id = ? WHERE block_chain_id = ? AND block_height > ?")
+                        .setParameter(refactoredBlockChainId)
+                        .setParameter(previousBlockChainId)
+                        .setParameter(previousBlockBlockHeight)
+                );
+            }
 
             // 3.4 Create a new block chain to house the contentious block and its future children.
             final Long newChainId = _databaseConnection.executeSql(
