@@ -18,7 +18,9 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class BlockValidator {
     protected final BlockDatabaseManager _blockDatabaseManager;
@@ -61,15 +63,34 @@ public class BlockValidator {
         }
     }
 
-    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction) {
+    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+        final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
+        for (final Transaction transaction : queuedTransactions) {
+            additionalTransactionOutputs.put(transaction.calculateSha256Hash(), transaction);
+        }
+
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
             final Hash outputTransactionHash = transactionInput.getPreviousTransactionOutputHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
-            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex));
+
+            final TransactionOutput transactionOutput;
+            {
+                TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex));
+                if (possibleTransactionOutput == null) {
+                    final Transaction transactionContainingOutput = additionalTransactionOutputs.get(outputTransactionHash);
+                    if (transactionContainingOutput != null) {
+                        final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
+                        if (transactionOutputIndex < transactionOutputs.size()) {
+                            possibleTransactionOutput = transactionOutputs.get(transactionOutputIndex);
+                        }
+                    }
+                }
+                transactionOutput = possibleTransactionOutput;
+            }
             if (transactionOutput == null) {
-                Logger.log("Tx Input, searching for Output: "+ BitcoinUtil.toHexString(outputTransactionHash) + ":"+ transactionOutputIndex + " - Not Found.");
+                Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex + ", for Tx: "+ blockTransaction.calculateSha256Hash());
                 return null;
             }
 
@@ -78,9 +99,9 @@ public class BlockValidator {
         return totalInputValue;
     }
 
-    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction) {
+    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction);
+        final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction, queuedTransactions);
         if (totalInputValue == null) { return false; }
 
         return (totalOutputValue <= totalInputValue);
@@ -128,9 +149,9 @@ public class BlockValidator {
             if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
 
             final Transaction blockTransaction = blockTransactions.get(i);
-            final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockTransaction);
+            final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockTransaction, blockTransactions);
             if (! transactionExpenditureIsValid) {
-                Logger.log("BLOCK VALIDATION: Failed because of expenditures did not match.");
+                Logger.log("BLOCK VALIDATION: Failed because expenditures did not match.");
                 Logger.log(BitcoinUtil.toHexString(block.getBytes()));
                 return false;
             }

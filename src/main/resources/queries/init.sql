@@ -1,15 +1,9 @@
-CREATE TABLE metadata (
-    id int unsigned NOT NULL AUTO_INCREMENT,
-    version int unsigned NOT NULL DEFAULT '1',
-    timestamp bigint unsigned NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY metadata_version_uq (version)
-) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
-
 CREATE TABLE blocks (
     id int unsigned NOT NULL AUTO_INCREMENT,
     hash varchar(64) NOT NULL,
     previous_block_id int unsigned,
+    block_height int unsigned NOT NULL,
+    block_chain_id int unsigned,
     merkle_root varchar(64) NOT NULL,
     version int NOT NULL DEFAULT '1',
     timestamp bigint unsigned NOT NULL,
@@ -20,6 +14,20 @@ CREATE TABLE blocks (
     FOREIGN KEY block_previous_block_id_ix (previous_block_id) REFERENCES blocks (id),
     INDEX block_timestamp_ix (timestamp) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+CREATE TABLE block_chains (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    head_block_id int unsigned NOT NULL,
+    tail_block_id int unsigned NOT NULL,
+    block_height int unsigned NOT NULL,
+    block_count int unsigned NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY block_chains_block_ids_uq (head_block_id, tail_block_id),
+    FOREIGN KEY block_chains_head_block_id_ix (head_block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_chains_tail_block_id_ix (tail_block_id) REFERENCES blocks (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
+ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_fk FOREIGN KEY (block_chain_id) REFERENCES block_chains (id);
 
 CREATE TABLE transactions (
     id int unsigned NOT NULL AUTO_INCREMENT,

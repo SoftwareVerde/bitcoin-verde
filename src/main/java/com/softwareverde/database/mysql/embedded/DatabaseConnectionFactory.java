@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.database;
+package com.softwareverde.database.mysql.embedded;
 
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;

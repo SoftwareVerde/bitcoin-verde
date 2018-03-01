@@ -6,6 +6,11 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 public class MutableHash implements Hash {
     protected final byte[] _bytes = new byte[BYTE_COUNT];
 
+    public static MutableHash fromHexString(final String hexString) {
+        final byte[] hashBytes = BitcoinUtil.hexStringToByteArray(hexString);
+        return new MutableHash(hashBytes);
+    }
+
     public MutableHash() { }
     public MutableHash(final byte[] bytes) {
         ByteUtil.setBytes(_bytes, bytes);

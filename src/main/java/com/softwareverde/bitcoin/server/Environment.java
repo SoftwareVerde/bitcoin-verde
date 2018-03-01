@@ -1,20 +1,15 @@
 package com.softwareverde.bitcoin.server;
 
-import ch.vorburger.mariadb4j.DB;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.util.Container;
+import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 
 public class Environment {
-    private static final Container<DB> _mysqlInstance = new Container<DB>();
+    protected final EmbeddedMysqlDatabase _database;
 
-    protected final BitcoinDatabase _database;
-
-    public Environment(final DB database, final DatabaseConnectionFactory databaseConnectionFactory) {
-        _mysqlInstance.value = database;
-        _database = new BitcoinDatabase(databaseConnectionFactory);
+    public Environment(final EmbeddedMysqlDatabase database) {
+        _database = database;
     }
 
-    public BitcoinDatabase getDatabase() {
+    public EmbeddedMysqlDatabase getDatabase() {
         return _database;
     }
 }
