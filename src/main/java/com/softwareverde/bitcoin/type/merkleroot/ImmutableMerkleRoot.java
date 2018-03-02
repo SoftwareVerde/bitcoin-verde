@@ -23,6 +23,11 @@ public class ImmutableMerkleRoot implements MerkleRoot {
     }
 
     @Override
+    public byte[] toReversedEndian() {
+        return ByteUtil.reverseEndian(_mutableMerkleRoot.getBytes());
+    }
+
+    @Override
     public byte[] getBytes() {
         return ByteUtil.copyBytes(_mutableMerkleRoot.getBytes());
     }

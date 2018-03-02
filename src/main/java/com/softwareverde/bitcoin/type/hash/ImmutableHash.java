@@ -24,6 +24,11 @@ public class ImmutableHash implements Hash {
     }
 
     @Override
+    public byte[] toReversedEndian() {
+        return ByteUtil.reverseEndian(_mutableHash.getBytes());
+    }
+
+    @Override
     public byte[] getBytes() {
         return ByteUtil.copyBytes(_mutableHash.getBytes());
     }

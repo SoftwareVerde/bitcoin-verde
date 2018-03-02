@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -12,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class MutableBlock extends MutableBlockHeader implements Block {
-    protected final List<Transaction> _transactions = new ArrayList<Transaction>();
+    protected List<Transaction> _transactions = new ArrayList<Transaction>();
 
     public MutableBlock() { }
     public MutableBlock(final BlockHeader blockHeader) {
@@ -24,6 +25,17 @@ public class MutableBlock extends MutableBlockHeader implements Block {
         _nonce = blockHeader.getNonce();
     }
 
+    public MutableBlock(final Block block) {
+        _version = block.getVersion();
+        _previousBlockHash = block.getPreviousBlockHash();
+        _merkleRoot = block.getMerkleRoot();
+        _timestamp = block.getTimestamp();
+        _difficulty = block.getDifficulty();
+        _nonce = block.getNonce();
+
+        _transactions = block.getTransactions();
+    }
+
     public void addTransaction(final Transaction transaction) {
         _transactions.add(transaction);
     }
@@ -33,11 +45,12 @@ public class MutableBlock extends MutableBlockHeader implements Block {
     }
 
     public List<Transaction> getTransactions() {
-        final List<Transaction> transactions = new ArrayList<Transaction>(_transactions.size());
-        for (final Transaction transaction : _transactions) {
-            transactions.add(new ImmutableTransaction(transaction));
-        }
-        return transactions;
+        return _transactions;
+    }
+
+    @Override
+    public MerkleRoot calculateMerkleRoot() {
+        return null;
     }
 
     @Override

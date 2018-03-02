@@ -159,6 +159,7 @@ public abstract class Operation {
         }
 
         public boolean isEnabled() { return _isEnabled; }
+        public byte getValue() { return (byte) _minValue; }
         public int getMinValue() { return _minValue; }
         public int getMaxValue() { return _maxValue; }
 

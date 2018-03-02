@@ -72,6 +72,10 @@ public class BitcoinUtil {
         return Base58.encode(bytes);
     }
 
+    public static byte[] base58StringToBytes(final String base58String) {
+        return Base58.decode(base58String);
+    }
+
     public static byte[] calculateChecksummedKey(final Byte addressPrefix, final byte[] keyData) {
         final Integer prefixByteCount = (addressPrefix == null ? 0 : 1);
         final Integer checksumByteCount = 4;

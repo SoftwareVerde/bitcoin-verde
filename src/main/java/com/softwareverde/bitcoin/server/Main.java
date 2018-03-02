@@ -1,12 +1,28 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.BitcoinPrivateKey;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
+import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -130,20 +146,64 @@ public class Main {
     public Main(final String[] commandLineArguments) {
 
         /*
-            // Mine Hardcoded Block...
+            { // Create Private/Public Key:
+                final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
+                System.out.println("Private Key: " + BitcoinUtil.toHexString(privateKey.getBytes()));
+                System.out.println("Public Key: " + BitcoinUtil.toBase58String(privateKey.getBitcoinAddress()));
+                _exitFailure();
+
+                // Private Key: CE418F2262D69CA2E02645E679598F3F646E8158BA7C5890A67130390A1102E5
+                // Public Key: 13TXBs1AonKbypUZCRYRCFnuLppqm69odd
+            }
+        */
+
+        // Mine Hardcoded Block...
+        {
             try {
                 final BlockInflater blockInflater = new BlockInflater();
-                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(""));
-                final Block prototypeBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(""));
+
+                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000"));
+
+                final MutableBlock prototypeBlock = new MutableBlock();
+                {
+                    final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+                    mutableTransactionInput.setPreviousTransactionOutputHash(new MutableHash());
+                    mutableTransactionInput.setPreviousTransactionOutputIndex(0);
+                    mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+                    mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").build());
+
+                    final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+                    mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+                    mutableTransactionOutput.setIndex(0);
+                    mutableTransactionOutput.setLockingScript((ScriptBuilder.payToAddress("13TXBs1AonKbypUZCRYRCFnuLppqm69odd")));
+
+                    final MutableTransaction coinbaseTransaction = new MutableTransaction();
+                    coinbaseTransaction.setVersion(1);
+                    coinbaseTransaction.setLockTime(new MutableLockTime(LockTime.MIN_TIMESTAMP));
+                    coinbaseTransaction.setHasWitnessData(false);
+                    coinbaseTransaction.addTransactionInput(mutableTransactionInput);
+                    coinbaseTransaction.addTransactionOutput(mutableTransactionOutput);
+
+                    // Logger.log(BitcoinUtil.toHexString(coinbaseTransaction.getBytes()));
+                    // _exitFailure();
+
+                    prototypeBlock.setVersion(1);
+                    prototypeBlock.setMerkleRoot(previousBlock.getMerkleRoot());
+                    prototypeBlock.setPreviousBlockHash(previousBlock.calculateSha256Hash());
+                    prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                    prototypeBlock.setNonce(0L);
+                    prototypeBlock.setDifficulty(new ImmutableDifficulty(ByteUtil.integerToBytes(Difficulty.BASE_DIFFICULTY_SIGNIFICAND), Difficulty.BASE_DIFFICULTY_EXPONENT));
+                    prototypeBlock.addTransaction(coinbaseTransaction);
+                }
+
                 final Miner miner = new Miner();
                 miner.mineBlock(previousBlock, prototypeBlock);
-                _exitFailure();
             }
             catch (final Exception exception) {
                 exception.printStackTrace();
-                _exitFailure();
             }
-        */
+            _exitFailure();
+        }
 
         if (commandLineArguments.length != 1) {
             _printUsage();

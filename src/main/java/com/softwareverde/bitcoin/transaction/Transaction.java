@@ -9,6 +9,8 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import java.util.List;
 
 public interface Transaction {
+    static final Integer SATOSHIS_PER_BITCOIN = 100_000_000;
+
     Hash calculateSha256Hash();
     Hash calculateSha256HashForSigning(Integer inputIndexToBeSigned, TransactionOutput transactionOutputBeingSpent, ScriptSignature.HashType hashType);
     byte[] getBytesForSigning(Integer inputIndexToBeSigned, TransactionOutput transactionOutputBeingSpent, ScriptSignature.HashType hashType);

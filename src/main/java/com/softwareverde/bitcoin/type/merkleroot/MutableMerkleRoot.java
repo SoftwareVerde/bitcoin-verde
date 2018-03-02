@@ -19,6 +19,11 @@ public class MutableMerkleRoot implements MerkleRoot {
     }
 
     @Override
+    public byte[] toReversedEndian() {
+        return _mutableHash.toReversedEndian();
+    }
+
+    @Override
     public byte[] getBytes() {
         return _mutableHash.getBytes();
     }

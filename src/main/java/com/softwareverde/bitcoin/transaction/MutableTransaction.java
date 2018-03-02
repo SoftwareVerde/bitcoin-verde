@@ -150,7 +150,7 @@ public class MutableTransaction implements Transaction {
     public Hash calculateSha256Hash() {
         final ByteArrayBuilder byteArrayBuilder = _toByteArrayBuilder();
         final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
-        return new MutableHash(ByteUtil.reverseBytes(doubleSha256));
+        return new MutableHash(ByteUtil.reverseEndian(doubleSha256));
     }
 
     @Override

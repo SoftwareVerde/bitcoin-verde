@@ -35,7 +35,7 @@ public class PacketBuffer {
     }
 
     private final int _netMagicNumberByteCount = ProtocolMessage.MAIN_NET_MAGIC_NUMBER.length;
-    private final byte[] _reversedMainNetMagicNumber = ByteUtil.reverseBytes(ProtocolMessage.MAIN_NET_MAGIC_NUMBER);
+    private final byte[] _reversedMainNetMagicNumber = ByteUtil.reverseEndian(ProtocolMessage.MAIN_NET_MAGIC_NUMBER);
 
     private int _bufferSize = 1024;
     private final List<ByteArray> _recycledByteArrays = new LinkedList<ByteArray>();

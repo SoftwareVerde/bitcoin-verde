@@ -63,7 +63,7 @@ public class MutableBlockHeader implements BlockHeader {
     protected Hash _calculateSha256Hash() {
         final ByteData byteData = _createByteData();
         final byte[] serializedByteData = byteData.serialize();
-        return new ImmutableHash(ByteUtil.reverseBytes(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData))));
+        return new ImmutableHash(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData))));
     }
 
     protected Integer _getTransactionCount() { return 0; }

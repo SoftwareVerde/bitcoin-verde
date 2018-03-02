@@ -69,7 +69,7 @@ public class ByteUtil {
         };
     }
 
-    public static byte[] reverseBytes(final byte[] bytes) {
+    public static byte[] reverseEndian(final byte[] bytes) {
         final byte[] reversedBytes = new byte[bytes.length];
         for (int i=0; i<bytes.length; ++i) {
             reversedBytes[i] = bytes[(bytes.length - 1) - i];

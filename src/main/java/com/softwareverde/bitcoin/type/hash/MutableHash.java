@@ -22,6 +22,11 @@ public class MutableHash implements Hash {
     }
 
     @Override
+    public byte[] toReversedEndian() {
+        return ByteUtil.reverseEndian(_bytes);
+    }
+
+    @Override
     public byte[] getBytes() {
         return _bytes;
     }

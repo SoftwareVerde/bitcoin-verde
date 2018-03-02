@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,19 +16,12 @@ public class BlockValidatorTests extends IntegrationTest {
         _resetDatabase();
     }
 
-    @After
-    public void teardown() throws Exception {
-        _resetDatabase();
-    }
-
     @Test
     public void should_validate_block_that_contains_transaction_that_spends_its_own_outputs() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        // final TransactionInflater transactionInflater = new TransactionInflater();
-        // final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockValidator blockValidator = new BlockValidator(databaseConnection);
 
@@ -39,10 +31,6 @@ public class BlockValidatorTests extends IntegrationTest {
             final Long prerequisiteBlockId = blockDatabaseManager.storeBlock(prerequisiteBlock);
             final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlock);
             Assert.assertFalse(prerequisiteBlockIsValid); // Should fail because its dependent transactions are not inserted.  Asserting for clarity and sanity.
-
-            // Transaction Hash: 35288D269CEE1941EAEBB2EA85E32B42CDB2B04284A56D8B14DCC3F5C65D6055
-            // final Transaction prerequisiteTransaction = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
-            // transactionDatabaseManager.storeTransaction(prerequisiteBlockId, prerequisiteTransaction);
         }
 
         // Block Hash: 000000005A4DED781E667E06CEEFAFB71410B511FE0D5ADC3E5A27ECBEC34AE6
@@ -54,5 +42,33 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertTrue(blockIsValid);
+    }
+
+    @Test
+    public void block_should_be_invalid_if_its_input_only_exists_withing_a_different_chain() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        // final Block block = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A398C985AFFFF001DF078569200"));
+
+        /*
+            // Given the following forking situation...
+
+            [2]
+             |
+            [1]   [1']
+             |     |
+            [0]----+
+             |
+
+            //
+         */
+
+        // Action
+
+
+        // Assert
+        Assert.assertTrue(false);
     }
 }

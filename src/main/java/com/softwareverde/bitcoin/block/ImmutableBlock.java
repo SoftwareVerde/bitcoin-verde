@@ -35,6 +35,11 @@ public class ImmutableBlock implements Block {
     }
 
     @Override
+    public MerkleRoot calculateMerkleRoot() {
+        return _block.calculateMerkleRoot();
+    }
+
+    @Override
     public Integer getVersion() {
         return _block.getVersion();
     }

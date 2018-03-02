@@ -6,4 +6,5 @@ public interface Hash extends ByteArray {
     static final Integer BYTE_COUNT = 32;
 
     byte get(int index);
+    byte[] toReversedEndian();
 }
