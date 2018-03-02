@@ -9,6 +9,21 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class MerkleTreeNode implements MerkleTree {
+    protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
+        @Override
+        protected byte[] initialValue() {
+            return new byte[Hash.BYTE_COUNT * 2];
+        }
+    };
+
+    protected static byte[] _calculateNodeHash(final Hash hash0, final Hash hash1) {
+        final byte[] scratchSpace = _threadLocalScratchSpace.get();
+
+        ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian());
+        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian(), Hash.BYTE_COUNT);
+
+        return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
+    }
 
     protected Boolean _hashIsValid = false;
     protected final MutableHash _hash = new MutableHash();
@@ -34,17 +49,12 @@ public class MerkleTreeNode implements MerkleTree {
                 hash1 = (_item1 == null ? hash0 : _item1.calculateSha256Hash());
             }
             else {
-                hash0 = new ImmutableHash(_childNode0.getMerkleRoot());
-                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableHash(_childNode1.getMerkleRoot()));
+                hash0 = new ImmutableHash(_childNode0._getIntermediaryHash());
+                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableHash(_childNode1._getIntermediaryHash()));
             }
         }
 
-        final byte[] _scratchSpace = new byte[Hash.BYTE_COUNT * 2];
-        ByteUtil.setBytes(_scratchSpace, hash0.toReversedEndian());
-        ByteUtil.setBytes(_scratchSpace, hash1.toReversedEndian(), Hash.BYTE_COUNT);
-
-        final byte[] doubleSha256HashConcatenatedBytes = ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(_scratchSpace)));
-        _hash.setBytes(doubleSha256HashConcatenatedBytes);
+        _hash.setBytes(_calculateNodeHash(hash0, hash1));
         _hashIsValid = true;
     }
 
@@ -92,6 +102,14 @@ public class MerkleTreeNode implements MerkleTree {
         }
 
         return nodeOfEqualDepthToChildNode0;
+    }
+
+    protected Hash _getIntermediaryHash() {
+        if (! _hashIsValid) {
+            _recalculateHash();
+        }
+
+        return _hash;
     }
 
     public MerkleTreeNode() {
@@ -150,8 +168,15 @@ public class MerkleTreeNode implements MerkleTree {
 
     @Override
     public MerkleRoot getMerkleRoot() {
-        if (! _hashIsValid) {
-            _recalculateHash();
+
+        if (_size == 1 && (_item0 != null)) {
+            _hash.setBytes(_item0.calculateSha256Hash().getBytes());
+            _hashIsValid = true;
+        }
+        else {
+            if (! _hashIsValid) {
+                _recalculateHash();
+            }
         }
 
         return new ImmutableMerkleRoot(_hash.getBytes());
