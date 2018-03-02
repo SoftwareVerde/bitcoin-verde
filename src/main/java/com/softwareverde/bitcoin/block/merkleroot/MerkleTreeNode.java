@@ -11,6 +11,66 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import java.util.ArrayList;
 import java.util.List;
 
+/*
+                                                           ABCDEFGH
+                                                          /        \
+                                                      ABCD          EFGH
+                                                     /    \        /    \
+                                                   AB      CD    EF      GH
+                                                  /  \    /  \  /  \    /  \
+                                                 A    B  C   D E   F   G   H
+
+                                                    _ ABCDEFGHIIIIIIII _
+                                                   /                    \
+                                           ABCDEFGH                      IIIIIIII
+                                          /        \                    /        \
+                                      ABCD          EFGH            IIII          [ ]
+                                     /    \        /    \          /    \
+                                   AB      CD    EF      GH      II     [ ]
+                                  /  \    /  \  /  \    /  \    /  \
+                                 A    B  C   D E   F   G   H   I   [ ]
+
+                                                    _ ABCDEFGHIJKKIJIJ _
+                                                   /                    \
+                                           ABCDEFGH                      IJKKIJIJ
+                                          /        \                    /        \
+                                      ABCD          EFGH            IJIJ          [ ]
+                                     /    \        /    \          /    \
+                                   AB      CD    EF      GH      IJ     [ ]
+                                  /  \    /  \  /  \    /  \    /  \
+                                 A    B  C   D E   F   G   H   I    J
+
+                                                    _ ABCDEFGHIJKKIJKK _
+                                                   /                    \
+                                           ABCDEFGH                      IJKKIJKK
+                                          /        \                    /        \
+                                      ABCD          EFGH            IJKK          [ ]
+                                     /    \        /    \          /    \
+                                   AB      CD    EF      GH      IJ      KK
+                                  /  \    /  \  /  \    /  \    /  \    /  \
+                                 A    B  C   D E   F   G   H   I    J  K   [ ]
+
+                                                    _ ABCDEFGHIJKLIJKL _
+                                                   /                    \
+                                           ABCDEFGH                      IJKLIJKL
+                                          /        \                    /        \
+                                      ABCD          EFGH            IJKL          [ ]
+                                     /    \        /    \          /    \
+                                   AB      CD    EF      GH      IJ      KL
+                                  /  \    /  \  /  \    /  \    /  \    /  \
+                                 A    B  C   D E   F   G   H   I    J  K    L
+
+                                                    _ ABCDEFGHIJKLMMMM _
+                                                   /                    \
+                                           ABCDEFGH                      IJKLMMMM
+                                          /        \                    /        \
+                                      ABCD          EFGH            IJKL          MMMM
+                                     /    \        /    \          /    \        /    \
+                                   AB      CD    EF      GH      IJ      KL    MM     [ ]
+                                  /  \    /  \  /  \    /  \    /  \    /  \  /  \
+                                 A    B  C   D E   F   G   H   I    J  K    L M  [ ]
+ */
+
 public class MerkleTreeNode implements MerkleTree {
     protected final byte[] _scratchSpace = new byte[Hash.BYTE_COUNT * 2];
     protected final MutableHash _hash = new MutableHash();
@@ -44,8 +104,6 @@ public class MerkleTreeNode implements MerkleTree {
         ByteUtil.setBytes(_scratchSpace, hash0.toReversedEndian());
         ByteUtil.setBytes(_scratchSpace, hash1.toReversedEndian(), Hash.BYTE_COUNT);
 
-        // final byte[] doubleSha256HashConcatenatedBytes = BitcoinUtil.sha256(BitcoinUtil.sha256(ByteUtil.reverseEndian(_scratchSpace)));
-        // final byte[] doubleSha256HashConcatenatedBytes = BitcoinUtil.sha256(BitcoinUtil.sha256(_scratchSpace));
         final byte[] doubleSha256HashConcatenatedBytes = ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(_scratchSpace)));
         _hash.setBytes(doubleSha256HashConcatenatedBytes);
     }
@@ -146,6 +204,42 @@ public class MerkleTreeNode implements MerkleTree {
 
 
 /*
+-------------- 1
+    313327D643CD873A707353B79E33462178ADBDF1F95827AA775F149135842092
+
+-------------- 2
+    8410AF673CD3BA6BF31DD667492809B26072680E51584D5B3E03ABC25DBE7FD9
+    0334A7CE1B829FC6D327A448C8B03900669D47372903FC10D605EE0B3D4406A4
+
+-------------- 3
+    513F693ADAD3F522DCBFFAD323A427454F609D1CE5DE80308E18CD6F9506F999
+    3118C6AB44076F9027116A4949E5C0CCA41389A093D98D5371A154C0E5C992F0
+    3A7058ADCD0CF8B5EEB029C3BDED44C0919DA355B2F7EA2721B85409376BD770
+
+-------------- 6
+    35EC3E69FBE385752774E96833EC5CE21CCABC8AD73CBCECEDA83C37F757581A
+    1DD9DA358BF6CA2478DC80E184B840222F6DCDAFC6246F346D3FEB80EED4F68A
+    370CF3413D8711D67A84C60D76587A620EFC2B2A42F5E3FF8AA40783036A5CEB
+    7AC2C70EAF84C00379A8DFAB252AFE07A8CFBCFC3A45F8418153C78865DCF152
+    C3A705A976D86C26A525314E49DC726628217B55378E00F5C816805E1AA126EE
+    05F8C0C4554400CCFB3D9E8CA8D8A7C968D627442CF2855BA717C11F653D1873
+
+-------------- 12
+    0000000000000000000000000000000000000000000000000000000000000000
+    0000000100000000000000000000000000000000000000000000000000000000
+    0000000200000000000000000000000000000000000000000000000000000000
+    0000000300000000000000000000000000000000000000000000000000000000
+    0000000400000000000000000000000000000000000000000000000000000000
+    0000000500000000000000000000000000000000000000000000000000000000
+    0000000600000000000000000000000000000000000000000000000000000000
+    0000000700000000000000000000000000000000000000000000000000000000
+    0000000800000000000000000000000000000000000000000000000000000000
+    0000000900000000000000000000000000000000000000000000000000000000
+    0000000A00000000000000000000000000000000000000000000000000000000
+    0000000B00000000000000000000000000000000000000000000000000000000
+
+
+
 
 -------------- 1
     9003E04C3D85218A4EA5C83FF2914D8E413754A74DD2A558877EB10C4DC01440
