@@ -5,16 +5,250 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MerkleTreeTests {
+    /*
+
+
+                        _ ABCDEFGHIJKLMM _
+                       /                  \
+               ABCDEFGH                    IJKLMMMM
+              /        \                  /        \
+          ABCD          EFGH          IJKL          MMMM
+         /    \        /    \        /    \        /    \
+       AB      CD    EF      GH    IJ      KL    MM     [ ]
+      /  \    /  \  /  \    /  \  /  \    /  \  /  \
+     A    B  C   D E   F   G   H I    J  K    L M  [ ]
+
+
+
+    // Correct Ordering:
+
+                                                             A
+
+                                                            AB
+                                                           /  \
+                                                          A    B
+
+                                                           ABCC
+                                                          /    \
+                                                        AB      CC
+                                                       /  \    /  \
+                                                      A    B  C   [ ]
+
+                                                           ABCD
+                                                          /    \
+                                                        AB      CD
+                                                       /  \    /  \
+                                                      A    B  C   D
+
+                                                          ABCDEE
+                                                         /      \
+                                                     ABCD        EE
+                                                    /    \      /  \
+                                                  AB      CD   E   [ ]
+                                                 /  \    /  \
+                                                A    B  C   D
+
+                                                          ABCDEF
+                                                         /      \
+                                                     ABCD        EF
+                                                    /    \      /  \
+                                                  AB      CD   E    F
+                                                 /  \    /  \
+                                                A    B  C   D
+
+                                                         ABCDEFGG
+                                                        /        \
+                                                    ABCD          EFGG
+                                                   /    \        /    \
+                                                 AB      CD    EF      GG
+                                                /  \    /  \  /  \    /  \
+                                               A    B  C   D E   F   G   [ ]
+
+                                                         ABCDEFGH
+                                                        /        \
+                                                    ABCD          EFGH
+                                                   /    \        /    \
+                                                 AB      CD    EF      GH
+                                                /  \    /  \  /  \    /  \
+                                               A    B  C   D E   F   G    H
+
+                                                        ABCDEFGHII
+                                                       /          \
+                                               ABCDEFGH           II
+                                              /        \         /  \
+                                          ABCD          EFGH    I   [ ]
+                                         /    \        /    \
+                                       AB      CD    EF      GH
+                                      /  \    /  \  /  \    /  \
+                                     A    B  C   D E   F   G    H
+
+                                                        ABCDEFGHIJ
+                                                       /          \
+                                               ABCDEFGH           IJ
+                                              /        \         /  \
+                                          ABCD          EFGH    I    J
+                                         /    \        /    \
+                                       AB      CD    EF      GH
+                                      /  \    /  \  /  \    /  \
+                                     A    B  C   D E   F   G    H
+
+                                                       ABCDEFGHIJKK
+                                                      /            \
+                                              ABCDEFGH              IJKK
+                                             /        \            /    \
+                                         ABCD          EFGH      IJ      KK
+                                        /    \        /    \    /  \    /  \
+                                      AB      CD    EF      GH I    J  K   [ ]
+                                     /  \    /  \  /  \    /  \
+                                    A    B  C   D E   F   G    H
+
+                                                       ABCDEFGHIJKL
+                                                      /            \
+                                              ABCDEFGH              IJKL
+                                             /        \            /    \
+                                         ABCD          EFGH      IJ      KL
+                                        /    \        /    \    /  \    /  \
+                                      AB      CD    EF      GH I    J  K    L
+                                     /  \    /  \  /  \    /  \
+                                    A    B  C   D E   F   G    H
+
+                                                    _ ABCDEFGHIJKLMM _
+                                                   /                  \
+                                           ABCDEFGH                    IJKLMM
+                                          /        \                  /      \
+                                      ABCD          EFGH          IJKL        MM
+                                     /    \        /    \        /    \      /  \
+                                   AB      CD    EF      GH    IJ      KL   M   [ ]
+                                  /  \    /  \  /  \    /  \  /  \    /  \
+                                 A    B  C   D E   F   G   H I    J  K    L
+
+                                                    _ ABCDEFGHIJKLMN _
+                                                   /                  \
+                                           ABCDEFGH                    IJKLMN
+                                          /        \                  /      \
+                                      ABCD          EFGH          IJKL        MN
+                                     /    \        /    \        /    \      /  \
+                                   AB      CD    EF      GH    IJ      KL   M    N
+                                  /  \    /  \  /  \    /  \  /  \    /  \
+                                 A    B  C   D E   F   G   H I    J  K    L
+
+                                                    _ABCDEFGHIJKLMNOO_
+                                                   /                  \
+                                           ABCDEFGH                    IJKLMNOO
+                                          /        \                  /        \
+                                      ABCD          EFGH          IJKL          MNOO
+                                     /    \        /    \        /    \        /    \
+                                   AB      CD    EF      GH    IJ      KL    MN      OO
+                                  /  \    /  \  /  \    /  \  /  \    /  \  /  \    /  \
+                                 A    B  C   D E   F   G   H I    J  K   L M    N  O   [ ]
+
+                                                    _ABCDEFGHIJKLMNOP_
+                                                   /                  \
+                                           ABCDEFGH                    IJKLMNOP
+                                          /        \                  /        \
+                                      ABCD          EFGH          IJKL          MNOP
+                                     /    \        /    \        /    \        /    \
+                                   AB      CD    EF      GH    IJ      KL    MN      OP
+                                  /  \    /  \  /  \    /  \  /  \    /  \  /  \    /  \
+                                 A    B  C   D E   F   G   H I    J  K   L M    N  O    P
+
+
+    // Incorrect Ordering:
+
+                                                             A
+
+                                                            AB
+                                                           /  \
+                                                          A    B
+
+                                                           ABCC
+                                                          /    \
+                                                        AB      CC
+                                                       /  \    /  \
+                                                      A    B  C   [ ]
+
+                                                           ABCD
+                                                          /    \
+                                                        AB      CD
+                                                       /  \    /  \
+                                                      A    B  C   D
+
+                                                          ABCDEE
+                                                         /      \
+                                                     ABEE        CD
+                                                    /    \      /  \
+                                                  AB      EE   C    D
+                                                 /  \    /  \
+                                                A    B  E   [ ]
+
+                                                          ABCDEF
+                                                         /      \
+                                                     ABEF        CD
+                                                    /    \      /  \
+                                                  AB      EF   C    D
+                                                 /  \    /  \
+                                                A    B  E   F
+
+                                                         ABCDEFGG
+                                                        /        \
+                                                    ABEF          CDGG
+                                                   /    \        /    \
+                                                 AB      EF    CD      GG
+                                                /  \    /  \  /  \    /  \
+                                               A    B  E   F C    D  G   [ ]
+
+                                                         ABCDEFGH
+                                                        /        \
+                                                    ABEF          CDGH
+                                                   /    \        /    \
+                                                 AB      EF    CD      GH
+                                                /  \    /  \  /  \    /  \
+                                               A    B  E   F C    D  G    H
+
+                                                        ABCDEFGHII
+                                                       /          \
+                                                   ABEFII          CDGH
+                                                  /      \        /    \
+                                              ABII        EF    CD      GH
+                                             /    \      /  \  /  \    /  \
+                                           AB      II   E   F C    D  G    H
+                                          /  \    /  \
+                                         A    B  I   [ ]
+
+                                                        ABCDEFGHIJ
+                                                       /          \
+                                                   ABEFIJ          CDGH
+                                                  /      \        /    \
+                                              ABIJ        EF    CD      GH
+                                             /    \      /  \  /  \    /  \
+                                           AB      IJ   E   F C    D  G    H
+                                          /  \    /  \
+                                         A    B  I    J
+
+                                                        ABCDEFGHIJKK
+                                                       /            \
+                                                   ABEFIJ            CDGHKK
+                                                  /      \          /      \
+                                              ABIJ        EF      CDKK      GH
+                                             /    \      /  \    /    \    /  \
+                                           AB      IJ   E   F  CD      KK G    H
+                                          /  \    /  \        /  \    /  \
+                                         A    B  I    J      C    D  K   [ ]
+ */
+
     @Test
     public void should_calculate_the_merkle_root_with_one_transaction() {
         // Setup
@@ -25,7 +259,7 @@ public class MerkleTreeTests {
         final MerkleTree merkleTree = new MerkleTreeNode();
 
         for (final Transaction transaction : block.getTransactions()) {
-            merkleTree.addTransaction(transaction);
+            merkleTree.addItem(transaction);
         }
 
         final Hash transactionHash = block.getTransactions().get(0).calculateSha256Hash();
@@ -54,7 +288,7 @@ public class MerkleTreeTests {
         Assert.assertEquals(4, transactions.size());
 
         for (final Transaction transaction : transactions) {
-            merkleTree.addTransaction(transaction);
+            merkleTree.addItem(transaction);
         }
 
         // Action
@@ -77,14 +311,133 @@ public class MerkleTreeTests {
         Assert.assertEquals(13, transactions.size());
 
         for (final Transaction transaction : transactions) {
-            merkleTree.addTransaction(transaction);
+            merkleTree.addItem(transaction);
         }
+
+        ArrayList<byte[]> tree = new ArrayList<>();
+        {
+            // Start by adding all the hashes of the transactions as leaves of the tree.
+            for (Transaction t : transactions) {
+                tree.add(t.calculateSha256Hash().getBytes());
+            }
+
+            final Hashable problematicTx = ((MerkleTreeNode) merkleTree)._childNode1._childNode1._item0;
+            final byte[] manConcat = new byte[64];
+            ByteUtil.setBytes(manConcat, problematicTx.calculateSha256Hash().getBytes());
+            ByteUtil.setBytes(manConcat, problematicTx.calculateSha256Hash().getBytes(), 32);
+            final String manualIntermediaryHash = BitcoinUtil.toHexString(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(ByteUtil.reverseEndian(manConcat)))));
+
+            int levelOffset = 0; // Offset in the list where the currently processed level starts.
+            // Step through each level, stopping when we reach the root (levelSize == 1).
+            for (int levelSize = transactions.size(); levelSize > 1; levelSize = (levelSize + 1) / 2) {
+                // For each pair of nodes on that level:
+                for (int left = 0; left < levelSize; left += 2) {
+                    // The right hand node can be the same as the left hand, in the case where we don't have enough
+                    // transactions.
+                    int right = Math.min(left + 1, levelSize - 1);
+                    byte[] leftBytes = ByteUtil.reverseEndian(tree.get(levelOffset + left));
+                    byte[] rightBytes = ByteUtil.reverseEndian(tree.get(levelOffset + right));
+                    final byte[] concat = new byte[64];
+                    ByteUtil.setBytes(concat, leftBytes);
+                    ByteUtil.setBytes(concat, rightBytes, 32);
+                    tree.add(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(concat))));
+                }
+                // Move to the next level.
+                levelOffset += levelSize;
+            }
+        }
+
+        TestUtil.assertEqual(expectedMerkleRoot, tree.get(tree.size() - 1));
 
         // Action
         final MerkleRoot merkleRoot = merkleTree.getMerkleRoot();
 
         // Assert
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
+    }
+
+    private List<byte[]> calculateBitcoinjTree(final List<Hashable> transactions) {
+        ArrayList<byte[]> tree = new ArrayList<>();
+        {
+            // Start by adding all the hashes of the transactions as leaves of the tree.
+            for (Hashable t : transactions) {
+                tree.add(t.calculateSha256Hash().getBytes());
+            }
+
+            int levelOffset = 0; // Offset in the list where the currently processed level starts.
+            // Step through each level, stopping when we reach the root (levelSize == 1).
+            for (int levelSize = transactions.size(); levelSize > 1; levelSize = (levelSize + 1) / 2) {
+                // For each pair of nodes on that level:
+                for (int left = 0; left < levelSize; left += 2) {
+                    // The right hand node can be the same as the left hand, in the case where we don't have enough
+                    // transactions.
+                    int right = Math.min(left + 1, levelSize - 1);
+                    byte[] leftBytes = ByteUtil.reverseEndian(tree.get(levelOffset + left));
+                    byte[] rightBytes = ByteUtil.reverseEndian(tree.get(levelOffset + right));
+                    final byte[] concat = new byte[64];
+                    ByteUtil.setBytes(concat, leftBytes);
+                    ByteUtil.setBytes(concat, rightBytes, 32);
+                    tree.add(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(concat))));
+                }
+                // Move to the next level.
+                levelOffset += levelSize;
+            }
+        }
+        return tree;
+    }
+
+    class Wtf implements Hashable {
+
+        private int _i;
+        public Wtf(int i) {
+            _i = i;
+        }
+
+        @Override
+        public Hash calculateSha256Hash() {
+            return new ImmutableHash(ByteUtil.integerToBytes(_i));
+        }
+    }
+
+    @Test
+    public void wtf() {
+        final MerkleTreeNode merkleTree = new MerkleTreeNode();
+
+        final List<Hashable> transactions = new ArrayList<Hashable>();
+        for (int i=0; i<13; ++i) {
+            final Wtf wtf = new Wtf(i);
+            transactions.add(wtf);
+            merkleTree.addItem(wtf);
+        }
+        final List<byte[]> bitcoinjTree = calculateBitcoinjTree(transactions);
+
+        int s = bitcoinjTree.size();
+        int t1 = 13;
+        int t2 = 20;
+        int t3 = 24;
+        int t4 = 26;
+
+        for (int i=0; i<bitcoinjTree.size(); ++i) {
+            final byte[] bytes = bitcoinjTree.get(i);
+            if (i == (t1) || i == (t2) || i == (t3) || i == (t4)) {
+                System.out.println("-------------- "+ i);
+            }
+            System.out.println(BitcoinUtil.toHexString(bytes));
+        }
+
+        System.out.println();
+        System.out.println();
+
+        final List<byte[]> merkleItems = merkleTree.collectItems();
+        for (int i=0; i<merkleItems.size(); ++i) {
+            final byte[] bytes = merkleItems.get(i);
+            if (i == (t1) || i == (t2) || i == (t3) || i == (t4)) {
+                System.out.println("-------------- "+ i);
+            }
+            System.out.println(BitcoinUtil.toHexString(bytes));
+        }
+
+        TestUtil.assertEqual(bitcoinjTree.get(bitcoinjTree.size() - 1), merkleTree.getMerkleRoot().getBytes());
     }
 
 }
