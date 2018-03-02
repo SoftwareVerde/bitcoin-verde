@@ -136,8 +136,8 @@ public class MerkleTreeNode implements MerkleTree {
                 hash1 = (_item1 == null ? hash0 : _item1.calculateSha256Hash());
             }
             else {
-                hash0 = new ImmutableHash(_childNode0.getMerkleRoot().toReversedEndian());
-                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableHash(_childNode1.getMerkleRoot().toReversedEndian()));
+                hash0 = new ImmutableHash(_childNode0.getMerkleRoot());
+                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableHash(_childNode1.getMerkleRoot()));
             }
         }
 
@@ -250,6 +250,6 @@ public class MerkleTreeNode implements MerkleTree {
 
     @Override
     public MerkleRoot getMerkleRoot() {
-        return new ImmutableMerkleRoot(_hash.toReversedEndian());
+        return new ImmutableMerkleRoot(_hash.getBytes());
     }
 }
