@@ -1,0 +1,319 @@
+
+// The actually correct ordering:
+
+                                       A
+
+                                      AB
+                                     /  \
+                                    A    B
+
+                                     ABCC
+                                    /    \
+                                  AB      CC
+                                 /  \    /  \
+                                A    B  C   [ ]
+
+                                     ABCD
+                                    /    \
+                                  AB      CD
+                                 /  \    /  \
+                                A    B  C    D
+
+                                   ABCDEEEE
+                                  /        \
+                              ABCD          EEEE
+                             /    \        /    \
+                           AB      CD    EE     [ ]
+                          /  \    /  \  /  \
+                         A    B  C   D E   [ ]
+
+                                   ABCDEFEF
+                                  /        \
+                              ABCD          EFEF
+                             /    \        /    \
+                           AB      CD    EF     [ ]
+                          /  \    /  \  /  \
+                         A    B  C   D E   F
+
+                                   ABCDEFGG
+                                  /        \
+                              ABCD          EFGG
+                             /    \        /    \
+                           AB      CD    EF      GG
+                          /  \    /  \  /  \    /  \
+                         A    B  C   D E   F   G   [ ]
+
+                                   ABCDEFGH
+                                  /        \
+                              ABCD          EFGH
+                             /    \        /    \
+                           AB      CD    EF      GH
+                          /  \    /  \  /  \    /  \
+                         A    B  C   D E   F   G   H
+
+                            _ ABCDEFGHIIIIIIII _
+                           /                    \
+                   ABCDEFGH                      IIIIIIII
+                  /        \                    /        \
+              ABCD          EFGH            IIII          [ ]
+             /    \        /    \          /    \
+           AB      CD    EF      GH      II     [ ]
+          /  \    /  \  /  \    /  \    /  \
+         A    B  C   D E   F   G   H   I   [ ]
+
+                            _ ABCDEFGHIJIJIJIJ _
+                           /                    \
+                   ABCDEFGH                      IJIJIJIJ
+                  /        \                    /        \
+              ABCD          EFGH            IJIJ          [ ]
+             /    \        /    \          /    \
+           AB      CD    EF      GH      IJ     [ ]
+          /  \    /  \  /  \    /  \    /  \
+         A    B  C   D E   F   G   H   I    J
+
+                            _ ABCDEFGHIJKKIJKK _
+                           /                    \
+                   ABCDEFGH                      IJKKIJKK
+                  /        \                    /        \
+              ABCD          EFGH            IJKK          [ ]
+             /    \        /    \          /    \
+           AB      CD    EF      GH      IJ      KK
+          /  \    /  \  /  \    /  \    /  \    /  \
+         A    B  C   D E   F   G   H   I    J  K   [ ]
+
+                            _ ABCDEFGHIJKLIJKL _
+                           /                    \
+                   ABCDEFGH                      IJKLIJKL
+                  /        \                    /        \
+              ABCD          EFGH            IJKL          [ ]
+             /    \        /    \          /    \
+           AB      CD    EF      GH      IJ      KL
+          /  \    /  \  /  \    /  \    /  \    /  \
+         A    B  C   D E   F   G   H   I    J  K    L
+
+                            _ ABCDEFGHIJKLMMMM _
+                           /                    \
+                   ABCDEFGH                      IJKLMMMM
+                  /        \                    /        \
+              ABCD          EFGH            IJKL          MMMM
+             /    \        /    \          /    \        /    \
+           AB      CD    EF      GH      IJ      KL    MM     [ ]
+          /  \    /  \  /  \    /  \    /  \    /  \  /  \
+         A    B  C   D E   F   G   H   I    J  K    L M  [ ]
+
+
+// Still incorrect ordering:
+
+                                     A
+
+                                    AB
+                                   /  \
+                                  A    B
+
+                                   ABCC
+                                  /    \
+                                AB      CC
+                               /  \    /  \
+                              A    B  C   [ ]
+
+                                   ABCD
+                                  /    \
+                                AB      CD
+                               /  \    /  \
+                              A    B  C   D
+
+                                  ABCDEE
+                                 /      \
+                             ABCD        EE
+                            /    \      /  \
+                          AB      CD   E   [ ]
+                         /  \    /  \
+                        A    B  C   D
+
+                                  ABCDEF
+                                 /      \
+                             ABCD        EF
+                            /    \      /  \
+                          AB      CD   E    F
+                         /  \    /  \
+                        A    B  C   D
+
+                                 ABCDEFGG
+                                /        \
+                            ABCD          EFGG
+                           /    \        /    \
+                         AB      CD    EF      GG
+                        /  \    /  \  /  \    /  \
+                       A    B  C   D E   F   G   [ ]
+
+                                 ABCDEFGH
+                                /        \
+                            ABCD          EFGH
+                           /    \        /    \
+                         AB      CD    EF      GH
+                        /  \    /  \  /  \    /  \
+                       A    B  C   D E   F   G    H
+
+                                ABCDEFGHII
+                               /          \
+                       ABCDEFGH           II
+                      /        \         /  \
+                  ABCD          EFGH    I   [ ]
+                 /    \        /    \
+               AB      CD    EF      GH
+              /  \    /  \  /  \    /  \
+             A    B  C   D E   F   G    H
+
+                                ABCDEFGHIJ
+                               /          \
+                       ABCDEFGH           IJ
+                      /        \         /  \
+                  ABCD          EFGH    I    J
+                 /    \        /    \
+               AB      CD    EF      GH
+              /  \    /  \  /  \    /  \
+             A    B  C   D E   F   G    H
+
+                               ABCDEFGHIJKK
+                              /            \
+                      ABCDEFGH              IJKK
+                     /        \            /    \
+                 ABCD          EFGH      IJ      KK
+                /    \        /    \    /  \    /  \
+              AB      CD    EF      GH I    J  K   [ ]
+             /  \    /  \  /  \    /  \
+            A    B  C   D E   F   G    H
+
+                               ABCDEFGHIJKL
+                              /            \
+                      ABCDEFGH              IJKL
+                     /        \            /    \
+                 ABCD          EFGH      IJ      KL
+                /    \        /    \    /  \    /  \
+              AB      CD    EF      GH I    J  K    L
+             /  \    /  \  /  \    /  \
+            A    B  C   D E   F   G    H
+
+                            _ ABCDEFGHIJKLMM _
+                           /                  \
+                   ABCDEFGH                    IJKLMM
+                  /        \                  /      \
+              ABCD          EFGH          IJKL        MM
+             /    \        /    \        /    \      /  \
+           AB      CD    EF      GH    IJ      KL   M   [ ]
+          /  \    /  \  /  \    /  \  /  \    /  \
+         A    B  C   D E   F   G   H I    J  K    L
+
+                            _ ABCDEFGHIJKLMN _
+                           /                  \
+                   ABCDEFGH                    IJKLMN
+                  /        \                  /      \
+              ABCD          EFGH          IJKL        MN
+             /    \        /    \        /    \      /  \
+           AB      CD    EF      GH    IJ      KL   M    N
+          /  \    /  \  /  \    /  \  /  \    /  \
+         A    B  C   D E   F   G   H I    J  K    L
+
+                            _ABCDEFGHIJKLMNOO_
+                           /                  \
+                   ABCDEFGH                    IJKLMNOO
+                  /        \                  /        \
+              ABCD          EFGH          IJKL          MNOO
+             /    \        /    \        /    \        /    \
+           AB      CD    EF      GH    IJ      KL    MN      OO
+          /  \    /  \  /  \    /  \  /  \    /  \  /  \    /  \
+         A    B  C   D E   F   G   H I    J  K   L M    N  O   [ ]
+
+                            _ABCDEFGHIJKLMNOP_
+                           /                  \
+                   ABCDEFGH                    IJKLMNOP
+                  /        \                  /        \
+              ABCD          EFGH          IJKL          MNOP
+             /    \        /    \        /    \        /    \
+           AB      CD    EF      GH    IJ      KL    MN      OP
+          /  \    /  \  /  \    /  \  /  \    /  \  /  \    /  \
+         A    B  C   D E   F   G   H I    J  K   L M    N  O    P
+
+
+// Incorrect ordering:
+
+                                     A
+
+                                    AB
+                                   /  \
+                                  A    B
+
+                                   ABCC
+                                  /    \
+                                AB      CC
+                               /  \    /  \
+                              A    B  C   [ ]
+
+                                   ABCD
+                                  /    \
+                                AB      CD
+                               /  \    /  \
+                              A    B  C   D
+
+                                  ABCDEE
+                                 /      \
+                             ABEE        CD
+                            /    \      /  \
+                          AB      EE   C    D
+                         /  \    /  \
+                        A    B  E   [ ]
+
+                                  ABCDEF
+                                 /      \
+                             ABEF        CD
+                            /    \      /  \
+                          AB      EF   C    D
+                         /  \    /  \
+                        A    B  E   F
+
+                                 ABCDEFGG
+                                /        \
+                            ABEF          CDGG
+                           /    \        /    \
+                         AB      EF    CD      GG
+                        /  \    /  \  /  \    /  \
+                       A    B  E   F C    D  G   [ ]
+
+                                 ABCDEFGH
+                                /        \
+                            ABEF          CDGH
+                           /    \        /    \
+                         AB      EF    CD      GH
+                        /  \    /  \  /  \    /  \
+                       A    B  E   F C    D  G    H
+
+                                ABCDEFGHII
+                               /          \
+                           ABEFII          CDGH
+                          /      \        /    \
+                      ABII        EF    CD      GH
+                     /    \      /  \  /  \    /  \
+                   AB      II   E   F C    D  G    H
+                  /  \    /  \
+                 A    B  I   [ ]
+
+                                ABCDEFGHIJ
+                               /          \
+                           ABEFIJ          CDGH
+                          /      \        /    \
+                      ABIJ        EF    CD      GH
+                     /    \      /  \  /  \    /  \
+                   AB      IJ   E   F C    D  G    H
+                  /  \    /  \
+                 A    B  I    J
+
+                                ABCDEFGHIJKK
+                               /            \
+                           ABEFIJ            CDGHKK
+                          /      \          /      \
+                      ABIJ        EF      CDKK      GH
+                     /    \      /  \    /    \    /  \
+                   AB      IJ   E   F  CD      KK G    H
+                  /  \    /  \        /  \    /  \
+                 A    B  I    J      C    D  K   [ ]
+

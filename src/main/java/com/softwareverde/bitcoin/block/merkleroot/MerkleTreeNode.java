@@ -8,111 +8,9 @@ import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
-/*
-
-                                                               A
-
-                                                              AB
-                                                             /  \
-                                                            A    B
-
-                                                             ABCC
-                                                            /    \
-                                                          AB      CC
-                                                         /  \    /  \
-                                                        A    B  C   [ ]
-
-                                                             ABCD
-                                                            /    \
-                                                          AB      CD
-                                                         /  \    /  \
-                                                        A    B  C    D
-
-                                                           ABCDEEEE
-                                                          /        \
-                                                      ABCD          EEEE
-                                                     /    \        /    \
-                                                   AB      CD    EE     [ ]
-                                                  /  \    /  \  /  \
-                                                 A    B  C   D E   [ ]
-
-                                                           ABCDEFEF
-                                                          /        \
-                                                      ABCD          EFEF
-                                                     /    \        /    \
-                                                   AB      CD    EF     [ ]
-                                                  /  \    /  \  /  \
-                                                 A    B  C   D E   F
-
-                                                           ABCDEFGG
-                                                          /        \
-                                                      ABCD          EFGG
-                                                     /    \        /    \
-                                                   AB      CD    EF      GG
-                                                  /  \    /  \  /  \    /  \
-                                                 A    B  C   D E   F   G   [ ]
-
-                                                           ABCDEFGH
-                                                          /        \
-                                                      ABCD          EFGH
-                                                     /    \        /    \
-                                                   AB      CD    EF      GH
-                                                  /  \    /  \  /  \    /  \
-                                                 A    B  C   D E   F   G   H
-
-                                                    _ ABCDEFGHIIIIIIII _
-                                                   /                    \
-                                           ABCDEFGH                      IIIIIIII
-                                          /        \                    /        \
-                                      ABCD          EFGH            IIII          [ ]
-                                     /    \        /    \          /    \
-                                   AB      CD    EF      GH      II     [ ]
-                                  /  \    /  \  /  \    /  \    /  \
-                                 A    B  C   D E   F   G   H   I   [ ]
-
-                                                    _ ABCDEFGHIJIJIJIJ _
-                                                   /                    \
-                                           ABCDEFGH                      IJIJIJIJ
-                                          /        \                    /        \
-                                      ABCD          EFGH            IJIJ          [ ]
-                                     /    \        /    \          /    \
-                                   AB      CD    EF      GH      IJ     [ ]
-                                  /  \    /  \  /  \    /  \    /  \
-                                 A    B  C   D E   F   G   H   I    J
-
-                                                    _ ABCDEFGHIJKKIJKK _
-                                                   /                    \
-                                           ABCDEFGH                      IJKKIJKK
-                                          /        \                    /        \
-                                      ABCD          EFGH            IJKK          [ ]
-                                     /    \        /    \          /    \
-                                   AB      CD    EF      GH      IJ      KK
-                                  /  \    /  \  /  \    /  \    /  \    /  \
-                                 A    B  C   D E   F   G   H   I    J  K   [ ]
-
-                                                    _ ABCDEFGHIJKLIJKL _
-                                                   /                    \
-                                           ABCDEFGH                      IJKLIJKL
-                                          /        \                    /        \
-                                      ABCD          EFGH            IJKL          [ ]
-                                     /    \        /    \          /    \
-                                   AB      CD    EF      GH      IJ      KL
-                                  /  \    /  \  /  \    /  \    /  \    /  \
-                                 A    B  C   D E   F   G   H   I    J  K    L
-
-                                                    _ ABCDEFGHIJKLMMMM _
-                                                   /                    \
-                                           ABCDEFGH                      IJKLMMMM
-                                          /        \                    /        \
-                                      ABCD          EFGH            IJKL          MMMM
-                                     /    \        /    \          /    \        /    \
-                                   AB      CD    EF      GH      IJ      KL    MM     [ ]
-                                  /  \    /  \  /  \    /  \    /  \    /  \  /  \
-                                 A    B  C   D E   F   G   H   I    J  K    L M  [ ]
- */
-
 public class MerkleTreeNode implements MerkleTree {
-    protected final byte[] _scratchSpace = new byte[Hash.BYTE_COUNT * 2];
+
+    protected Boolean _hashIsValid = false;
     protected final MutableHash _hash = new MutableHash();
 
     protected int _size = 0;
@@ -141,11 +39,13 @@ public class MerkleTreeNode implements MerkleTree {
             }
         }
 
+        final byte[] _scratchSpace = new byte[Hash.BYTE_COUNT * 2];
         ByteUtil.setBytes(_scratchSpace, hash0.toReversedEndian());
         ByteUtil.setBytes(_scratchSpace, hash1.toReversedEndian(), Hash.BYTE_COUNT);
 
         final byte[] doubleSha256HashConcatenatedBytes = ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(_scratchSpace)));
         _hash.setBytes(doubleSha256HashConcatenatedBytes);
+        _hashIsValid = true;
     }
 
     protected MerkleTreeNode(final MerkleTreeNode childNode0, final MerkleTreeNode childNode1) {
@@ -155,7 +55,7 @@ public class MerkleTreeNode implements MerkleTree {
         _size += (childNode0 == null ? 0 : childNode0.getSize());
         _size += (childNode1 == null ? 0 : childNode1.getSize());
 
-        _recalculateHash();
+        _hashIsValid = false;
     }
 
     protected MerkleTreeNode(final Hashable item0, final Hashable item1) {
@@ -165,7 +65,7 @@ public class MerkleTreeNode implements MerkleTree {
         _size += (item0 == null ? 0 : 1);
         _size += (item1 == null ? 0 : 1);
 
-        _recalculateHash();
+        _hashIsValid = false;
     }
 
     protected boolean _isBalanced() {
@@ -195,7 +95,7 @@ public class MerkleTreeNode implements MerkleTree {
     }
 
     public MerkleTreeNode() {
-        _recalculateHash();
+        _hashIsValid = false;
     }
 
     public int getSize() {
@@ -245,11 +145,15 @@ public class MerkleTreeNode implements MerkleTree {
         }
 
         _size += 1;
-        _recalculateHash();
+        _hashIsValid = false;
     }
 
     @Override
     public MerkleRoot getMerkleRoot() {
+        if (! _hashIsValid) {
+            _recalculateHash();
+        }
+
         return new ImmutableMerkleRoot(_hash.getBytes());
     }
 }
