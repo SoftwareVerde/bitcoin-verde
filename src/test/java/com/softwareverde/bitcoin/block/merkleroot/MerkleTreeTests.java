@@ -411,6 +411,11 @@ public class MerkleTreeTests {
     public void wtf() {
         final MerkleTreeNode merkleTree = new MerkleTreeNode();
 
+//        for (int i=0; i<13; ++i) {
+//            final Wtf wtf = new Wtf(i);
+//            merkleTree.addItem(wtf);
+//        }
+
         final List<Hashable> transactions = new ArrayList<Hashable>();
         for (int i=0; i<12; ++i) {
             final Wtf wtf = new Wtf(i);
@@ -419,18 +424,20 @@ public class MerkleTreeTests {
         }
         final List<byte[]> bitcoinjTree = calculateBitcoinjTree(transactions);
 
-        int s = bitcoinjTree.size();
-        int t1 = 12;
-        int t2 = 18;
-        int t3 = 21;
-        int t4 = 23;
+        {
+            int s = bitcoinjTree.size();
+            int t1 = 12;
+            int t2 = 18;
+            int t3 = 21;
+            int t4 = 23;
 
-        for (int i=0; i<bitcoinjTree.size(); ++i) {
-            final byte[] bytes = bitcoinjTree.get(i);
-            if (i == (t1) || i == (t2) || i == (t3) || i == (t4)) {
-                System.out.println("-------------- "+ i);
+            for (int i = 0; i < bitcoinjTree.size(); ++i) {
+                final byte[] bytes = bitcoinjTree.get(i);
+                if (i == (t1) || i == (t2) || i == (t3) || i == (t4)) {
+                    System.out.println("-------------- " + i);
+                }
+                System.out.println(BitcoinUtil.toHexString(bytes));
             }
-            System.out.println(BitcoinUtil.toHexString(bytes));
         }
 
 //        System.out.println();
@@ -445,54 +452,75 @@ public class MerkleTreeTests {
 //            System.out.println(BitcoinUtil.toHexString(bytes));
 //        }
 
-        byte[] a = transactions.get(transactions.size() - 12).calculateSha256Hash().getBytes();
-        byte[] b = transactions.get(transactions.size() - 11).calculateSha256Hash().getBytes();
-        byte[] c = transactions.get(transactions.size() - 10).calculateSha256Hash().getBytes();
-        byte[] d = transactions.get(transactions.size() - 9).calculateSha256Hash().getBytes();
-        byte[] e = transactions.get(transactions.size() - 8).calculateSha256Hash().getBytes();
-        byte[] f = transactions.get(transactions.size() - 7).calculateSha256Hash().getBytes();
-        byte[] g = transactions.get(transactions.size() - 6).calculateSha256Hash().getBytes();
-        byte[] h = transactions.get(transactions.size() - 5).calculateSha256Hash().getBytes();
-        byte[] i = transactions.get(transactions.size() - 4).calculateSha256Hash().getBytes();
-        byte[] j = transactions.get(transactions.size() - 3).calculateSha256Hash().getBytes();
-        byte[] k = transactions.get(transactions.size() - 2).calculateSha256Hash().getBytes();
-        byte[] l = transactions.get(transactions.size() - 1).calculateSha256Hash().getBytes();
+        final String abString;
+        final String cdString;
+        final String efString;
+        final String ghString;
+        final String ijString;
+        final String klString;
 
-        byte[] ab = stupidHash(a, b);
-        byte[] cd = stupidHash(c, d);
-        byte[] ef = stupidHash(e, f);
-        byte[] gh = stupidHash(g, h);
-        byte[] ij = stupidHash(i, j);
-        byte[] kl = stupidHash(k, l);
+        final String abcdString;
+        final String efghString;
+        final String ijklString;
 
-        byte[] abcd = stupidHash(ab, cd);
-        byte[] efgh = stupidHash(ef, gh);
-        byte[] ijkl = stupidHash(ij, kl);
+        final String abcdefghString;
+        final String ijklijklString;
 
-        byte[] abcdefgh = stupidHash(abcd, efgh);
-        byte[] ijklijlk = stupidHash(ijkl, ijkl);
+        final String abcdefghijklijklString;
 
-        byte[] abcdefghijklijkl = stupidHash(abcdefgh, ijklijlk);
+        {
+            byte[] a = transactions.get(transactions.size() - 12).calculateSha256Hash().getBytes();
+            byte[] b = transactions.get(transactions.size() - 11).calculateSha256Hash().getBytes();
+            byte[] c = transactions.get(transactions.size() - 10).calculateSha256Hash().getBytes();
+            byte[] d = transactions.get(transactions.size() - 9).calculateSha256Hash().getBytes();
+            byte[] e = transactions.get(transactions.size() - 8).calculateSha256Hash().getBytes();
+            byte[] f = transactions.get(transactions.size() - 7).calculateSha256Hash().getBytes();
+            byte[] g = transactions.get(transactions.size() - 6).calculateSha256Hash().getBytes();
+            byte[] h = transactions.get(transactions.size() - 5).calculateSha256Hash().getBytes();
+            byte[] i = transactions.get(transactions.size() - 4).calculateSha256Hash().getBytes();
+            byte[] j = transactions.get(transactions.size() - 3).calculateSha256Hash().getBytes();
+            byte[] k = transactions.get(transactions.size() - 2).calculateSha256Hash().getBytes();
+            byte[] l = transactions.get(transactions.size() - 1).calculateSha256Hash().getBytes();
 
-        final String abString = BitcoinUtil.toHexString(ab);
-        final String cdString = BitcoinUtil.toHexString(cd);
-        final String efString = BitcoinUtil.toHexString(ef);
-        final String ghString = BitcoinUtil.toHexString(gh);
-        final String ijString = BitcoinUtil.toHexString(ij);
-        final String klString = BitcoinUtil.toHexString(kl);
+            byte[] ab = stupidHash(a, b);
+            byte[] cd = stupidHash(c, d);
+            byte[] ef = stupidHash(e, f);
+            byte[] gh = stupidHash(g, h);
+            byte[] ij = stupidHash(i, j);
+            byte[] kl = stupidHash(k, l);
 
-        final String abcdString = BitcoinUtil.toHexString(abcd);
-        final String efghString = BitcoinUtil.toHexString(efgh);
-        final String ijklString = BitcoinUtil.toHexString(ijkl);
+            byte[] abcd = stupidHash(ab, cd);
+            byte[] efgh = stupidHash(ef, gh);
+            byte[] ijkl = stupidHash(ij, kl);
 
-        final String abcdefghString = BitcoinUtil.toHexString(abcdefgh);
-        final String ijklijklString = BitcoinUtil.toHexString(ijklijlk);
+            byte[] abcdefgh = stupidHash(abcd, efgh);
+            byte[] ijklijlk = stupidHash(ijkl, ijkl);
 
-        final String abcdefghijklijklString = BitcoinUtil.toHexString(abcdefghijklijkl);
+            byte[] abcdefghijklijkl = stupidHash(abcdefgh, ijklijlk);
+
+            abString = BitcoinUtil.toHexString(ab);
+            cdString = BitcoinUtil.toHexString(cd);
+            efString = BitcoinUtil.toHexString(ef);
+            ghString = BitcoinUtil.toHexString(gh);
+            ijString = BitcoinUtil.toHexString(ij);
+            klString = BitcoinUtil.toHexString(kl);
+
+            abcdString = BitcoinUtil.toHexString(abcd);
+            efghString = BitcoinUtil.toHexString(efgh);
+            ijklString = BitcoinUtil.toHexString(ijkl);
+
+            abcdefghString = BitcoinUtil.toHexString(abcdefgh);
+            ijklijklString = BitcoinUtil.toHexString(ijklijlk);
+
+            abcdefghijklijklString = BitcoinUtil.toHexString(abcdefghijklijkl);
+        }
 
         // }
 
-        TestUtil.assertEqual(bitcoinjTree.get(bitcoinjTree.size() - 1), merkleTree.getMerkleRoot().getBytes());
+        final Boolean areEqualIncludingEndian = (ByteUtil.areEqual(bitcoinjTree.get(bitcoinjTree.size() - 1), merkleTree.getMerkleRoot().getBytes()));
+        final Boolean areEqualExceptForEndian = (ByteUtil.areEqual(bitcoinjTree.get(bitcoinjTree.size() - 1), ByteUtil.reverseEndian(merkleTree.getMerkleRoot().getBytes())));
+        final Boolean isCloseEnough = (areEqualIncludingEndian || areEqualExceptForEndian);
+        Assert.assertTrue(isCloseEnough);
     }
 
 }
