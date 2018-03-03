@@ -188,7 +188,6 @@ public class Main {
                     // _exitFailure();
 
                     prototypeBlock.setVersion(1);
-                    prototypeBlock.setMerkleRoot(previousBlock.getMerkleRoot());
                     prototypeBlock.setPreviousBlockHash(previousBlock.calculateSha256Hash());
                     prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                     prototypeBlock.setNonce(0L);

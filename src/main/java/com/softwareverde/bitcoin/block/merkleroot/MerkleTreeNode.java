@@ -124,6 +124,15 @@ public class MerkleTreeNode implements MerkleTree {
         return (_size == 0);
     }
 
+    public void clear() {
+        _size = 0;
+        _hashIsValid = false;
+        _item0 = null;
+        _item1 = null;
+        _childNode0 = null;
+        _childNode1 = null;
+    }
+
     @Override
     public void addItem(final Hashable item) {
         if (_size == 0) {
