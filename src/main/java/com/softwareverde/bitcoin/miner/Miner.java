@@ -26,15 +26,13 @@ public class Miner {
     public void mineBlock(final Block previousBlock, final Block blockToReplace) throws Exception {
         final List<Thread> threads = new ArrayList<Thread>();
 
-        /*
-            final List<Container<Long>> hashCounts = new ArrayList<Container<Long>>();
-            hashCounts.add(new Container<Long>(0L));
-            hashCounts.add(new Container<Long>(0L));
-            hashCounts.add(new Container<Long>(0L));
-        */
 
-        for (int i=0; i<3; ++i) {
-            // final Integer index = i;
+        final List<Container<Long>> hashCounts = new ArrayList<Container<Long>>();
+
+        final int THREAD_COUNT = 12;
+        for (int i=0; i<THREAD_COUNT; ++i) {
+            final Integer index = i;
+            hashCounts.add(new Container<Long>(0L));
 
             final Thread thread = (new Thread(new Runnable() {
                 @Override
@@ -44,7 +42,7 @@ public class Miner {
                     mutableBlock.setPreviousBlockHash(previousBlock.getHash());
                     mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
 
-                    // final long startTime = System.currentTimeMillis();
+                    final long startTime = System.currentTimeMillis();
 
                     long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
@@ -53,22 +51,20 @@ public class Miner {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
 
-                        // hashCounts.get(index).value += 1;
+                        hashCounts.get(index).value += 1;
 
                         if (nonce % 7777 == 0) {
                             mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                         }
 
-                        /*
-                            if (nonce % 7777777 == 0) {
-                                long hashCount = hashCounts.get(0).value + hashCounts.get(1).value + hashCounts.get(2).value;
+                        if (nonce % 7777777 == 0) {
+                            long hashCount = hashCounts.get(0).value + hashCounts.get(1).value + hashCounts.get(2).value;
 
-                                final long now = System.currentTimeMillis();
-                                final long elapsed = (now - startTime);
-                                final long hashesPerSecond = (hashCount / elapsed * 1000);
-                                System.out.println(hashesPerSecond + " h/s");
-                            }
-                        */
+                            final long now = System.currentTimeMillis();
+                            final long elapsed = (now - startTime);
+                            final long hashesPerSecond = (hashCount / elapsed * 1000);
+                            System.out.println(hashesPerSecond + " h/s");
+                        }
 
                         isValidDifficulty = _isValidDifficulty(mutableBlock.getHash());
                     }
@@ -82,7 +78,10 @@ public class Miner {
                 }
             }));
             threads.add(thread);
-            thread.start();
+        }
+
+        for (int i=0; i<THREAD_COUNT; ++i) {
+            threads.get(i).start();
         }
 
         for (final Thread thread : threads) {

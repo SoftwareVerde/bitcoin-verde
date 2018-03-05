@@ -10,7 +10,7 @@ import com.softwareverde.constable.Constable;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader> {
     static final Integer VERSION = 0x04;
-    static final ImmutableHash GENESIS_BLOCK_HEADER_HASH = new ImmutableHash(BitcoinUtil.hexStringToByteArray("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"));
+    static final ImmutableHash GENESIS_BLOCK_HEADER_HASH = new ImmutableHash(BitcoinUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"));
 
     Hash getPreviousBlockHash();
     MerkleRoot getMerkleRoot();
