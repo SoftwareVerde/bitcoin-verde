@@ -54,13 +54,13 @@ public class TransactionSignerTests {
         transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, 0, transactionOutput);
+        final SignatureContext signatureContext = new SignatureContext(transaction, 0, transactionOutputBeingSpent);
 
         // Action
-        final Hash hashForSigning = new ImmutableHash(transactionSigner._getBytesForSigning(signatureContext, ScriptSignature.HashType.SIGNATURE_HASH_ALL));
+        final byte[] bytesForSigning = transactionSigner._getBytesForSigning(signatureContext, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
 
         // Assert
-        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(expectedHashToSign), hashForSigning.getBytes());
+        TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray(expectedHashToSign), bytesForSigning);
     }
 
     @Test

@@ -29,8 +29,8 @@ public class MutableTransaction implements Transaction {
 
     @Override
     public Hash getHash() {
-        final TransactionSerializer transactionSerializer = new TransactionSerializer();
-        final ByteArrayBuilder byteArrayBuilder = transactionSerializer.toByteArrayBuilder(this);
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(this);
         final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
         return new MutableHash(ByteUtil.reverseEndian(doubleSha256));
     }

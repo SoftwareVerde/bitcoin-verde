@@ -3,13 +3,14 @@ package com.softwareverde.bitcoin.transaction.signer;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionSerializer;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -61,10 +62,13 @@ public class TransactionSigner {
             mutableTransaction.addTransactionOutput(mutableTransactionOutput);
         }
 
-        final TransactionSerializer transactionSerializer = new TransactionSerializer();
-        final ByteArrayBuilder byteArrayBuilder = transactionSerializer.toByteArrayBuilder(mutableTransaction);
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(scriptSignatureHashType.getValue())), Endian.LITTLE);
-        return byteArrayBuilder.build();
+        final byte[] bytes = byteArrayBuilder.build();
+
+//        return BitcoinUtil.sha256(BitcoinUtil.sha256(ByteUtil.reverseEndian(bytes)));
+        return BitcoinUtil.sha256(BitcoinUtil.sha256(bytes));
     }
 
     public boolean isSignatureValid(final SignatureContext signatureContext, final byte[] publicKey, final ScriptSignature scriptSignature) {
