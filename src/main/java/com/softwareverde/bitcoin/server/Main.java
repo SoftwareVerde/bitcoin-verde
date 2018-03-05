@@ -159,7 +159,7 @@ public class Main {
         */
 
         // Mine Hardcoded Block...
-        {
+        if (false) {
             try {
                 final BlockInflater blockInflater = new BlockInflater();
 

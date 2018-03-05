@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.list.List;
 
-public interface Transaction extends Hashable, Constable {
+public interface Transaction extends Hashable, Constable<ImmutableTransaction> {
     static final Integer SATOSHIS_PER_BITCOIN = 100_000_000;
 
     Integer getVersion();

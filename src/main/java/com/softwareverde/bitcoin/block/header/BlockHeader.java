@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.constable.Const;
 import com.softwareverde.constable.Constable;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader> {

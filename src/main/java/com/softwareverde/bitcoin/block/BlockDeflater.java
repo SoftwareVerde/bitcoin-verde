@@ -15,11 +15,8 @@ public class BlockDeflater {
 
         final List<? extends Transaction> transactions = block.getTransactions();
 
-        final byte[] headerBytes = blockHeaderDeflater.toBytes(block);
         final int transactionCount = transactions.getSize();
-
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(headerBytes, Endian.BIG);
+        final ByteArrayBuilder byteArrayBuilder = blockHeaderDeflater.toByteArrayBuilder(block);
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.LITTLE);
 
         for (int i=0; i<transactionCount; ++i) {

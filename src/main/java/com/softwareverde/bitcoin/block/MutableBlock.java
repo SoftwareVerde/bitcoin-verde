@@ -1,17 +1,12 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 

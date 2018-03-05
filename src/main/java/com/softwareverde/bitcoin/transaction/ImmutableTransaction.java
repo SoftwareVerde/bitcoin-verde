@@ -8,15 +8,14 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableHash _hash;
     protected final Integer _version;
     protected final Boolean _hasWitnessData;
-    protected final ImmutableList<ImmutableTransactionInput> _transactionInputs;
-    protected final ImmutableList<ImmutableTransactionOutput> _transactionOutputs;
+    protected final List<ImmutableTransactionInput> _transactionInputs;
+    protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
 
     public ImmutableTransaction(final Transaction transaction) {

@@ -48,13 +48,13 @@ public class BlockHeaderDeflater {
 
     public byte[] toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
-        return _serializeByteData(blockHeaderByteData).build();
+        final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
+        return byteArrayBuilder.build();
     }
 
-    public byte[] toBytes(final BlockHeader blockHeader, final int transactionCount) {
+    public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
         final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        byteArrayBuilder.writeVariableSizedInteger(transactionCount);
-        return byteArrayBuilder.build();
+        return byteArrayBuilder;
     }
 }

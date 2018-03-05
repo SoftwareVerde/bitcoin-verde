@@ -1,80 +1,72 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 
 public class ImmutableBlockHeader implements BlockHeader, Const {
-    protected final BlockHeader _blockHeader;
-    protected Hash _cachedBlockHeader = null;
-
-    public ImmutableBlockHeader() {
-        _blockHeader = new MutableBlockHeader();
-        _cachedBlockHeader = _blockHeader.getHash();
-    }
+    protected final Hash _hash;
+    protected final Hash _previousBlockHash;
+    protected final MerkleRoot _merkleRoot;
+    protected final Integer _version;
+    protected final Long _timestamp;
+    protected final Difficulty _difficulty;
+    protected final Long _nonce;
 
     public ImmutableBlockHeader(final BlockHeader blockHeader) {
-        if (blockHeader instanceof ImmutableBlockHeader) {
-            _blockHeader = blockHeader;
-            return;
-        }
-
-        final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader();
-        mutableBlockHeader.setVersion(blockHeader.getVersion());
-        mutableBlockHeader.setPreviousBlockHash(new ImmutableHash(blockHeader.getPreviousBlockHash()));
-        mutableBlockHeader.setMerkleRoot(new ImmutableMerkleRoot(blockHeader.getMerkleRoot()));
-        mutableBlockHeader.setTimestamp(blockHeader.getTimestamp());
-        mutableBlockHeader.setDifficulty(new ImmutableDifficulty(blockHeader.getDifficulty()));
-        mutableBlockHeader.setNonce(blockHeader.getNonce());
-        _blockHeader = mutableBlockHeader;
+        _hash = blockHeader.getHash();
+        _previousBlockHash = blockHeader.getPreviousBlockHash().asConst();
+        _merkleRoot = blockHeader.getMerkleRoot().asConst();
+        _version = blockHeader.getVersion();
+        _timestamp = blockHeader.getTimestamp();
+        _difficulty = blockHeader.getDifficulty().asConst();
+        _nonce = blockHeader.getNonce();
     }
 
     @Override
     public Integer getVersion() {
-        return _blockHeader.getVersion();
+        return _version;
     }
 
     @Override
     public Hash getPreviousBlockHash() {
-        return _blockHeader.getPreviousBlockHash();
+        return _previousBlockHash;
     }
 
     @Override
     public MerkleRoot getMerkleRoot() {
-        return _blockHeader.getMerkleRoot();
+        return _merkleRoot;
     }
 
     @Override
     public Long getTimestamp() {
-        return _blockHeader.getTimestamp();
+        return _timestamp;
     }
 
     @Override
     public Difficulty getDifficulty() {
-        return _blockHeader.getDifficulty();
+        return _difficulty;
     }
 
     @Override
     public Long getNonce() {
-        return _blockHeader.getNonce();
+        return _nonce;
     }
 
     @Override
     public Hash getHash() {
-        if (_cachedBlockHeader == null) {
-            _cachedBlockHeader = _blockHeader.getHash();
-        }
-
-        return _cachedBlockHeader;
+        return _hash;
     }
 
     @Override
     public Boolean isValid() {
-        return _blockHeader.isValid();
+        final BlockHasher blockHasher = new BlockHasher();
+        final Hash calculatedHash = blockHasher.calculateBlockHash(this);
+        if (! _hash.equals(calculatedHash)) { return false; }
+
+        return (_difficulty.isSatisfiedBy(calculatedHash));
     }
 
     @Override

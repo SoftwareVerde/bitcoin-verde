@@ -1,15 +1,11 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class MutableBlockHeader implements BlockHeader {
     protected Integer _version;
@@ -18,12 +14,6 @@ public class MutableBlockHeader implements BlockHeader {
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
-
-    protected Hash _calculateSha256Hash() {
-        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-        final byte[] serializedByteData = blockHeaderDeflater.toBytes(this);
-        return new ImmutableHash(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData))));
-    }
 
     public MutableBlockHeader() {
         _version = VERSION;
@@ -59,13 +49,15 @@ public class MutableBlockHeader implements BlockHeader {
 
     @Override
     public Hash getHash() {
-        return _calculateSha256Hash();
+        final BlockHasher blockHasher = new BlockHasher();
+        return blockHasher.calculateBlockHash(this);
     }
 
     @Override
     public Boolean isValid() {
-        final Hash sha256Hash = _calculateSha256Hash();
-        return (_difficulty.isSatisfiedBy(sha256Hash));
+        final BlockHasher blockHasher = new BlockHasher();
+        final Hash calculatedHash = blockHasher.calculateBlockHash(this);
+        return (_difficulty.isSatisfiedBy(calculatedHash));
     }
 
     @Override

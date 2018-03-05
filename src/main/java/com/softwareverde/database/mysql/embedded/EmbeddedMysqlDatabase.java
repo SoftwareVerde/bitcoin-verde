@@ -94,13 +94,13 @@ public class EmbeddedMysqlDatabase implements Database<Connection> {
                     { // Create maintenance user and permissions...
                         databaseConnection.executeSql(
                             new Query("CREATE USER ? IDENTIFIED BY ?")
-                                .setParameter(credentials.username)
-                                .setParameter(credentials.password)
+                                .setParameter(maintenanceCredentials.username)
+                                .setParameter(maintenanceCredentials.password)
                         );
                         databaseConnection.executeSql(
                             new Query("GRANT ALL PRIVILEGES ON `" + maintenanceCredentials.schema + "`.* TO ? IDENTIFIED BY ?")
-                                .setParameter(credentials.username)
-                                .setParameter(credentials.password)
+                                .setParameter(maintenanceCredentials.username)
+                                .setParameter(maintenanceCredentials.password)
                         );
                     }
 
@@ -118,10 +118,11 @@ public class EmbeddedMysqlDatabase implements Database<Connection> {
                     }
 
                     databaseConnection.executeSql("FLUSH PRIVILEGES", null);
+                    databaseIsConfigured = true;
                 }
-                catch (final DatabaseException exception) {
+                catch (final Exception exception) {
                     databaseIsConfigured = false;
-                    databaseConfigurationFailureReason = exception;
+                    databaseConfigurationFailureReason = new DatabaseException(exception);
                 }
             }
             catch (final DatabaseException exception) {
@@ -129,7 +130,7 @@ public class EmbeddedMysqlDatabase implements Database<Connection> {
             }
 
             if (! databaseIsConfigured) {
-                throw (databaseConfigurationFailureReason == null ? new DatabaseException("Unknown error encountered while configuring database.") : databaseConfigurationFailureReason);
+                throw databaseConfigurationFailureReason;
             }
         }
 
