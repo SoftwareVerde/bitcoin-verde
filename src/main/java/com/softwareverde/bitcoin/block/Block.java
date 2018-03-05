@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.list.List;
 
 public interface Block extends BlockHeader {
-    List<? extends Transaction> getTransactions();
+    List<Transaction> getTransactions();
 
     @Override
     ImmutableBlock asConst();

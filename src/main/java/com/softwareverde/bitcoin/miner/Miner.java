@@ -23,7 +23,7 @@ public class Miner {
         return true;
     }
 
-    public void mineBlock(final Block previousBlock, final Block blockToReplace) throws Exception {
+    public void mineBlock(final Block previousBlock, final Block prototypeBlock) throws Exception {
         final List<Thread> threads = new ArrayList<Thread>();
 
 
@@ -37,7 +37,7 @@ public class Miner {
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final MutableBlock mutableBlock = new MutableBlock(blockToReplace);
+                    final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
 
                     mutableBlock.setPreviousBlockHash(previousBlock.getHash());
                     mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);

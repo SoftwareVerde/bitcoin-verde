@@ -64,14 +64,14 @@ public class BlockValidator {
         }
     }
 
-    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction, final List<? extends Transaction> queuedTransactions) {
+    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
             additionalTransactionOutputs.put(transaction.getHash(), transaction);
         }
 
         long totalInputValue = 0L;
-        final List<? extends TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
             final Hash outputTransactionHash = transactionInput.getPreviousTransactionOutputHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
@@ -82,7 +82,7 @@ public class BlockValidator {
                 if (possibleTransactionOutput == null) {
                     final Transaction transactionContainingOutput = additionalTransactionOutputs.get(outputTransactionHash);
                     if (transactionContainingOutput != null) {
-                        final List<? extends TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
+                        final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
                         if (transactionOutputIndex < transactionOutputs.getSize()) {
                             possibleTransactionOutput = transactionOutputs.get(transactionOutputIndex);
                         }
@@ -100,7 +100,7 @@ public class BlockValidator {
         return totalInputValue;
     }
 
-    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction, final List<? extends Transaction> queuedTransactions) {
+    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
         final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction, queuedTransactions);
         if (totalInputValue == null) { return false; }
@@ -114,7 +114,7 @@ public class BlockValidator {
         final Context context = new Context();
         context.setTransaction(transaction);
 
-        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
             final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutputHash(), transactionInput.getPreviousTransactionOutputIndex()));
@@ -147,7 +147,7 @@ public class BlockValidator {
 
         final BlockDeflater blockDeflater = new BlockDeflater();
 
-        final List<? extends Transaction> blockTransactions = block.getTransactions();
+        final List<Transaction> blockTransactions = block.getTransactions();
         for (int i=0; i<blockTransactions.getSize(); ++i) {
             if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
 

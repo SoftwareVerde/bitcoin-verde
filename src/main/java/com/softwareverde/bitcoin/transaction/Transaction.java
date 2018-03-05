@@ -12,8 +12,8 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction> {
 
     Integer getVersion();
     Boolean hasWitnessData();
-    List<? extends TransactionInput> getTransactionInputs();
-    List<? extends TransactionOutput> getTransactionOutputs();
+    List<TransactionInput> getTransactionInputs();
+    List<TransactionOutput> getTransactionOutputs();
     LockTime getLockTime();
     Long getTotalOutputValue();
 

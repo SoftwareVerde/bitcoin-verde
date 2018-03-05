@@ -10,11 +10,12 @@ import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.util.ConstUtil;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     private final List<ImmutableTransaction> _transactions;
 
-    protected ImmutableBlock(final BlockHeader blockHeader, final List<? extends Transaction> transactions) {
+    protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
 
         _transactions = ImmutableListBuilder.newConstListOfConstItems(transactions);
@@ -36,8 +37,8 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     @Override
-    public List<ImmutableTransaction> getTransactions() {
-        return _transactions;
+    public List<Transaction> getTransactions() {
+        return ConstUtil.downcastList(_transactions);
     }
 
     @Override

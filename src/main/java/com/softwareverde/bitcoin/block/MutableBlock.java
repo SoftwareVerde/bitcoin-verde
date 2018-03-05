@@ -27,6 +27,13 @@ public class MutableBlock implements Block {
         _nonce = blockHeader.getNonce();
     }
 
+    protected void _initTransactions(final List<Transaction> transactions) {
+        for (final Transaction transaction : transactions) {
+            _transactions.add(transaction);
+            _merkleTree.addItem(transaction);
+        }
+    }
+
     @Override
     public Integer getVersion() { return _version; }
     public void setVersion(final Integer version) { _version = version; }
@@ -73,13 +80,14 @@ public class MutableBlock implements Block {
         _initFromBlockHeader(blockHeader);
     }
 
+    public MutableBlock(final Block block) {
+        _initFromBlockHeader(block);
+        _initTransactions(block.getTransactions());
+    }
+
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         _initFromBlockHeader(blockHeader);
-
-        for (final Transaction transaction : transactions) {
-            _transactions.add(transaction);
-            _merkleTree.addItem(transaction);
-        }
+        _initTransactions(transactions);
     }
 
     public void addTransaction(final Transaction transaction) {

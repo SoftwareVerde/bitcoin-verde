@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -24,6 +25,9 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -34,8 +38,6 @@ import com.softwareverde.util.Container;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Main {
 
@@ -83,7 +85,7 @@ public class Main {
         final Container<Hash> lastBlockHash = new Container<Hash>(resumeAfterHash);
         final Container<Node.QueryCallback> getBlocksHashesAfterCallback = new Container<Node.QueryCallback>();
 
-        final List<Hash> availableBlockHashes = new ArrayList<Hash>();
+        final MutableList<Hash> availableBlockHashes = new MutableList<Hash>();
 
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
@@ -126,8 +128,9 @@ public class Main {
 
         getBlocksHashesAfterCallback.value = new Node.QueryCallback() {
             @Override
-            public void onResult(final List<Hash> blockHashes) {
-                availableBlockHashes.addAll(blockHashes);
+            public void onResult(final java.util.List<Hash> blockHashes) {
+                final List<Hash> hashes = new ImmutableList<Hash>(blockHashes); // TODO: Remove the conversion requirement.
+                availableBlockHashes.addAll(hashes);
 
                 if (! availableBlockHashes.isEmpty()) {
                     node.requestBlock(availableBlockHashes.remove(0), downloadBlockCallback);

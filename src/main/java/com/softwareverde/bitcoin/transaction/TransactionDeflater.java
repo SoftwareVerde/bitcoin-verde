@@ -22,14 +22,14 @@ public class TransactionDeflater {
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
 
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
-        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()), Endian.BIG);
         for (final TransactionInput transactionInput : transactionInputs) {
             byteArrayBuilder.appendBytes(transactionInputDeflater.toBytes(transactionInput), Endian.BIG);
         }
 
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
-        final List<? extends TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()), Endian.BIG);
         for (final TransactionOutput transactionOutput : transactionOutputs) {
             byteArrayBuilder.appendBytes(transactionOutputDeflater.toBytes(transactionOutput), Endian.BIG);
@@ -56,7 +56,7 @@ public class TransactionDeflater {
             final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
 
             Integer byteCount = 0;
-            final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
             byteCount += ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()).length;
             for (final TransactionInput transactionInput : transactionInputs) {
                 byteCount += transactionInputDeflater.getByteCount(transactionInput);
@@ -69,7 +69,7 @@ public class TransactionDeflater {
             final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
 
             Integer byteCount = 0;
-            final List<? extends TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
             byteCount += ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()).length;
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 byteCount += transactionOutputDeflater.getByteCount(transactionOutput);

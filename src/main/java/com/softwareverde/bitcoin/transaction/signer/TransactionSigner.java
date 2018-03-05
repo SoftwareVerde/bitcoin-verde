@@ -33,7 +33,7 @@ public class TransactionSigner {
         mutableTransaction.setHasWitnessData(transaction.hasWitnessData());
         mutableTransaction.setLockTime(transaction.getLockTime());
 
-        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
@@ -53,7 +53,7 @@ public class TransactionSigner {
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
-        final List<? extends TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         for (final TransactionOutput transactionOutput : transactionOutputs) {
             final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
             mutableTransactionOutput.setAmount(transactionOutput.getAmount());

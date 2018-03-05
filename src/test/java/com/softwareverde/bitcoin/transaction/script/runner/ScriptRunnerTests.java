@@ -110,7 +110,7 @@ public class ScriptRunnerTests {
         final Context context = new Context();
         context.setTransaction(transaction);
 
-        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int inputIndex=0; inputIndex<transactionInputs.getSize(); ++inputIndex) {
             final TransactionInput transactionInput = transactionInputs.get(inputIndex);
             final TransactionOutput transactionOutputBeingSpent = transactionBeingSpent.getTransactionOutputs().get(0);

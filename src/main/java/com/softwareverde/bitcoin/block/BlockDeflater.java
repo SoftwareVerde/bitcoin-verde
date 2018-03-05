@@ -13,7 +13,7 @@ public class BlockDeflater {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
-        final List<? extends Transaction> transactions = block.getTransactions();
+        final List<Transaction> transactions = block.getTransactions();
 
         final int transactionCount = transactions.getSize();
         final ByteArrayBuilder byteArrayBuilder = blockHeaderDeflater.toByteArrayBuilder(block);

@@ -37,7 +37,7 @@ public class BlockMessageInflaterTests {
         Assert.assertEquals(1.0, Math.round(block.getDifficulty().getDifficultyRatio().doubleValue() * 100.0) / 100.0, 0.0001);
         Assert.assertEquals(2083236893L, block.getNonce().longValue());
 
-        final List<? extends Transaction> transactions = block.getTransactions();
+        final List<Transaction> transactions = block.getTransactions();
         Assert.assertEquals(1, transactions.getSize());
 
         final Transaction transaction = transactions.get(0);
@@ -45,7 +45,7 @@ public class BlockMessageInflaterTests {
         Assert.assertEquals(false, transaction.hasWitnessData());
         Assert.assertEquals(0L, transaction.getLockTime().getValue().longValue());
 
-        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         Assert.assertEquals(1, transactionInputs.getSize());
         final TransactionInput transactionInput = transactionInputs.get(0);
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getPreviousTransactionOutputHash().getBytes());
@@ -53,7 +53,7 @@ public class BlockMessageInflaterTests {
         TestUtil.assertEqual(BitcoinUtil.hexStringToByteArray("04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73"), transactionInput.getUnlockingScript().getBytes());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().intValue());
 
-        final List<? extends TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         Assert.assertEquals(1, transactionOutputs.getSize());
         final TransactionOutput transactionOutput = transactionOutputs.get(0);
         Assert.assertEquals(5000000000L, transactionOutput.getAmount().longValue());

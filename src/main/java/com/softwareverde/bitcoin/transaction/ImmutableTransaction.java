@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -9,6 +10,7 @@ import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.util.ConstUtil;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableHash _hash;
@@ -40,13 +42,13 @@ public class ImmutableTransaction implements Transaction, Const {
     public Boolean hasWitnessData() { return _hasWitnessData; }
 
     @Override
-    public final List<ImmutableTransactionInput> getTransactionInputs() {
-        return _transactionInputs;
+    public final List<TransactionInput> getTransactionInputs() {
+        return ConstUtil.downcastList(_transactionInputs);
     }
 
     @Override
-    public final List<ImmutableTransactionOutput> getTransactionOutputs() {
-        return _transactionOutputs;
+    public final List<TransactionOutput> getTransactionOutputs() {
+        return ConstUtil.downcastList(_transactionOutputs);
     }
 
     @Override

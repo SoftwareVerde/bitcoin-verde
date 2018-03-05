@@ -33,8 +33,8 @@ public class MutableList<T> implements List<T> {
         }
     }
 
-    public void remove(final int index) {
-        _items.remove(index);
+    public T remove(final int index) {
+        return _items.remove(index);
     }
 
     public void clear() {
