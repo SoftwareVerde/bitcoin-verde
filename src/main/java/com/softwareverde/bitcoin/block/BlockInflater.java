@@ -5,35 +5,36 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 public class BlockInflater {
-    protected Block _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
+    protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        final TransactionInflater transactionInflater = new TransactionInflater();
 
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final TransactionInflater transactionInflater = new TransactionInflater();
-
         final Long transactionCount = byteArrayReader.readVariableSizedInteger();
-        final MutableBlock block = new MutableBlock(blockHeader);
+        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount.intValue());
+
         for (long i=0; i<transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }
 
-            block._transactions.add(transaction);
+            transactions.add(transaction);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return block;
+        return new MutableBlock(blockHeader, transactions);
     }
 
-    public Block fromBytes(final ByteArrayReader byteArrayReader) {
+    public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public Block fromBytes(final byte[] bytes) {
+    public MutableBlock fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }

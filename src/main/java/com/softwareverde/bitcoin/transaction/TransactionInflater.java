@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
-import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
@@ -32,10 +32,8 @@ public class TransactionInflater {
         }
 
         {
-            final MutableLockTime mutableLockTime = new MutableLockTime();
-            final Long lockTimeTimestamp = byteArrayReader.readLong(4, Endian.LITTLE);
-            mutableLockTime.setLockTime(lockTimeTimestamp);
-            transaction._lockTime = mutableLockTime;
+            final Long lockTimeValue = byteArrayReader.readLong(4, Endian.LITTLE);
+            transaction._lockTime = new ImmutableLockTime(lockTimeValue);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
@@ -43,11 +41,11 @@ public class TransactionInflater {
         return transaction;
     }
 
-    public Transaction fromBytes(final ByteArrayReader byteArrayReader) {
+    public MutableTransaction fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public Transaction fromBytes(final byte[] bytes) {
+    public MutableTransaction fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }

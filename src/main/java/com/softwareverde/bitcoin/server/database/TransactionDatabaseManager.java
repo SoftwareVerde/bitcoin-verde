@@ -48,11 +48,11 @@ public class TransactionDatabaseManager {
         final LockTime lockTime = transaction.getLockTime();
         _databaseConnection.executeSql(
             new Query("UPDATE transactions SET hash = ?, block_id = ?, version = ?, has_witness_data = ?, lock_time = ? WHERE id = ?")
-                .setParameter(BitcoinUtil.toHexString(transaction.calculateSha256Hash()))
+                .setParameter(BitcoinUtil.toHexString(transaction.getHash()))
                 .setParameter(blockId)
                 .setParameter(transaction.getVersion())
                 .setParameter((transaction.hasWitnessData() ? 1 : 0))
-                .setParameter(lockTime.isTimestamp() ? lockTime.getTimestamp() : lockTime.getBlockHeight())
+                .setParameter(lockTime.getValue())
                 .setParameter(transactionId)
         );
     }
@@ -61,11 +61,11 @@ public class TransactionDatabaseManager {
         final LockTime lockTime = transaction.getLockTime();
         return _databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, block_id, version, has_witness_data, lock_time) VALUES (?, ?, ?, ?, ?)")
-                .setParameter(BitcoinUtil.toHexString(transaction.calculateSha256Hash()))
+                .setParameter(BitcoinUtil.toHexString(transaction.getHash()))
                 .setParameter(blockId)
                 .setParameter(transaction.getVersion())
                 .setParameter((transaction.hasWitnessData() ? 1 : 0))
-                .setParameter(lockTime.isTimestamp() ? lockTime.getTimestamp() : lockTime.getBlockHeight())
+                .setParameter(lockTime.getValue())
         );
     }
 
@@ -76,7 +76,7 @@ public class TransactionDatabaseManager {
     public Long storeTransaction(final Long blockId, final Transaction transaction) throws DatabaseException {
         final Long transactionId;
         {
-            final Long existingTransactionId = _getTransactionIdFromHash(transaction.calculateSha256Hash());
+            final Long existingTransactionId = _getTransactionIdFromHash(transaction.getHash());
             if (existingTransactionId != null) {
                 _updateTransaction(existingTransactionId, blockId, transaction);
                 transactionId = existingTransactionId;

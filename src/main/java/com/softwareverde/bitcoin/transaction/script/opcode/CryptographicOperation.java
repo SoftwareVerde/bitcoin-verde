@@ -1,20 +1,20 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 public class CryptographicOperation extends Operation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
 
-    public static CryptographicOperation fromScript(final Script script) {
+    public static CryptographicOperation fromScript(final ScriptReader script) {
         if (! script.hasNextByte()) { return null; }
 
         final byte opcodeByte = script.getNextByte();
@@ -95,10 +95,9 @@ public class CryptographicOperation extends Operation {
                 final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
                 final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
 
-
-                final Hash transactionHash = transaction.calculateSha256HashForSigning(transactionInputIndexBeingSigned, transactionOutputBeingSpent, scriptSignature.getHashType());
-
-                final Boolean signatureIsValid = Secp256k1.verifySignature(scriptSignature.getSignature(), publicKeyValue.getBytes(), transactionHash.getBytes());
+                final TransactionSigner transactionSigner = new TransactionSigner();
+                final SignatureContext signatureContext = new SignatureContext(transaction, transactionInputIndexBeingSigned, transactionOutputBeingSpent);
+                final Boolean signatureIsValid = transactionSigner.isSignatureValid(signatureContext, publicKeyValue.getBytes(), scriptSignature);
 
                 if (_subType == SubType.CHECK_SIGNATURE_THEN_VERIFY) {
                     if (! signatureIsValid) { return false; }

@@ -1,50 +1,37 @@
 package com.softwareverde.bitcoin.transaction.output;
 
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.constable.Const;
 
-public class ImmutableTransactionOutput implements TransactionOutput {
-    protected final TransactionOutput _transactionOutput;
-
-    public ImmutableTransactionOutput() {
-        _transactionOutput = new MutableTransactionOutput();
-    }
+public class ImmutableTransactionOutput implements TransactionOutput, Const {
+    protected final Long _amount;
+    protected final Integer _index;
+    protected final ImmutableScript _lockingScript;
 
     public ImmutableTransactionOutput(final TransactionOutput transactionOutput) {
-        if (transactionOutput instanceof ImmutableTransactionOutput) {
-            _transactionOutput = transactionOutput;
-            return;
-        }
-
-        final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-        mutableTransactionOutput.setIndex(transactionOutput.getIndex());
-        mutableTransactionOutput.setAmount(transactionOutput.getAmount());
-        mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
-        _transactionOutput = mutableTransactionOutput;
+        _amount = transactionOutput.getAmount();
+        _index = transactionOutput.getIndex();
+        _lockingScript = transactionOutput.getLockingScript().asConst();
     }
 
     @Override
     public Long getAmount() {
-        return _transactionOutput.getAmount();
+        return _amount;
     }
 
     @Override
     public Integer getIndex() {
-        return _transactionOutput.getIndex();
+        return _index;
     }
 
     @Override
     public Script getLockingScript() {
-        return _transactionOutput.getLockingScript();
+        return _lockingScript;
     }
 
     @Override
-    public Integer getByteCount() {
-        return _transactionOutput.getByteCount();
-    }
-
-    @Override
-    public byte[] getBytes() {
-        // return ByteUtil.copyBytes(_transactionOutput.getBytes());
-        return _transactionOutput.getBytes(); // NOTE: This is already a copied byte[]...
+    public ImmutableTransactionOutput asConst() {
+        return this;
     }
 }

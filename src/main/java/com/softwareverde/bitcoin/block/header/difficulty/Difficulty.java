@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.constable.Constable;
 
 import java.math.BigDecimal;
 
-public interface Difficulty {
+public interface Difficulty extends Constable<ImmutableDifficulty> {
     static final Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
     static final Integer BASE_DIFFICULTY_SIGNIFICAND = 0x00FFFF;
 
@@ -16,4 +17,7 @@ public interface Difficulty {
 
     byte[] getBytes();
     byte[] encode();
+
+    @Override
+    public ImmutableDifficulty asConst();
 }

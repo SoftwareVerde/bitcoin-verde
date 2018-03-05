@@ -30,7 +30,7 @@ public class MainTests {
                 node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                     @Override
                     public void onResult(final Block block) {
-                        Logger.log("BLOCK: " + BitcoinUtil.toHexString(block.calculateSha256Hash()));
+                        Logger.log("BLOCK: " + BitcoinUtil.toHexString(block.getHash()));
                     }
                 });
             }

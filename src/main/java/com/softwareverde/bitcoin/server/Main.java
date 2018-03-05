@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.BitcoinPrivateKey;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -15,8 +16,8 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.locktime.MutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.hash.Hash;
@@ -87,7 +88,7 @@ public class Main {
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.calculateSha256Hash()));
+                Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.getHash()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
                 try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
@@ -101,7 +102,7 @@ public class Main {
                         blockDatabaseManager.storeBlock(block);
                     }
                     else {
-                        Logger.log("Invalid block: "+ block.calculateSha256Hash());
+                        Logger.log("Invalid block: "+ block.getHash());
                         _exitFailure();
                     }
 
@@ -112,7 +113,7 @@ public class Main {
                     _exitFailure();
                 }
 
-                lastBlockHash.value = block.calculateSha256Hash();
+                lastBlockHash.value = block.getHash();
 
                 if (! availableBlockHashes.isEmpty()) {
                     node.requestBlock(availableBlockHashes.remove(0), this);
@@ -179,7 +180,7 @@ public class Main {
 
                     final MutableTransaction coinbaseTransaction = new MutableTransaction();
                     coinbaseTransaction.setVersion(1);
-                    coinbaseTransaction.setLockTime(new MutableLockTime(LockTime.MIN_TIMESTAMP));
+                    coinbaseTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
                     coinbaseTransaction.setHasWitnessData(false);
                     coinbaseTransaction.addTransactionInput(mutableTransactionInput);
                     coinbaseTransaction.addTransactionOutput(mutableTransactionOutput);
@@ -188,11 +189,17 @@ public class Main {
                     // _exitFailure();
 
                     prototypeBlock.setVersion(1);
-                    prototypeBlock.setPreviousBlockHash(previousBlock.calculateSha256Hash());
+                    prototypeBlock.setPreviousBlockHash(previousBlock.getHash());
                     prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                     prototypeBlock.setNonce(0L);
                     prototypeBlock.setDifficulty(new ImmutableDifficulty(ByteUtil.integerToBytes(Difficulty.BASE_DIFFICULTY_SIGNIFICAND), Difficulty.BASE_DIFFICULTY_EXPONENT));
                     prototypeBlock.addTransaction(coinbaseTransaction);
+                }
+
+                {
+                    final BlockHeader blockHeader = prototypeBlock.asConst();
+                    final ImmutableBlockHeader immutableBlockHeader = blockHeader.asConst();
+                    immutableBlockHeader.asConst();
                 }
 
                 final Miner miner = new Miner();
@@ -274,7 +281,7 @@ public class Main {
                             TransactionUtil.commitTransaction(databaseConnection);
                         }
                         else {
-                            Logger.log("Invalid block: "+ block.calculateSha256Hash());
+                            Logger.log("Invalid block: "+ block.getHash());
                             TransactionUtil.rollbackTransaction(databaseConnection);
                         }
                     }

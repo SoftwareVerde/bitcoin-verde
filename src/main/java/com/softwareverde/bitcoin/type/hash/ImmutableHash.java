@@ -1,53 +1,29 @@
 package com.softwareverde.bitcoin.type.hash;
 
+import com.softwareverde.bitcoin.type.bytearray.overflow.ImmutableOverflowingByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 
-public class ImmutableHash implements Hash {
-    private final MutableHash _mutableHash;
-
+public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash, Const {
     public ImmutableHash() {
-        _mutableHash = new MutableHash();
+        super(new byte[BYTE_COUNT]);
     }
 
-    public ImmutableHash(final Hash mutableHash) {
-        _mutableHash = new MutableHash();
-        _mutableHash.setBytes(mutableHash);
+    public ImmutableHash(final Hash hash) {
+        super(hash.getBytes());
     }
 
     public ImmutableHash(final byte[] bytes) {
-        _mutableHash = new MutableHash(ByteUtil.copyBytes(bytes));
-    }
-
-    @Override
-    public byte get(final int index) {
-        return _mutableHash.get(index);
+        super(bytes);
     }
 
     @Override
     public byte[] toReversedEndian() {
-        return ByteUtil.reverseEndian(_mutableHash.getBytes());
+        return ByteUtil.reverseEndian(_bytes);
     }
 
     @Override
-    public byte[] getBytes() {
-        return ByteUtil.copyBytes(_mutableHash.getBytes());
-    }
-
-    @Override
-    public int hashCode() {
-        return _mutableHash.hashCode();
-    }
-
-    @Override
-    public boolean equals(final Object obj) {
-        if (obj == null) { return false; }
-        if (! (obj instanceof Hash)) { return false; }
-        final Hash object = (Hash) obj;
-        return ByteUtil.areEqual(_mutableHash._bytes, object.getBytes());
-    }
-
-    @Override
-    public String toString() {
-        return _mutableHash.toString();
+    public ImmutableHash asConst() {
+        return this;
     }
 }

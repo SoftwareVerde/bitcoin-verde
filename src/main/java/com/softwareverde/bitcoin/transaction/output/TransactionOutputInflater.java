@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.output;
 
-import com.softwareverde.bitcoin.transaction.script.MutableScript;
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -12,7 +12,7 @@ public class TransactionOutputInflater {
         transactionOutput._index = index;
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
-        transactionOutput._lockingScript = new MutableScript(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
+        transactionOutput._lockingScript = new ImmutableScript(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
 
         if (byteArrayReader.didOverflow()) { return null; }
 

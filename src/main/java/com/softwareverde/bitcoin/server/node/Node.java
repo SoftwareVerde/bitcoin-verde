@@ -186,9 +186,9 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onBlockMessageReceived(final BlockMessage blockMessage) {
         final Block block = blockMessage.getBlock();
-        final Boolean blockHeaderIsValid = block.validateBlockHeader();
+        final Boolean blockHeaderIsValid = block.isValid();
 
-        final Hash blockHash = block.calculateSha256Hash();
+        final Hash blockHash = block.getHash();
         _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
     }
 

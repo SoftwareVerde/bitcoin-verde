@@ -1,55 +1,45 @@
 package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
-import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.constable.Const;
 
-public class ImmutableTransactionInput implements TransactionInput {
-    private final TransactionInput _transactionInput;
+public class ImmutableTransactionInput implements TransactionInput, Const {
+
+    protected final ImmutableHash _previousTransactionOutputHash;
+    protected final Integer _previousTransactionOutputIndex;
+    protected final ImmutableScript _unlockingScript;
+    protected final Long _sequenceNumber;
 
     public ImmutableTransactionInput(final TransactionInput transactionInput) {
-        if (transactionInput instanceof ImmutableTransactionInput) {
-            _transactionInput = transactionInput;
-            return;
-        }
-
-        final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setUnlockingScript(new ImmutableScript(transactionInput.getUnlockingScript()));
-        mutableTransactionInput.setPreviousTransactionOutputHash(new ImmutableHash(transactionInput.getPreviousTransactionOutputHash()));
-        mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
-        mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
-        _transactionInput = mutableTransactionInput;
+        _previousTransactionOutputHash = transactionInput.getPreviousTransactionOutputHash().asConst();
+        _previousTransactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
+        _unlockingScript = transactionInput.getUnlockingScript().asConst();
+        _sequenceNumber = transactionInput.getSequenceNumber();
     }
 
     @Override
-    public Hash getPreviousTransactionOutputHash() {
-        return new ImmutableHash(_transactionInput.getPreviousTransactionOutputHash());
+    public ImmutableHash getPreviousTransactionOutputHash() {
+        return _previousTransactionOutputHash;
     }
 
     @Override
     public Integer getPreviousTransactionOutputIndex() {
-        return _transactionInput.getPreviousTransactionOutputIndex();
+        return _previousTransactionOutputIndex;
     }
 
     @Override
-    public Script getUnlockingScript() {
-        return _transactionInput.getUnlockingScript();
+    public ImmutableScript getUnlockingScript() {
+        return _unlockingScript;
     }
 
     @Override
     public Long getSequenceNumber() {
-        return _transactionInput.getSequenceNumber();
+        return _sequenceNumber;
     }
 
     @Override
-    public Integer getByteCount() {
-        return _transactionInput.getByteCount();
-    }
-
-    @Override
-    public byte[] getBytes() {
-        // return ByteUtil.copyBytes(_transactionInput.getBytes());
-        return _transactionInput.getBytes(); // NOTE: This is already a copied byte[]...
+    public ImmutableTransactionInput asConst() {
+        return this;
     }
 }

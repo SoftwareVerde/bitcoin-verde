@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.block;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 
 public class BlockMessage extends ProtocolMessage {
@@ -17,6 +18,7 @@ public class BlockMessage extends ProtocolMessage {
 
     @Override
     protected byte[] _getPayload() {
-        return _block.getBytes();
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        return blockDeflater.toBytes(_block);
     }
 }

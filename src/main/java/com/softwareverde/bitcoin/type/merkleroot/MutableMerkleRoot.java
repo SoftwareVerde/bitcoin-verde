@@ -2,37 +2,22 @@ package com.softwareverde.bitcoin.type.merkleroot;
 
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 
-public class MutableMerkleRoot implements MerkleRoot {
-    private final MutableHash _mutableHash;
+public class MutableMerkleRoot extends MutableHash implements MerkleRoot {
 
     public MutableMerkleRoot() {
-        _mutableHash = new MutableHash();
+        super();
     }
 
     public MutableMerkleRoot(final byte[] bytes) {
-        _mutableHash = new MutableHash(bytes);
+        super(bytes);
+    }
+
+    public MutableMerkleRoot(final MerkleRoot merkleRoot) {
+        super(merkleRoot);
     }
 
     @Override
-    public byte get(final int index) {
-        return _mutableHash.get(index);
-    }
-
-    @Override
-    public byte[] toReversedEndian() {
-        return _mutableHash.toReversedEndian();
-    }
-
-    @Override
-    public byte[] getBytes() {
-        return _mutableHash.getBytes();
-    }
-
-    public void setBytes(final byte[] bytes) {
-        _mutableHash.setBytes(bytes);
-    }
-
-    public void setBytes(final MerkleRoot merkleRoot) {
-        _mutableHash.setBytes(merkleRoot);
+    public ImmutableMerkleRoot asConst() {
+        return new ImmutableMerkleRoot(this);
     }
 }

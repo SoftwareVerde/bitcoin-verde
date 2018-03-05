@@ -291,7 +291,7 @@ public class ChainDatabaseManagerTests extends IntegrationTest {
         final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D6190000000000982051FD1E4BA744BBBE680E1FEE14677BA1A3C3540BF7B1CDB606E857233E0EFAA8975AFFFF001DB0E02D5E00"));
 
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
-        Assert.assertEquals(block1.calculateSha256Hash(), block2.getPreviousBlockHash());
+        Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
 
         final Long genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -392,12 +392,12 @@ public class ChainDatabaseManagerTests extends IntegrationTest {
 
         // Chain 2
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
-        Assert.assertEquals(block1.calculateSha256Hash(), block2.getPreviousBlockHash());
-        Assert.assertEquals(block2.calculateSha256Hash(), block3.getPreviousBlockHash());
+        Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+        Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
         // Chain 3
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
-        Assert.assertEquals(block1Prime.calculateSha256Hash(), block2Prime.getPreviousBlockHash());
+        Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
 
         // Chain 4
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
@@ -544,12 +544,12 @@ public class ChainDatabaseManagerTests extends IntegrationTest {
 
         // Chain 2
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
-        Assert.assertEquals(block1.calculateSha256Hash(), block2.getPreviousBlockHash());
-        Assert.assertEquals(block2.calculateSha256Hash(), block3.getPreviousBlockHash());
+        Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+        Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
         // Chain 3
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
-        Assert.assertEquals(block1Prime.calculateSha256Hash(), block2Prime.getPreviousBlockHash());
+        Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
 
         // Chain 4
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
@@ -699,13 +699,13 @@ public class ChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
 
         // Original Chain 2
-        Assert.assertEquals(block1.calculateSha256Hash(), block2.getPreviousBlockHash());
-        Assert.assertEquals(block2.calculateSha256Hash(), block3.getPreviousBlockHash());
-        Assert.assertEquals(block3.calculateSha256Hash(), block4.getPreviousBlockHash());
+        Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
+        Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
+        Assert.assertEquals(block3.getHash(), block4.getPreviousBlockHash());
 
         // Original Chain 3
-        Assert.assertEquals(block1.calculateSha256Hash(), block2Prime.getPreviousBlockHash());
-        Assert.assertEquals(block2Prime.calculateSha256Hash(), block3Prime.getPreviousBlockHash());
+        Assert.assertEquals(block1.getHash(), block2Prime.getPreviousBlockHash());
+        Assert.assertEquals(block2Prime.getHash(), block3Prime.getPreviousBlockHash());
 
         // New Chain 4
         Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());

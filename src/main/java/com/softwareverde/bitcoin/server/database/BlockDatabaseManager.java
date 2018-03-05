@@ -86,7 +86,7 @@ public class BlockDatabaseManager {
 
         { // Assert that the hashes match after inflation...
             final Hash expectedHash = MutableHash.fromHexString(row.getString("hash"));
-            final Hash actualHash = blockHeader.calculateSha256Hash();
+            final Hash actualHash = blockHeader.getHash();
             if (!expectedHash.equals(actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
             }
@@ -109,7 +109,7 @@ public class BlockDatabaseManager {
 
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET hash = ?, previous_block_id = ?, block_height = ?, merkle_root = ?, version = ?, timestamp = ?, difficulty = ?, nonce = ? WHERE id = ?")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.calculateSha256Hash()))
+                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
                 .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
@@ -128,7 +128,7 @@ public class BlockDatabaseManager {
 
         return _databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.calculateSha256Hash()))
+                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
                 .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
@@ -142,7 +142,7 @@ public class BlockDatabaseManager {
     protected Long _storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         final Long blockId;
         {
-            final Long existingBlockId = _getBlockIdFromHash(blockHeader.calculateSha256Hash());
+            final Long existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
             if (existingBlockId != null) {
                 _updateBlockHeader(existingBlockId, blockHeader);
                 blockId = existingBlockId;

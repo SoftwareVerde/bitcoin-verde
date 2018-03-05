@@ -1,38 +1,49 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 
-public class ImmutableLockTime implements LockTime {
-    private final LockTime _lockTime;
+public class ImmutableLockTime implements LockTime, Const {
+    private final Type _type;
+    private final Long _lockTime;
+
+    protected static Type _getType(final Long lockTime) {
+        return ((lockTime < MAX_BLOCK_HEIGHT) ? Type.TIMESTAMP : Type.BLOCK_HEIGHT);
+    }
 
     public ImmutableLockTime() {
-        _lockTime = new MutableLockTime();
+        _lockTime = MIN_TIMESTAMP;
+        _type = _getType(MIN_TIMESTAMP);
     }
-    public ImmutableLockTime(final Long lockTimeLong) {
-        _lockTime = new MutableLockTime(lockTimeLong);
+
+    public ImmutableLockTime(final Long value) {
+        _lockTime = value;
+        _type = _getType(value);
     }
+
     public ImmutableLockTime(final LockTime lockTime) {
-        if (lockTime instanceof ImmutableLockTime) {
-            _lockTime = lockTime;
-            return;
-        }
-
-        _lockTime = new MutableLockTime(lockTime);
+        final Long value = lockTime.getValue();
+        _lockTime = value;
+        _type = _getType(value);
     }
 
-    public Boolean isTimestamp() {
-        return _lockTime.isTimestamp();
+    @Override
+    public Type getType() {
+        return _type;
     }
 
-    public Long getBlockHeight() {
-        return _lockTime.getBlockHeight();
-    }
-
-    public Long getTimestamp() {
-        return _lockTime.getTimestamp();
+    @Override
+    public Long getValue() {
+        return _lockTime;
     }
 
     public byte[] getBytes() {
-        return ByteUtil.copyBytes(_lockTime.getBytes());
+        // 4 Bytes...
+        return ByteUtil.integerToBytes(_lockTime);
+    }
+
+    @Override
+    public ImmutableLockTime asConst() {
+        return this;
     }
 }

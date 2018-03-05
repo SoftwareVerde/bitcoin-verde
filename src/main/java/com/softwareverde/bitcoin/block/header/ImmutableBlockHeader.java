@@ -6,15 +6,15 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 
-public class ImmutableBlockHeader implements BlockHeader {
+public class ImmutableBlockHeader implements BlockHeader, Const {
     protected final BlockHeader _blockHeader;
     protected Hash _cachedBlockHeader = null;
 
     public ImmutableBlockHeader() {
         _blockHeader = new MutableBlockHeader();
-        _cachedBlockHeader = _blockHeader.calculateSha256Hash();
+        _cachedBlockHeader = _blockHeader.getHash();
     }
 
     public ImmutableBlockHeader(final BlockHeader blockHeader) {
@@ -64,21 +64,21 @@ public class ImmutableBlockHeader implements BlockHeader {
     }
 
     @Override
-    public Hash calculateSha256Hash() {
+    public Hash getHash() {
         if (_cachedBlockHeader == null) {
-            _cachedBlockHeader = _blockHeader.calculateSha256Hash();
+            _cachedBlockHeader = _blockHeader.getHash();
         }
 
         return _cachedBlockHeader;
     }
 
     @Override
-    public byte[] getBytes() {
-        return ByteUtil.copyBytes(_blockHeader.getBytes());
+    public Boolean isValid() {
+        return _blockHeader.isValid();
     }
 
     @Override
-    public Boolean validateBlockHeader() {
-        return _blockHeader.validateBlockHeader();
+    public ImmutableBlockHeader asConst() {
+        return this;
     }
 }

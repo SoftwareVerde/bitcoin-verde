@@ -10,6 +10,10 @@ public class ByteUtil {
         };
     }
 
+    public static byte[] integerToBytes(final long value) {
+        return integerToBytes((int) value);
+    }
+
     private static long _bytesToLong(final int nativeByteCount, final byte[] bytes) {
         long value = 0;
         for (int i=0; i<nativeByteCount; ++i) {
@@ -67,6 +71,10 @@ public class ByteUtil {
             (byte) (value >>> 8),
             (byte) (value)
         };
+    }
+
+    public static byte[] longToBytes(final int value) {
+        return longToBytes(((long) value) & 0x00000000FFFFFFFFL);
     }
 
     public static byte[] reverseEndian(final byte[] bytes) {

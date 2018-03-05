@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 public class DynamicValueOperation extends Operation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
 
-    public static DynamicValueOperation fromScript(final Script script) {
+    public static DynamicValueOperation fromScript(final ScriptReader script) {
         if (! script.hasNextByte()) { return null; }
 
         final byte opcodeByte = script.getNextByte();

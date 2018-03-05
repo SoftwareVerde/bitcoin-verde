@@ -1,21 +1,19 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderByteData;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MutableBlock implements Block {
     protected Integer _version;
@@ -24,33 +22,14 @@ public class MutableBlock implements Block {
     protected Difficulty _difficulty;
     protected Long _nonce;
     protected MerkleTreeNode _merkleTree = new MerkleTreeNode();
-    protected List<Transaction> _transactions = new ArrayList<Transaction>();
+    protected MutableList<Transaction> _transactions = new MutableList<Transaction>();
 
-    protected BlockHeaderByteData _createByteData() {
-        final BlockHeaderByteData byteData = new BlockHeaderByteData();
-        ByteUtil.setBytes(byteData.version, ByteUtil.integerToBytes(_version));
-        ByteUtil.setBytes(byteData.previousBlockHash, _previousBlockHash.getBytes());
-        ByteUtil.setBytes(byteData.merkleRoot, _merkleTree.getMerkleRoot().getBytes());
-
-        final byte[] timestampBytes = ByteUtil.longToBytes(_timestamp);
-        for (int i=0; i<byteData.timestamp.length; ++i) {
-            byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
-        }
-
-        ByteUtil.setBytes(byteData.difficulty, _difficulty.encode());
-
-        final byte[] nonceBytes = ByteUtil.longToBytes(_nonce);
-        for (int i=0; i<byteData.nonce.length; ++i) {
-            byteData.nonce[(byteData.nonce.length - i) - 1] = nonceBytes[(nonceBytes.length - i) - 1];
-        }
-
-        return byteData;
-    }
-
-    protected Hash _calculateSha256Hash() {
-        final BlockHeaderByteData byteData = _createByteData();
-        final byte[] serializedByteData = byteData.serialize();
-        return new ImmutableHash(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData))));
+    protected void _initFromBlockHeader(final BlockHeader blockHeader) {
+        _version = blockHeader.getVersion();
+        _previousBlockHash = blockHeader.getPreviousBlockHash();
+        _timestamp = blockHeader.getTimestamp();
+        _difficulty = blockHeader.getDifficulty();
+        _nonce = blockHeader.getNonce();
     }
 
     @Override
@@ -79,13 +58,15 @@ public class MutableBlock implements Block {
     public void setNonce(final Long nonce) { _nonce = nonce; }
 
     @Override
-    public Hash calculateSha256Hash() {
-        return _calculateSha256Hash();
+    public Hash getHash() {
+        final BlockHasher blockHasher = new BlockHasher();
+        return blockHasher.calculateBlockHash(this);
     }
 
     @Override
-    public Boolean validateBlockHeader() {
-        final Hash sha256Hash = _calculateSha256Hash();
+    public Boolean isValid() {
+        final BlockHasher blockHasher = new BlockHasher();
+        final Hash sha256Hash = blockHasher.calculateBlockHash(this);
         return (_difficulty.isSatisfiedBy(sha256Hash));
     }
 
@@ -94,11 +75,16 @@ public class MutableBlock implements Block {
     }
 
     public MutableBlock(final BlockHeader blockHeader) {
-        _version = blockHeader.getVersion();
-        _previousBlockHash = blockHeader.getPreviousBlockHash();
-        _timestamp = blockHeader.getTimestamp();
-        _difficulty = blockHeader.getDifficulty();
-        _nonce = blockHeader.getNonce();
+        _initFromBlockHeader(blockHeader);
+    }
+
+    public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
+        _initFromBlockHeader(blockHeader);
+
+        for (final Transaction transaction : transactions) {
+            _transactions.add(transaction);
+            _merkleTree.addItem(transaction);
+        }
     }
 
     public void addTransaction(final Transaction transaction) {
@@ -116,26 +102,7 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public MerkleRoot calculateMerkleRoot() {
-        return _merkleTree.getMerkleRoot();
-    }
-
-    @Override
-    public byte[] getBytes() {
-        final BlockHeaderByteData byteData = _createByteData();
-        final byte[] headerBytes = byteData.serialize();
-        final int transactionCount = _transactions.size();
-
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(headerBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.LITTLE);
-
-        for (int i=0; i<transactionCount; ++i) {
-            final Transaction transaction = _transactions.get(i);
-            final byte[] transactionBytes = transaction.getBytes();
-            byteArrayBuilder.appendBytes(transactionBytes, Endian.BIG);
-        }
-
-        return byteArrayBuilder.build();
+    public ImmutableBlock asConst() {
+        return new ImmutableBlock(this, _transactions);
     }
 }

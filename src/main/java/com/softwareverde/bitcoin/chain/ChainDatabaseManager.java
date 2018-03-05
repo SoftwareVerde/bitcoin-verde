@@ -88,7 +88,7 @@ public class ChainDatabaseManager {
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
 
-        final Long newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.calculateSha256Hash());
+        final Long newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
         final Long previousBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getPreviousBlockHash());
 
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.

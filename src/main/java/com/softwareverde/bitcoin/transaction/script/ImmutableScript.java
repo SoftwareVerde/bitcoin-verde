@@ -1,11 +1,16 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-public class ImmutableScript extends MutableScript {
+import com.softwareverde.bitcoin.type.bytearray.overflow.ImmutableOverflowingByteArray;
+import com.softwareverde.constable.Const;
+
+public class ImmutableScript extends ImmutableOverflowingByteArray implements Script, Const {
+
     public ImmutableScript(final byte[] bytes) {
         super(bytes);
     }
 
-    public ImmutableScript(final Script script) {
-        super(script);
+    @Override
+    public ImmutableScript asConst() {
+        return this;
     }
 }

@@ -2,10 +2,11 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 
 import java.math.BigDecimal;
 
-public class ImmutableDifficulty implements Difficulty {
+public class ImmutableDifficulty implements Difficulty, Const {
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
 
@@ -59,7 +60,7 @@ public class ImmutableDifficulty implements Difficulty {
 
         for (int i=0; i<bytes.length; ++i) {
             final int difficultyByte = ByteUtil.byteToInteger(bytes[i]);
-            final int sha256Byte = ByteUtil.byteToInteger(hash.get(i));
+            final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }
             return (sha256Byte < difficultyByte);
         }
@@ -72,5 +73,10 @@ public class ImmutableDifficulty implements Difficulty {
         final BigDecimal currentValue = BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
         final BigDecimal baseDifficultyValue = BigDecimal.valueOf(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
         return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
+    }
+
+    @Override
+    public ImmutableDifficulty asConst() {
+        return this;
     }
 }

@@ -45,8 +45,8 @@ public class MerkleTreeNode implements MerkleTree {
                 hash1 = hash0;
             }
             else if (_item0 != null) {
-                hash0 = _item0.calculateSha256Hash();
-                hash1 = (_item1 == null ? hash0 : _item1.calculateSha256Hash());
+                hash0 = _item0.getHash();
+                hash1 = (_item1 == null ? hash0 : _item1.getHash());
             }
             else {
                 hash0 = new ImmutableHash(_childNode0._getIntermediaryHash());
@@ -179,7 +179,7 @@ public class MerkleTreeNode implements MerkleTree {
     public MerkleRoot getMerkleRoot() {
 
         if (_size == 1 && (_item0 != null)) {
-            _hash.setBytes(_item0.calculateSha256Hash().getBytes());
+            _hash.setBytes(_item0.getHash().getBytes());
             _hashIsValid = true;
         }
         else {

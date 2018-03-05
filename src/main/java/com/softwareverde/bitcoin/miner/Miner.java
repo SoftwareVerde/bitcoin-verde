@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.miner;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -17,7 +18,7 @@ public class Miner {
 
         for (int i=0; i<4; ++i) {
             if (i == 3) { System.out.println(BitcoinUtil.toHexString(hash)); }
-            if (hash.get(i) != zero) { return false; }
+            if (hash.getByte(i) != zero) { return false; }
         }
         return true;
     }
@@ -40,14 +41,14 @@ public class Miner {
                 public void run() {
                     final MutableBlock mutableBlock = new MutableBlock(blockToReplace);
 
-                    mutableBlock.setPreviousBlockHash(previousBlock.calculateSha256Hash());
+                    mutableBlock.setPreviousBlockHash(previousBlock.getHash());
                     mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
 
                     // final long startTime = System.currentTimeMillis();
 
                     long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
-                    boolean isValidDifficulty = _isValidDifficulty(mutableBlock.calculateSha256Hash());
+                    boolean isValidDifficulty = _isValidDifficulty(mutableBlock.getHash());
                     while ( (! isValidDifficulty) && (! hasBeenFound.value) ) {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
@@ -69,12 +70,13 @@ public class Miner {
                             }
                         */
 
-                        isValidDifficulty = _isValidDifficulty(mutableBlock.calculateSha256Hash());
+                        isValidDifficulty = _isValidDifficulty(mutableBlock.getHash());
                     }
 
                     if (isValidDifficulty) {
-                        System.out.println(BitcoinUtil.toHexString(mutableBlock.calculateSha256Hash()));
-                        System.out.println(BitcoinUtil.toHexString(mutableBlock.getBytes()));
+                        final BlockDeflater blockDeflater = new BlockDeflater();
+                        System.out.println(BitcoinUtil.toHexString(mutableBlock.getHash()));
+                        System.out.println(BitcoinUtil.toHexString(blockDeflater.toBytes(mutableBlock)));
                         hasBeenFound.value = true;
                     }
                 }

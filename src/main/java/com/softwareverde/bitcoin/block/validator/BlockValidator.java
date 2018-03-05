@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
@@ -14,12 +15,12 @@ import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class BlockValidator {
@@ -63,14 +64,14 @@ public class BlockValidator {
         }
     }
 
-    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+    protected Long _calculateTotalTransactionInputs(final Transaction blockTransaction, final List<? extends Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
-            additionalTransactionOutputs.put(transaction.calculateSha256Hash(), transaction);
+            additionalTransactionOutputs.put(transaction.getHash(), transaction);
         }
 
         long totalInputValue = 0L;
-        final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
+        final List<? extends TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
             final Hash outputTransactionHash = transactionInput.getPreviousTransactionOutputHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
@@ -81,8 +82,8 @@ public class BlockValidator {
                 if (possibleTransactionOutput == null) {
                     final Transaction transactionContainingOutput = additionalTransactionOutputs.get(outputTransactionHash);
                     if (transactionContainingOutput != null) {
-                        final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                        if (transactionOutputIndex < transactionOutputs.size()) {
+                        final List<? extends TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
+                        if (transactionOutputIndex < transactionOutputs.getSize()) {
                             possibleTransactionOutput = transactionOutputs.get(transactionOutputIndex);
                         }
                     }
@@ -90,7 +91,7 @@ public class BlockValidator {
                 transactionOutput = possibleTransactionOutput;
             }
             if (transactionOutput == null) {
-                Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex + ", for Tx: "+ blockTransaction.calculateSha256Hash());
+                Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex + ", for Tx: "+ blockTransaction.getHash());
                 return null;
             }
 
@@ -99,7 +100,7 @@ public class BlockValidator {
         return totalInputValue;
     }
 
-    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+    protected Boolean _validateTransactionExpenditure(final Transaction blockTransaction, final List<? extends Transaction> queuedTransactions) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
         final Long totalInputValue = _calculateTotalTransactionInputs(blockTransaction, queuedTransactions);
         if (totalInputValue == null) { return false; }
@@ -113,8 +114,8 @@ public class BlockValidator {
         final Context context = new Context();
         context.setTransaction(transaction);
 
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i=0; i<transactionInputs.size(); ++i) {
+        final List<? extends TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
             final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutputHash(), transactionInput.getPreviousTransactionOutputIndex()));
             if (transactionOutput == null) { return false; }
@@ -142,24 +143,26 @@ public class BlockValidator {
     }
 
     public Boolean validateBlock(final Block block) {
-        if (! block.validateBlockHeader()) { return false; }
+        if (! block.isValid()) { return false; }
 
-        final List<Transaction> blockTransactions = block.getTransactions();
-        for (int i=0; i<blockTransactions.size(); ++i) {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+
+        final List<? extends Transaction> blockTransactions = block.getTransactions();
+        for (int i=0; i<blockTransactions.getSize(); ++i) {
             if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
 
             final Transaction blockTransaction = blockTransactions.get(i);
             final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockTransaction, blockTransactions);
             if (! transactionExpenditureIsValid) {
                 Logger.log("BLOCK VALIDATION: Failed because expenditures did not match.");
-                Logger.log(BitcoinUtil.toHexString(block.getBytes()));
+                Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
                 return false;
             }
 
             final Boolean transactionInputsAreUnlocked = _validateTransactionInputsAreUnlocked(blockTransaction);
             if (! transactionInputsAreUnlocked) {
                 Logger.log("BLOCK VALIDATION: Failed because of invalid transaction.");
-                Logger.log(BitcoinUtil.toHexString(block.getBytes()));
+                Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
                 return false;
             }
         }
