@@ -26,13 +26,13 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         final Boolean superIsValid = super.isValid();
         if (! superIsValid) { return false; }
 
-        final MerkleTree merkleTree = new MerkleTreeNode();
+        if (_transactions.isEmpty()) { return false; }
 
+        final MerkleTree merkleTree = new MerkleTreeNode();
         for (final Transaction transaction : _transactions) {
             merkleTree.addItem(transaction);
         }
         final MerkleRoot calculatedMerkleRoot = merkleTree.getMerkleRoot();
-
         return (calculatedMerkleRoot.equals(_merkleRoot));
     }
 

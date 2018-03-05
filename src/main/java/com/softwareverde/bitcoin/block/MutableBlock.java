@@ -67,6 +67,8 @@ public class MutableBlock implements Block {
 
     @Override
     public Boolean isValid() {
+        if (_transactions.isEmpty()) { return false; }
+
         final BlockHasher blockHasher = new BlockHasher();
         final Hash sha256Hash = blockHasher.calculateBlockHash(this);
         return (_difficulty.isSatisfiedBy(sha256Hash));
