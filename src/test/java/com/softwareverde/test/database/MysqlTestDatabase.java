@@ -8,7 +8,6 @@ import com.softwareverde.database.mysql.embedded.DatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
-import com.softwareverde.database.mysql.embedded.vorburger.ManagedProcessException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -67,7 +66,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
         }
     }
 
-    public void reset() throws ManagedProcessException {
+    public void reset() throws DatabaseException {
         _databaseInstance.run("DROP DATABASE "+ _databaseSchema, _rootUsername, _rootPassword);
         _databaseInstance.createDB(_databaseSchema);
     }
