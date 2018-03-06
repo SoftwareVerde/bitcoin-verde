@@ -1,14 +1,14 @@
 package com.softwareverde.test.database;
 
-import ch.vorburger.exec.ManagedProcessException;
-import ch.vorburger.mariadb4j.DB;
-import ch.vorburger.mariadb4j.DBConfiguration;
-import ch.vorburger.mariadb4j.DBConfigurationBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.Credentials;
 import com.softwareverde.database.mysql.embedded.DatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.vorburger.DB;
+import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
+import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
+import com.softwareverde.database.mysql.embedded.vorburger.ManagedProcessException;
 
 import java.sql.Connection;
 import java.sql.SQLException;

@@ -1,10 +1,10 @@
 package com.softwareverde.database.mysql.embedded;
 
-import ch.vorburger.mariadb4j.DB;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.vorburger.DB;
 
 import java.util.List;
 

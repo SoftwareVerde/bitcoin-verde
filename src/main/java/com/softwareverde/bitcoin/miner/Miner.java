@@ -29,7 +29,7 @@ public class Miner {
 
         final List<Container<Long>> hashCounts = new ArrayList<Container<Long>>();
 
-        final int THREAD_COUNT = 12;
+        final int THREAD_COUNT = 4;
         for (int i=0; i<THREAD_COUNT; ++i) {
             final Integer index = i;
             hashCounts.add(new Container<Long>(0L));

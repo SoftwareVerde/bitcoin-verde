@@ -1,13 +1,13 @@
 package com.softwareverde.database.mysql.embedded;
 
-import ch.vorburger.mariadb4j.DB;
-import ch.vorburger.mariadb4j.DBConfiguration;
-import ch.vorburger.mariadb4j.DBConfigurationBuilder;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.database.Database;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.vorburger.DB;
+import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
+import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
 import com.softwareverde.util.HashUtil;
 
 import java.sql.Connection;
