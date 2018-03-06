@@ -51,11 +51,10 @@ public class BitcoinUtil {
         }
     }
 
-    // private static ThreadLocal<GpuSha256> _sha256Hashers = new ThreadLocal<GpuSha256>();
+//    private static final ThreadLocal<GpuSha256> _sha256Hashers = new ThreadLocal<GpuSha256>();
     public static byte[] sha256(final byte[] data) {
 //        if (_sha256Hashers.get() == null) {
 //            final GpuSha256 gpuSha256 = new GpuSha256();
-//            gpuSha256.init();
 //            _sha256Hashers.set(gpuSha256);
 //        }
 //        return _sha256Hashers.get().sha256(data);

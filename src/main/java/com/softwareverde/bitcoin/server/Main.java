@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
@@ -148,13 +150,23 @@ public class Main {
     }
 
     public Main(final String[] commandLineArguments) {
-        final GpuSha256 gpuSha256 = new GpuSha256();
-        // final byte[] hash = gpuSha256.sha256(BitcoinUtil.hexStringToByteArray("315F5BDB76D078C43B8AC0064E4A0164612B1FCE77C869345BFC94C75894EDD3"));
-        final byte[] data = new byte[64];
-        for (int i=0; i<data.length; ++i) { data[i] = 0x41; }
-        final byte[] hash = gpuSha256.sha256(data);
-        System.out.println(BitcoinUtil.toHexString(hash));
-        _exitFailure();
+//        {
+//            final GpuSha256 gpuSha256 = new GpuSha256();
+//            // final byte[] data = gpuSha256.sha256(BitcoinUtil.hexStringToByteArray("315F5BDB76D078C43B8AC0064E4A0164612B1FCE77C869345BFC94C75894EDD3"));
+//            // final byte[] data = new byte[64];
+//            // for (int i=0; i<data.length; ++i) { data[i] = (byte) 0x41L; }
+//            final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+//            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+//            byte[] data = BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000");
+//            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(data);
+//            data = blockHeaderDeflater.toBytes(blockHeader);
+//
+//            final byte[] hash = gpuSha256.sha256(gpuSha256.sha256(data));
+//            System.out.println(BitcoinUtil.toHexString(hash));
+//            System.out.println(BitcoinUtil.toHexString(BitcoinUtil.sha256(BitcoinUtil.sha256(data))));
+//            System.out.println(BitcoinUtil.toHexString(blockHeader.getHash().getBytes()));
+//            _exitFailure();
+//        }
 
         /*
             { // Create Private/Public Key:

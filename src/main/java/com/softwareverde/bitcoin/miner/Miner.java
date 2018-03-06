@@ -29,7 +29,7 @@ public class Miner {
 
         final List<Container<Long>> hashCounts = new ArrayList<Container<Long>>();
 
-        final int THREAD_COUNT = 4;
+        final int THREAD_COUNT = 5;
         for (int i=0; i<THREAD_COUNT; ++i) {
             final Integer index = i;
             hashCounts.add(new Container<Long>(0L));
@@ -59,7 +59,10 @@ public class Miner {
                         }
 
                         if (nonce % (lastHashesPerSecond * 10) == 0) {
-                            long hashCount = hashCounts.get(0).value + hashCounts.get(1).value + hashCounts.get(2).value;
+                            long hashCount = 0;
+                            for (int i=0; i<THREAD_COUNT; ++i) {
+                                hashCount += hashCounts.get(i).value;
+                            }
 
                             final long now = System.currentTimeMillis();
                             final long elapsed = (now - startTime);

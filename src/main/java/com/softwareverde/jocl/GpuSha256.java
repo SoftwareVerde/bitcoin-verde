@@ -72,10 +72,11 @@ public class GpuSha256 {
         cl_device_id device = devices[deviceIndex];
 
         // Create a context for the selected device
-        context = clCreateContext(contextProperties, 1, new cl_device_id[]{device}, null, null, null);
+        context = clCreateContext(contextProperties, 1, new cl_device_id[]{ device }, null, null, null);
 
         // Create a command-queue for the selected device
         command_queue = clCreateCommandQueue(context, device, 0, null);
+        // command_queue = clCreateCommandQueueWithProperties(context, device, null, null); // Not supported.
 
         return true;
     }
