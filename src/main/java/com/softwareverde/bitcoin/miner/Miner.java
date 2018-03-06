@@ -26,7 +26,6 @@ public class Miner {
     public void mineBlock(final Block previousBlock, final Block prototypeBlock) throws Exception {
         final List<Thread> threads = new ArrayList<Thread>();
 
-
         final List<Container<Long>> hashCounts = new ArrayList<Container<Long>>();
 
         final int THREAD_COUNT = 5;

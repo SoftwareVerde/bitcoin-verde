@@ -19,5 +19,5 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     byte[] encode();
 
     @Override
-    public ImmutableDifficulty asConst();
+    ImmutableDifficulty asConst();
 }

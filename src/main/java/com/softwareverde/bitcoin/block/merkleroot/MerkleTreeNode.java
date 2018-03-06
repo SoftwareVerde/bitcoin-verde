@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.io.Logger;
 
 public class MerkleTreeNode implements MerkleTree {
     protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
@@ -177,10 +178,11 @@ public class MerkleTreeNode implements MerkleTree {
 
     @Override
     public MerkleRoot getMerkleRoot() {
-
-        if (_size == 1 && (_item0 != null)) {
-            _hash.setBytes(_item0.getHash().getBytes());
-            _hashIsValid = true;
+        if ((_size == 1) && (_item0 != null)) {
+            if (! _hashIsValid) {
+                _hash.setBytes(_item0.getHash().getBytes());
+                _hashIsValid = true;
+            }
         }
         else {
             if (! _hashIsValid) {

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.BitcoinPrivateKey;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
@@ -168,24 +169,25 @@ public class Main {
 //            _exitFailure();
 //        }
 
-        /*
-            { // Create Private/Public Key:
-                final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
-                System.out.println("Private Key: " + BitcoinUtil.toHexString(privateKey.getBytes()));
-                System.out.println("Public Key: " + BitcoinUtil.toBase58String(privateKey.getBitcoinAddress()));
-                _exitFailure();
-
-                // Private Key: CE418F2262D69CA2E02645E679598F3F646E8158BA7C5890A67130390A1102E5
-                // Public Key: 13TXBs1AonKbypUZCRYRCFnuLppqm69odd
-            }
-        */
+//        { // Create Private/Public Key:
+//            final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
+//            System.out.println("Private Key: " + BitcoinUtil.toHexString(privateKey.getBytes()));
+//            System.out.println("Public Key: " + BitcoinUtil.toBase58String(privateKey.getBitcoinAddress()));
+//            _exitFailure();
+//
+//            // Private Key: CE418F2262D69CA2E02645E679598F3F646E8158BA7C5890A67130390A1102E5
+//            // Public Key: 13TXBs1AonKbypUZCRYRCFnuLppqm69odd
+//
+//            // Private Key: D4BF010D3EC25F913CFF91CA34FD4C04A38908E0478B31F669B647EFCD2482A5
+//            // Public Key: 1BpgWv8MfioK6UNjfad8NzYVvLeKGfwhwj
+//        }
 
         // Mine Hardcoded Block...
         {
             try {
                 final BlockInflater blockInflater = new BlockInflater();
 
-                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000"));
+                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000004860EB18BF1B1620E37E9490FC8A427514416FD75159AB86688E9A83000000004AB8CDB2D412E5061F09DF440E1FBE318A196A75B0597655D60ABFB0F92A994F14C59E5AFFFF001D76A2040601010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001E76A6190076B5CB4E5D485BDD6B6DD7A2AAAEC6F01FFA7DD447B2753688AC00000000"));
 
                 final MutableBlock prototypeBlock = new MutableBlock();
                 {
@@ -198,7 +200,7 @@ public class Main {
                     final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
                     mutableTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
                     mutableTransactionOutput.setIndex(0);
-                    mutableTransactionOutput.setLockingScript((ScriptBuilder.payToAddress("13TXBs1AonKbypUZCRYRCFnuLppqm69odd")));
+                    mutableTransactionOutput.setLockingScript((ScriptBuilder.payToAddress("1BpgWv8MfioK6UNjfad8NzYVvLeKGfwhwj")));
 
                     final MutableTransaction coinbaseTransaction = new MutableTransaction();
                     coinbaseTransaction.setVersion(1);
@@ -216,12 +218,6 @@ public class Main {
                     prototypeBlock.setNonce(0L);
                     prototypeBlock.setDifficulty(new ImmutableDifficulty(ByteUtil.integerToBytes(Difficulty.BASE_DIFFICULTY_SIGNIFICAND), Difficulty.BASE_DIFFICULTY_EXPONENT));
                     prototypeBlock.addTransaction(coinbaseTransaction);
-                }
-
-                {
-                    final BlockHeader blockHeader = prototypeBlock.asConst();
-                    final ImmutableBlockHeader immutableBlockHeader = blockHeader.asConst();
-                    immutableBlockHeader.asConst();
                 }
 
                 final Miner miner = new Miner();

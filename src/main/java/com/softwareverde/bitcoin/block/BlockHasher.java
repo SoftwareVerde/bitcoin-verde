@@ -8,9 +8,10 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
 public class BlockHasher {
+    protected final BlockHeaderDeflater _blockHeaderDeflater = new BlockHeaderDeflater();
+
     public Hash calculateBlockHash(final BlockHeader blockHeader) {
-        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-        final byte[] serializedByteData = blockHeaderDeflater.toBytes(blockHeader);
+        final byte[] serializedByteData = _blockHeaderDeflater.toBytes(blockHeader);
         return new ImmutableHash(ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(serializedByteData))));
     }
 }

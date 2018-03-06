@@ -19,6 +19,8 @@ public class MutableBlock implements Block {
     protected MerkleTreeNode _merkleTree = new MerkleTreeNode();
     protected MutableList<Transaction> _transactions = new MutableList<Transaction>();
 
+    protected final BlockHasher _blockHasher = new BlockHasher();
+
     protected void _initFromBlockHeader(final BlockHeader blockHeader) {
         _version = blockHeader.getVersion();
         _previousBlockHash = blockHeader.getPreviousBlockHash();
@@ -61,8 +63,7 @@ public class MutableBlock implements Block {
 
     @Override
     public Hash getHash() {
-        final BlockHasher blockHasher = new BlockHasher();
-        return blockHasher.calculateBlockHash(this);
+        return _blockHasher.calculateBlockHash(this);
     }
 
     @Override
