@@ -1,6 +1,11 @@
 package com.softwareverde.jocl;
 
 import static org.jocl.CL.*;
+
+import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.IoUtil;
 import org.jocl.*;
 
 /**
@@ -13,8 +18,12 @@ public class GpuSha256 {
     protected static final int defaultDeviceIndex = 0;
 
     protected cl_context context;
-    protected cl_command_queue commandQueue;
+    protected cl_command_queue command_queue;
     protected cl_kernel kernel;
+
+    public GpuSha256() {
+        _init();
+    }
 
     /**
      * Default initialization of the context and the command queue
@@ -24,7 +33,7 @@ public class GpuSha256 {
      * @param deviceIndex The device index
      * @return Whether the initialization was successful
      */
-    protected final boolean initCL(int platformIndex, long deviceType, int deviceIndex) {
+    protected final boolean _initCL(int platformIndex, long deviceType, int deviceIndex) {
         // Enable exceptions and subsequently omit error checks in this sample
         CL.setExceptionsEnabled(true);
 
@@ -66,7 +75,7 @@ public class GpuSha256 {
         context = clCreateContext(contextProperties, 1, new cl_device_id[]{device}, null, null, null);
 
         // Create a command-queue for the selected device
-        commandQueue = clCreateCommandQueue(context, device, 0, null);
+        command_queue = clCreateCommandQueue(context, device, 0, null);
 
         return true;
     }
@@ -77,110 +86,82 @@ public class GpuSha256 {
      * @param kernelName The kernel name
      * @param programSource The program source
      */
-    protected final void initKernel(String kernelName, String programSource) {
+    protected final void _initKernel(final String kernelName, final String programSource) {
         cl_program program = clCreateProgramWithSource(context, 1, new String[]{ programSource }, null, null);   // Create the program from the source code
         clBuildProgram(program, 0, null, null, null, null);                              // Build the program
         kernel = clCreateKernel(program, kernelName, null);                                                                     // Create the kernel
         clReleaseProgram(program);
     }
 
-    /**
-     * Release the kernel that has been created in
-     * {@link #initKernel(String, String)}
-     */
-    protected final void shutdownKernel() {
-        if (kernel != null) {
-            clReleaseKernel(kernel);
-        }
-    }
-
-
-    protected final void shutdownCL() {
-        if (commandQueue != null) {
-            clReleaseCommandQueue(commandQueue);
-        }
+    protected void _init() {
+        _initCL(defaultPlatformIndex, defaultDeviceType, defaultDeviceIndex);
+        _initKernel("sha256_crypt_kernel", programSource);
     }
 
     /**
      * The source code of the OpenCL program to execute
      */
-    private static String programSource =
-            "__kernel void "+
-                    "sampleKernel(__global const float *a,"+
-                    "             __global const float *b,"+
-                    "             __global float *c)"+
-                    "{"+
-                    "    int gid = get_global_id(0);"+
-                    "    c[gid] = a[gid] + b[gid];"+
-                    "}";
+    private static String programSource = IoUtil.getResource("/kernels/sha256_crypt_kernel.cl");
 
-    public void basicTest() {
-        initCL(defaultPlatformIndex, defaultDeviceType, defaultDeviceIndex);
-        initKernel("sampleKernel", programSource);
+    private static final int SHA256_PLAINTEXT_LENGTH = 64;
+    private static final int SHA256_RESULT_SIZE = 8;
+    private static final int KPC = 2048; // Unsure what this represents...
+    private static final int GLOBAL_WORK_SIZE = 1;
 
-        // Create input- and output data
-        int n = 10;
-        float srcArrayA[] = new float[n];
-        float srcArrayB[] = new float[n];
-        float dstArray[] = new float[n];
-        for (int i=0; i<n; i++) {
-            srcArrayA[i] = i;
-            srcArrayB[i] = i;
+    public void shutdown() {
+        if (kernel != null) {
+            clReleaseKernel(kernel);
         }
 
-        // Allocate the memory objects for the input- and output data
-        cl_mem srcMemA = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, Sizeof.cl_float * n, Pointer.to(srcArrayA), null);
-        cl_mem srcMemB = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, Sizeof.cl_float * n, Pointer.to(srcArrayB), null);
-        cl_mem dstMem = clCreateBuffer(context, CL_MEM_READ_WRITE, Sizeof.cl_float * n, null, null);
-
-        // Set the arguments for the kernel
-        int a = 0;
-        clSetKernelArg(kernel, a++, Sizeof.cl_mem, Pointer.to(srcMemA));
-        clSetKernelArg(kernel, a++, Sizeof.cl_mem, Pointer.to(srcMemB));
-        clSetKernelArg(kernel, a++, Sizeof.cl_mem, Pointer.to(dstMem));
-
-        // Execute the kernel
-        clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, new long[] {n}, null, 0, null, null);
-
-        // Read the output data
-        clEnqueueReadBuffer(commandQueue, dstMem, CL_TRUE, 0, n * Sizeof.cl_float, Pointer.to(dstArray), 0, null, null);
-
-        // Compute the reference result
-        float expected[] = new float[n];
-        for (int i=0; i<n; i++) {
-            expected[i] = srcArrayA[i] + srcArrayB[i];
+        if (command_queue != null) {
+            clReleaseCommandQueue(command_queue);
         }
-
-        boolean passed = epsilonEqual(expected, dstArray);
-
-        shutdownKernel();
-        shutdownCL();
-
-        System.out.println(passed);
     }
 
+    public byte[] sha256(final byte[] input) {
+        int[] datai = new int[3];
+        datai[0] = SHA256_PLAINTEXT_LENGTH;
+        datai[1] = GLOBAL_WORK_SIZE;
+        datai[2] = input.length;
 
-    /**
-     * Returns whether the given arrays are equal up to a small epsilon
-     *
-     * @param expected The expected results
-     * @param actual The actual results
-     * @return Whether the arrays are epsilon-equal
-     */
-    private static boolean epsilonEqual(float expected[], float actual[]) {
-        final float epsilon = 1e-7f;
-        if (expected.length != actual.length) {
-            return false;
+        final byte[] saved_plain = input;
+
+        long[] global_work_size = new long[] { GLOBAL_WORK_SIZE };
+        long[] local_work_size = new long[] { 1 };
+
+        int[] partial_hashes = new int[SHA256_RESULT_SIZE];
+
+        int buffer_size = (saved_plain.length + (SHA256_PLAINTEXT_LENGTH - (saved_plain.length % SHA256_PLAINTEXT_LENGTH)));
+
+        // Allocate the memory objects for the input- and output data
+        // cl_mem buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (SHA256_PLAINTEXT_LENGTH * KPC), Pointer.to(saved_plain), null);
+        cl_mem buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, buffer_size, Pointer.to(saved_plain), null);
+        cl_mem buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY, Sizeof.cl_uint * SHA256_RESULT_SIZE, null, null);
+        cl_mem data_info = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, Sizeof.cl_uint * 3, Pointer.to(datai), null);
+
+        // Set the arguments for the kernel
+        clSetKernelArg(kernel, 0, Sizeof.cl_mem, Pointer.to(data_info));
+        clSetKernelArg(kernel, 1, Sizeof.cl_mem, Pointer.to(buffer_keys));
+        clSetKernelArg(kernel, 2, Sizeof.cl_mem, Pointer.to(buffer_out));
+
+        // Set the values?
+        // clEnqueueWriteBuffer(command_queue, data_info, CL_TRUE, 0, Sizeof.cl_uint * 3, Pointer.to(datai), 0, null, null);
+        // clEnqueueWriteBuffer(command_queue, buffer_keys, CL_TRUE, 0, SHA256_PLAINTEXT_LENGTH * KPC, Pointer.to(saved_plain), 0, null, null);
+
+        // clEnqueueNDRangeKernel(commandQueue, kernel, 1, null, new long[] {n}, null, 0, null, null);
+        clEnqueueNDRangeKernel(command_queue, kernel, 1, null, global_work_size, local_work_size, 0, null, null);
+
+        // clFinish(command_queue);
+
+        // Read the output data
+        clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, Sizeof.cl_uint * SHA256_RESULT_SIZE, Pointer.to(partial_hashes), 0, null, null);
+
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        for(int i=0; i<SHA256_RESULT_SIZE; ++i) {
+            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(partial_hashes[i]), Endian.BIG);
         }
-        for (int i=0; i<expected.length; i++) {
-            float x = expected[i];
-            float y = actual[i];
-            boolean epsilonEqual = Math.abs(x - y) <= epsilon * Math.abs(x);
-            if (! epsilonEqual) {
-                return false;
-            }
-        }
-        return true;
+
+        return byteArrayBuilder.build();
     }
 
 }

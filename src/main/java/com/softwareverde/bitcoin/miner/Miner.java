@@ -37,6 +37,7 @@ public class Miner {
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    int lastHashesPerSecond = 2;
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
 
                     mutableBlock.setPreviousBlockHash(previousBlock.getHash());
@@ -57,13 +58,14 @@ public class Miner {
                             mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                         }
 
-                        if (nonce % 7777777 == 0) {
+                        if (nonce % (lastHashesPerSecond * 10) == 0) {
                             long hashCount = hashCounts.get(0).value + hashCounts.get(1).value + hashCounts.get(2).value;
 
                             final long now = System.currentTimeMillis();
                             final long elapsed = (now - startTime);
-                            final long hashesPerSecond = (hashCount / elapsed * 1000);
-                            System.out.println(hashesPerSecond + " h/s");
+                            final double hashesPerSecond = (((double) hashCount) / elapsed * 1000D);
+                            System.out.println(String.format("%.2f h/s", hashesPerSecond));
+                            lastHashesPerSecond = (int) hashesPerSecond;
                         }
 
                         isValidDifficulty = _isValidDifficulty(mutableBlock.getHash());

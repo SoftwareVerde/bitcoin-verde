@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
-import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -149,9 +148,13 @@ public class Main {
     }
 
     public Main(final String[] commandLineArguments) {
-//        final GpuSha256 gpuSha256 = new GpuSha256();
-//        gpuSha256.basicTest();
-//        _exitFailure();
+        final GpuSha256 gpuSha256 = new GpuSha256();
+        // final byte[] hash = gpuSha256.sha256(BitcoinUtil.hexStringToByteArray("315F5BDB76D078C43B8AC0064E4A0164612B1FCE77C869345BFC94C75894EDD3"));
+        final byte[] data = new byte[64];
+        for (int i=0; i<data.length; ++i) { data[i] = 0x41; }
+        final byte[] hash = gpuSha256.sha256(data);
+        System.out.println(BitcoinUtil.toHexString(hash));
+        _exitFailure();
 
         /*
             { // Create Private/Public Key:
@@ -170,7 +173,7 @@ public class Main {
             try {
                 final BlockInflater blockInflater = new BlockInflater();
 
-                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000074A872B30A68B2CD38D0D0E23E04B15A1D9BCA99314C36A8D25C78E3000000007DCE47CEB8FC469369F70F2BAEDF22B0377B691FBDF8426E367202FD021A58D25DE39D5AFFFF001DBAE88ADF01010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001E76A619001AF4440149EF4E3936D27C9F54A2AA4EC4F884E14F6B7D5488AC00000000"));
+                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000"));
 
                 final MutableBlock prototypeBlock = new MutableBlock();
                 {
