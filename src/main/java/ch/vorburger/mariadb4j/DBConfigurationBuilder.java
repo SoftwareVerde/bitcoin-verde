@@ -1,4 +1,4 @@
-/*package ch.vorburger.mariadb4j;
+package ch.vorburger.mariadb4j;
 
 public class DBConfigurationBuilder {
 
@@ -18,4 +18,3 @@ public class DBConfigurationBuilder {
 
     public String getURL(final String databaseName) { return null; }
 }
-*/

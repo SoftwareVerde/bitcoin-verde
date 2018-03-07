@@ -32,7 +32,7 @@ dependencies {
     compile group: 'com.github.softwareverde',  name: 'java-tls',       version: 'v0.1.0+'
     compile group: 'com.github.softwareverde',  name: 'java-async',     version: 'v0.2.0+'
     compile group: 'com.github.softwareverde',  name: 'java-db-mysql',  version: 'v2.1.1+'
-    compile group: 'com.github.softwareverde',  name: 'mariaDB4j',      version: 'master-SNAPSHOT'
+    // compile group: 'com.github.softwareverde',  name: 'mariaDB4j',      version: 'master-SNAPSHOT'
 
     // compile group: 'org.jogamp.jocl',           name: 'jocl',           version: '2.3.2'
 

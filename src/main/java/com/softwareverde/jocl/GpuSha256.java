@@ -1,12 +1,19 @@
 package com.softwareverde.jocl;
 
-import static org.jocl.CL.*;
-
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.IoUtil;
 import org.jocl.*;
+
+import java.security.InvalidParameterException;
+
+import static org.jocl.CL.*;
 
 /**
  * A basic vector addition test
@@ -104,10 +111,7 @@ public class GpuSha256 {
      */
     private static String programSource = IoUtil.getResource("/kernels/sha256_crypt_kernel.cl");
 
-    private static final int SHA256_PLAINTEXT_LENGTH = 64;
-    private static final int SHA256_RESULT_SIZE = 8;
-    private static final int KPC = 2048; // Unsure what this represents...
-    private static final int GLOBAL_WORK_SIZE = 1;
+    private static final int SHA256_BYTE_COUNT = 64;
 
     public void shutdown() {
         if (kernel != null) {
@@ -119,26 +123,40 @@ public class GpuSha256 {
         }
     }
 
-    public byte[] sha256(final byte[] input) {
-        int[] datai = new int[3];
-        datai[0] = SHA256_PLAINTEXT_LENGTH;
-        datai[1] = GLOBAL_WORK_SIZE;
-        datai[2] = input.length;
+    public List<Hash> sha256(final List<byte[]> inputs) {
+        final int inputsCount = inputs.getSize();
+        if (inputsCount == 0) { return new MutableList<Hash>(); }
 
-        final byte[] saved_plain = input;
+        final int inputLength = inputs.get(0).length;
+        final int GLOBAL_WORK_SIZE = inputsCount;
+
+        final byte[] saved_plain = new byte[inputLength * inputsCount];
+        for (int i=0; i<inputsCount; ++i) {
+            final byte[] bytes = inputs.get(i);
+            if (bytes.length != inputLength) { throw new InvalidParameterException("All input hashes must be the same length."); }
+
+            for (int j=0; j<inputLength; ++j) {
+                saved_plain[(i*inputLength) + j] = bytes[j];
+            }
+        }
+
+        final int INTEGERS_PER_HASH = (SHA256_BYTE_COUNT / Sizeof.cl_uint);
+
+        final int[] datai = new int[3];
+        datai[0] = INTEGERS_PER_HASH;
+        datai[1] = GLOBAL_WORK_SIZE;
+        datai[2] = inputLength;
 
         long[] global_work_size = new long[] { GLOBAL_WORK_SIZE };
         long[] local_work_size = new long[] { 1 };
 
-        int[] partial_hashes = new int[SHA256_RESULT_SIZE];
-
-        int buffer_size = (saved_plain.length + (SHA256_PLAINTEXT_LENGTH - (saved_plain.length % SHA256_PLAINTEXT_LENGTH)));
+        int[] partial_hashes = new int[INTEGERS_PER_HASH * GLOBAL_WORK_SIZE];
 
         // Allocate the memory objects for the input- and output data
         // cl_mem buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, (SHA256_PLAINTEXT_LENGTH * KPC), Pointer.to(saved_plain), null);
-        cl_mem buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, buffer_size, Pointer.to(saved_plain), null);
-        cl_mem buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY, Sizeof.cl_uint * SHA256_RESULT_SIZE, null, null);
-        cl_mem data_info = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, Sizeof.cl_uint * 3, Pointer.to(datai), null);
+        cl_mem buffer_keys = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, saved_plain.length, Pointer.to(saved_plain), null);
+        cl_mem buffer_out = clCreateBuffer(context, CL_MEM_WRITE_ONLY, Sizeof.cl_uint * partial_hashes.length, null, null);
+        cl_mem data_info = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, Sizeof.cl_uint * datai.length, Pointer.to(datai), null);
 
         // Set the arguments for the kernel
         clSetKernelArg(kernel, 0, Sizeof.cl_mem, Pointer.to(data_info));
@@ -155,14 +173,19 @@ public class GpuSha256 {
         // clFinish(command_queue);
 
         // Read the output data
-        clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, Sizeof.cl_uint * SHA256_RESULT_SIZE, Pointer.to(partial_hashes), 0, null, null);
+        clEnqueueReadBuffer(command_queue, buffer_out, CL_TRUE, 0, Sizeof.cl_uint * partial_hashes.length, Pointer.to(partial_hashes), 0, null, null);
 
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        for(int i=0; i<SHA256_RESULT_SIZE; ++i) {
-            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(partial_hashes[i]), Endian.BIG);
+        final MutableList<Hash> hashes = new MutableList<Hash>();
+        for (int i=0; i<inputsCount; ++i) {
+            final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+            for (int j = 0; j < INTEGERS_PER_HASH; ++j) {
+                byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(partial_hashes[(i * INTEGERS_PER_HASH) + j]), Endian.BIG);
+            }
+
+            hashes.add(new ImmutableHash(byteArrayBuilder.build()));
         }
 
-        return byteArrayBuilder.build();
+        return hashes;
     }
 
 }

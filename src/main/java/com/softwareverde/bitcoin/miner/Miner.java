@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.miner;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Container;
@@ -36,6 +37,8 @@ public class Miner {
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+
                     int lastHashesPerSecond = 2;
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
 
@@ -70,7 +73,12 @@ public class Miner {
                             lastHashesPerSecond = (int) hashesPerSecond;
                         }
 
-                        isValidDifficulty = _isValidDifficulty(mutableBlock.getHash());
+                        final Hash blockHash; // = mutableBlock.getHash();
+                        {
+                            final byte[] bytes = blockHeaderDeflater.toBytes(mutableBlock);
+                        }
+
+                        isValidDifficulty = _isValidDifficulty(blockHash);
                     }
 
                     if (isValidDifficulty) {

@@ -1,4 +1,4 @@
-/*package ch.vorburger.mariadb4j;
+package ch.vorburger.mariadb4j;
 
 import ch.vorburger.exec.ManagedProcessException;
 
@@ -15,4 +15,3 @@ public class DB {
 
     public void run(final String query, final String rootUsername, final String rootPassword) throws ManagedProcessException { }
 }
-*/

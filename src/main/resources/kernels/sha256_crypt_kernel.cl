@@ -42,14 +42,25 @@ uint gamma1(uint x) {
 }
 
 
-__kernel void sha256_crypt_kernel(__global uint *data_info,__global char *plain_key,  __global uint *digest){
+__kernel void sha256_crypt_kernel(__global uint* data_info, __global char* plain_keys,  __global uint* digests) {
   int t, gid, msg_pad;
   int stop, mmod;
   uint i, ulen, item, total;
   uint W[80], temp, A,B,C,D,E,F,G,H,T1,T2;
+  uint write_size = data_info[0];
   uint num_keys = data_info[1];
   int current_pad;
 
+  gid = get_global_id(0);
+
+  ulen = data_info[2];
+
+  int read_index = (ulen * gid);
+  int write_index = (ulen * gid * write_size);
+
+  // digests[write_index] = write_index;
+
+if (true) {
   uint K[64]={
 0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -63,30 +74,27 @@ __kernel void sha256_crypt_kernel(__global uint *data_info,__global char *plain_
 
   msg_pad=0;
 
-  ulen = data_info[2];
   total = ulen%64>=56?2:1 + ulen/64;
 
-//  printf("ulen: %u total:%u\n", ulen, total);
-
-  digest[0] = H0;
-  digest[1] = H1;
-  digest[2] = H2;
-  digest[3] = H3;
-  digest[4] = H4;
-  digest[5] = H5;
-  digest[6] = H6;
-  digest[7] = H7;
+  digests[write_index + 0] = H0;
+  digests[write_index + 1] = H1;
+  digests[write_index + 2] = H2;
+  digests[write_index + 3] = H3;
+  digests[write_index + 4] = H4;
+  digests[write_index + 5] = H5;
+  digests[write_index + 6] = H6;
+  digests[write_index + 7] = H7;
   for(item=0; item<total; item++)
   {
 
-    A = digest[0];
-    B = digest[1];
-    C = digest[2];
-    D = digest[3];
-    E = digest[4];
-    F = digest[5];
-    G = digest[6];
-    H = digest[7];
+    A = digests[write_index + 0];
+    B = digests[write_index + 1];
+    C = digests[write_index + 2];
+    D = digests[write_index + 3];
+    E = digests[write_index + 4];
+    F = digests[write_index + 5];
+    G = digests[write_index + 6];
+    H = digests[write_index + 7];
 
 #pragma unroll
     for (t = 0; t < 80; t++){
@@ -102,32 +110,30 @@ __kernel void sha256_crypt_kernel(__global uint *data_info,__global char *plain_
       current_pad =-1;
     }
 
-  //  printf("current_pad: %d\n",current_pad);
     if(current_pad>0)
     {
       i=current_pad;
 
       stop =  i/4;
-  //    printf("i:%d, stop: %d msg_pad:%d\n",i,stop, msg_pad);
       for (t = 0 ; t < stop ; t++){
-        W[t] = ((uchar)  plain_key[msg_pad + t * 4]) << 24;
-        W[t] |= ((uchar) plain_key[msg_pad + t * 4 + 1]) << 16;
-        W[t] |= ((uchar) plain_key[msg_pad + t * 4 + 2]) << 8;
-        W[t] |= (uchar)  plain_key[msg_pad + t * 4 + 3];
+        W[t] = ((uchar)  plain_keys[read_index + msg_pad + t * 4]) << 24;
+        W[t] |= ((uchar) plain_keys[read_index + msg_pad + t * 4 + 1]) << 16;
+        W[t] |= ((uchar) plain_keys[read_index + msg_pad + t * 4 + 2]) << 8;
+        W[t] |= (uchar)  plain_keys[read_index + msg_pad + t * 4 + 3];
         //printf("W[%u]: %u\n",t,W[t]);
       }
       mmod = i % 4;
       if ( mmod == 3){
-        W[t] = ((uchar)  plain_key[msg_pad + t * 4]) << 24;
-        W[t] |= ((uchar) plain_key[msg_pad + t * 4 + 1]) << 16;
-        W[t] |= ((uchar) plain_key[msg_pad + t * 4 + 2]) << 8;
+        W[t] = ((uchar)  plain_keys[read_index + msg_pad + t * 4]) << 24;
+        W[t] |= ((uchar) plain_keys[read_index + msg_pad + t * 4 + 1]) << 16;
+        W[t] |= ((uchar) plain_keys[read_index + msg_pad + t * 4 + 2]) << 8;
         W[t] |=  ((uchar) 0x80) ;
       } else if (mmod == 2) {
-        W[t] = ((uchar)  plain_key[msg_pad + t * 4]) << 24;
-        W[t] |= ((uchar) plain_key[msg_pad + t * 4 + 1]) << 16;
+        W[t] = ((uchar)  plain_keys[read_index + msg_pad + t * 4]) << 24;
+        W[t] |= ((uchar) plain_keys[read_index + msg_pad + t * 4 + 1]) << 16;
         W[t] |=  0x8000 ;
       } else if (mmod == 1) {
-        W[t] = ((uchar)  plain_key[msg_pad + t * 4]) << 24;
+        W[t] = ((uchar)  plain_keys[read_index + msg_pad + t * 4]) << 24;
         W[t] |=  0x800000 ;
       } else /*if (mmod == 0)*/ {
         W[t] =  0x80000000 ;
@@ -144,7 +150,6 @@ __kernel void sha256_crypt_kernel(__global uint *data_info,__global char *plain_
       if( ulen%64==0)
         W[0]=0x80000000;
       W[15]=ulen*8;
-      //printf("ulen avlue 3 :w[15] :%u\n", W[15]);
     }
 
     for (t = 0; t < 64; t++) {
@@ -154,20 +159,15 @@ __kernel void sha256_crypt_kernel(__global uint *data_info,__global char *plain_
       T2 = sigma0(A) + maj(A, B, C);
       H = G; G = F; F = E; E = D + T1; D = C; C = B; B = A; A = T1 + T2;
     }
-    digest[0] += A;
-    digest[1] += B;
-    digest[2] += C;
-    digest[3] += D;
-    digest[4] += E;
-    digest[5] += F;
-    digest[6] += G;
-    digest[7] += H;
-
-  //  for (t = 0; t < 80; t++)
-  //    {
-  //    printf("W[%d]: %u\n",t,W[t]);
-  //    }
+    digests[write_index + 0] += A;
+    digests[write_index + 1] += B;
+    digests[write_index + 2] += C;
+    digests[write_index + 3] += D;
+    digests[write_index + 4] += E;
+    digests[write_index + 5] += F;
+    digests[write_index + 6] += G;
+    digests[write_index + 7] += H;
   }
-
+}
 
 }
