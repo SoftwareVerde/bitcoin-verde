@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlo
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Assert;
@@ -47,10 +48,10 @@ public class ProtocolMessageTests {
         synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
 
         // Action
-        final byte[] serializedMessage = synchronizeVersionMessage.getBytes();
+        final ByteArray serializedMessage = synchronizeVersionMessage.getBytes();
 
         // Assert
-        TestUtil.assertMatchesMaskedHexString(expectedHexStringMask, serializedMessage);
+        TestUtil.assertMatchesMaskedHexString(expectedHexStringMask, serializedMessage.getBytes());
     }
 
     @Test

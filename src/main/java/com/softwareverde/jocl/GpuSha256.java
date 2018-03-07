@@ -28,6 +28,10 @@ public class GpuSha256 {
         return _instance;
     }
 
+    protected static class Buffer {
+
+    }
+
     protected static final int defaultPlatformIndex = 0;
     protected static final long defaultDeviceType = (~CL_DEVICE_TYPE_CPU); // CL_DEVICE_TYPE_GPU; // CL_DEVICE_TYPE_ALL;
     protected static final int defaultDeviceIndex = 0;
@@ -35,15 +39,17 @@ public class GpuSha256 {
     protected static final String programSource = IoUtil.getResource("/kernels/sha256_crypt_kernel.cl");
     protected static final int SHA256_BYTE_COUNT = 64;
 
-    protected static final int _maxBuffSize = 2048;
-    public static final int maxBatchSize = 40; // 1024 * 8;
+    protected static final int initialReadBufferByteCount = 128;
+    public static final int maxBatchSize = (1024 * 8);
+
+    protected static final int _readBufferByteCount = initialReadBufferByteCount;
 
     protected cl_context _context;
     protected cl_kernel _kernel;
     protected cl_command_queue[] _commandQueues;
 
     protected final int[] _metaData = new int[3];
-    protected final byte[] _readBuffer = new byte[_maxBuffSize * maxBatchSize];
+    protected final byte[] _readBuffer = new byte[_readBufferByteCount * maxBatchSize];
     protected final int[] _writeBuffer = new int[maxBatchSize * (SHA256_BYTE_COUNT / Sizeof.cl_uint)];
 
     protected final cl_mem _clMetaDataBuffer;

@@ -14,7 +14,7 @@ public class ImmutableListBuilder<T> {
         return immutableListBuilder.build();
     }
 
-    private java.util.List<T> _javaList;
+    private java.util.ArrayList<T> _javaList;
 
     public ImmutableListBuilder(final int size) {
         _javaList = new java.util.ArrayList<T>(size);
@@ -28,8 +28,21 @@ public class ImmutableListBuilder<T> {
         _javaList.add(item);
     }
 
+    public int getCount() {
+        return _javaList.size();
+    }
+
     public void addAll(final java.util.Collection<T> collection) {
         _javaList.addAll(collection);
+    }
+
+    public void addAll(final List<T> collection) {
+        final int newTotalSize = (_javaList.size() + collection.getSize());
+        _javaList.ensureCapacity(newTotalSize);
+
+        for (final T item : collection) {
+            _javaList.add(item);
+        }
     }
 
     public ImmutableList<T> build() {
