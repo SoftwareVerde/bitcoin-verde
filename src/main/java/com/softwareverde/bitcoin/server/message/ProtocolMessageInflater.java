@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -31,8 +33,8 @@ public abstract class ProtocolMessageInflater {
         final byte[] payload = byteArrayReader.peakBytes(protocolMessageHeader.payloadByteCount, Endian.BIG);
 
         { // Validate Checksum
-            final byte[] calculatedChecksum = ProtocolMessage.calculateChecksum(payload);
-            if (! ByteUtil.areEqual(protocolMessageHeader.payloadChecksum, calculatedChecksum)) {
+            final ByteArray calculatedChecksum = ProtocolMessage.calculateChecksum(new MutableByteArray(payload));
+            if (! ByteUtil.areEqual(protocolMessageHeader.payloadChecksum, calculatedChecksum.getBytes())) {
                 return null;
             }
         }

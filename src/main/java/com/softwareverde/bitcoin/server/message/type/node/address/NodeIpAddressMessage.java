@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.message.type.node.address;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -25,7 +27,7 @@ public class NodeIpAddressMessage extends ProtocolMessage {
     }
 
     @Override
-    protected byte[] _getPayload() {
+    protected ByteArray _getPayload() {
         final int networkAddressByteCount = NodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
         final int networkAddressCount = _nodeIpAddresses.size();
 
@@ -49,6 +51,6 @@ public class NodeIpAddressMessage extends ProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(addressCountBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(networkAddressesBytes, Endian.BIG);
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 }

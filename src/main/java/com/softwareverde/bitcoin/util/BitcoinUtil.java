@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.jocl.GpuSha256;
 import com.softwareverde.security.encoding.Base58;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
@@ -51,14 +52,11 @@ public class BitcoinUtil {
         }
     }
 
-//    private static final ThreadLocal<GpuSha256> _sha256Hashers = new ThreadLocal<GpuSha256>();
-    public static byte[] sha256(final byte[] data) {
-//        if (_sha256Hashers.get() == null) {
-//            final GpuSha256 gpuSha256 = new GpuSha256();
-//            _sha256Hashers.set(gpuSha256);
-//        }
-//        return _sha256Hashers.get().sha256(data);
+    public static ByteArray sha256(final ByteArray data) {
+        return new MutableByteArray(sha256(data.getBytes()));
+    }
 
+    public static byte[] sha256(final byte[] data) {
         try {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
             return messageDigest.digest(data);

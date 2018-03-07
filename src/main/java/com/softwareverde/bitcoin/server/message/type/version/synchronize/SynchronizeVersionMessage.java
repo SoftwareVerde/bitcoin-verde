@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -73,7 +75,7 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
     }
 
     @Override
-    protected byte[] _getPayload() {
+    protected ByteArray _getPayload() {
         final byte[] version            = new byte[4];
         final byte[] nodeFeatures       = new byte[8];
         final byte[] timestamp          = new byte[8];
@@ -113,6 +115,6 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(userAgent, Endian.BIG);
         byteArrayBuilder.appendBytes(currentBlockHeight, Endian.LITTLE);
         byteArrayBuilder.appendBytes(shouldRelay, Endian.LITTLE);
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 }

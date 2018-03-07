@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.message.type.query.response;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -31,12 +33,12 @@ public class QueryResponseMessage extends ProtocolMessage {
     }
 
     @Override
-    protected byte[] _getPayload() {
+    protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.size()), Endian.LITTLE);
         for (final DataHash dataHash : _dataHashes) {
             byteArrayBuilder.appendBytes(dataHash.getBytes(), Endian.BIG);
         }
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 }

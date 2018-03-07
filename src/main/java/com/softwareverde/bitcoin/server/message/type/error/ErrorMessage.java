@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.message.type.error;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -98,7 +100,7 @@ public class ErrorMessage extends ProtocolMessage {
     }
 
     @Override
-    protected byte[] _getPayload() {
+    protected ByteArray _getPayload() {
         final RejectMessageType rejectMessageType = _rejectCode.getRejectMessageType();
         final byte[] rejectedMessageTypeBytes = ByteUtil.variableLengthStringToBytes(rejectMessageType.getValue());
         final byte[] rejectMessageCodeBytes = new byte[]{ _rejectCode.getCode() };
@@ -110,6 +112,6 @@ public class ErrorMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(rejectMessageCodeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(rejectDescriptionBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(extraDataBytes, Endian.BIG); // TODO: Unsure if should be Big or Little endian...
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 }

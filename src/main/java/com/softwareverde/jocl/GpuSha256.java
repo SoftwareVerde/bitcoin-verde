@@ -29,7 +29,7 @@ public class GpuSha256 {
     }
 
     protected static final int defaultPlatformIndex = 0;
-    protected static final long defaultDeviceType = CL_DEVICE_TYPE_GPU; // CL_DEVICE_TYPE_ALL;
+    protected static final long defaultDeviceType = (~CL_DEVICE_TYPE_CPU); // CL_DEVICE_TYPE_GPU; // CL_DEVICE_TYPE_ALL;
     protected static final int defaultDeviceIndex = 0;
 
     protected static final String programSource = IoUtil.getResource("/kernels/sha256_crypt_kernel.cl");
@@ -39,8 +39,8 @@ public class GpuSha256 {
     public static final int maxBatchSize = 40; // 1024 * 8;
 
     protected cl_context _context;
-    protected cl_command_queue _commandQueue;
     protected cl_kernel _kernel;
+    protected cl_command_queue[] _commandQueues;
 
     protected final int[] _metaData = new int[3];
     protected final byte[] _readBuffer = new byte[_maxBuffSize * maxBatchSize];
@@ -75,7 +75,6 @@ public class GpuSha256 {
             final int numDevicesArray[] = new int[1];
             clGetDeviceIDs(platform, deviceType, 0, null, numDevicesArray);
             devicesCount = numDevicesArray[0];
-            System.out.println("Device Count: "+ devicesCount);
         }
 
         if (devicesCount == 0) {
@@ -83,13 +82,15 @@ public class GpuSha256 {
             return false;
         }
 
+
         final cl_device_id devices[] = new cl_device_id[devicesCount];
         clGetDeviceIDs(platform, deviceType, devicesCount, devices, null);
-        final cl_device_id device = devices[deviceIndex];
-
-        _context = clCreateContext(contextProperties, 1, new cl_device_id[]{ device }, null, null, null);
-
-        _commandQueue = clCreateCommandQueue(_context, device, 0, null);
+        _context = clCreateContext(contextProperties, devicesCount, devices, null, null, null);
+        _commandQueues = new cl_command_queue[devicesCount];
+        for (int i=0; i<devicesCount; ++i) {
+            final cl_device_id device = devices[i];
+            _commandQueues[i] = clCreateCommandQueue(_context, device, 0, null);
+        }
 
         return true;
     }
@@ -97,7 +98,6 @@ public class GpuSha256 {
     protected void _initKernel(final String kernelName, final String programSource) {
         final cl_program program = clCreateProgramWithSource(_context, 1, new String[]{ programSource }, null, null);
         clBuildProgram(program, 0, null, null, null, null);
-
         _kernel = clCreateKernel(program, kernelName, null);
         clReleaseProgram(program);
     }
@@ -117,7 +117,15 @@ public class GpuSha256 {
         }
     }
 
+    protected int _commandQueueIndex = 0;
+
     public List<Hash> sha256(final List<? extends ByteArray> inputs) {
+        final int commandQueueIndex;
+        synchronized (_mutex) {
+            commandQueueIndex = _commandQueueIndex;
+            _commandQueueIndex = (_commandQueueIndex + 1) % _commandQueues.length;
+        }
+
         final int inputsCount = inputs.getSize();
         if (inputsCount == 0) { return new MutableList<Hash>(); }
 
@@ -127,10 +135,6 @@ public class GpuSha256 {
         for (int i=0; i<inputsCount; ++i) {
             final byte[] bytes = inputs.get(i).getBytes();
             if (bytes.length != inputLength) { throw new IllegalArgumentException("All input hashes must be the same length."); }
-
-//            for (int j=0; j<inputLength; ++j) {
-//                readBuffer[(i*inputLength) + j] = bytes[j];
-//            }
             System.arraycopy(bytes, 0, readBuffer, (i * inputLength), inputLength);
         }
 
@@ -146,14 +150,14 @@ public class GpuSha256 {
 
         final int[] writeBuffer = new int[integersPerHash * inputsCount];
 
-        // synchronized (_mutex) {
-            clEnqueueWriteBuffer(_commandQueue, _clMetaDataBuffer, CL_TRUE, 0, Sizeof.cl_uint * 3, Pointer.to(metaData), 0, null, null);
-            clEnqueueWriteBuffer(_commandQueue, _clReadBuffer, CL_TRUE, 0, readBuffer.length, Pointer.to(readBuffer), 0, null, null);
-            clEnqueueNDRangeKernel(_commandQueue, _kernel, 1, null, globalWorkSize, localWorkSize, 0, null, null);
-            clEnqueueReadBuffer(_commandQueue, _clWriteBuffer, CL_TRUE, 0, Sizeof.cl_uint * writeBuffer.length, Pointer.to(writeBuffer), 0, null, null);
+        synchronized (_commandQueues[commandQueueIndex]) {
+            clFinish(_commandQueues[commandQueueIndex]);
 
-            clFinish(_commandQueue);
-        // }
+            clEnqueueWriteBuffer(_commandQueues[commandQueueIndex], _clMetaDataBuffer, CL_TRUE, 0, Sizeof.cl_uint * 3, Pointer.to(metaData), 0, null, null);
+            clEnqueueWriteBuffer(_commandQueues[commandQueueIndex], _clReadBuffer, CL_TRUE, 0, readBuffer.length, Pointer.to(readBuffer), 0, null, null);
+            clEnqueueNDRangeKernel(_commandQueues[commandQueueIndex], _kernel, 1, null, globalWorkSize, localWorkSize, 0, null, null);
+            clEnqueueReadBuffer(_commandQueues[commandQueueIndex], _clWriteBuffer, CL_TRUE, 0, Sizeof.cl_uint * writeBuffer.length, Pointer.to(writeBuffer), 0, null, null);
+        }
 
         final MutableList<Hash> hashes = new MutableList<Hash>();
         for (int i=0; i<inputsCount; ++i) {
@@ -173,8 +177,10 @@ public class GpuSha256 {
             clReleaseKernel(_kernel);
         }
 
-        if (_commandQueue != null) {
-            clReleaseCommandQueue(_commandQueue);
+        if (_commandQueues != null) {
+            for (int i=0; i<_commandQueues.length; ++i) {
+                clReleaseCommandQueue(_commandQueues[i]);
+            }
         }
     }
 }

@@ -15,9 +15,8 @@ import com.softwareverde.constable.util.ConstUtil;
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     private final List<ImmutableTransaction> _transactions;
 
-    protected ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
+    public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
-
         _transactions = ImmutableListBuilder.newConstListOfConstItems(transactions);
     }
 

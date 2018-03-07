@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 
 import java.io.IOException;
@@ -126,10 +127,10 @@ public class BitcoinSocket {
     }
 
     synchronized public void write(final ProtocolMessage outboundMessage) {
-        final byte[] bytes = outboundMessage.getBytes();
+        final ByteArray bytes = outboundMessage.getBytes();
 
         try {
-            _out.write(bytes);
+            _out.write(bytes.getBytes());
             _out.flush();
         }
         catch (final Exception e) {

@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.message.type.query.block;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
@@ -49,7 +51,7 @@ public class QueryBlocksMessage extends ProtocolMessage {
     }
 
     @Override
-    protected byte[] _getPayload() {
+    protected ByteArray _getPayload() {
         final int blockHeaderCount = _blockHeaderHashes.size();
         final int blockHeaderHashByteCount = 32;
 
@@ -68,6 +70,6 @@ public class QueryBlocksMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(_desiredBlockHeaderHash.getBytes(), Endian.LITTLE);
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 }

@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
@@ -54,12 +56,12 @@ public abstract class ProtocolMessage {
         }
     }
 
-    public static byte[] calculateChecksum(final byte[] payload) {
-        final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(payload));
-        final byte[] checksum = new byte[4];
+    public static ByteArray calculateChecksum(final ByteArray payload) {
+        final ByteArray fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(payload));
+        final MutableByteArray checksum = new MutableByteArray(4);
 
         for (int i = 0; i< CHECKSUM_BYTE_COUNT; ++i) {
-            checksum[i] = fullChecksum[i];
+            checksum.set(i, fullChecksum.getByte(i));
         }
 
         return checksum;
@@ -68,23 +70,23 @@ public abstract class ProtocolMessage {
     protected final byte[] _magicNumber = MAIN_NET_MAGIC_NUMBER;
     protected final MessageType _command;
 
-    protected abstract byte[] _getPayload();
+    protected abstract ByteArray _getPayload();
 
-    private byte[] _getBytes() {
-        final byte[] payload = _getPayload();
+    private ByteArray _getBytes() {
+        final ByteArray payload = _getPayload();
 
-        final byte[] payloadSizeBytes = ByteUtil.integerToBytes(payload.length);
-        final byte[] checksum = ProtocolMessage.calculateChecksum(payload);
+        final byte[] payloadSizeBytes = ByteUtil.integerToBytes(payload.getByteCount());
+        final ByteArray checksum = ProtocolMessage.calculateChecksum(payload);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         byteArrayBuilder.appendBytes(_magicNumber, Endian.LITTLE);
         byteArrayBuilder.appendBytes(_command.getBytes(), Endian.BIG);
         byteArrayBuilder.appendBytes(payloadSizeBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(checksum, Endian.BIG); // NOTICE: Bitcoin Cash wants the checksum to be big-endian.  Bitcoin Core documentation says little-endian.  Discovered via tcpdump on server.
-        byteArrayBuilder.appendBytes(payload, Endian.BIG);
+        byteArrayBuilder.appendBytes(checksum.getBytes(), Endian.BIG); // NOTICE: Bitcoin Cash wants the checksum to be big-endian.  Bitcoin Core documentation says little-endian.  Discovered via tcpdump on server.
+        byteArrayBuilder.appendBytes(payload.getBytes(), Endian.BIG);
 
-        return byteArrayBuilder.build();
+        return new MutableByteArray(byteArrayBuilder.build());
     }
 
     public ProtocolMessage(final MessageType command) {
@@ -100,10 +102,10 @@ public abstract class ProtocolMessage {
     }
 
     public byte[] getHeaderBytes() {
-        return ByteUtil.copyBytes(_getBytes(), 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT);
+        return ByteUtil.copyBytes(_getBytes().getBytes(), 0, ProtocolMessageHeaderParser.HEADER_BYTE_COUNT);
     }
 
-    public byte[] getBytes() {
+    public ByteArray getBytes() {
         return _getBytes();
     }
 }
