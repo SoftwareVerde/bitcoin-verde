@@ -30,17 +30,18 @@ public class Miner {
         final MutableList<Thread> threads = new MutableList<Thread>();
         final MutableList<Container<Long>> hashCounts = new MutableList<Container<Long>>();
 
-        final int hashesPerIteration = 1;
+        final int hashesPerIteration = GpuSha256.maxBatchSize;
 
-        final int THREAD_COUNT = 1;
+        final int THREAD_COUNT = 4;
         for (int i=0; i<THREAD_COUNT; ++i) {
             final Integer index = i;
             hashCounts.add(new Container<Long>(0L));
 
+            final GpuSha256 gpuSha256 = GpuSha256.getInstance();
+
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    final GpuSha256 gpuSha256 = new GpuSha256();
                     final BlockDeflater blockDeflater = new BlockDeflater();
                     final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
 
