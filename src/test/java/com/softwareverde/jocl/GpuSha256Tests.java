@@ -13,7 +13,7 @@ public class GpuSha256Tests {
     @Test
     public void should_hash_batch_correctly() {
         // Setup
-        final int totalHashCount = 1024 * 128;
+        final int totalHashCount = 1024 * 512;
         final int batchSize = GpuSha256.maxBatchSize;
 
         final GpuSha256 gpuSha256 = GpuSha256.getInstance();
@@ -27,7 +27,9 @@ public class GpuSha256Tests {
                 for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
                     mutableByteArray.set(j, (byte) i);
                 }
-                immutableListBuilder.add(BitcoinUtil.sha256(BitcoinUtil.sha256(mutableByteArray)));
+
+                final Hash hash = BitcoinUtil.sha256(BitcoinUtil.sha256(mutableByteArray));
+                immutableListBuilder.add(hash);
             }
             expectedValues = immutableListBuilder.build();
         }
@@ -50,7 +52,9 @@ public class GpuSha256Tests {
                 }
 
                 hashCount += hashBatchBuilder.getCount();
-                immutableListBuilder.addAll(gpuSha256.sha256(gpuSha256.sha256(hashBatchBuilder.build())));
+
+                final List<Hash> hashes = gpuSha256.sha256(gpuSha256.sha256(hashBatchBuilder.build()));
+                immutableListBuilder.addAll(hashes);
             }
 
             values = immutableListBuilder.build();
@@ -63,6 +67,7 @@ public class GpuSha256Tests {
 
         System.out.println("CPU Elapsed: "+ cpuElapsed + " (" + (((float) totalHashCount * 2F) / cpuElapsed * 1000) + " h/s)");
         System.out.println("GPU Elapsed: "+ gpuElapsed + " (" + (((float) totalHashCount * 2F) / gpuElapsed * 1000) + " h/s)");
+        System.out.println("Ratio: "+ ( ((float) cpuElapsed) / gpuElapsed ));
 
         Assert.assertEquals(expectedValues.getSize(), values.getSize());
 
