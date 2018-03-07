@@ -20,8 +20,8 @@ public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash
     }
 
     @Override
-    public byte[] toReversedEndian() {
-        return ByteUtil.reverseEndian(_bytes);
+    public Hash toReversedEndian() {
+        return new MutableHash(ByteUtil.reverseEndian(_bytes));
     }
 
     @Override

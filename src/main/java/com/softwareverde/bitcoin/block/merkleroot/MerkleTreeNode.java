@@ -20,8 +20,8 @@ public class MerkleTreeNode implements MerkleTree {
     protected static byte[] _calculateNodeHash(final Hash hash0, final Hash hash1) {
         final byte[] scratchSpace = _threadLocalScratchSpace.get();
 
-        ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian());
-        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian(), Hash.BYTE_COUNT);
+        ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian().getBytes());
+        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.BYTE_COUNT);
 
         return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
     }

@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 public interface Hash extends ByteArray {
     static final Integer BYTE_COUNT = 32;
 
-    byte[] toReversedEndian();
+    Hash toReversedEndian();
 
     @Override
     ImmutableHash asConst();

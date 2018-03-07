@@ -25,8 +25,8 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     @Override
-    public byte[] toReversedEndian() {
-        return ByteUtil.reverseEndian(_bytes);
+    public Hash toReversedEndian() {
+        return new MutableHash(ByteUtil.reverseEndian(_bytes));
     }
 
     public void setBytes(final byte[] bytes) {

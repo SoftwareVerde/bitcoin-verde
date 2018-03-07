@@ -23,6 +23,8 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -151,35 +153,36 @@ public class Main {
     }
 
     public Main(final String[] commandLineArguments) {
-        {
-            final GpuSha256 gpuSha256 = new GpuSha256();
-            // final byte[] data = gpuSha256.sha256(BitcoinUtil.hexStringToByteArray("315F5BDB76D078C43B8AC0064E4A0164612B1FCE77C869345BFC94C75894EDD3"));
-            // final byte[] data = new byte[64];
-            // for (int i=0; i<data.length; ++i) { data[i] = (byte) 0x41L; }
-            final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-            // byte[] data = BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000");
-            // final BlockHeader blockHeader = blockHeaderInflater.fromBytes(data);
-            // data = blockHeaderDeflater.toBytes(blockHeader);
+//        final GpuSha256 gpuSha256 = new GpuSha256();
+//
+//        final MutableList<ByteArray> items = new MutableList<ByteArray>();
+//        for (int i=0; i<32; ++i) {
+//            items.add(new ImmutableByteArray(new byte[]{ 0x00 }));
+//        }
+//        gpuSha256.sha256(gpuSha256.sha256(items));
+//        _exitFailure();
+//
+//        final long begin = System.currentTimeMillis();
+//        int count = 0;
+//        for (int j=0; j<1024*5; ++j) {
+//            final MutableList<ByteArray> inputs = new MutableList<ByteArray>();
+//            for (int i=0; i<1024; ++i) {
+//                inputs.add(new ImmutableByteArray(new byte[]{ (byte) i }));
+//            }
+//
+//            // final List<Hash> hashes = gpuSha256.sha256(gpuSha256.sha256(inputs));
+//            final List<Hash> hashes = gpuSha256.sha256(inputs);
+//
+////            for (final Hash hash : hashes) {
+////                System.out.println(BitcoinUtil.toHexString(hash));
+////            }
+//
+//            count += hashes.getSize();
+//        }
+//        final long end = System.currentTimeMillis();
+//        System.out.println((count / (end - begin) * 1000) + " h/s");
+//        _exitFailure();
 
-            // final byte[] hash = gpuSha256.sha256(gpuSha256.sha256(data));
-            final MutableList<byte[]> inputs = new MutableList<byte[]>();
-            inputs.add(new byte[]{ 0x21 });
-            inputs.add(new byte[]{ 0x22 });
-            inputs.add(new byte[]{ 0x23 });
-            inputs.add(new byte[]{ 0x24 });
-            inputs.add(new byte[]{ 0x25 });
-
-            final List<Hash> hashes = gpuSha256.sha256(inputs);
-            for (final Hash hash : hashes) {
-                System.out.println(BitcoinUtil.toHexString(hash));
-            }
-
-//            System.out.println(BitcoinUtil.toHexString(hash));
-//            System.out.println(BitcoinUtil.toHexString(BitcoinUtil.sha256(BitcoinUtil.sha256(data))));
-//            System.out.println(BitcoinUtil.toHexString(blockHeader.getHash().getBytes()));
-            _exitFailure();
-        }
 
 //        { // Create Private/Public Key:
 //            final BitcoinPrivateKey privateKey = BitcoinPrivateKey.createNewKey();
