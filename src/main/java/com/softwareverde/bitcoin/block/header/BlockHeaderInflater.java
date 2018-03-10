@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
@@ -34,6 +35,11 @@ public class BlockHeaderInflater {
     }
 
     public MutableBlockHeader fromBytes(final ByteArrayReader byteArrayReader) {
+        return _fromByteArrayReader(byteArrayReader);
+    }
+
+    public MutableBlockHeader fromBytes(final ByteArray byteArray) {
+        final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray.getBytes());
         return _fromByteArrayReader(byteArrayReader);
     }
 

@@ -44,8 +44,8 @@ public class TransactionSigner {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-            mutableTransactionInput.setPreviousTransactionOutputIndex(transactionInput.getPreviousTransactionOutputIndex());
-            mutableTransactionInput.setPreviousTransactionOutputHash(transactionInput.getPreviousTransactionOutputHash());
+            mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
+            mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
             final Script unlockingScript;
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);

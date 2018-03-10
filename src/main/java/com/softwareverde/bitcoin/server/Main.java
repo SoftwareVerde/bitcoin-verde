@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.type.address.Address;
@@ -12,7 +14,6 @@ import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
 import com.softwareverde.bitcoin.miner.Miner;
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -214,8 +215,8 @@ public class Main {
                     final MutableTransactionOutput coinbaseTransactionOutput = new MutableTransactionOutput();
                     final MutableTransaction coinbaseTransaction = new MutableTransaction();
                     {
-                        coinbaseTransactionInput.setPreviousTransactionOutputHash(new MutableHash());
-                        coinbaseTransactionInput.setPreviousTransactionOutputIndex(0);
+                        coinbaseTransactionInput.setPreviousOutputTransactionHash(new MutableHash());
+                        coinbaseTransactionInput.setPreviousOutputIndex(0);
                         coinbaseTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
                         coinbaseTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
 
@@ -234,14 +235,14 @@ public class Main {
                     final MutableTransactionOutput newTransactionOutput = new MutableTransactionOutput();
                     final MutableTransaction newTransaction = new MutableTransaction();
                     {
-                        newTransactionInput.setPreviousTransactionOutputHash(coinbaseTransaction.getHash());
-                        newTransactionInput.setPreviousTransactionOutputIndex(0);
+                        newTransactionInput.setPreviousOutputTransactionHash(coinbaseTransaction.getHash());
+                        newTransactionInput.setPreviousOutputIndex(0);
                         newTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
                         newTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
 
                         newTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
                         newTransactionOutput.setIndex(0);
-                        newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"));
+                        newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress(Address.fromPrivateKey(privateKey)));
 
                         newTransaction.setVersion(1);
                         newTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
@@ -251,14 +252,11 @@ public class Main {
                     }
 
                     final TransactionSigner transactionSigner = new TransactionSigner();
-                    // final Signature transactionSignature = transactionSigner.signTransaction(SignatureContext.signEntireTransaction(newTransaction), privateKey);
-                    // newTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(transactionSignature, privateKey.getPublicKey()));
-                    final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(null); // TODO: Requires DatabaseConnection.
-                    final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(newTransaction);
+                    final SignatureContext signatureContext = new SignatureContext(newTransaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL); {
+                        signatureContext.setShouldSignInput(0, true, coinbaseTransactionOutput);
+                        signatureContext.setShouldSignOutput(0, true);
+                    }
                     final Transaction newSignedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
-
-                    // Logger.log(BitcoinUtil.toHexString(coinbaseTransaction.getBytes()));
-                    // _exitFailure();
 
                     prototypeBlock.setVersion(1);
                     prototypeBlock.setPreviousBlockHash(previousBlock.getHash());
@@ -269,8 +267,12 @@ public class Main {
                     prototypeBlock.addTransaction(newSignedTransaction);
                 }
 
-                final Miner miner = new Miner();
-                miner.mineBlock(previousBlock, prototypeBlock);
+                final Miner miner = new Miner(4, 0);
+                final Block block = miner.mineBlock(prototypeBlock);
+
+                final BlockDeflater blockDeflater = new BlockDeflater();
+                Logger.log(block.getHash());
+                Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
             }
             catch (final Exception exception) {
                 exception.printStackTrace();

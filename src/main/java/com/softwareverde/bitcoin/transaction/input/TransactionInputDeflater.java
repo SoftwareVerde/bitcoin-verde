@@ -30,13 +30,13 @@ public class TransactionInputDeflater {
         ByteUtil.setBytes(sequenceBytes, ByteUtil.integerToBytes(transactionInput.getSequenceNumber()));
 
         final byte[] indexBytes = new byte[4];
-        ByteUtil.setBytes(indexBytes, ByteUtil.integerToBytes(transactionInput.getPreviousTransactionOutputIndex()));
+        ByteUtil.setBytes(indexBytes, ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()));
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         final byte[] unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
 
-        byteArrayBuilder.appendBytes(transactionInput.getPreviousTransactionOutputHash().getBytes(), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(transactionInput.getPreviousOutputTransactionHash().getBytes(), Endian.LITTLE);
         byteArrayBuilder.appendBytes(indexBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.length), Endian.BIG);
         byteArrayBuilder.appendBytes(unlockingScriptBytes, Endian.BIG);

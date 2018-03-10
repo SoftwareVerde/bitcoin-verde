@@ -33,8 +33,8 @@ public class SignatureContextGenerator {
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final Long transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionInput.getPreviousTransactionOutputHash());
-            final Long transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousTransactionOutputIndex());
+            final Long transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionInput.getPreviousOutputTransactionHash());
+            final Long transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 
             signatureContext.setShouldSignInput(i, true, transactionOutput);

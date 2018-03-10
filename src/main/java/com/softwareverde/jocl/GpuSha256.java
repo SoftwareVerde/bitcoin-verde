@@ -11,9 +11,11 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.IoUtil;
-import org.jocl.*;
 
+
+import org.jocl.*;
 import static org.jocl.CL.*;
+// import static org.jocl.Jocl.*;
 
 public class GpuSha256 {
     protected static final Object _mutex = new Object();

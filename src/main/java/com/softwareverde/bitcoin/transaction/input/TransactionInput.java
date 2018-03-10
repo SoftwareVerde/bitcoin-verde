@@ -7,8 +7,8 @@ import com.softwareverde.constable.Constable;
 public interface TransactionInput extends Constable<ImmutableTransactionInput> {
     static final Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
 
-    Hash getPreviousTransactionOutputHash();
-    Integer getPreviousTransactionOutputIndex();
+    Hash getPreviousOutputTransactionHash();
+    Integer getPreviousOutputIndex();
     Script getUnlockingScript();
     Long getSequenceNumber();
 

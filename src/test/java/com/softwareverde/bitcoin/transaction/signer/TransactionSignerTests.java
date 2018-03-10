@@ -40,8 +40,8 @@ public class TransactionSignerTests {
         transactionOutputBeingSpent.setLockingScript(outputBeingSpentLockingScript);
 
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
-        transactionInput.setPreviousTransactionOutputHash(new ImmutableHash(BitcoinUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
-        transactionInput.setPreviousTransactionOutputIndex(1);
+        transactionInput.setPreviousOutputTransactionHash(new ImmutableHash(BitcoinUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
+        transactionInput.setPreviousOutputIndex(1);
         transactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
         transactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
         final MutableTransaction transaction = new MutableTransaction();

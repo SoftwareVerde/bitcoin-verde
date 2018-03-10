@@ -49,8 +49,8 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected TransactionInput _createCoinbaseTransactionInput() {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setPreviousTransactionOutputHash(new MutableHash());
-        mutableTransactionInput.setPreviousTransactionOutputIndex(0);
+        mutableTransactionInput.setPreviousOutputTransactionHash(new MutableHash());
+        mutableTransactionInput.setPreviousOutputIndex(0);
         mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").build());
         return mutableTransactionInput;
@@ -58,8 +58,8 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected MutableTransactionInput _createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setPreviousTransactionOutputHash(transactionToSpend.getHash());
-        mutableTransactionInput.setPreviousTransactionOutputIndex(0);
+        mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
+        mutableTransactionInput.setPreviousOutputIndex(0);
         mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
         return mutableTransactionInput;

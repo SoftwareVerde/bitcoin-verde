@@ -5,11 +5,13 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -52,7 +54,7 @@ public class TransactionValidator {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
-            final BlockValidator.TransactionOutputIdentifier unspentOutputToSpendIdentifier = new BlockValidator.TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutputHash(), transactionInput.getPreviousTransactionOutputIndex());
+            final BlockValidator.TransactionOutputIdentifier unspentOutputToSpendIdentifier = new BlockValidator.TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
             final TransactionOutput outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
             if (outputToSpend == null) { return false; }
 
@@ -64,7 +66,11 @@ public class TransactionValidator {
             context.setTransactionInputIndex(i);
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            if (! inputIsUnlocked) { return false; }
+            if (! inputIsUnlocked) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                Logger.log("Transaction failed to verify: "+ BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                return false;
+            }
         }
 
         return true;

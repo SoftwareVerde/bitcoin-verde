@@ -72,8 +72,8 @@ public class BlockValidator {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         for (final TransactionInput transactionInput : transactionInputs) {
-            final Hash outputTransactionHash = transactionInput.getPreviousTransactionOutputHash();
-            final Integer transactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
+            final Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
 
             final TransactionOutput transactionOutput;
             {
