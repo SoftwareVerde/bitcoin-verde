@@ -9,10 +9,10 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 public class ComparisonOperation extends Operation {
     public static final Type TYPE = Type.OP_COMPARISON;
 
-    public static ComparisonOperation fromScript(final ScriptReader script) {
-        if (! script.hasNextByte()) { return null; }
+    protected static ComparisonOperation fromScriptReader(final ScriptReader scriptReader) {
+        if (! scriptReader.hasNextByte()) { return null; }
 
-        final byte opcodeByte = script.getNextByte();
+        final byte opcodeByte = scriptReader.getNextByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
@@ -132,5 +132,16 @@ public class ComparisonOperation extends Operation {
             case IS_WITHIN_RANGE:
             default: { return false; }
         }
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof ComparisonOperation)) { return false ;}
+        if (! super.equals(object)) { return false; }
+
+        final ComparisonOperation operation = (ComparisonOperation) object;
+        if (operation._subType != _subType) { return false; }
+
+        return true;
     }
 }

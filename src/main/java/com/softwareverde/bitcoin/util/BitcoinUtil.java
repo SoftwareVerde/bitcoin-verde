@@ -1,10 +1,8 @@
 package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.jocl.GpuSha256;
 import com.softwareverde.security.encoding.Base58;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
@@ -84,33 +82,6 @@ public class BitcoinUtil {
         return Base58.decode(base58String);
     }
 
-    public static byte[] calculateChecksummedKey(final Byte addressPrefix, final byte[] keyData) {
-        final Integer prefixByteCount = (addressPrefix == null ? 0 : 1);
-        final Integer checksumByteCount = 4;
-
-        final byte[] base58CheckEncoded = new byte[prefixByteCount + keyData.length + checksumByteCount];
-        final byte[] versionPayload = new byte[prefixByteCount + keyData.length];
-        {
-            if (addressPrefix != null) {
-                base58CheckEncoded[0] = addressPrefix;
-                versionPayload[0] = addressPrefix;
-            }
-            for (int i = 0; i < keyData.length; ++i) {
-                versionPayload[prefixByteCount + i] = keyData[i];
-                base58CheckEncoded[prefixByteCount + i] = keyData[i];
-            }
-        }
-
-        { // Calculate the checksum...
-            final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(versionPayload));
-            for (int i = 0; i < checksumByteCount; ++i) {
-                base58CheckEncoded[prefixByteCount + keyData.length + i] = fullChecksum[i];
-            }
-        }
-
-        return base58CheckEncoded;
-    }
-
     public static String reverseEndianString(final String string) {
         final int charCount = string.length();
         final char[] reverseArray = new char[charCount];
@@ -149,4 +120,5 @@ public class BitcoinUtil {
     }
 
     protected BitcoinUtil() { }
+
 }

@@ -1,13 +1,12 @@
 package com.softwareverde.bitcoin.transaction.output;
 
-import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.Const;
 
 public class ImmutableTransactionOutput implements TransactionOutput, Const {
     protected final Long _amount;
     protected final Integer _index;
-    protected final ImmutableScript _lockingScript;
+    protected final LockingScript _lockingScript;
 
     public ImmutableTransactionOutput(final TransactionOutput transactionOutput) {
         _amount = transactionOutput.getAmount();
@@ -26,7 +25,7 @@ public class ImmutableTransactionOutput implements TransactionOutput, Const {
     }
 
     @Override
-    public Script getLockingScript() {
+    public LockingScript getLockingScript() {
         return _lockingScript;
     }
 

@@ -29,7 +29,7 @@ public class Miner {
         final MutableList<Thread> threads = new MutableList<Thread>();
         final MutableList<Container<Long>> hashCounts = new MutableList<Container<Long>>();
 
-        final int GPU_THREAD_COUNT = 2;
+        final int GPU_THREAD_COUNT = 0;
         final int THREAD_COUNT = 4;
 
         final Runnable hashCountPrinter = new Runnable() {

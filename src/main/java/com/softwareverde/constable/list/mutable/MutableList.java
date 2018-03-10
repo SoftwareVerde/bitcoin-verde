@@ -26,6 +26,10 @@ public class MutableList<T> implements List<T> {
         _items.add(item);
     }
 
+    public void set(final int index, final T item) {
+        _items.set(index, item);
+    }
+
     public void addAll(final List<T> items) {
         // TODO: Improve the performance of this, since ArrayList.add() can't intelligently grow...
         for (final T item : items) {

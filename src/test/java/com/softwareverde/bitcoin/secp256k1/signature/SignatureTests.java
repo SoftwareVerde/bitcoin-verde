@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import org.junit.Test;
 
@@ -13,8 +14,8 @@ public class SignatureTests {
         final Signature signature = new Signature(r, s);
 
         // Action
-        final byte[] asDer = signature.encodeAsDer();
-        final Signature signatureCopy = Signature.fromBytes(asDer);
+        final ByteArray asDer = signature.encodeAsDer();
+        final Signature signatureCopy = Signature.fromBytes(asDer.getBytes());
 
         // Assert
         TestUtil.assertEqual(r, signatureCopy.getR());

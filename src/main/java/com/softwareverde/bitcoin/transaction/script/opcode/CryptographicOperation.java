@@ -9,15 +9,16 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 
 public class CryptographicOperation extends Operation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
 
-    public static CryptographicOperation fromScript(final ScriptReader script) {
-        if (! script.hasNextByte()) { return null; }
+    protected static CryptographicOperation fromScriptReader(final ScriptReader scriptReader) {
+        if (! scriptReader.hasNextByte()) { return null; }
 
-        final byte opcodeByte = script.getNextByte();
+        final byte opcodeByte = scriptReader.getNextByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
@@ -95,12 +96,16 @@ public class CryptographicOperation extends Operation {
                 final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
                 final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
 
+                final PublicKey publicKey = new PublicKey(publicKeyValue.getBytes());
+
                 final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(transaction, transactionInputIndexBeingSigned, transactionOutputBeingSpent);
-                final Boolean signatureIsValid = transactionSigner.isSignatureValid(signatureContext, publicKeyValue.getBytes(), scriptSignature);
+                final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
+                signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
+                final Boolean signatureIsValid = transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
 
                 if (_subType == SubType.CHECK_SIGNATURE_THEN_VERIFY) {
                     if (! signatureIsValid) { return false; }
+                    return (! stack.didOverflow());
                 }
 
                 stack.push(Value.fromBoolean(signatureIsValid));
@@ -117,5 +122,16 @@ public class CryptographicOperation extends Operation {
 
             default: { return false; }
         }
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof CryptographicOperation)) { return false ;}
+        if (! super.equals(object)) { return false; }
+
+        final CryptographicOperation operation = (CryptographicOperation) object;
+        if (operation._subType != _subType) { return false; }
+
+        return true;
     }
 }

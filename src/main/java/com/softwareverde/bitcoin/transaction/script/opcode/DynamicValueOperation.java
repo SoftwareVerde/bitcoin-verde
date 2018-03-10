@@ -8,10 +8,10 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 public class DynamicValueOperation extends Operation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
 
-    public static DynamicValueOperation fromScript(final ScriptReader script) {
-        if (! script.hasNextByte()) { return null; }
+    protected static DynamicValueOperation fromScriptReader(final ScriptReader scriptReader) {
+        if (! scriptReader.hasNextByte()) { return null; }
 
-        final byte opcodeByte = script.getNextByte();
+        final byte opcodeByte = scriptReader.getNextByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
@@ -86,5 +86,16 @@ public class DynamicValueOperation extends Operation {
 
             default: { return false; }
         }
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof DynamicValueOperation)) { return false ;}
+        if (! super.equals(object)) { return false; }
+
+        final DynamicValueOperation operation = (DynamicValueOperation) object;
+        if (operation._subType != _subType) { return false; }
+
+        return true;
     }
 }

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.io.Logger;
@@ -17,12 +18,13 @@ public class ScriptRunner {
     public Boolean runScript(final Script lockingScript, final Script unlockingScript, final Context context) {
         final ScriptReader lockingScriptReader = new ScriptReader(lockingScript);
         final ScriptReader unlockingScriptReader = new ScriptReader(unlockingScript);
+        final OperationInflater operationInflater = new OperationInflater();
 
         final Stack stack = new Stack();
 
         try {
             while (unlockingScriptReader.hasNextByte()) {
-                final Operation opcode = Operation.fromScript(unlockingScriptReader); // TODO: Change to inflater...
+                final Operation opcode = operationInflater.fromScriptReader(unlockingScriptReader);
                 if (opcode == null) { return false; }
 
                 final Boolean wasSuccessful = opcode.applyTo(stack, context);
@@ -30,7 +32,7 @@ public class ScriptRunner {
             }
 
             while (lockingScriptReader.hasNextByte()) {
-                final Operation opcode = Operation.fromScript(lockingScriptReader); // TODO: Change to inflater...
+                final Operation opcode = operationInflater.fromScriptReader(lockingScriptReader);
                 if (opcode == null) { return false; }
 
                 final Boolean wasSuccessful = opcode.applyTo(stack, context);

@@ -10,10 +10,10 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 public class PushOperation extends Operation {
     public static final Type TYPE = Type.OP_PUSH;
 
-    public static PushOperation fromScript(final ScriptReader script) {
-        if (! script.hasNextByte()) { return null; }
+    protected static PushOperation fromScriptReader(final ScriptReader scriptReader) {
+        if (! scriptReader.hasNextByte()) { return null; }
 
-        final byte opcodeByte = script.getNextByte();
+        final byte opcodeByte = scriptReader.getNextByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
@@ -43,31 +43,31 @@ public class PushOperation extends Operation {
             // Interprets the opcode's value as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA: {
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
-                value = Value.fromBytes(script.getNextBytes(byteCount));
+                value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 
             // Interprets the next byte as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_BYTE: {
-                final int byteCount = ByteUtil.byteToInteger(script.getNextByte());
-                value = Value.fromBytes(script.getNextBytes(byteCount));
+                final int byteCount = ByteUtil.byteToInteger(scriptReader.getNextByte());
+                value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_SHORT: {
-                final int byteCount = ByteUtil.bytesToInteger(script.getNextBytes(2));
-                value = Value.fromBytes(script.getNextBytes(byteCount));
+                final int byteCount = ByteUtil.bytesToInteger(scriptReader.getNextBytes(2));
+                value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_INTEGER: {
-                final int byteCount = ByteUtil.bytesToInteger(script.getNextBytes(4));
-                value = Value.fromBytes(script.getNextBytes(byteCount));
+                final int byteCount = ByteUtil.bytesToInteger(scriptReader.getNextBytes(4));
+                value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 
             default: { return null; }
         }
 
-        if (script.didOverflow()) { return null; }
+        if (scriptReader.didOverflow()) { return null; }
 
         return new PushOperation(opcodeByte, value);
     }
@@ -86,6 +86,17 @@ public class PushOperation extends Operation {
     @Override
     public Boolean applyTo(final Stack stack, final Context context) {
         stack.push(_value);
+        return true;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof PushOperation)) { return false ;}
+        if (! super.equals(object)) { return false; }
+
+        final PushOperation operation = (PushOperation) object;
+        if (! (_value.equals(operation._value))) { return false; }
+
         return true;
     }
 

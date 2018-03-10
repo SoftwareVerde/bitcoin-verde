@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 
-public class Value {
+public class Value extends ImmutableByteArray implements Const {
     public static Value fromInteger(final Integer integerValue) {
         final byte[] bytes = new byte[4];
         ByteUtil.setBytes(bytes, ByteUtil.integerToBytes(integerValue));
@@ -19,10 +21,8 @@ public class Value {
         return new Value(bytes);
     }
 
-    protected byte[] _bytes;
-
     protected Value(final byte[] bytes) {
-        _bytes = ByteUtil.copyBytes(bytes);
+        super(bytes);
     }
 
     public Integer asInteger() {
@@ -44,7 +44,8 @@ public class Value {
         return ScriptSignature.fromBytes(ByteUtil.copyBytes(_bytes));
     }
 
-    public byte[] getBytes() {
-        return ByteUtil.copyBytes(_bytes);
+    @Override
+    public Value asConst() {
+        return this;
     }
 }

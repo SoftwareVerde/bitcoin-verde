@@ -7,11 +7,9 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -25,6 +23,7 @@ import java.util.Map;
 
 public class BlockValidator {
     protected final BlockDatabaseManager _blockDatabaseManager;
+    protected final TransactionValidator _transactionValidator;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
@@ -108,38 +107,12 @@ public class BlockValidator {
         return (totalOutputValue <= totalInputValue);
     }
 
-    protected Boolean _validateTransactionInputsAreUnlocked(final Transaction transaction) {
-        final ScriptRunner scriptRunner = new ScriptRunner();
-
-        final Context context = new Context();
-        context.setTransaction(transaction);
-
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
-            final TransactionInput transactionInput = transactionInputs.get(i);
-            final TransactionOutput transactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(transactionInput.getPreviousTransactionOutputHash(), transactionInput.getPreviousTransactionOutputIndex()));
-            if (transactionOutput == null) { return false; }
-
-            final Script lockingScript = transactionOutput.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
-
-            context.setTransactionInput(transactionInput);
-            context.setTransactionOutput(transactionOutput);
-            context.setTransactionInputIndex(i);
-
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            if (! inputIsUnlocked) { return false; }
-        }
-
-        return true;
-    }
-
     public BlockValidator(final MysqlDatabaseConnection databaseConnection) {
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        _transactionValidator = new TransactionValidator(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
         _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
-
     }
 
     public Boolean validateBlock(final Block block) {
@@ -159,7 +132,7 @@ public class BlockValidator {
                 return false;
             }
 
-            final Boolean transactionInputsAreUnlocked = _validateTransactionInputsAreUnlocked(blockTransaction);
+            final Boolean transactionInputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(blockTransaction);
             if (! transactionInputsAreUnlocked) {
                 Logger.log("BLOCK VALIDATION: Failed because of invalid transaction.");
                 Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));

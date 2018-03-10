@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -213,29 +212,6 @@ public abstract class Operation {
         }
     }
 
-    public static Operation fromScript(final ScriptReader script) {
-        if (! script.hasNextByte()) { return null; }
-
-        final Type type = Type.getType(script.peakNextByte());
-        if (type == null) { return null; }
-
-        switch (type) {
-            case OP_PUSH: { return PushOperation.fromScript(script); }
-            case OP_DYNAMIC_VALUE: { return DynamicValueOperation.fromScript(script); }
-            case OP_CONTROL:
-            case OP_STACK:
-            case OP_STRING:
-            case OP_BITWISE:
-            case OP_COMPARISON: { return ComparisonOperation.fromScript(script); }
-            case OP_ARITHMETIC:
-            case OP_CRYPTOGRAPHIC: { return CryptographicOperation.fromScript(script); }
-            case OP_LOCK_TIME:
-            case OP_NO_OPERATION:
-
-            default: return null;
-        }
-    }
-
     protected final byte _opcodeByte;
     protected final Type _type;
 
@@ -253,6 +229,17 @@ public abstract class Operation {
     }
 
     public abstract Boolean applyTo(final Stack stack, final Context context) throws ScriptOperationExecutionException;
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof Operation)) { return false ;}
+        final Operation operation = (Operation) object;
+        if (operation._type != _type) { return false; }
+        if (operation._opcodeByte != _opcodeByte) { return false; }
+
+        return true;
+    }
 
     @Override
     public String toString() {

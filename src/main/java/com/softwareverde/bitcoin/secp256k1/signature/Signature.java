@@ -1,11 +1,15 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
+import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.Const;
+import com.softwareverde.constable.Constable;
 
-public class Signature {
+public class Signature implements Const, Constable<Signature> {
     protected static final Byte DER_MAGIC_NUMBER = 0x30;
     protected static final Byte DER_INTEGER_TYPE = 0x02;
 
@@ -45,7 +49,7 @@ public class Signature {
     }
 
     protected final byte[] _r;
-    protected final byte[]  _s;
+    protected final byte[] _s;
 
     public Signature(final byte[] r, final byte[]  s) {
         _r = ByteUtil.copyBytes(r);
@@ -60,7 +64,7 @@ public class Signature {
         return ByteUtil.copyBytes(_s);
     }
 
-    public byte[] encodeAsDer() {
+    public ByteArray encodeAsDer() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte(DER_MAGIC_NUMBER);
 
@@ -75,6 +79,11 @@ public class Signature {
         byteArrayBuilder.appendByte((byte) _s.length);
         byteArrayBuilder.appendBytes(_s, Endian.BIG);
 
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    @Override
+    public Signature asConst() {
+        return this;
     }
 }

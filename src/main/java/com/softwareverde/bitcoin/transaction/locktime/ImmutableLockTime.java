@@ -8,12 +8,12 @@ public class ImmutableLockTime implements LockTime, Const {
     private final Long _lockTime;
 
     protected static Type _getType(final Long lockTime) {
-        return ((lockTime < MAX_BLOCK_HEIGHT) ? Type.TIMESTAMP : Type.BLOCK_HEIGHT);
+        return ((lockTime < MAX_BLOCK_HEIGHT_VALUE) ? Type.TIMESTAMP : Type.BLOCK_HEIGHT);
     }
 
     public ImmutableLockTime() {
-        _lockTime = MIN_TIMESTAMP;
-        _type = _getType(MIN_TIMESTAMP);
+        _lockTime = MIN_TIMESTAMP_VALUE;
+        _type = _getType(MIN_TIMESTAMP_VALUE);
     }
 
     public ImmutableLockTime(final Long value) {

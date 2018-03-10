@@ -1,8 +1,23 @@
 package com.softwareverde.bitcoin.transaction.script.reader;
 
+import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
 public class ScriptReader {
+    public static List<Operation> getOperationList(final Script script) {
+        final OperationInflater operationInflater = new OperationInflater();
+        final ImmutableListBuilder<Operation> immutableListBuilder = new ImmutableListBuilder<Operation>();
+        final ScriptReader scriptReader = new ScriptReader(script);
+        while (scriptReader.hasNextByte()) {
+            final Operation opcode = operationInflater.fromScriptReader(scriptReader);
+            immutableListBuilder.add(opcode);
+        }
+        return immutableListBuilder.build();
+    }
+
     protected final Script _script;
     protected int _index = 0;
     protected boolean _didOverflow = false;

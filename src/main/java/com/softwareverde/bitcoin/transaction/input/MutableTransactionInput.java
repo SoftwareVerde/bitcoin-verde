@@ -13,6 +13,13 @@ public class MutableTransactionInput implements TransactionInput {
 
     public MutableTransactionInput() { }
 
+    public MutableTransactionInput(final TransactionInput transactionInput) {
+        _previousTransactionOutputHash = transactionInput.getPreviousTransactionOutputHash().asConst();
+        _previousTransactionOutputIndex = transactionInput.getPreviousTransactionOutputIndex();
+        _unlockingScript = transactionInput.getUnlockingScript().asConst();
+        _sequenceNumber = transactionInput.getSequenceNumber();
+    }
+
     @Override
     public Hash getPreviousTransactionOutputHash() { return _previousTransactionOutputHash; }
     public void setPreviousTransactionOutputHash(final Hash previousTransactionOutputHash) {

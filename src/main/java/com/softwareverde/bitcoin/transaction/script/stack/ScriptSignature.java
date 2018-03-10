@@ -33,6 +33,7 @@ public class ScriptSignature {
 
         final byte hashTypeByte = bytes[bytes.length - 1];
         final HashType hashType = HashType.fromByte(hashTypeByte);
+        if (hashType == null) { return null; }
 
         return new ScriptSignature(ecdsaSignature, hashType);
     }
@@ -40,7 +41,7 @@ public class ScriptSignature {
     protected final HashType _hashType;
     protected final Signature _signature;
 
-    protected ScriptSignature(final Signature signature, final HashType hashType) {
+    public ScriptSignature(final Signature signature, final HashType hashType) {
         _signature = signature;
         _hashType = hashType;
     }

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
@@ -30,6 +31,21 @@ public class MutableTransaction implements Transaction {
 
     public MutableTransaction() { }
 
+    public MutableTransaction(final Transaction transaction) {
+        _version = transaction.getVersion();
+        _hasWitnessData = transaction.hasWitnessData();
+
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            _transactionInputs.add(transactionInput.asConst());
+        }
+
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+            _transactionOutputs.add(transactionOutput.asConst());
+        }
+
+        _lockTime = transaction.getLockTime().asConst();
+    }
+
     @Override
     public Hash getHash() {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
@@ -50,15 +66,27 @@ public class MutableTransaction implements Transaction {
     public final List<TransactionInput> getTransactionInputs() {
         return _transactionInputs;
     }
-    public void addTransactionInput(final TransactionInput transactionInput) { _transactionInputs.add(new ImmutableTransactionInput(transactionInput)); }
+    public void addTransactionInput(final TransactionInput transactionInput) {
+        _transactionInputs.add(transactionInput);
+    }
     public void clearTransactionInputs() { _transactionInputs.clear(); }
+
+    public void setTransactionInput(final Integer index, final TransactionInput transactionInput) {
+        _transactionInputs.set(index, transactionInput.asConst());
+    }
 
     @Override
     public final List<TransactionOutput> getTransactionOutputs() {
         return _transactionOutputs;
     }
-    public void addTransactionOutput(final TransactionOutput transactionOutput) { _transactionOutputs.add(new ImmutableTransactionOutput(transactionOutput)); }
+    public void addTransactionOutput(final TransactionOutput transactionOutput) {
+        _transactionOutputs.add(transactionOutput);
+    }
     public void clearTransactionOutputs() { _transactionOutputs.clear(); }
+
+    public void setTransactionOutput(final Integer index, final TransactionOutput transactionOutput) {
+        _transactionOutputs.set(index, transactionOutput.asConst());
+    }
 
     @Override
     public LockTime getLockTime() { return _lockTime; }
