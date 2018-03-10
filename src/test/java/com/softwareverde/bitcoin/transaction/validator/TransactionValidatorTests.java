@@ -39,6 +39,44 @@ public class TransactionValidatorTests extends IntegrationTest {
         return blockDatabaseManager.getBlockIdFromHash(block.getHash());
     }
 
+    protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress) {
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+        transactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+        transactionOutput.setIndex(0);
+        transactionOutput.setLockingScript((ScriptBuilder.payToAddress(payToAddress)));
+        return transactionOutput;
+    }
+
+    protected TransactionInput _createCoinbaseTransactionInput() {
+        final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+        mutableTransactionInput.setPreviousTransactionOutputHash(new MutableHash());
+        mutableTransactionInput.setPreviousTransactionOutputIndex(0);
+        mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").build());
+        return mutableTransactionInput;
+    }
+
+    protected MutableTransactionInput _createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
+        final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+        mutableTransactionInput.setPreviousTransactionOutputHash(transactionToSpend.getHash());
+        mutableTransactionInput.setPreviousTransactionOutputIndex(0);
+        mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
+        return mutableTransactionInput;
+    }
+
+    protected Transaction _createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
+        final MutableTransaction mutableTransaction = new MutableTransaction();
+        mutableTransaction.setVersion(1);
+        mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
+        mutableTransaction.setHasWitnessData(false);
+
+        mutableTransaction.addTransactionInput(transactionInput);
+        mutableTransaction.addTransactionOutput(transactionOutput);
+
+        return mutableTransaction;
+    }
+
     @Before
     public void setup() {
         _resetDatabase();
@@ -72,78 +110,113 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
-        final TransactionOutput transactionOutputToSpend; {
-            final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-            transactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-            transactionOutput.setIndex(0);
-            transactionOutput.setLockingScript((ScriptBuilder.payToAddress(Address.fromPrivateKey(privateKey))));
-            transactionOutputToSpend = transactionOutput;
-        }
+        // Create a transaction that will be spent in our signed transaction.
+        //  This transaction will create an output that can be spent by our private key.
+        final Transaction transactionToSpend = _createTransactionContaining(
+            _createCoinbaseTransactionInput(),
+            _createTransactionOutput(Address.fromPrivateKey(privateKey))
+        );
 
-        final Transaction transactionToSpend; {
-            final TransactionInput transactionInput; {
-                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-                mutableTransactionInput.setPreviousTransactionOutputHash(new MutableHash());
-                mutableTransactionInput.setPreviousTransactionOutputIndex(0);
-                mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").build());
-                transactionInput = mutableTransactionInput;
-            }
-
-            final MutableTransaction mutableTransaction = new MutableTransaction();
-            mutableTransaction.setVersion(1);
-            mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
-            mutableTransaction.setHasWitnessData(false);
-            mutableTransaction.addTransactionOutput(transactionOutputToSpend);
-            mutableTransaction.addTransactionInput(transactionInput);
-            transactionToSpend = mutableTransaction;
-        }
-
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        // Store the transaction in the database so that our validator can access it.
         final Long blockId = _storeBlock(BlockData.MainChain.BLOCK_1);
         transactionDatabaseManager.storeTransaction(blockId, transactionToSpend);
 
-        final Transaction transaction; {
-            final TransactionOutput newTransactionOutput; {
-                final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-                transactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-                transactionOutput.setIndex(0);
-                transactionOutput.setLockingScript(ScriptBuilder.payToAddress("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"));
-                newTransactionOutput = transactionOutput;
-            }
+        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        final Transaction unsignedTransaction = _createTransactionContaining(
+            _createTransactionInputThatSpendsTransaction(transactionToSpend),
+            _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+        );
 
-            final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(); {
-                mutableTransactionInput.setPreviousTransactionOutputHash(transactionToSpend.getHash());
-                mutableTransactionInput.setPreviousTransactionOutputIndex(0);
-                mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
-                mutableTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
-            }
-
-            final MutableTransaction mutableTransaction = new MutableTransaction(); {
-                mutableTransaction.setVersion(1);
-                mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
-                mutableTransaction.setHasWitnessData(false);
-
-                mutableTransaction.addTransactionInput(mutableTransactionInput);
-                mutableTransaction.addTransactionOutput(newTransactionOutput);
-            }
-
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(mutableTransaction);
-
-            final TransactionSigner transactionSigner = new TransactionSigner();
-            transaction = transactionSigner.signTransaction(signatureContext, privateKey);
-        }
+        // Sign the unsigned transaction.
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(transaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(signedTransaction);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
     }
 
-    
+    @Test
+    public void should_detect_an_address_attempting_to_spend_an_output_it_cannot_unlock() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        // Create a transaction that will be spent in our signed transaction.
+        //  This transaction output is being sent to an address we don't have access to.
+        final Transaction transactionToSpend = _createTransactionContaining(
+                _createCoinbaseTransactionInput(),
+                _createTransactionOutput(Address.fromPrivateKey(PrivateKey.createNewKey()))
+        );
+
+        // Store the transaction in the database so that our validator can access it.
+        final Long blockId = _storeBlock(BlockData.MainChain.BLOCK_1);
+        transactionDatabaseManager.storeTransaction(blockId, transactionToSpend);
+
+        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        final Transaction unsignedTransaction = _createTransactionContaining(
+                _createTransactionInputThatSpendsTransaction(transactionToSpend),
+                _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+        );
+
+        // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+
+        // Action
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(signedTransaction);
+
+        // Assert
+        Assert.assertFalse(inputsAreUnlocked);
+    }
+
+    @Test
+    public void should_detect_an_address_attempting_to_spend_an_output_with_the_incorrect_signature() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        // Create a transaction that will be spent in our signed transaction.
+        //  This transaction output is being sent to an address we should have access to.
+        final Transaction transactionToSpend = _createTransactionContaining(
+                _createCoinbaseTransactionInput(),
+                _createTransactionOutput(Address.fromPrivateKey(privateKey))
+        );
+
+        // Store the transaction in the database so that our validator can access it.
+        final Long blockId = _storeBlock(BlockData.MainChain.BLOCK_1);
+        transactionDatabaseManager.storeTransaction(blockId, transactionToSpend);
+
+        // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+        final Transaction unsignedTransaction = _createTransactionContaining(
+                _createTransactionInputThatSpendsTransaction(transactionToSpend),
+                _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+        );
+
+        // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
+
+        // Action
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(signedTransaction);
+
+        // Assert
+        Assert.assertFalse(inputsAreUnlocked);
+    }
 }

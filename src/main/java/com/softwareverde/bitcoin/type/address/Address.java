@@ -56,14 +56,12 @@ public class Address extends ImmutableByteArray {
     protected byte[] _calculateAddressWithChecksum() {
         final byte addressPrefix = _getPrefix();
 
+        final byte[] checksum = _calculateChecksum(addressPrefix, _bytes);
+
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte(addressPrefix);
         byteArrayBuilder.appendBytes(_bytes);
-        final byte[] addressWithPrefix = byteArrayBuilder.build();
-
-        final byte[] checksum = _calculateChecksum(addressPrefix, addressWithPrefix);
         byteArrayBuilder.appendBytes(checksum);
-
         return byteArrayBuilder.build();
     }
 
