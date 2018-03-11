@@ -2,9 +2,7 @@ package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.chain.BlockChainId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
@@ -38,7 +36,7 @@ public class BlockValidator {
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainId(), transactionOutputIdentifier.getTransactionHash());
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
             if (transactionId == null) { return null; }
 
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
@@ -52,7 +50,7 @@ public class BlockValidator {
         }
     }
 
-    protected Long _calculateTotalTransactionInputs(final BlockChainId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+    protected Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
             additionalTransactionOutputs.put(transaction.getHash(), transaction);
@@ -88,9 +86,9 @@ public class BlockValidator {
         return totalInputValue;
     }
 
-    protected Boolean _validateTransactionExpenditure(final BlockChainId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+    protected Boolean _validateTransactionExpenditure(final BlockChainSegmentId blockChainSegmentId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Long totalOutputValue = blockTransaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(blockChainId, blockTransaction, queuedTransactions);
+        final Long totalInputValue = _calculateTotalTransactionInputs(blockChainSegmentId, blockTransaction, queuedTransactions);
         if (totalInputValue == null) { return false; }
 
         return (totalOutputValue <= totalInputValue);
@@ -105,28 +103,24 @@ public class BlockValidator {
         _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
     }
 
-    public Boolean validateBlock(final BlockChainId blockChainId, final Block block) throws DatabaseException {
+    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) throws DatabaseException {
         if (! block.isValid()) { return false; }
 
         final BlockDeflater blockDeflater = new BlockDeflater();
-
-        // final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(block.getHash());
-        // final BlockChainSegmentId blockChainSegmentId = _blockDatabaseManager.getBlockChainSegmentId(blockId);
-        // final List<BlockChainId> blockChainId = _blockChainDatabaseManager.getBlockChainId(blockChainSegmentId);
 
         final List<Transaction> blockTransactions = block.getTransactions();
         for (int i=0; i<blockTransactions.getSize(); ++i) {
             if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
 
             final Transaction blockTransaction = blockTransactions.get(i);
-            final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockChainId, blockTransaction, blockTransactions);
+            final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockChainSegmentId, blockTransaction, blockTransactions);
             if (! transactionExpenditureIsValid) {
                 Logger.log("BLOCK VALIDATION: Failed because expenditures did not match.");
                 Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
                 return false;
             }
 
-            final Boolean transactionInputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(blockChainId, blockTransaction);
+            final Boolean transactionInputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockTransaction);
             if (! transactionInputsAreUnlocked) {
                 Logger.log("BLOCK VALIDATION: Failed because of invalid transaction.");
                 Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));

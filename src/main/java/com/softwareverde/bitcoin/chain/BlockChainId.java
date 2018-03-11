@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.chain;
+/*package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.type.database.DatabaseId;
 
@@ -13,3 +13,4 @@ public class BlockChainId extends DatabaseId {
         super(value);
     }
 }
+*/

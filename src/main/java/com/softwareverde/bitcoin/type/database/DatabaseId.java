@@ -29,6 +29,11 @@ public class DatabaseId implements Const, Comparable<Long> {
 
     @Override
     public boolean equals(final Object object) {
+        if (object instanceof DatabaseId) {
+            final DatabaseId databaseId = (DatabaseId) object;
+            return _value.equals(databaseId._value);
+        }
+
         return _value.equals(object);
     }
 

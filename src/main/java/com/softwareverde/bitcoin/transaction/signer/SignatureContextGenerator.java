@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.BlockChainId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -30,14 +29,14 @@ public class SignatureContextGenerator {
         _transactionOutputDatabaseManager = transactionOutputDatabaseManager;
     }
 
-    public SignatureContext createContextForEntireTransaction(final BlockChainId blockChainId, final Transaction transaction) throws DatabaseException {
+    public SignatureContext createContextForEntireTransaction(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) throws DatabaseException {
         final SignatureContext signatureContext = new SignatureContext(transaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainId, transactionInput.getPreviousOutputTransactionHash());
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 

@@ -6,8 +6,6 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -29,19 +27,7 @@ public class BlockChainDatabaseManager {
         return blockChainSegmentInflater.fromRow(row);
     }
 
-    public List<BlockChainId> _getBlockChainIds(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT block_chain_id FROM block_chain_block_segments WHERE block_chain_segment_id = ?")
-            .setParameter(blockChainSegmentId)
-        );
-
-        final ImmutableListBuilder<BlockChainId> listBuilder = new ImmutableListBuilder<BlockChainId>(rows.size());
-        for (final Row row : rows) {
-            listBuilder.add(BlockChainId.wrap(row.getLong("block_chain_id")));
-        }
-        return listBuilder.build();
-    }
-
-    protected BlockChainSegmentId _getBlockChainSegmentIdFromBlockId(final BlockId blockId) throws DatabaseException {
+    protected BlockChainSegmentId _getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT block_chain_segment_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -59,13 +45,25 @@ public class BlockChainDatabaseManager {
 
     public void updateBlockChainsForNewBlock(final Block newBlock) throws DatabaseException {
 
-        /*  Assuming block 5' arrives after 5, 6 have been created...
+        /*
+            Each fork creates 2 new BlockChainSegments.
+                Segment 0: Contains the blocks before the fork, but excluding any blocks from either side of the fork.
+                    The head of this segment stops before the block causing the fork; therefore, this segment does not
+                    contain the new block.  In the diagram below, this segment would include blocks 3 and 4.
 
-            [6]         // [5,6] = refactoredChain
+                Segment 1: Contains the blocks existing before the fork and are siblings to the new block causing the
+                    fork.  In the diagram below, this segment would include blocks 5 and 6.
+
+                Segment 2: Contains the new block that is causing the fork.  In the diagram below, this segment would
+                    include only block 5'.
+
+            // Assuming block 5' arrives after 5, 6 have been created...
+
+            [6]         // [5,6] = refactoredChainSegment
              |
-            [5] [5']    // 5' = newBlock, [5'] = newChain
+            [5] [5']    // 5' = newBlock, [5'] = newChainSegment
              |   |
-             +--[4]     // 4 = previousBlock, [...3,4,5,6] = previousBlockChain, [...3,4] = baseBlockChain
+             +--[4]     // 4 = previousBlock, [...,3,4,5,6] = previousBlockChainSegment, [...,3,4] = baseBlockChainSegment
                  |
                 [3]
          */
@@ -73,13 +71,14 @@ public class BlockChainDatabaseManager {
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         // 2. If the block is not contentious...
         //      2.1 If the newBlock is not the genesis block...
-        //          2.1.1 Update the blockChain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
+        //          2.1.1 Update the blockChainSegment's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
         //          2.1.2 Update the newBlock so its block_chain_segment_id points to the previousBlockChain's id.
         //      2.2 Else (the newBlock is the genesis block)...
-        //          2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
-        //          2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChain's id.
+        //          2.2.1 Create a new blockChainSegment and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
+        //          2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChainSegment's id.
+        //          2.2.3 Create a new
         // 3. Else (the block is contentious)...
-        //      3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockChain... ("refactoredBlocks")
+        //      3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockChainSegment... ("refactoredBlocks")
         //      3.2 Update/revert the baseBlockChain.
         //          The head_block_id should point to the previousBlock.
         //          The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
@@ -105,7 +104,7 @@ public class BlockChainDatabaseManager {
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         final Boolean newBlockIsContentiousBlock = (blockDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
 
-        final BlockChainSegmentId previousBlockChainSegmentId = _getBlockChainSegmentIdFromBlockId(previousBlockId);
+        final BlockChainSegmentId previousBlockChainSegmentId = _getBlockChainSegmentId(previousBlockId);
         if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
@@ -211,12 +210,16 @@ public class BlockChainDatabaseManager {
         }
     }
 
-    public List<BlockChainId> getBlockChainIds(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        return _getBlockChainIds(blockChainSegmentId);
+    public BlockChainSegment getBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        return _inflateBlockChainSegmentFromId(blockChainSegmentId);
     }
 
-    public List<BlockChainId> getBlockChainIds(final BlockId blockId) throws DatabaseException {
-        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentIdFromBlockId(blockId);
-        return _getBlockChainIds(blockChainSegmentId);
+    public BlockChainSegment getBlockChainSegment(final BlockId blockId) throws DatabaseException {
+        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
+        return _inflateBlockChainSegmentFromId(blockChainSegmentId);
+    }
+
+    public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
+        return _getBlockChainSegmentId(blockId);
     }
 }

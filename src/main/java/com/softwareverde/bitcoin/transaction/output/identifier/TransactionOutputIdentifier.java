@@ -1,16 +1,16 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
-import com.softwareverde.bitcoin.chain.BlockChainId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.Const;
 
 public class TransactionOutputIdentifier implements Const {
-    protected final BlockChainId _blockChainId;
+    protected final BlockChainSegmentId _blockChainSegmentId;
     protected final Hash _transactionHash;
     protected final Integer _outputIndex;
 
-    public TransactionOutputIdentifier(final BlockChainId blockChainId, final Hash transactionHash, final Integer outputIndex) {
-        _blockChainId = blockChainId;
+    public TransactionOutputIdentifier(final BlockChainSegmentId blockChainSegmentId, final Hash transactionHash, final Integer outputIndex) {
+        _blockChainSegmentId = blockChainSegmentId;
         _transactionHash = transactionHash.asConst();
         _outputIndex = outputIndex;
     }
@@ -23,8 +23,8 @@ public class TransactionOutputIdentifier implements Const {
         return _outputIndex;
     }
 
-    public BlockChainId getBlockChainId() {
-        return _blockChainId;
+    public BlockChainSegmentId getBlockChainSegmentId() {
+        return _blockChainSegmentId;
     }
 
     @Override
@@ -32,11 +32,11 @@ public class TransactionOutputIdentifier implements Const {
         if (! (object instanceof TransactionOutputIdentifier)) { return false; }
         final TransactionOutputIdentifier transactionOutputIdentifier = (TransactionOutputIdentifier) object;
 
-        if (_blockChainId != null) {
-            if (! _blockChainId.equals(transactionOutputIdentifier._blockChainId)) { return false; }
+        if (_blockChainSegmentId != null) {
+            if (! _blockChainSegmentId.equals(transactionOutputIdentifier._blockChainSegmentId)) { return false; }
         }
         else {
-            if (transactionOutputIdentifier._blockChainId != null) { return false; }
+            if (transactionOutputIdentifier._blockChainSegmentId != null) { return false; }
         }
 
         if (_outputIndex != null) {
