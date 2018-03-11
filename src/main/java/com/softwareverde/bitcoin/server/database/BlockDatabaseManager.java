@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.chain.BlockChainId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
@@ -23,7 +25,7 @@ public class BlockDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    protected Long _getBlockHeightForBlockId(final Long blockId) throws DatabaseException {
+    protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_height FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -35,7 +37,7 @@ public class BlockDatabaseManager {
         return row.getLong("block_height");
     }
 
-    protected Long _getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
+    protected BlockId _getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
                 .setParameter(BitcoinUtil.toHexString(blockHash))
@@ -44,10 +46,10 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return row.getLong("id");
+        return BlockId.wrap(row.getLong("id"));
     }
 
-    protected BlockHeader _inflateBlockFromBlockId(final Long blockId) throws DatabaseException {
+    protected BlockHeader _inflateBlockFromBlockId(final BlockId blockId) throws DatabaseException {
         final Row row;
         {
             final List<Row> rows = _databaseConnection.query(
@@ -95,15 +97,15 @@ public class BlockDatabaseManager {
         return blockHeader;
     }
 
-    protected void _storeBlockTransactions(final Long blockId, final Block block) throws DatabaseException {
+    protected void _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
         for (final Transaction transaction : block.getTransactions()) {
             transactionDatabaseManager.storeTransaction(blockId, transaction);
         }
     }
 
-    protected void _updateBlockHeader(final Long blockId, final BlockHeader blockHeader) throws DatabaseException {
-        final Long previousBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
+    protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
+        final BlockId previousBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
         final Long previousBlockHeight = _getBlockHeightForBlockId(previousBlockId);
         final Long blockHeight = (previousBlockHeight == null ? 0 : (previousBlockHeight + 1));
 
@@ -121,12 +123,12 @@ public class BlockDatabaseManager {
         );
     }
 
-    protected Long _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        final Long previousBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
+    protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        final BlockId previousBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
         final Long previousBlockHeight = _getBlockHeightForBlockId(previousBlockId);
         final Long blockHeight = (previousBlockHeight == null ? 0 : (previousBlockHeight + 1));
 
-        return _databaseConnection.executeSql(
+        return BlockId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
                 .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
                 .setParameter(previousBlockId)
@@ -136,13 +138,13 @@ public class BlockDatabaseManager {
                 .setParameter(blockHeader.getTimestamp())
                 .setParameter(BitcoinUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
-        );
+        ));
     }
 
-    protected Long _storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        final Long blockId;
+    protected BlockId _storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        final BlockId blockId;
         {
-            final Long existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
+            final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
             if (existingBlockId != null) {
                 _updateBlockHeader(existingBlockId, blockHeader);
                 blockId = existingBlockId;
@@ -154,12 +156,12 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
-    public Long storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+    public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
 
-    public Long storeBlock(final Block block) throws DatabaseException {
-        final Long blockId = _storeBlockHeader(block);
+    public BlockId storeBlock(final Block block) throws DatabaseException {
+        final BlockId blockId = _storeBlockHeader(block);
 
         _storeBlockTransactions(blockId, block);
 
@@ -174,15 +176,15 @@ public class BlockDatabaseManager {
         return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));
     }
 
-    public Long getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
+    public BlockId getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
         return _getBlockIdFromHash(blockHash);
     }
 
-    public BlockHeader getBlockHeaderFromId(final Long blockId) throws DatabaseException {
+    public BlockHeader getBlockHeaderFromId(final BlockId blockId) throws DatabaseException {
         return _inflateBlockFromBlockId(blockId);
     }
 
-    public Integer getBlockDirectDescendantCount(final Long blockId) throws DatabaseException {
+    public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
                 .setParameter(blockId)
@@ -190,7 +192,7 @@ public class BlockDatabaseManager {
         return (rows.size());
     }
 
-    public void setBlockChainIdForBlockId(final Long blockId, final Long blockChainId) throws DatabaseException {
+    public void setBlockChainIdForBlockId(final BlockId blockId, final BlockChainId blockChainId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET block_chain_id = ? WHERE id = ?")
                 .setParameter(blockChainId)
@@ -198,7 +200,7 @@ public class BlockDatabaseManager {
         );
     }
 
-    public Long getBlockChainIdForBlockId(final Long blockId) throws DatabaseException {
+    public BlockChainId getBlockChainIdForBlockId(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_chain_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -207,10 +209,10 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return row.getLong("block_chain_id");
+        return BlockChainId.wrap(row.getLong("block_chain_id"));
     }
 
-    public Long getBlockHeightForBlockId(final Long blockId) throws DatabaseException {
+    public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
         return _getBlockHeightForBlockId(blockId);
     }
 }

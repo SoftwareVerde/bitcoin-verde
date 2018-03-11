@@ -1,10 +1,13 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -26,15 +29,15 @@ public class SignatureContextGenerator {
         _transactionOutputDatabaseManager = transactionOutputDatabaseManager;
     }
 
-    public SignatureContext createContextForEntireTransaction(final Transaction transaction) throws DatabaseException {
+    public SignatureContext createContextForEntireTransaction(final BlockId blockId, final Transaction transaction) throws DatabaseException {
         final SignatureContext signatureContext = new SignatureContext(transaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final Long transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionInput.getPreviousOutputTransactionHash());
-            final Long transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionInput.getPreviousOutputTransactionHash());
+            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 
             signatureContext.setShouldSignInput(i, true, transactionOutput);

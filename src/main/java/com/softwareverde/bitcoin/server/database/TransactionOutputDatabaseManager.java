@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -12,7 +14,7 @@ import java.util.List;
 public class TransactionOutputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected Long _findTransactionOutput(final Long transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+    protected TransactionOutputId _findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
                 .setParameter(transactionId)
@@ -22,10 +24,10 @@ public class TransactionOutputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return row.getLong("id");
+        return TransactionOutputId.wrap(row.getLong("id"));
     }
 
-    protected void _updateTransactionOutput(final Long transactionOutputId, final Long transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+    protected void _updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
                 .setParameter(transactionId)
@@ -36,17 +38,17 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
-    protected Long _insertTransactionOutput(final Long transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        return _databaseConnection.executeSql(
+    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        return TransactionOutputId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
                 .setParameter(transactionOutput.getLockingScript().getBytes())
-        );
+        ));
     }
 
-    protected TransactionOutput _getTransactionOutput(final Long transactionOutputId) throws DatabaseException {
+    protected TransactionOutput _getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM transaction_outputs WHERE id = ?")
                 .setParameter(transactionOutputId)
@@ -66,8 +68,8 @@ public class TransactionOutputDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public Long storeTransactionOutput(final Long transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        final Long transactionOutputId = _findTransactionOutput(transactionId, transactionOutput.getIndex());
+    public TransactionOutputId storeTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutput.getIndex());
         if (transactionOutputId != null) {
             _updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
             return transactionOutputId;
@@ -76,11 +78,11 @@ public class TransactionOutputDatabaseManager {
         return _insertTransactionOutput(transactionId, transactionOutput);
     }
 
-    public Long findTransactionOutput(final Long transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+    public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         return _findTransactionOutput(transactionId, transactionOutputIndex);
     }
 
-    public TransactionOutput getTransactionOutput(final Long transactionOutputId) throws DatabaseException {
+    public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         return _getTransactionOutput(transactionOutputId);
     }
 }

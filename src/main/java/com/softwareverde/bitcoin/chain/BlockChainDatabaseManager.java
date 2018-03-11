@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.chain;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -9,10 +10,10 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 import java.util.List;
 
-public class ChainDatabaseManager {
+public class BlockChainDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected BlockChain _inflateBlockChainFromId(final Long blockChainId) throws DatabaseException {
+    protected BlockChain _inflateBlockChainFromId(final BlockChainId blockChainId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM block_chains WHERE id = ?")
                 .setParameter(blockChainId)
@@ -30,7 +31,7 @@ public class ChainDatabaseManager {
         return blockChain;
     }
 
-    protected Long _getBlockChainIdFromBlockId(final Long blockId) throws DatabaseException {
+    protected BlockChainId _getBlockChainIdFromBlockId(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT block_chain_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -39,10 +40,10 @@ public class ChainDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return row.getLong("block_chain_id");
+        return BlockChainId.wrap(row.getLong("block_chain_id"));
     }
 
-    public ChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 
@@ -88,13 +89,13 @@ public class ChainDatabaseManager {
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
 
-        final Long newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
-        final Long previousBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getPreviousBlockHash());
+        final BlockId newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
+        final BlockId previousBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getPreviousBlockHash());
 
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         final Boolean newBlockIsContentiousBlock = (blockDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
 
-        final Long previousBlockChainId = _getBlockChainIdFromBlockId(previousBlockId);
+        final BlockChainId previousBlockChainId = _getBlockChainIdFromBlockId(previousBlockId);
         if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
 
             if (previousBlockChainId != null) { // 2.1 If the newBlock is not the genesis block...
@@ -110,13 +111,14 @@ public class ChainDatabaseManager {
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
                 // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
-                final Long genesisBlockChainId = _databaseConnection.executeSql(
+                final BlockChainId genesisBlockChainId = BlockChainId.wrap(_databaseConnection.executeSql(
                     new Query("INSERT INTO block_chains (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
                         .setParameter(newBlockId)
                         .setParameter(newBlockId)
                         .setParameter(0)
                         .setParameter(1)
-                );
+                ));
+
                 // 2.2.2 Update the newBlock so its block_chain_id points to the new blockChain's id.
                 blockDatabaseManager.setBlockChainIdForBlockId(newBlockId, genesisBlockChainId);
             }
@@ -125,8 +127,8 @@ public class ChainDatabaseManager {
 
             final Long previousBlockBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(previousBlockId);
 
-            final Long refactoredChainHeadBlockId;
-            final Long refactoredChainTailBlockId;
+            final BlockId refactoredChainHeadBlockId;
+            final BlockId refactoredChainTailBlockId;
             final Long refactoredChainBlockHeight;
             final Integer refactoredChainBlockCount;
             { // 3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockChain... ("refactoredBlocks")
@@ -141,7 +143,7 @@ public class ChainDatabaseManager {
 
                 if (refactoredChainBlockCount > 0) {
                     final Row headBlockRow = rows.get(rows.size() - 1);
-                    refactoredChainHeadBlockId = headBlockRow.getLong("id");
+                    refactoredChainHeadBlockId = BlockId.wrap(headBlockRow.getLong("id"));
                     refactoredChainBlockHeight = headBlockRow.getLong("block_height");
                 }
                 else {
@@ -186,13 +188,13 @@ public class ChainDatabaseManager {
             // 3.4 Create a new block chain to house the newBlock (and its future children)...
             //  Set its head_block_id to the new block, and its tail_block_id to the previousBlockId (the head_block_id of the baseChain).
             //  Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
-            final Long newChainId = _databaseConnection.executeSql(
+            final BlockChainId newChainId = BlockChainId.wrap(_databaseConnection.executeSql(
                 new Query("INSERT INTO block_chains (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
                     .setParameter(newBlockId)
                     .setParameter(previousBlockId)
                     .setParameter(previousBlockBlockHeight + 1)
                     .setParameter(1)
-            );
+            ));
 
             // 3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.
             blockDatabaseManager.setBlockChainIdForBlockId(newBlockId, newChainId);

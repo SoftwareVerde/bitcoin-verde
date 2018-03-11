@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.block.Block;
@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.chain.ChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
@@ -205,7 +205,10 @@ public class Main {
             try {
                 final BlockInflater blockInflater = new BlockInflater();
 
-                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000000000003BA3EDFD7A7B12B27AC72C3E67768F617FC81BC3888A51323A9FB8AA4B1E5E4A29AB5F49FFFF001D1DAC2B7C0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF4D04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73FFFFFFFF0100F2052A01000000434104678AFDB0FE5548271967F1A67130B7105CD6A828E03909A67962E0EA1F61DEB649F6BC3F4CEF38C4F35504E51EC112DE5C384DF7BA0B8D578A4C702B6BF11D5FAC00000000"));
+                final Block previousBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000007DCE47CEB8FC469369F70F2BAEDF22B0377B691FBDF8426E367202FD021A58D2F4569E5AFFFF001D80CFE82A01010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001E76A619001AF4440149EF4E3936D27C9F54A2AA4EC4F884E14F6B7D5488AC00000000"));
+
+                final TransactionInflater transactionInflater = new TransactionInflater();
+                final Transaction transactionWithinBlock1DoublePrime = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("0100000001736EF73E0AF54C6E0205824DF02F8217930B2E3F436E05192754DEEC0287CE75000000008B483045022100D88F161B7B0774AAB84BA0343B572770FC4E4DC902E9CDDD8D1172C591BDF26F022003AE66DB858F2B5ACE01566E21A1F5A6C0FA4D7AAB7AFBD5BC3057D305931ABA0141044B1F57CD308E8AE8AADA38AA8183A348E1F12C107898760A11324E1B0288C49DE1AB5E1DA16F649B7375046E165FD2CF143F08989F1092A7ED6FED183107B236FFFFFFFF0100F2052A010000001976A914B8E012A1EC221C31F69AA2895129C02C90AAE2C588AC00000000"));
 
                 final PrivateKey privateKey = PrivateKey.parseFromHexString("B6AA8D327D94F746EFB1974E151CA405D4C17EAB4AB4F5CB7757B720D9E62280");
 
@@ -235,14 +238,14 @@ public class Main {
                     final MutableTransactionOutput newTransactionOutput = new MutableTransactionOutput();
                     final MutableTransaction newTransaction = new MutableTransaction();
                     {
-                        newTransactionInput.setPreviousOutputTransactionHash(coinbaseTransaction.getHash());
+                        newTransactionInput.setPreviousOutputTransactionHash(transactionWithinBlock1DoublePrime.getHash());
                         newTransactionInput.setPreviousOutputIndex(0);
                         newTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
                         newTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
 
                         newTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
                         newTransactionOutput.setIndex(0);
-                        newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress(Address.fromPrivateKey(privateKey)));
+                        newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress(Address.fromPrivateKey(PrivateKey.parseFromHexString("D4BF010D3EC25F913CFF91CA34FD4C04A38908E0478B31F669B647EFCD2482A5"))));
 
                         newTransaction.setVersion(1);
                         newTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
@@ -337,11 +340,11 @@ public class Main {
                     try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                         TransactionUtil.startTransaction(databaseConnection);
 
-                        final ChainDatabaseManager chainDatabaseManager = new ChainDatabaseManager(databaseConnection);
+                        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
                         blockDatabaseManager.storeBlock(block);
-                        chainDatabaseManager.updateBlockChainsForNewBlock(block);
+                        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
 
                         final BlockValidator blockValidator = new BlockValidator(databaseConnection);
                         final Boolean blockIsValid = blockValidator.validateBlock(block);
