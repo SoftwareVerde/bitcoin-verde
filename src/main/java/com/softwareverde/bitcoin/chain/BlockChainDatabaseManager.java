@@ -6,19 +6,18 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
-import java.util.List;
-
 public class BlockChainDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected BlockChainSegment _inflateBlockChainSegmentFromId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM block_chain_segments WHERE id = ?")
                 .setParameter(blockChainSegmentId)
         );
@@ -30,8 +29,20 @@ public class BlockChainDatabaseManager {
         return blockChainSegmentInflater.fromRow(row);
     }
 
+    public List<BlockChainId> _getBlockChainIds(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT block_chain_id FROM block_chain_block_segments WHERE block_chain_segment_id = ?")
+            .setParameter(blockChainSegmentId)
+        );
+
+        final ImmutableListBuilder<BlockChainId> listBuilder = new ImmutableListBuilder<BlockChainId>(rows.size());
+        for (final Row row : rows) {
+            listBuilder.add(BlockChainId.wrap(row.getLong("block_chain_id")));
+        }
+        return listBuilder.build();
+    }
+
     protected BlockChainSegmentId _getBlockChainSegmentIdFromBlockId(final BlockId blockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT block_chain_segment_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
@@ -131,7 +142,7 @@ public class BlockChainDatabaseManager {
             final Long refactoredChainBlockHeight;
             final Integer refactoredChainBlockCount;
             { // 3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockChain... ("refactoredBlocks")
-                final List<Row> rows = _databaseConnection.query(
+                final java.util.List<Row> rows = _databaseConnection.query(
                     new Query("SELECT id, block_height FROM blocks WHERE block_chain_segment_id = ? AND block_height > ? ORDER BY block_height ASC")
                         .setParameter(previousBlockChainSegmentId)
                         .setParameter(previousBlockBlockHeight)
@@ -200,15 +211,12 @@ public class BlockChainDatabaseManager {
         }
     }
 
-    public com.softwareverde.constable.list.List<BlockChainId> getBlockChainId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT block_chain_id FROM block_chain_block_segments WHERE block_chain_segment_id = ?")
-            .setParameter(blockChainSegmentId)
-        );
+    public List<BlockChainId> getBlockChainIds(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        return _getBlockChainIds(blockChainSegmentId);
+    }
 
-        final ImmutableListBuilder<BlockChainId> listBuilder = new ImmutableListBuilder<BlockChainId>(rows.size());
-        for (final Row row : rows) {
-            listBuilder.add(BlockChainId.wrap(row.getLong("block_chain_id")));
-        }
-        return listBuilder.build();
+    public List<BlockChainId> getBlockChainIds(final BlockId blockId) throws DatabaseException {
+        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentIdFromBlockId(blockId);
+        return _getBlockChainIds(blockChainSegmentId);
     }
 }
