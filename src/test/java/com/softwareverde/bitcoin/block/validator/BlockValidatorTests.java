@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -74,11 +75,6 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void block_should_be_invalid_if_its_input_only_exists_withing_a_different_chain() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-
-        final BlockInflater blockInflater = new BlockInflater();
-        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D6190000000000E2F61C3F71D1DEFD3FA999DFA36953755C690689799962B48BEBD836974E8CF942E29C5AFFFF001DD2A4166100"));
-        final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D6190000000000982051FD1E4BA744BBBE680E1FEE14677BA1A3C3540BF7B1CDB606E857233E0E7E25985AFFFF001D0D59E03500"));
 
         /*
             // Given the following forking situation...
@@ -91,12 +87,40 @@ public class BlockValidatorTests extends IntegrationTest {
              |
 
             //
-         */
+        */
+
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+
+        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+        Assert.assertEquals(genesisBlock.getHash(), block1Prime.getPreviousBlockHash());
+
+        final Block block2Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray("01000000A0725312AADE7F12764C47F9A8B54C4924EE12940C697782AE31F52300000000A66A6AAC381ACE8514F527B6324F72F8ADFBC9B853350675E5309B18E2256E9BA165A45AFFFF001D580D16B802010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001976A914B8E012A1EC221C31F69AA2895129C02C90AAE2C588AC0000000001000000011D1E1A5147E3170CB7B8DF8B234794CC61B798144B532EEE9C3A62CF9F5A4EBF000000008B483045022100CD4556EFF98614498B736E7894446F82B92638B40512B95C3C64FA06682F68A702200C02B594C919046E6D1EC951745D51778575BDBDB46DCB9793AAC3D0714AAAD10141044B1F57CD308E8AE8AADA38AA8183A348E1F12C107898760A11324E1B0288C49DE1AB5E1DA16F649B7375046E165FD2CF143F08989F1092A7ED6FED183107B236FFFFFFFF0100F2052A010000001976A91476B5CB4E5D485BDD6B6DD7A2AAAEC6F01FFA7DD488AC00000000")); // Spends a transaction within block1DoublePrime...
+        Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
+
+        final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
+        Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
+
+        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+        blockDatabaseManager.storeBlock(genesisBlock);
+        Assert.assertTrue(blockValidator.validateBlock(genesisBlock));
+
+        blockDatabaseManager.storeBlock(block1Prime);
+        Assert.assertTrue(blockValidator.validateBlock(block1Prime));
+
+        blockDatabaseManager.storeBlock(block1DoublePrime);
+        Assert.assertTrue(blockValidator.validateBlock(block1DoublePrime));
+
+        blockDatabaseManager.storeBlock(block2Prime); // Should be an invalid block...
 
         // Action
-
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2Prime);
 
         // Assert
-        Assert.assertTrue(false);
+        Assert.assertFalse(block2PrimeIsValid);
     }
 }
