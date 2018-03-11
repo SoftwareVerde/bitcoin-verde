@@ -1,13 +1,13 @@
-package com.softwareverde.bitcoin.chain;
+package com.softwareverde.bitcoin.chain.segment;
 
-public class BlockChain {
+public class BlockChainSegment {
     protected Long _id;
     protected Long _headBlockId;
     protected Long _tailBlockId;
     protected Long _blockHeight;
     protected Long _blockCount;
 
-    protected BlockChain() { }
+    protected BlockChainSegment() { }
 
     public Long getId() {
         return _id;

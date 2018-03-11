@@ -1,16 +1,16 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
-import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.BlockChainId;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.Const;
 
 public class TransactionOutputIdentifier implements Const {
-    protected final BlockId _blockId;
+    protected final BlockChainId _blockChainId;
     protected final Hash _transactionHash;
     protected final Integer _outputIndex;
 
-    public TransactionOutputIdentifier(final BlockId blockId, final Hash transactionHash, final Integer outputIndex) {
-        _blockId = blockId;
+    public TransactionOutputIdentifier(final BlockChainId blockChainId, final Hash transactionHash, final Integer outputIndex) {
+        _blockChainId = blockChainId;
         _transactionHash = transactionHash.asConst();
         _outputIndex = outputIndex;
     }
@@ -23,8 +23,8 @@ public class TransactionOutputIdentifier implements Const {
         return _outputIndex;
     }
 
-    public BlockId getBlockId() {
-        return _blockId;
+    public BlockChainId getBlockChainId() {
+        return _blockChainId;
     }
 
     @Override
@@ -32,11 +32,11 @@ public class TransactionOutputIdentifier implements Const {
         if (! (object instanceof TransactionOutputIdentifier)) { return false; }
         final TransactionOutputIdentifier transactionOutputIdentifier = (TransactionOutputIdentifier) object;
 
-        if (_blockId != null) {
-            if (! _blockId.equals(transactionOutputIdentifier._blockId)) { return false; }
+        if (_blockChainId != null) {
+            if (! _blockChainId.equals(transactionOutputIdentifier._blockChainId)) { return false; }
         }
         else {
-            if (transactionOutputIdentifier._blockId != null) { return false; }
+            if (transactionOutputIdentifier._blockChainId != null) { return false; }
         }
 
         if (_outputIndex != null) {

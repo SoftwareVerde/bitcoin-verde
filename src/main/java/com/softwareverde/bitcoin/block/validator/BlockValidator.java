@@ -3,7 +3,9 @@ package com.softwareverde.bitcoin.block.validator;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.BlockChainId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
@@ -26,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
+    protected final BlockChainDatabaseManager _blockChainDatabaseManager;
     protected final BlockDatabaseManager _blockDatabaseManager;
     protected final TransactionValidator _transactionValidator;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
@@ -35,7 +38,7 @@ public class BlockValidator {
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockId(), transactionOutputIdentifier.getTransactionHash());
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainId(), transactionOutputIdentifier.getTransactionHash());
             if (transactionId == null) { return null; }
 
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
@@ -49,7 +52,7 @@ public class BlockValidator {
         }
     }
 
-    protected Long _calculateTotalTransactionInputs(final BlockId blockId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
+    protected Long _calculateTotalTransactionInputs(final BlockChainId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
             additionalTransactionOutputs.put(transaction.getHash(), transaction);
@@ -63,7 +66,7 @@ public class BlockValidator {
 
             final TransactionOutput transactionOutput;
             {
-                TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(blockId, outputTransactionHash, transactionOutputIndex));
+                TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(blockChainId, outputTransactionHash, transactionOutputIndex));
                 if (possibleTransactionOutput == null) {
                     final Transaction transactionContainingOutput = additionalTransactionOutputs.get(outputTransactionHash);
                     if (transactionContainingOutput != null) {
@@ -94,6 +97,7 @@ public class BlockValidator {
     }
 
     public BlockValidator(final MysqlDatabaseConnection databaseConnection) {
+        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         _transactionValidator = new TransactionValidator(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
@@ -101,13 +105,14 @@ public class BlockValidator {
         _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
     }
 
-    public Boolean validateBlock(final Block block) throws DatabaseException {
+    public Boolean validateBlock(final BlockChainId blockChainId, final Block block) throws DatabaseException {
         if (! block.isValid()) { return false; }
 
         final BlockDeflater blockDeflater = new BlockDeflater();
 
-        final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(block.getHash());
-        final BlockChainId blockChainId = _blockDatabaseManager.getBlockChainIdForBlockId(blockId);
+        // final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(block.getHash());
+        // final BlockChainSegmentId blockChainSegmentId = _blockDatabaseManager.getBlockChainSegmentId(blockId);
+        // final List<BlockChainId> blockChainId = _blockChainDatabaseManager.getBlockChainId(blockChainSegmentId);
 
         final List<Transaction> blockTransactions = block.getTransactions();
         for (int i=0; i<blockTransactions.getSize(); ++i) {

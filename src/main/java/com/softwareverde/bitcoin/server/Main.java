@@ -102,7 +102,7 @@ public class Main {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final BlockValidator blockValidator = new BlockValidator(databaseConnection);
-                    final Boolean blockIsValid = blockValidator.validateBlock(block);
+                    final Boolean blockIsValid = blockValidator.validateBlock(null, block);
 
                     if (blockIsValid) {
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
@@ -347,7 +347,7 @@ public class Main {
                         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
 
                         final BlockValidator blockValidator = new BlockValidator(databaseConnection);
-                        final Boolean blockIsValid = blockValidator.validateBlock(block);
+                        final Boolean blockIsValid = blockValidator.validateBlock(null, block);
 
                         if (blockIsValid) {
                             TransactionUtil.commitTransaction(databaseConnection);

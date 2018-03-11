@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.BlockChainId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
@@ -29,7 +30,7 @@ public class TransactionValidator {
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockId(), transactionOutputIdentifier.getTransactionHash());
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainId(), transactionOutputIdentifier.getTransactionHash());
             if (transactionId == null) { return null; }
 
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
@@ -49,7 +50,7 @@ public class TransactionValidator {
         _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
     }
 
-    public Boolean validateTransactionInputsAreUnlocked(final BlockId blockId, final Transaction transaction) {
+    public Boolean validateTransactionInputsAreUnlocked(final BlockChainId blockChainId, final Transaction transaction) {
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         final Context context = new Context();
@@ -58,7 +59,7 @@ public class TransactionValidator {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
-            final TransactionOutputIdentifier unspentOutputToSpendIdentifier = new TransactionOutputIdentifier(blockId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+            final TransactionOutputIdentifier unspentOutputToSpendIdentifier = new TransactionOutputIdentifier(blockChainId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
             final TransactionOutput outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
             if (outputToSpend == null) { return false; }
 

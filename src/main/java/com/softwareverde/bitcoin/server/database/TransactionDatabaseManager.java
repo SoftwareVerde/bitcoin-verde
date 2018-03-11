@@ -35,9 +35,28 @@ public class TransactionDatabaseManager {
         }
     }
 
+    protected TransactionId _getTransactionIdFromHash(final BlockChainId blockChainId, final Hash transactionHash) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query(
+                "SELECT transactions.id FROM transactions"+
+                " INNER JOIN blocks ON blocks.id = transactions.block_id"+
+                " INNER JOIN block_chain_segments ON blocks.block_chain_segment_id = block_chain_segments.id"+
+                " INNER JOIN block_chain_block_segments ON block_chain_block_segments.block_chain_segment_id = block_chain_segments.id"+
+                " WHERE block_chain_block_segments.block_chain_id = ? AND transactions.hash = ?")
+                .setParameter(blockChainId)
+                .setParameter(BitcoinUtil.toHexString(transactionHash))
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionId.wrap(row.getLong("id"));
+    }
+
     protected TransactionId _getTransactionIdFromHash(final BlockId blockId, final Hash transactionHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE block_id = ? AND hash = ?")
+            new Query(
+                "SELECT id FROM transactions WHERE block_id = ? AND hash = ?")
                 .setParameter(blockId)
                 .setParameter(BitcoinUtil.toHexString(transactionHash))
         );
@@ -94,6 +113,10 @@ public class TransactionDatabaseManager {
         _storeTransactionInputs(transactionId, transaction);
         _storeTransactionOutputs(transactionId, transaction);
         return transactionId;
+    }
+
+    public TransactionId getTransactionIdFromHash(final BlockChainId blockChainId, final Hash transactionHash) throws DatabaseException {
+        return _getTransactionIdFromHash(blockChainId, transactionHash);
     }
 
     public TransactionId getTransactionIdFromHash(final BlockId blockId, final Hash transactionHash) throws DatabaseException {

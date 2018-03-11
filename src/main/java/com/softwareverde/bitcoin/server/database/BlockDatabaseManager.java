@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.chain.BlockChainId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
@@ -192,24 +192,24 @@ public class BlockDatabaseManager {
         return (rows.size());
     }
 
-    public void setBlockChainIdForBlockId(final BlockId blockId, final BlockChainId blockChainId) throws DatabaseException {
+    public void setBlockChainSegmentIdForBlockId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         _databaseConnection.executeSql(
-            new Query("UPDATE blocks SET block_chain_id = ? WHERE id = ?")
-                .setParameter(blockChainId)
+            new Query("UPDATE blocks SET block_chain_segment_id = ? WHERE id = ?")
+                .setParameter(blockChainSegmentId)
                 .setParameter(blockId)
         );
     }
 
-    public BlockChainId getBlockChainIdForBlockId(final BlockId blockId) throws DatabaseException {
+    public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, block_chain_id FROM blocks WHERE id = ?")
+            new Query("SELECT id, block_chain_segment_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
 
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return BlockChainId.wrap(row.getLong("block_chain_id"));
+        return BlockChainSegmentId.wrap(row.getLong("block_chain_segment_id"));
     }
 
     public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {

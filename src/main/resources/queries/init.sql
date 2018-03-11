@@ -1,9 +1,15 @@
+CREATE TABLE block_chains (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    difficulty bigint unsigned NOT NULL,
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
+
 CREATE TABLE blocks (
     id int unsigned NOT NULL AUTO_INCREMENT,
     hash varchar(64) NOT NULL,
     previous_block_id int unsigned,
     block_height int unsigned NOT NULL,
-    block_chain_id int unsigned,
+    block_chain_segment_id int unsigned,
     merkle_root varchar(64) NOT NULL,
     version int NOT NULL DEFAULT '1',
     timestamp bigint unsigned NOT NULL,
@@ -11,23 +17,33 @@ CREATE TABLE blocks (
     nonce bigint unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
-    FOREIGN KEY block_previous_block_id_ix (previous_block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
     INDEX block_timestamp_ix (timestamp) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
-CREATE TABLE block_chains (
+CREATE TABLE block_chain_segments (
     id int unsigned NOT NULL AUTO_INCREMENT,
     head_block_id int unsigned NOT NULL,
     tail_block_id int unsigned NOT NULL,
     block_height int unsigned NOT NULL,
     block_count int unsigned NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY block_chains_block_ids_uq (head_block_id, tail_block_id),
-    FOREIGN KEY block_chains_head_block_id_ix (head_block_id) REFERENCES blocks (id),
-    FOREIGN KEY block_chains_tail_block_id_ix (tail_block_id) REFERENCES blocks (id)
+    UNIQUE KEY block_chain_segments_block_ids_uq (head_block_id, tail_block_id),
+    FOREIGN KEY block_chain_segments_head_block_id_ix (head_block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_chain_segments_tail_block_id_ix (tail_block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
-ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_fk FOREIGN KEY (block_chain_id) REFERENCES block_chains (id);
+ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (block_chain_segment_id) REFERENCES block_chain_segments (id);
+
+CREATE TABLE block_chain_block_segments (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    block_chain_id int unsigned NOT NULL,
+    block_chain_segment_id int unsigned NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY block_chain_block_segments_uq (block_chain_id, block_chain_segment_id),
+    FOREIGN KEY block_chain_block_segments_fk1 (block_chain_id) REFERENCES block_chains (id),
+    FOREIGN KEY block_chain_block_segments_fk2 (block_chain_segment_id) REFERENCES block_chain_segments (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
 CREATE TABLE transactions (
     id int unsigned NOT NULL AUTO_INCREMENT,

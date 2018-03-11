@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.BlockChainId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -141,7 +141,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainId, unsignedTransaction);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -181,7 +181,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainId, unsignedTransaction);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -221,7 +221,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainId, unsignedTransaction);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action
