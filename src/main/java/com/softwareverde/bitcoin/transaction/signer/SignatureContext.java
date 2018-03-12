@@ -23,12 +23,12 @@ public class SignatureContext {
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
             _inputIndexesToSign.add(false);
+            _previousTransactionOutputsBeingSpent.add(null);
         }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         for (int i = 0; i < transactionOutputs.getSize(); ++i) {
             _outputIndexesToSign.add(false);
-            _previousTransactionOutputsBeingSpent.add(null);
         }
     }
 

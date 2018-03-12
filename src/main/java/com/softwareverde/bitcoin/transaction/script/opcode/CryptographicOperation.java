@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
 
 public class CryptographicOperation extends Operation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
@@ -79,7 +80,8 @@ public class CryptographicOperation extends Operation {
             }
 
             case CODE_SEPARATOR: {
-
+                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
+                return false;
             }
 
             case CHECK_SIGNATURE_THEN_VERIFY:
@@ -113,11 +115,13 @@ public class CryptographicOperation extends Operation {
             }
 
             case CHECK_MULTISIGNATURE: {
-
+                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
+                return false;
             }
 
             case CHECK_MULTISIGNATURE_THEN_VERIFY: {
-
+                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
+                return false;
             }
 
             default: { return false; }

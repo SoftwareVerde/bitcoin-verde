@@ -116,7 +116,7 @@ public class BlockChainDatabaseManager {
                 );
 
                 // 2.1.2 Update the newBlock so its block_chain_segment_id points to the previousBlockChain's id.
-                blockDatabaseManager.setBlockChainSegmentIdForBlockId(newBlockId, previousBlockChainSegmentId);
+                blockDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
                 // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
@@ -129,7 +129,7 @@ public class BlockChainDatabaseManager {
                 ));
 
                 // 2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChain's id.
-                blockDatabaseManager.setBlockChainSegmentIdForBlockId(newBlockId, genesisBlockChainSegmentId);
+                blockDatabaseManager.setBlockChainSegmentId(newBlockId, genesisBlockChainSegmentId);
             }
         }
         else { // 3. Else (the block is contentious)...
@@ -206,7 +206,7 @@ public class BlockChainDatabaseManager {
             ));
 
             // 3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.
-            blockDatabaseManager.setBlockChainSegmentIdForBlockId(newBlockId, newChainId);
+            blockDatabaseManager.setBlockChainSegmentId(newBlockId, newChainId);
         }
     }
 

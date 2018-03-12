@@ -96,25 +96,11 @@ public class Main {
                 Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.getHash()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
-                try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-                    TransactionUtil.startTransaction(databaseConnection);
 
-                    final BlockValidator blockValidator = new BlockValidator(databaseConnection);
-                    final Boolean blockIsValid = blockValidator.validateBlock(null, block);
+                final Boolean isValidBlock = _processBlock(block);
 
-                    if (blockIsValid) {
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                        blockDatabaseManager.storeBlock(block);
-                    }
-                    else {
-                        Logger.log("Invalid block: "+ block.getHash());
-                        _exitFailure();
-                    }
-
-                    TransactionUtil.commitTransaction(databaseConnection);
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                if (! isValidBlock) {
+                    Logger.log("Invalid block: "+ block.getHash());
                     _exitFailure();
                 }
 
@@ -148,6 +134,41 @@ public class Main {
         System.out.println("Press any key to download the Blockchain...");
         try { (new BufferedInputStream(System.in)).read(); } catch (final IOException exception) { }
         _downloadAllBlocks(node);
+    }
+
+    protected Boolean _processBlock(final Block block) {
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            TransactionUtil.startTransaction(databaseConnection);
+
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+            final BlockId blockId = blockDatabaseManager.storeBlock(block);
+            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+            final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+
+            final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+            final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+
+            if (blockIsValid) {
+                TransactionUtil.commitTransaction(databaseConnection);
+                return true;
+            }
+            else {
+                TransactionUtil.rollbackTransaction(databaseConnection);
+            }
+        }
+        catch (final Exception exception) {
+            exception.printStackTrace();
+        }
+
+        Logger.log("Invalid block: "+ block.getHash());
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        Logger.log(blockDeflater.toBytes(block));
+
+        return false;
     }
 
     public Main(final String[] commandLineArguments) {
@@ -335,28 +356,7 @@ public class Main {
             node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
-                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-                        TransactionUtil.startTransaction(databaseConnection);
-
-                        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-                        final BlockId blockId = blockDatabaseManager.storeBlock(block);
-                        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-                        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
-
-                        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
-                        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-
-                        if (blockIsValid) {
-                            TransactionUtil.commitTransaction(databaseConnection);
-                        }
-                        else {
-                            Logger.log("Invalid block: "+ block.getHash());
-                            TransactionUtil.rollbackTransaction(databaseConnection);
-                        }
-                    }
-                    catch (final DatabaseException exception) { }
+                    final Boolean isValidBlock = _processBlock(block);
 
                     _promptToDownloadAllBlocks(node);
                 }

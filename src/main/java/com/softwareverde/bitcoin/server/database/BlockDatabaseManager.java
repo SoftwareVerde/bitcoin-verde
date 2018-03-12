@@ -156,6 +156,14 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
+    protected void _setBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE blocks SET block_chain_segment_id = ? WHERE id = ?")
+                .setParameter(blockChainSegmentId)
+                .setParameter(blockId)
+        );
+    }
+
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
@@ -192,12 +200,8 @@ public class BlockDatabaseManager {
         return (rows.size());
     }
 
-    public void setBlockChainSegmentIdForBlockId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        _databaseConnection.executeSql(
-            new Query("UPDATE blocks SET block_chain_segment_id = ? WHERE id = ?")
-                .setParameter(blockChainSegmentId)
-                .setParameter(blockId)
-        );
+    public void setBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        _setBlockChainSegmentId(blockId, blockChainSegmentId);
     }
 
     public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
