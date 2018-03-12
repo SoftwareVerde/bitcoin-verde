@@ -1,15 +1,17 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.PrivateKey;
-
-import java.io.File;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
+import com.softwareverde.bitcoin.server.module.AddressModule;
+import com.softwareverde.bitcoin.server.module.DatabaseModule;
+import com.softwareverde.bitcoin.server.module.MinerModule;
+import com.softwareverde.bitcoin.server.module.NodeModule;
+import com.softwareverde.util.Util;
 
 public class Main {
-    protected final Configuration _configuration;
-    protected final Environment _environment;
+
+    public static void main(final String[] commandLineArguments) {
+        final Main application = new Main(commandLineArguments);
+        application.run();
+    }
 
     protected void _exitFailure() {
         System.exit(1);
@@ -20,81 +22,111 @@ public class Main {
     }
 
     protected void _printUsage() {
-        _printError("Usage: java -jar " + System.getProperty("java.class.path") + " <configuration-file>");
+        final String commandString = "java -jar " + System.getProperty("java.class.path");
+
+        _printError("Usage: " + commandString + " <Module> <Arguments>");
+        _printError("");
+
+        _printError("\tModule: NODE");
+        _printError("\tArguments: <Configuration File>");
+        _printError("\tDescription: Connects to a remote node and begins downloading and validating the block chain.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: DATABASE");
+        _printError("\tArguments: <Configuration File>");
+        _printError("\tDescription: Starts the database so that it may be explored via MySQL.");
+        _printError("\t\tTo connect to the database, use the settings provided within your configuration file.  Ex: mysql -u bitcoin -h 127.0.0.1 -P8336 -p81b797117e8e0233ea8fd1d46923df54 bitcoin");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: ADDRESS");
+        _printError("\tArguments:");
+        _printError("\tDescription: Generates a private key and its associated public key and Base58Check Bitcoin address.");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: MINER");
+        _printError("\tArguments: <Previous Block Hash> <Bitcoin Address> <CPU Thread Count> <GPU Thread Count>");
+        _printError("\tDescription: Creates a block based off the provided previous-block-hash, with a single coinbase transaction to the address provided.");
+        _printError("\t\tThe block created will be for initial Bitcoin difficulty.  This mode is intended to be used to generate test-blocks.");
+        _printError("\t\tThe block created is not relayed over the network.");
+        _printError("\tArgument Description: <Previous Block Hash>");
+        _printError("\t\tThe Hex-String-Encoded Block-Hash to use as the new block's previous block.  Ex: 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F");
+        _printError("\tArgument Description: <Bitcoin Address>");
+        _printError("\t\tThe Base58Check encoded Bitcoin Address to send the coinbase's newly generated coins.  Ex: 1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW");
+        _printError("\tArgument Description: <CPU Thread Count>");
+        _printError("\t\tThe number of CPU threads to be spawned while attempting to find a suitable block hash.  Ex: 4");
+        _printError("\tArgument Description: <GPU Thread Count>");
+        _printError("\t\tThe number of GPU threads to be spawned while attempting to find a suitable block hash.  Ex: 0");
+        _printError("\t\tNOTE: on a Mac Pro, it is best to leave this as zero.");
+        _printError("\t----------------");
+        _printError("");
     }
 
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            _printError("Invalid configuration file.");
-            _exitFailure();
-        }
+    protected final String[] _arguments;
 
-        return new Configuration(configurationFile);
-    }
+    public Main(final String[] arguments) {
+        _arguments = arguments;
 
-    protected void _printMemoryUsage() {
-        final Runtime runtime = Runtime.getRuntime();
-        final Long maxMemory = runtime.maxMemory();
-        final Long freeMemory = runtime.freeMemory();
-        final Long reservedMemory = runtime.totalMemory();
-        final Long currentMemoryUsage = reservedMemory - freeMemory;
-
-        final Long toMegabytes = 1048576L;
-        System.out.print("\33[1A\33[2K");
-        System.out.println((currentMemoryUsage/toMegabytes) +"mb / "+ (maxMemory/toMegabytes) +"mb ("+ String.format("%.2f", (currentMemoryUsage.floatValue() / maxMemory.floatValue() * 100.0F)) +"%)");
-    }
-
-    protected void _checkForDeadlockedThreads() {
-        final ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-        final long[] threadIds = bean.findDeadlockedThreads(); // Returns null if no threads are deadlocked.
-
-        if (threadIds != null) {
-            final ThreadInfo[] threadInfo = bean.getThreadInfo(threadIds);
-
-            for (final ThreadInfo info : threadInfo) {
-                final StackTraceElement[] stack = info.getStackTrace();
-                for (final StackTraceElement stackTraceElement : stack) {
-                    System.out.println(stackTraceElement);
-                }
-            }
-        }
-    }
-
-    public Main(final String[] commandLineArguments) {
-        if (commandLineArguments.length != 1) {
+        if (arguments.length < 1) {
             _printUsage();
             _exitFailure();
         }
-
-        final String configurationFilename = commandLineArguments[0];
-
-        _configuration = _loadConfigurationFile(configurationFilename);
-        _environment = new Environment();
-
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
     }
 
-    public void loop() {
-        System.out.println("[Server Online]");
+    public void run() {
+        final String module = _arguments[0].toUpperCase();
+        switch (module) {
 
-        final PrivateKey privateKey = PrivateKey.createNewKey();
-        System.out.println(privateKey);
+            case "NODE": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    _exitFailure();
+                    break;
+                }
 
-        while (true) {
-            try { Thread.sleep(500); } catch (final Exception e) { }
+                final String configurationFile = _arguments[1];
+                NodeModule.execute(configurationFile);
+            } break;
 
-            if ((Math.random() * 777) % 1000 < 10) {
-                System.gc();
+            case "DATABASE": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    _exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                DatabaseModule.execute(configurationFile);
+            } break;
+
+            case "ADDRESS": {
+                AddressModule.execute();
+            } break;
+
+            case "MINER": {
+                if (_arguments.length != 5) {
+                    _printUsage();
+                    _exitFailure();
+                    break;
+                }
+
+                final String previousBlockHashString = _arguments[1];
+                final String base58CheckAddress = _arguments[2];
+                final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
+                final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
+                MinerModule.execute(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
+            } break;
+
+            default: {
+                _printUsage();
+                _exitFailure();
             }
-
-            // _printMemoryUsage();
-            // _checkForDeadlockedThreads();
         }
-    }
-
-    public static void main(final String[] commandLineArguments) {
-        final Main application = new Main(commandLineArguments);
-        application.loop();
     }
 }

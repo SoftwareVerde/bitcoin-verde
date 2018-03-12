@@ -2,7 +2,7 @@
 
 ./scripts/clean.sh
 
-rm -rf out
+rm -rf out 2>/dev/null
 
 ./scripts/make-jar.sh
 
@@ -10,7 +10,10 @@ rm -rf out
 mkdir -p out/conf
 cp -R conf/* out/conf/.
 
-# Create Run-Script
-echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"conf/server.conf\"\n" > out/run.sh
-chmod 770 out/run.sh
+# Create Database Directories
+mkdir -p out/data
+mkdir -p out/tmp
+
+# Create Run-Scripts
+./scripts/make-scripts.sh
 
