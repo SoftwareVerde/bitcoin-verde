@@ -35,7 +35,17 @@ public class Address extends ImmutableByteArray {
     }
 
     public static Address fromBase58Check(final String base58CheckString) {
-        final byte[] bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
+        final byte[] bytesWithPrefixWithChecksum;
+
+        try {
+            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
+        }
+        catch (final Exception exception) {
+            return null;
+        }
+
+        if (bytesWithPrefixWithChecksum.length < (prefixByteCount + checksumByteCount)) { return null; }
+
         final byte[] bytesWithoutPrefixWithoutChecksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, prefixByteCount, bytesWithPrefixWithChecksum.length - checksumByteCount - prefixByteCount);
 
         final byte prefix = bytesWithPrefixWithChecksum[0];

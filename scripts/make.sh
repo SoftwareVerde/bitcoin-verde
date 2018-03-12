@@ -14,7 +14,6 @@ cp -R conf/* out/conf/.
 mkdir -p out/data
 mkdir -p out/tmp
 
-# Create Run-Script
-echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"conf/server.conf\"\n" > out/run.sh
-chmod 770 out/run.sh
+# Create Run-Scripts
+./scripts/make-scripts.sh
 

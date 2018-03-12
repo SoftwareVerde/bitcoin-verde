@@ -24,7 +24,7 @@ public class Miner {
         final byte zero = 0x00;
 
         for (int i=0; i<4; ++i) {
-            if (i == 3) { Logger.log(BitcoinUtil.toHexString(hash)); }
+            // if (i == 3) { Logger.log(BitcoinUtil.toHexString(hash)); }
             if (hash.getByte(i) != zero) { return false; }
         }
         return true;
