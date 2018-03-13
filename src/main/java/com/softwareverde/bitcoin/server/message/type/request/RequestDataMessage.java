@@ -37,7 +37,7 @@ public class RequestDataMessage extends ProtocolMessage {
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.size()), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.size()), Endian.BIG);
         for (final DataHash dataHash : _dataHashes) {
             byteArrayBuilder.appendBytes(dataHash.getBytes(), Endian.BIG);
         }

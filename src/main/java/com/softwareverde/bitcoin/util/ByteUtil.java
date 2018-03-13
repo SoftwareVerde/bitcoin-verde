@@ -112,36 +112,38 @@ public class ByteUtil {
     }
 
     public static byte[] variableLengthIntegerToBytes(final long value) {
+        final byte[] bytes = ByteUtil.longToBytes(value);
+
         if (value < 0xFDL) {
-            return new byte[] { (byte) value };
+            return new byte[] { bytes[7] };
         }
         else if (value <= 0xFFFFL) {
             return new byte[] {
                 (byte) 0xFD,
-                (byte) (value >>> 8),
-                (byte) (value)
+                bytes[7],
+                bytes[6]
             };
         }
         else if (value <= 0xFFFFFFFFL) {
             return new byte[] {
                 (byte) 0xFE,
-                (byte) (value >>> 24),
-                (byte) (value >>> 16),
-                (byte) (value >>> 8),
-                (byte) (value)
+                bytes[7],
+                bytes[6],
+                bytes[5],
+                bytes[4]
             };
         }
         else {
             return new byte[] {
                 (byte) 0xFF,
-                (byte) (value >>> 56),
-                (byte) (value >>> 48),
-                (byte) (value >>> 40),
-                (byte) (value >>> 32),
-                (byte) (value >>> 24),
-                (byte) (value >>> 16),
-                (byte) (value >>> 8),
-                (byte) (value)
+                bytes[7],
+                bytes[6],
+                bytes[5],
+                bytes[4],
+                bytes[3],
+                bytes[2],
+                bytes[1],
+                bytes[0]
             };
         }
     }

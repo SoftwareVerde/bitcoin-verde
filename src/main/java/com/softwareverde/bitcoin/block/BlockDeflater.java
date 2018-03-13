@@ -19,7 +19,7 @@ public class BlockDeflater {
 
         final int transactionCount = transactions.getSize();
         final ByteArrayBuilder byteArrayBuilder = blockHeaderDeflater.toByteArrayBuilder(block);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionCount), Endian.BIG);
 
         for (int i=0; i<transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
