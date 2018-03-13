@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -50,6 +51,60 @@ public class BlockValidator {
         }
     }
 
+    // TODO: All of this is moot until the db connection is not synchronized...
+    protected class InputCalculationThread extends Thread {
+        protected long _totalInputValue = 0L;
+        protected final int _beginningInputIndex;
+        protected final int _inputCount;
+        protected final List<TransactionInput> _transactionInputs;
+        protected final Map<Hash, Transaction> _additionalTransactionOutputs;
+        protected final BlockChainSegmentId _blockChainId;
+
+        public InputCalculationThread(final BlockChainSegmentId blockChainId, final List<TransactionInput> transactionInputs, final int beginningInputIndex, final int inputCount, final Map<Hash, Transaction> additionalTransactionOutputs) {
+            _blockChainId = blockChainId;
+            _transactionInputs = transactionInputs;
+            _beginningInputIndex = beginningInputIndex;
+            _inputCount = inputCount;
+            _additionalTransactionOutputs = additionalTransactionOutputs;
+        }
+
+        @Override
+        public void run() {
+            for (int i=0; i<_inputCount; ++i) {
+                final TransactionInput transactionInput = _transactionInputs.get(i + _beginningInputIndex);
+
+                final Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
+
+                final TransactionOutput transactionOutput;
+                {
+                    TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(_blockChainId, outputTransactionHash, transactionOutputIndex));
+                    if (possibleTransactionOutput == null) {
+                        final Transaction transactionContainingOutput = _additionalTransactionOutputs.get(outputTransactionHash);
+                        if (transactionContainingOutput != null) {
+                            final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
+                            if (transactionOutputIndex < transactionOutputs.getSize()) {
+                                possibleTransactionOutput = transactionOutputs.get(transactionOutputIndex);
+                            }
+                        }
+                    }
+                    transactionOutput = possibleTransactionOutput;
+                }
+                if (transactionOutput == null) {
+                    Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex);
+                    _totalInputValue = -1L;
+                    return;
+                }
+
+                _totalInputValue += transactionOutput.getAmount();
+            }
+        }
+
+        public Long getTotalInputValue() {
+            return (_totalInputValue < 0 ? null : _totalInputValue);
+        }
+    }
+
     protected Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
@@ -58,30 +113,35 @@ public class BlockValidator {
 
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
-        for (final TransactionInput transactionInput : transactionInputs) {
-            final Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-            final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
+        if (transactionInputs.getSize() < 8) {
+            final InputCalculationThread inputCalculationThread = new InputCalculationThread(blockChainId, transactionInputs, 0, transactionInputs.getSize(), additionalTransactionOutputs);
+            inputCalculationThread.run();
+            totalInputValue += inputCalculationThread.getTotalInputValue();
+        }
+        else {
+            final MutableList<InputCalculationThread> inputCalculationThreads = new MutableList<InputCalculationThread>();
 
-            final TransactionOutput transactionOutput;
-            {
-                TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(blockChainId, outputTransactionHash, transactionOutputIndex));
-                if (possibleTransactionOutput == null) {
-                    final Transaction transactionContainingOutput = additionalTransactionOutputs.get(outputTransactionHash);
-                    if (transactionContainingOutput != null) {
-                        final List<TransactionOutput> transactionOutputs = transactionContainingOutput.getTransactionOutputs();
-                        if (transactionOutputIndex < transactionOutputs.getSize()) {
-                            possibleTransactionOutput = transactionOutputs.get(transactionOutputIndex);
-                        }
-                    }
+            final int threadCount = Math.min(8, (transactionInputs.getSize() / 8));
+            final int itemsPerThread = (transactionInputs.getSize() / threadCount);
+            for (int i=0; i<threadCount; ++i) {
+                final int startIndex = i * itemsPerThread;
+                final int remainingItems = (transactionInputs.getSize() - startIndex);
+                final int inputCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
+                final InputCalculationThread thread = new InputCalculationThread(blockChainId, transactionInputs, startIndex, inputCount, additionalTransactionOutputs);
+                Logger.log(transactionInputs.getSize() + " inputs. Spawning thread: "+ i +" :: "+ startIndex +" - "+ (startIndex + inputCount));
+                thread.start();
+                inputCalculationThreads.add(thread);
+            }
+
+            for (final InputCalculationThread inputCalculationThread : inputCalculationThreads) {
+                try { inputCalculationThread.join(); } catch (InterruptedException exception) { }
+                final Long threadInputValue = inputCalculationThread.getTotalInputValue();
+                if (threadInputValue == null) {
+                    Logger.log("Unable to calculate Tx Total: "+ blockTransaction.getHash());
+                    return null;
                 }
-                transactionOutput = possibleTransactionOutput;
+                totalInputValue += threadInputValue;
             }
-            if (transactionOutput == null) {
-                Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex + ", for Tx: "+ blockTransaction.getHash());
-                return null;
-            }
-
-            totalInputValue += transactionOutput.getAmount();
         }
         return totalInputValue;
     }

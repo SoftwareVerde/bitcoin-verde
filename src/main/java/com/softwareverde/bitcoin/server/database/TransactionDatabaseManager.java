@@ -57,7 +57,7 @@ public class TransactionDatabaseManager {
 
             BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             while (true) {
-                BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
+                final BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
                 Logger.log("Traversed "+ (++i) +" BlockChainSegments looking for "+ transactionHash);
 
                 if (blockChainSegmentId.equals(transactionBlockChainSegment.getId())) {
