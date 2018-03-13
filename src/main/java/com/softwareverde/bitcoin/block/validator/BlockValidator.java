@@ -2,11 +2,8 @@ package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -20,30 +17,28 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
-    protected final BlockChainDatabaseManager _blockChainDatabaseManager;
-    protected final BlockDatabaseManager _blockDatabaseManager;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final TransactionValidator _transactionValidator;
-    protected final TransactionDatabaseManager _transactionDatabaseManager;
-    protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
-    protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
 
-    protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+    protected static TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionDatabaseManager transactionDatabaseManager, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) {
         try {
             final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
             if (transactionId == null) { return null; }
 
-            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
+            final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
             if (transactionOutputId == null) { return null; }
 
-            return _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+            return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -51,20 +46,40 @@ public class BlockValidator {
         }
     }
 
-    // TODO: All of this is moot until the db connection is not synchronized...
-    protected class InputCalculationThread extends Thread {
-        protected long _totalInputValue = 0L;
-        protected final int _beginningInputIndex;
-        protected final int _inputCount;
-        protected final List<TransactionInput> _transactionInputs;
-        protected final Map<Hash, Transaction> _additionalTransactionOutputs;
-        protected final BlockChainSegmentId _blockChainId;
+    protected static class InputCalculationThread extends Thread {
+        protected final TransactionDatabaseManager _transactionDatabaseManager;
+        protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
 
-        public InputCalculationThread(final BlockChainSegmentId blockChainId, final List<TransactionInput> transactionInputs, final int beginningInputIndex, final int inputCount, final Map<Hash, Transaction> additionalTransactionOutputs) {
-            _blockChainId = blockChainId;
+        protected long _totalInputValue = 0L;
+
+        protected int _beginningInputIndex = -1;
+        protected int _inputCount = -1;
+        protected List<TransactionInput> _transactionInputs = null;
+        protected Map<Hash, Transaction> _additionalTransactionOutputs = null;
+        protected BlockChainSegmentId _blockChainSegmentId = null;
+
+        public InputCalculationThread(final MysqlDatabaseConnection databaseConnection) {
+            _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        }
+
+        public void setBlockChainSegmentId(final BlockChainSegmentId blockChainSegmentId) {
+            _blockChainSegmentId = blockChainSegmentId;
+        }
+
+        public void setTransactionInputs(final List<TransactionInput> transactionInputs) {
             _transactionInputs = transactionInputs;
+        }
+
+        public void setInputStartIndex(final int beginningInputIndex) {
             _beginningInputIndex = beginningInputIndex;
+        }
+
+        public void setInputCount(final int inputCount) {
             _inputCount = inputCount;
+        }
+
+        public void setAdditionalTransactionOutputs(final Map<Hash, Transaction> additionalTransactionOutputs) {
             _additionalTransactionOutputs = additionalTransactionOutputs;
         }
 
@@ -78,7 +93,7 @@ public class BlockValidator {
 
                 final TransactionOutput transactionOutput;
                 {
-                    TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(_blockChainId, outputTransactionHash, transactionOutputIndex));
+                    TransactionOutput possibleTransactionOutput = _findTransactionOutput(new TransactionOutputIdentifier(_blockChainSegmentId, outputTransactionHash, transactionOutputIndex), _transactionDatabaseManager, _transactionOutputDatabaseManager);
                     if (possibleTransactionOutput == null) {
                         final Transaction transactionContainingOutput = _additionalTransactionOutputs.get(outputTransactionHash);
                         if (transactionContainingOutput != null) {
@@ -114,7 +129,24 @@ public class BlockValidator {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = blockTransaction.getTransactionInputs();
         if (transactionInputs.getSize() < 8) {
-            final InputCalculationThread inputCalculationThread = new InputCalculationThread(blockChainId, transactionInputs, 0, transactionInputs.getSize(), additionalTransactionOutputs);
+            Logger.log(transactionInputs.getSize() + " inputs. Using single thread.");
+
+            final MysqlDatabaseConnection databaseConnection;
+            try {
+                databaseConnection = _databaseConnectionFactory.newConnection();
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                return null;
+            }
+
+            final InputCalculationThread inputCalculationThread = new InputCalculationThread(databaseConnection);
+            inputCalculationThread.setBlockChainSegmentId(blockChainId);
+            inputCalculationThread.setTransactionInputs(transactionInputs);
+            inputCalculationThread.setInputStartIndex(0);
+            inputCalculationThread.setInputCount(transactionInputs.getSize());
+            inputCalculationThread.setAdditionalTransactionOutputs(additionalTransactionOutputs);
+
             inputCalculationThread.run();
             totalInputValue += inputCalculationThread.getTotalInputValue();
         }
@@ -123,11 +155,32 @@ public class BlockValidator {
 
             final int threadCount = Math.min(8, (transactionInputs.getSize() / 8));
             final int itemsPerThread = (transactionInputs.getSize() / threadCount);
+
+            final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
+            for (int i=0; i<threadCount; ++i) {
+                try {
+                    final MysqlDatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
+                    mysqlDatabaseConnection.executeSql(new Query("SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED"));
+                    mysqlDatabaseConnections[i] = mysqlDatabaseConnection;
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    return null;
+                }
+            }
+
             for (int i=0; i<threadCount; ++i) {
                 final int startIndex = i * itemsPerThread;
                 final int remainingItems = (transactionInputs.getSize() - startIndex);
                 final int inputCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
-                final InputCalculationThread thread = new InputCalculationThread(blockChainId, transactionInputs, startIndex, inputCount, additionalTransactionOutputs);
+
+                final InputCalculationThread thread = new InputCalculationThread(mysqlDatabaseConnections[i]);
+                thread.setBlockChainSegmentId(blockChainId);
+                thread.setTransactionInputs(transactionInputs);
+                thread.setInputStartIndex(startIndex);
+                thread.setInputCount(inputCount);
+                thread.setAdditionalTransactionOutputs(additionalTransactionOutputs);
+
                 Logger.log(transactionInputs.getSize() + " inputs. Spawning thread: "+ i +" :: "+ startIndex +" - "+ (startIndex + inputCount));
                 thread.start();
                 inputCalculationThreads.add(thread);
@@ -154,13 +207,9 @@ public class BlockValidator {
         return (totalOutputValue <= totalInputValue);
     }
 
-    public BlockValidator(final MysqlDatabaseConnection databaseConnection) {
-        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        _transactionValidator = new TransactionValidator(databaseConnection);
-        _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
+    public BlockValidator(final MysqlDatabaseConnection mainDatabaseConnection, final DatabaseConnectionFactory threadedConnectionsFactory) {
+        _databaseConnectionFactory = threadedConnectionsFactory;
+        _transactionValidator = new TransactionValidator(mainDatabaseConnection);
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) throws DatabaseException {

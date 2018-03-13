@@ -5,6 +5,7 @@ import com.softwareverde.database.Database;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
@@ -14,9 +15,9 @@ import java.sql.Connection;
 
 // TODO: Remove dependency on com.softwareverde.bitcoin.server.Configuration
 
-public class EmbeddedMysqlDatabase implements Database<Connection> {
+public class EmbeddedMysqlDatabase implements Database<Connection>, DatabaseConnectionFactory {
     protected DB _databaseInstance;
-    protected DatabaseConnectionFactory _databaseConnectionFactory;
+    protected MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
     protected void _loadDatabase(final Configuration.DatabaseProperties databaseProperties) throws DatabaseException {
         final String rootHost = "127.0.0.1";
@@ -39,8 +40,8 @@ public class EmbeddedMysqlDatabase implements Database<Connection> {
             maintenanceCredentials = new Credentials(maintenanceUsername, maintenancePassword, databaseSchema);
         }
 
-        final DatabaseConnectionFactory defaultCredentialsDatabaseConnectionFactory;
-        final DatabaseConnectionFactory databaseConnectionFactory;
+        final MysqlDatabaseConnectionFactory defaultCredentialsDatabaseConnectionFactory;
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory;
         final DBConfiguration dbConfiguration;
         {
             final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();
@@ -50,10 +51,10 @@ public class EmbeddedMysqlDatabase implements Database<Connection> {
             dbConfiguration = configBuilder.build();
 
             final String connectionString = configBuilder.getURL(credentials.schema);
-            databaseConnectionFactory = new DatabaseConnectionFactory(connectionString, credentials.username, credentials.password);
+            databaseConnectionFactory = new MysqlDatabaseConnectionFactory(connectionString, credentials.username, credentials.password);
 
             final String defaultCredentialsConnectionString = configBuilder.getURL(""); // NOTE: Should empty string (cannot be null).
-            defaultCredentialsDatabaseConnectionFactory = new DatabaseConnectionFactory(defaultCredentialsConnectionString, defaultRootCredentials.username, defaultRootCredentials.password);
+            defaultCredentialsDatabaseConnectionFactory = new MysqlDatabaseConnectionFactory(defaultCredentialsConnectionString, defaultRootCredentials.username, defaultRootCredentials.password);
         }
 
         final DB databaseInstance;

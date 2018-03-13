@@ -9,7 +9,7 @@ import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import java.util.List;
 
 public class DatabaseInitializer {
-    public void initializeDatabase(final DB databaseInstance, final DatabaseConnectionFactory databaseConnectionFactory, final Credentials maintenanceCredentials) throws DatabaseException {
+    public void initializeDatabase(final DB databaseInstance, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Credentials maintenanceCredentials) throws DatabaseException {
         final Integer databaseVersionNumber;
         {
             Integer versionNumber = 0;
