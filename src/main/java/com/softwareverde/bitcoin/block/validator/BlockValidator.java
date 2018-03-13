@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
@@ -27,7 +26,6 @@ import java.util.Map;
 
 public class BlockValidator {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final TransactionValidator _transactionValidator;
 
     protected static TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionDatabaseManager transactionDatabaseManager, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) {
         try {
@@ -120,6 +118,20 @@ public class BlockValidator {
         }
     }
 
+    protected void _closeConnection(final MysqlDatabaseConnection databaseConnection) {
+        try {
+            if (databaseConnection != null) {
+                databaseConnection.close();
+            }
+        }
+        catch (DatabaseException exception) { }
+    }
+    protected void _closeConnections(final MysqlDatabaseConnection[] databaseConnections) {
+        for (final MysqlDatabaseConnection databaseConnection : databaseConnections) {
+            _closeConnection(databaseConnection);
+        }
+    }
+
     protected Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainId, final Transaction blockTransaction, final List<Transaction> queuedTransactions) {
         final Map<Hash, Transaction> additionalTransactionOutputs = new HashMap<Hash, Transaction>();
         for (final Transaction transaction : queuedTransactions) {
@@ -149,12 +161,13 @@ public class BlockValidator {
 
             inputCalculationThread.run();
             totalInputValue += inputCalculationThread.getTotalInputValue();
+            _closeConnection(databaseConnection);
         }
         else {
-            final MutableList<InputCalculationThread> inputCalculationThreads = new MutableList<InputCalculationThread>();
-
             final int threadCount = Math.min(8, (transactionInputs.getSize() / 8));
             final int itemsPerThread = (transactionInputs.getSize() / threadCount);
+
+            final MutableList<InputCalculationThread> inputCalculationThreads = new MutableList<InputCalculationThread>(threadCount);
 
             final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
             for (int i=0; i<threadCount; ++i) {
@@ -165,6 +178,7 @@ public class BlockValidator {
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
+                    _closeConnections(mysqlDatabaseConnections);
                     return null;
                 }
             }
@@ -191,10 +205,13 @@ public class BlockValidator {
                 final Long threadInputValue = inputCalculationThread.getTotalInputValue();
                 if (threadInputValue == null) {
                     Logger.log("Unable to calculate Tx Total: "+ blockTransaction.getHash());
+                    _closeConnections(mysqlDatabaseConnections);
                     return null;
                 }
                 totalInputValue += threadInputValue;
             }
+
+            _closeConnections(mysqlDatabaseConnections);
         }
         return totalInputValue;
     }
@@ -209,33 +226,97 @@ public class BlockValidator {
 
     public BlockValidator(final MysqlDatabaseConnection mainDatabaseConnection, final DatabaseConnectionFactory threadedConnectionsFactory) {
         _databaseConnectionFactory = threadedConnectionsFactory;
-        _transactionValidator = new TransactionValidator(mainDatabaseConnection);
+    }
+
+    protected class TransactionValidationThread extends Thread {
+        protected final BlockChainSegmentId _blockChainSegmentId;
+        protected final List<Transaction> _transactions;
+        protected final int _startIndex;
+        protected final int _transactionCount;
+        protected boolean _transactionsAreValid = true;
+        protected TransactionValidator _transactionValidator;
+
+        public TransactionValidationThread(final MysqlDatabaseConnection databaseConnection, final BlockChainSegmentId blockChainSegmentId, final List<Transaction> transactions, final int startIndex, final int transactionCount) {
+            _blockChainSegmentId = blockChainSegmentId;
+            _transactions = transactions;
+            _startIndex = startIndex;
+            _transactionCount = transactionCount;
+
+            _transactionValidator = new TransactionValidator(databaseConnection);
+        }
+
+        @Override
+        public void run() {
+            for (int i=0; i<_transactionCount; ++i) {
+                if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
+
+                final Transaction blockTransaction = _transactions.get(i);
+                final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(_blockChainSegmentId, blockTransaction, _transactions);
+                if (! transactionExpenditureIsValid) {
+                    _transactionsAreValid = false;
+                    return;
+                }
+
+                final Boolean transactionInputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, blockTransaction);
+                if (! transactionInputsAreUnlocked) {
+                    _transactionsAreValid = false;
+                    return;
+                }
+            }
+        }
+
+        public boolean transactionsAreValid() {
+            return _transactionsAreValid;
+        }
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) throws DatabaseException {
         if (! block.isValid()) { return false; }
 
-        final BlockDeflater blockDeflater = new BlockDeflater();
+        final List<Transaction> transactions = block.getTransactions();
 
-        final List<Transaction> blockTransactions = block.getTransactions();
-        for (int i=0; i<blockTransactions.getSize(); ++i) {
-            if (i == 0) { continue; } // TODO: The coinbase transaction requires a separate validation process...
+        final int threadCount = Math.min(8, Math.max(1, transactions.getSize() / 8));
+        final int itemsPerThread = (transactions.getSize() / threadCount);
 
-            final Transaction blockTransaction = blockTransactions.get(i);
-            final Boolean transactionExpenditureIsValid = _validateTransactionExpenditure(blockChainSegmentId, blockTransaction, blockTransactions);
-            if (! transactionExpenditureIsValid) {
-                Logger.log("BLOCK VALIDATION: Failed because expenditures did not match.");
-                Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
-                return false;
+        final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
+        for (int i=0; i<threadCount; ++i) {
+            try {
+                final MysqlDatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
+                mysqlDatabaseConnection.executeSql(new Query("SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED"));
+                mysqlDatabaseConnections[i] = mysqlDatabaseConnection;
             }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                _closeConnections(mysqlDatabaseConnections);
+                return null;
+            }
+        }
 
-            final Boolean transactionInputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockTransaction);
-            if (! transactionInputsAreUnlocked) {
+        final MutableList<TransactionValidationThread> validationThreads = new MutableList<TransactionValidationThread>(threadCount);
+
+        for (int i=0; i<threadCount; ++i) {
+            final int startIndex = i * itemsPerThread;
+            final int remainingItems = (transactions.getSize() - startIndex);
+            final int inputCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
+
+            final TransactionValidationThread thread = new TransactionValidationThread(mysqlDatabaseConnections[i], blockChainSegmentId, transactions, startIndex, inputCount);
+
+            Logger.log(transactions.getSize() + " transactions. Spawning thread: "+ i +" :: "+ startIndex +" - "+ (startIndex + inputCount));
+            thread.start();
+            validationThreads.add(thread);
+        }
+
+        for (final TransactionValidationThread transactionValidationThread : validationThreads) {
+            try { transactionValidationThread.join(); } catch (InterruptedException exception) { }
+            final boolean transactionsAreValid = transactionValidationThread.transactionsAreValid();
+            if (! transactionsAreValid) {
                 Logger.log("BLOCK VALIDATION: Failed because of invalid transaction.");
-                Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
+                _closeConnections(mysqlDatabaseConnections);
                 return false;
             }
         }
+
+        _closeConnections(mysqlDatabaseConnections);
 
         return true;
     }
