@@ -106,7 +106,7 @@ public class MerkleTreeTests {
     }
 
     // @Test
-    // TODO: Unsure why this test fails...  Considering this is block #30,000, it's possibly a change in the protocol.
+    // TODO: Unsure why this test fails...  Considering this is block #300,000, it's possibly a change in the protocol.
     public void should_calculate_the_merkle_root_with_over_a_hundred_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
