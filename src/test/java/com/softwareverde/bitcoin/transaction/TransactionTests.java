@@ -1,8 +1,16 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.util.IoUtil;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TransactionTests {
@@ -45,5 +53,25 @@ public class TransactionTests {
         // Assert
         TestUtil.assertEqual(expectedTransactionBytes, transactionBytes);
         TestUtil.assertEqual(expectedTransactionHash, transactionHash.getBytes());
+    }
+
+    @Test
+    public void bug_0001_should_calculate_hash_for_block_29664() {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block block = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(IoUtil.getResource("/blocks/00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523")));
+        final Transaction transaction = block.getTransactions().get(1);
+
+        final Hash expectedTransactionHash = MutableHash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957");
+        final int expectedInputCount = 320;
+        final int expectedOutputCount = 1;
+
+        // Action
+        final Hash transactionHash = transaction.getHash();
+
+        // Assert
+        Assert.assertEquals(expectedInputCount, transaction.getTransactionInputs().getSize());
+        Assert.assertEquals(expectedOutputCount, transaction.getTransactionOutputs().getSize());
+        Assert.assertEquals(transactionHash, expectedTransactionHash);
     }
 }

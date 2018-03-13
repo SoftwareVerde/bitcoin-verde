@@ -4,7 +4,10 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.IoUtil;
@@ -78,8 +81,7 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
-    // It is likely that this test is failing due to a change in the protocol...
-    // @Test
+    @Test
     public void should_calculate_the_merkle_root_with_over_a_thousand_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
@@ -103,8 +105,8 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
-    // It is likely that this test is failing due to a change in the protocol...
     // @Test
+    // TODO: Unsure why this test fails...  Considering this is block #30,000, it's possibly a change in the protocol.
     public void should_calculate_the_merkle_root_with_over_a_hundred_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
@@ -176,8 +178,27 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
-    // It is likely that this test is failing due to a change in the protocol...
-    // @Test
+    @Test
+    public void bug_0001_should_calculate_hash_for_block_29664() {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block block = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(IoUtil.getResource("/blocks/00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523")));
+        Assert.assertEquals(MutableHash.fromHexString("0E0ABB91667C0BB906E9ED8BBBFB5876FCCB707C2D9E7DAB3603B57F41EC431F"), block.getTransactions().get(0).getHash());
+        Assert.assertEquals(MutableHash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957"), block.getTransactions().get(1).getHash());
+
+        final Hash expectedBlockHash = MutableHash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
+        final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("C5997D1CAD40AFEC154AA99B8988E97B1F113D8076357A77572455574765A533");
+
+        // Action
+        final Hash blockHash = block.getHash();
+        final MerkleRoot merkleRoot = block.getMerkleRoot();
+
+        // Assert
+        Assert.assertEquals(expectedMerkleRoot, merkleRoot);
+        Assert.assertEquals(expectedBlockHash, blockHash);
+    }
+
+    @Test
     public void should_calculate_the_merkle_root_of_a_recent_block_with_less_than_one_hundred_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
