@@ -4,7 +4,10 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.IoUtil;
@@ -174,6 +177,24 @@ public class MerkleTreeTests {
 
         // Assert
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
+    }
+
+    @Test
+    public void bug_0001_should_calculate_hash_for_block_29664() {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block block = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(IoUtil.getResource("/blocks/00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523")));
+
+        final Hash expectedBlockHash = MutableHash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
+        final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("C5997D1CAD40AFEC154AA99B8988E97B1F113D8076357A77572455574765A533");
+
+        // Action
+        final Hash blockHash = block.getHash();
+        final MerkleRoot merkleRoot = block.getMerkleRoot();
+
+        // Assert
+        Assert.assertEquals(expectedMerkleRoot, merkleRoot);
+        Assert.assertEquals(expectedBlockHash, blockHash);
     }
 
     // It is likely that this test is failing due to a change in the protocol...
