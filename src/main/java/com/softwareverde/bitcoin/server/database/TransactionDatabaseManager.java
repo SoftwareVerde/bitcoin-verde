@@ -1,11 +1,9 @@
 package com.softwareverde.bitcoin.server.database;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -58,7 +56,7 @@ public class TransactionDatabaseManager {
             BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             while (true) {
                 final BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
-                Logger.log("Traversed "+ (++i) +" BlockChainSegments looking for "+ transactionHash);
+                Logger.log(Thread.currentThread().getId() + " - " + "Traversed "+ (++i) +" BlockChainSegments looking for "+ transactionHash);
 
                 if (blockChainSegmentId.equals(transactionBlockChainSegment.getId())) {
                     return TransactionId.wrap(row.getLong("id"));
