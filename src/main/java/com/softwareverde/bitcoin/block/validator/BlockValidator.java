@@ -106,6 +106,8 @@ public class BlockValidator {
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) throws DatabaseException {
         if (! block.isValid()) { return false; }
 
+        final long startTime = System.currentTimeMillis();
+
         final BlockDeflater blockDeflater = new BlockDeflater();
 
         final List<Transaction> blockTransactions = block.getTransactions();
@@ -127,6 +129,10 @@ public class BlockValidator {
                 return false;
             }
         }
+
+        final long endTime = System.currentTimeMillis();
+        final long msElapsed = (endTime - startTime);
+        Logger.log("Validated "+ blockTransactions.getSize() + " transactions in " + (msElapsed) + "ms ("+ String.format("%.2f", ((((double) blockTransactions.getSize()) / msElapsed) * 1000)) +" tps).");
 
         return true;
     }

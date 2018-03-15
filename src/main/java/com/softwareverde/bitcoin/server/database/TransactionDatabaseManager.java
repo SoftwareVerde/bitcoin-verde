@@ -58,7 +58,9 @@ public class TransactionDatabaseManager {
             BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             while (true) {
                 BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
-                Logger.log("Traversed "+ (++i) +" BlockChainSegments looking for "+ transactionHash);
+                if (i > 0) {
+                    Logger.log("Traversed " + (i) + " BlockChainSegments looking for " + transactionHash);
+                }
 
                 if (blockChainSegmentId.equals(transactionBlockChainSegment.getId())) {
                     return TransactionId.wrap(row.getLong("id"));
@@ -68,6 +70,8 @@ public class TransactionDatabaseManager {
                 if (blockId.equals(newBlockId)) { break; }
 
                 blockId = newBlockId;
+
+                i += 1;
             }
         }
 
