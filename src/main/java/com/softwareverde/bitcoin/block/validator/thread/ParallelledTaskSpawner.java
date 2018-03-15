@@ -1,27 +1,23 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
-public class ParallelledTaskSpawner<T> {
-    public interface TaskHandler<T, S> {
-        void init(MysqlDatabaseConnection databaseConnection);
-        void executeTask(T item);
-        S getResult();
-    }
+public class ParallelledTaskSpawner<T, S> {
 
-    protected static class TaskThread<T> extends Thread {
+    protected static class TaskThread<T, S> extends Thread {
         private final MysqlDatabaseConnection _databaseConnection;
-        private final TaskHandler<T, ?> _taskHandler;
+        private final TaskHandler<T, S> _taskHandler;
         private final List<T> _list;
         private int _startIndex;
         private int _itemCount;
 
-        public TaskThread(final MysqlDatabaseConnection databaseConnection, final List<T> list, final TaskHandler<T, ?> taskHandler) {
+        public TaskThread(final MysqlDatabaseConnection databaseConnection, final List<T> list, final TaskHandler<T, S> taskHandler) {
             _databaseConnection = databaseConnection;
             _list = list;
             _taskHandler = taskHandler;
@@ -49,9 +45,12 @@ public class ParallelledTaskSpawner<T> {
                 Logger.log(exception);
             }
             finally {
-                Logger.log(Thread.currentThread().getId() + " completed. Closing connection.");
                 try { _databaseConnection.close(); } catch (final Exception exception) { }
             }
+        }
+
+        public S getResult() {
+            return _taskHandler.getResult();
         }
     }
 
@@ -71,11 +70,11 @@ public class ParallelledTaskSpawner<T> {
     }
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected TaskHandler<T, ?> _taskHandler;
-    protected TaskThread[] _taskThreads = new TaskThread[0];
+    protected List<TaskThread<T, S>> _taskThreads = null;
+    protected TaskHandlerFactory<T, S> _taskHandlerFactory;
 
-    public void setTaskHandler(final TaskHandler<T, ?> taskHandler) {
-        _taskHandler = taskHandler;
+    public void setTaskHandler(final TaskHandlerFactory<T, S> taskHandlerFactory) {
+        _taskHandlerFactory = taskHandlerFactory;
     }
 
     public ParallelledTaskSpawner(final DatabaseConnectionFactory databaseConnectionFactory) {
@@ -86,8 +85,6 @@ public class ParallelledTaskSpawner<T> {
         final int totalItemCount = items.getSize();
         final int threadCount = Math.min(maxThreadCount, Math.max(1, (totalItemCount / maxThreadCount)));
         final int itemsPerThread = (totalItemCount / threadCount);
-
-        _taskThreads = new TaskThread[threadCount];
 
         final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
         for (int i=0; i<threadCount; ++i) {
@@ -103,27 +100,35 @@ public class ParallelledTaskSpawner<T> {
             }
         }
 
+        final ImmutableListBuilder<TaskThread<T, S>> listBuilder = new ImmutableListBuilder<TaskThread<T, S>>(threadCount);
+
         for (int i = 0; i < threadCount; ++i) {
             final int startIndex = i * itemsPerThread;
             final int remainingItems = (items.getSize() - startIndex);
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
 
             final MysqlDatabaseConnection databaseConnection = mysqlDatabaseConnections[i];
-            final TaskThread<T> taskThread = new TaskThread<T>(databaseConnection, items, _taskHandler);
+            final TaskThread<T, S> taskThread = new TaskThread<T, S>(databaseConnection, items, _taskHandlerFactory.newInstance());
             taskThread.setStartIndex(startIndex);
             taskThread.setItemCount(itemCount);
+            taskThread.start();
 
-            _taskThreads[i] = taskThread;
+            listBuilder.add(taskThread);
         }
 
-        for (int i = 0; i < threadCount; ++i) {
-            _taskThreads[i].start();
-        }
+        _taskThreads = listBuilder.build();
     }
 
-    public void waitUntilComplete() {
-        for (int i = 0; i < _taskThreads.length; ++i) {
-            try { _taskThreads[i].join(); } catch (final Exception exception) { }
+    public List<S> waitForResults() {
+        final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<S>();
+
+        for (int i = 0; i < _taskThreads.getSize(); ++i) {
+            final TaskThread<T, S> taskThread = _taskThreads.get(i);
+
+            try { taskThread.join(); } catch (final Exception exception) { }
+
+            listBuilder.add(taskThread.getResult());
         }
+        return listBuilder.build();
     }
 }
