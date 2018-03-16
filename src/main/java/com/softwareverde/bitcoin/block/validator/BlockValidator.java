@@ -58,6 +58,7 @@ public class BlockValidator {
             }
         };
 
+        // TODO: Validate coinbase transaction...
         final ParallelledTaskSpawner<Transaction, Boolean> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandler(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, 2);

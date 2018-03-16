@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 
 public class ScriptSignature {
     public enum HashType {
+        SIGNATURE_ZERO(0x00),           // Not standard, but nearly identical to SIGNATURE_HASH_ALL: https://bitcoin.stackexchange.com/questions/38971/op-checksig-signature-hash-type-0
         SIGNATURE_HASH_ALL(0x01),
         SIGNATURE_HASH_NONE(0x02),
         SIGNATURE_HASH_SINGLE(0x03),
@@ -18,7 +19,6 @@ public class ScriptSignature {
             for (final HashType hashType : HashType.values()) {
                 if (hashType._value == b) { return hashType; }
             }
-
             return null;
         }
 

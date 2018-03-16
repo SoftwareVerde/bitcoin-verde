@@ -72,7 +72,8 @@ public class TransactionValidator {
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                Logger.log("Transaction failed to verify: "+ BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                Logger.log("Transaction failed to verify: "+ transaction.getHash() + " " + BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                Logger.log("Tx Input: Prev Hash: "+ transactionInput.getPreviousOutputTransactionHash() + " Ix: "+ transactionInput.getPreviousOutputIndex());
                 return false;
             }
         }
