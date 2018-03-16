@@ -28,7 +28,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+        final BlockValidator blockValidator = new BlockValidator(_database);
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             // Block Hash: 	00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
@@ -61,7 +61,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+        final BlockValidator blockValidator = new BlockValidator(_database);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
@@ -115,7 +115,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
-        final BlockValidator blockValidator = new BlockValidator(databaseConnection);
+        final BlockValidator blockValidator = new BlockValidator(_database);
 
         {
             final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
