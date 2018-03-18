@@ -150,9 +150,6 @@ public class NodeModule {
         }
 
         Logger.log("Invalid block: "+ block.getHash());
-        final BlockDeflater blockDeflater = new BlockDeflater();
-        Logger.log(blockDeflater.toBytes(block));
-
         return false;
     }
 
