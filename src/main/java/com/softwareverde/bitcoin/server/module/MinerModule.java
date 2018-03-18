@@ -84,7 +84,7 @@ public class MinerModule {
                 prototypeBlock.setPreviousBlockHash(previousBlockHash);
                 prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                 prototypeBlock.setNonce(0L);
-                prototypeBlock.setDifficulty(new ImmutableDifficulty(ByteUtil.integerToBytes(Difficulty.BASE_DIFFICULTY_SIGNIFICAND), Difficulty.BASE_DIFFICULTY_EXPONENT));
+                prototypeBlock.setDifficulty(Difficulty.BASE_DIFFICULTY);
                 prototypeBlock.addTransaction(coinbaseTransaction);
             }
 

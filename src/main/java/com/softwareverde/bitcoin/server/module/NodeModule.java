@@ -29,6 +29,9 @@ public class NodeModule {
     protected final Configuration _configuration;
     protected final Environment _environment;
 
+    protected long _startTime;
+    protected int _blockCount = 0;
+
     protected void _exitFailure() {
         System.exit(1);
     }
@@ -131,6 +134,11 @@ public class NodeModule {
 
             if (blockIsValid) {
                 TransactionUtil.commitTransaction(databaseConnection);
+                _blockCount += 1;
+
+                final long msElapsed = (System.currentTimeMillis() - _startTime);
+                Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
+
                 return true;
             }
             else {
@@ -180,6 +188,8 @@ public class NodeModule {
         final Node node = new Node(host, port);
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
+
+        _startTime = System.currentTimeMillis();
 
         final Boolean hasGenesisBlock;
         {

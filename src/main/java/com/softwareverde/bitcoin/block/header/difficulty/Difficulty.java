@@ -6,8 +6,9 @@ import com.softwareverde.constable.Constable;
 import java.math.BigDecimal;
 
 public interface Difficulty extends Constable<ImmutableDifficulty> {
-    static final Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
-    static final Integer BASE_DIFFICULTY_SIGNIFICAND = 0x00FFFF;
+    Integer BASE_DIFFICULTY_EXPONENT = (0x1D - 0x03);
+    byte[] BASE_DIFFICULTY_SIGNIFICAND = new byte[] { (byte) 0x00, (byte) 0xFF, (byte) 0xFF };
+    ImmutableDifficulty BASE_DIFFICULTY = new ImmutableDifficulty(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
 
     Integer getExponent();
     byte[] getSignificand();

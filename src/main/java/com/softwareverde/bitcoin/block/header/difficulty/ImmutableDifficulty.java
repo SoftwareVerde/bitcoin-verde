@@ -71,7 +71,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     @Override
     public BigDecimal getDifficultyRatio() {
         final BigDecimal currentValue = BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
-        final BigDecimal baseDifficultyValue = BigDecimal.valueOf(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
+        final BigDecimal baseDifficultyValue = BigDecimal.valueOf(ByteUtil.bytesToInteger(BASE_DIFFICULTY_SIGNIFICAND), BASE_DIFFICULTY_EXPONENT);
         return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
     }
 

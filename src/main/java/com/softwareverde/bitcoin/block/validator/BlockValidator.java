@@ -21,7 +21,7 @@ public class BlockValidator {
         _databaseConnectionFactory = threadedConnectionsFactory;
     }
 
-    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) throws DatabaseException {
+    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
         if (! block.isValid()) { return false; }
 
         final long startTime = System.currentTimeMillis();
@@ -75,11 +75,17 @@ public class BlockValidator {
         Logger.log("Validated "+ transactions.getSize() + " transactions in " + (msElapsed) + "ms ("+ String.format("%.2f", ((((double) transactions.getSize()) / msElapsed) * 1000)) +" tps).");
 
         for (final Boolean value : expenditureResults) {
-            if (! value) { return false; }
+            if (! value) {
+                Logger.log("Block invalid due to invalid expenditures.");
+                return false;
+            }
         }
 
         for (final Boolean value : unlockedInputsResults) {
-            if (! value) { return false; }
+            if (! value) {
+                Logger.log("Block invalid due to unlocked inputs.");
+                return false;
+            }
         }
 
         return true;
