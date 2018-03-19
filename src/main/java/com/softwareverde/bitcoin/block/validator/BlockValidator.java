@@ -1,9 +1,13 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.thread.*;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -19,6 +23,32 @@ import java.util.Map;
 
 public class BlockValidator {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+
+    protected Difficulty _calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId) {
+        final Integer blockCountPerDifficultyAdjustment = 2016;
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
+            if (blockChainSegment.getBlockHeight() % blockCountPerDifficultyAdjustment == 0) {
+                // TODO:
+                //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
+                //  1. Get the block that is 2016 blocks behind the head block of this chain.
+                //  2. Get the current network time from the other nodes on the network.
+                //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
+                //  4. Calculate the ratio between the difference and the desired two-weeks elapse-time ("secondsInTwoWeeks").
+                //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
+                //  6. Bound difficultyAdjustment between [4, 0.25].
+                //  7. Multiply the difficulty by the bounded difficultyAdjustment.
+            }
+            else {
+                final BlockHeader headBlockHeader = blockDatabaseManager.getBlockHeader(blockChainSegment.getHeadBlockId());
+                return headBlockHeader.getDifficulty();
+            }
+        }
+        catch (final DatabaseException exception) { }
+        return null;
+    }
 
     public BlockValidator(final DatabaseConnectionFactory threadedConnectionsFactory) {
         _databaseConnectionFactory = threadedConnectionsFactory;
@@ -63,7 +93,14 @@ public class BlockValidator {
 
         // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
 
-        // TODO: Validate block (calculated) difficulty... (https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated)
+        { // TODO: Validate block (calculated) difficulty... (https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated)
+            final Difficulty calculatedRequiredDifficulty = _calculateRequiredDifficulty(blockChainSegmentId);
+            final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(block.getDifficulty());
+            if (!difficultyIsCorrect) {
+                Logger.log("Invalid difficulty for block. Required: " + BitcoinUtil.toHexString(calculatedRequiredDifficulty.encode()));
+                return false;
+            }
+        }
 
         // TODO: Validate coinbase transaction...
 

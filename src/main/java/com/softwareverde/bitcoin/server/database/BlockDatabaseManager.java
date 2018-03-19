@@ -49,7 +49,7 @@ public class BlockDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
-    protected BlockHeader _inflateBlockFromBlockId(final BlockId blockId) throws DatabaseException {
+    protected BlockHeader _inflateBlockHeader(final BlockId blockId) throws DatabaseException {
         final Row row;
         {
             final List<Row> rows = _databaseConnection.query(
@@ -188,8 +188,8 @@ public class BlockDatabaseManager {
         return _getBlockIdFromHash(blockHash);
     }
 
-    public BlockHeader getBlockHeaderFromId(final BlockId blockId) throws DatabaseException {
-        return _inflateBlockFromBlockId(blockId);
+    public BlockHeader getBlockHeader(final BlockId blockId) throws DatabaseException {
+        return _inflateBlockHeader(blockId);
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
