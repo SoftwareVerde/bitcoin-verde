@@ -79,4 +79,15 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public ImmutableDifficulty asConst() {
         return this;
     }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof Difficulty)) { return false; }
+
+        final Difficulty difficulty = (Difficulty) object;
+        if (! _exponent.equals(difficulty.getExponent())) { return false; }
+
+        return ByteUtil.areEqual(_significand, difficulty.getSignificand());
+    }
 }

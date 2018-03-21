@@ -89,7 +89,7 @@ public class BlockDatabaseManager {
         { // Assert that the hashes match after inflation...
             final Hash expectedHash = MutableHash.fromHexString(row.getString("hash"));
             final Hash actualHash = blockHeader.getHash();
-            if (!expectedHash.equals(actualHash)) {
+            if (! expectedHash.equals(actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
             }
         }

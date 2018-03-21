@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.thread.*;
@@ -24,13 +25,19 @@ import java.util.Map;
 public class BlockValidator {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
-    protected Difficulty _calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId) {
+    protected Difficulty _calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId, final Block block) {
         final Integer blockCountPerDifficultyAdjustment = 2016;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-            if (blockChainSegment.getBlockHeight() % blockCountPerDifficultyAdjustment == 0) {
+
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
+            final long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
+
+            final Boolean isFirstBlock = (blockChainSegment.getBlockHeight() == 0);
+            final Boolean requiresDifficultyEvaluation = (blockHeight % blockCountPerDifficultyAdjustment == 0);
+            if ( (requiresDifficultyEvaluation) && (! isFirstBlock) ) {
                 //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
                 //  1. Get the block that is 2016 blocks behind the head block of this chain.
                 //  2. Get the current network time from the other nodes on the network.
@@ -46,7 +53,8 @@ public class BlockValidator {
                 return headBlockHeader.getDifficulty();
             }
         }
-        catch (final DatabaseException exception) { }
+        catch (final DatabaseException exception) { exception.printStackTrace(); }
+
         return null;
     }
 
@@ -93,11 +101,11 @@ public class BlockValidator {
 
         // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
 
-        { // TODO: Validate block (calculated) difficulty... (https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated)
-            final Difficulty calculatedRequiredDifficulty = _calculateRequiredDifficulty(blockChainSegmentId);
+        { // Validate block (calculated) difficulty...
+            final Difficulty calculatedRequiredDifficulty = _calculateRequiredDifficulty(blockChainSegmentId, block);
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(block.getDifficulty());
             if (! difficultyIsCorrect) {
-                Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()));
+                Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()) + " Found: "+ HexUtil.toHexString(block.getDifficulty().encode()));
                 return false;
             }
         }
