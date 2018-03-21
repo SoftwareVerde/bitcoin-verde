@@ -13,7 +13,7 @@ import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilde
 import java.sql.Connection;
 import java.sql.SQLException;
 
-public class MysqlTestDatabase extends MysqlDatabase implements DatabaseConnectionFactory {
+public class MysqlTestDatabase extends MysqlDatabase {
     protected final DB _databaseInstance;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final Credentials _credentials;

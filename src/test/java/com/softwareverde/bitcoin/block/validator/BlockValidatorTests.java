@@ -3,13 +3,17 @@ package com.softwareverde.bitcoin.block.validator;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,7 +32,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockValidator blockValidator = new BlockValidator(_database);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
@@ -65,7 +69,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockValidator blockValidator = new BlockValidator(_database);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
@@ -119,7 +123,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
-        final BlockValidator blockValidator = new BlockValidator(_database);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
 
         {
             final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -154,5 +158,53 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
+    }
+
+    @Test
+    public void difficulty_should_be_recalculated_every_2016th_block() throws Exception {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
+
+        { // Store the previous block so the firstBlockWithDifficultyAdjustment has the correct hash...
+            // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
+            final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
+            final Block previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            blockDatabaseManager.storeBlock(previousBlock);
+            blockChainDatabaseManager.updateBlockChainsForNewBlock(previousBlock);
+            final Difficulty blockDifficulty = previousBlock.getDifficulty();
+            Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
+        }
+
+        // Block with the first difficulty adjustment: 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 (Block Height: 32256)
+        final long blockHeight = 32256L;
+        final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
+        final float expectedDifficultyRatio = 1.18F;
+        final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
+        final Block firstBlockWithDifficultyIncrease = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+        final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();
+        Assert.assertEquals(expectedDifficulty, blockDifficulty);
+        Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
+
+        blockDatabaseManager.storeBlock(firstBlockWithDifficultyIncrease);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(firstBlockWithDifficultyIncrease);
+        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(firstBlockWithDifficultyIncrease.getHash());
+        databaseConnection.executeSql(
+            new Query("UPDATE blocks SET block_height = ? WHERE id = ?")
+                .setParameter(blockHeight)
+                .setParameter(blockId)
+        );
+        Assert.assertEquals(blockHeight, blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+
+        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+
+        // Action
+        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, firstBlockWithDifficultyIncrease);
+
+        // Assert
+        Assert.assertTrue(blockIsValid);
     }
 }

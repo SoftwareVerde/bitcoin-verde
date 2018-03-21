@@ -128,7 +128,7 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final BlockValidator blockValidator = new BlockValidator(database);
+            final BlockValidator blockValidator = new BlockValidator(database.getDatabaseConnectionFactory());
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
 
             if (blockIsValid) {
