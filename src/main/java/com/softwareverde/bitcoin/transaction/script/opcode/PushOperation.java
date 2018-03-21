@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 
 public class PushOperation extends Operation {
     public static final Type TYPE = Type.OP_PUSH;
@@ -102,6 +102,6 @@ public class PushOperation extends Operation {
 
     @Override
     public String toString() {
-        return (super.toString() + " Value: " + BitcoinUtil.toHexString(_value.getBytes()));
+        return (super.toString() + " Value: " + HexUtil.toHexString(_value.getBytes()));
     }
 }

@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.util.ByteUtil;
 
 public class Value extends ImmutableByteArray implements Const {
     public static Value fromInteger(final Integer integerValue) {

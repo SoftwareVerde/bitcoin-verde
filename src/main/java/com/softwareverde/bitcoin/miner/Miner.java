@@ -7,10 +7,9 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -24,7 +23,7 @@ public class Miner {
         final byte zero = 0x00;
 
         for (int i=0; i<4; ++i) {
-            // if (i == 3) { Logger.log(BitcoinUtil.toHexString(hash)); }
+            // if (i == 3) { Logger.log(HexUtil.toHexString(hash)); }
             if (hash.getByte(i) != zero) { return false; }
         }
         return true;

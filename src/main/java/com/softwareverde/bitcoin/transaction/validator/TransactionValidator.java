@@ -15,11 +15,11 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class TransactionValidator {
     protected final TransactionDatabaseManager _transactionDatabaseManager;
@@ -72,7 +72,7 @@ public class TransactionValidator {
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                Logger.log("Transaction failed to verify: "+ transaction.getHash() + " " + BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                Logger.log("Transaction failed to verify: "+ transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
                 Logger.log("Tx Input: Prev Hash: "+ transactionInput.getPreviousOutputTransactionHash() + " Ix: "+ transactionInput.getPreviousOutputIndex());
                 return false;
             }

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
@@ -11,7 +10,6 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,6 +19,7 @@ import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.HexUtil;
 
 import java.io.File;
 
@@ -73,7 +72,7 @@ public class NodeModule {
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.getHash()));
+                Logger.log("DOWNLOADED BLOCK: "+ HexUtil.toHexString(block.getHash().getBytes()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
 

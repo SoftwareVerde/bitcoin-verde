@@ -10,13 +10,13 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,7 +31,6 @@ public class BlockValidator {
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
             if (blockChainSegment.getBlockHeight() % blockCountPerDifficultyAdjustment == 0) {
-                // TODO:
                 //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
                 //  1. Get the block that is 2016 blocks behind the head block of this chain.
                 //  2. Get the current network time from the other nodes on the network.
@@ -40,6 +39,7 @@ public class BlockValidator {
                 //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
                 //  6. Bound difficultyAdjustment between [4, 0.25].
                 //  7. Multiply the difficulty by the bounded difficultyAdjustment.
+                return Difficulty.BASE_DIFFICULTY; // TODO
             }
             else {
                 final BlockHeader headBlockHeader = blockDatabaseManager.getBlockHeader(blockChainSegment.getHeadBlockId());
@@ -96,8 +96,8 @@ public class BlockValidator {
         { // TODO: Validate block (calculated) difficulty... (https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated)
             final Difficulty calculatedRequiredDifficulty = _calculateRequiredDifficulty(blockChainSegmentId);
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(block.getDifficulty());
-            if (!difficultyIsCorrect) {
-                Logger.log("Invalid difficulty for block. Required: " + BitcoinUtil.toHexString(calculatedRequiredDifficulty.encode()));
+            if (! difficultyIsCorrect) {
+                Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()));
                 return false;
             }
         }

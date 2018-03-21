@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -17,9 +16,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class MinerModule {
     public static void execute(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
@@ -93,7 +91,7 @@ public class MinerModule {
 
             final BlockDeflater blockDeflater = new BlockDeflater();
             Logger.log(block.getHash());
-            Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
+            Logger.log(HexUtil.toHexString(blockDeflater.toBytes(block).getBytes()));
         }
         catch (final Exception exception) {
             exception.printStackTrace();

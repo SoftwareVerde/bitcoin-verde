@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
 
 public abstract class ProtocolMessageInflater {

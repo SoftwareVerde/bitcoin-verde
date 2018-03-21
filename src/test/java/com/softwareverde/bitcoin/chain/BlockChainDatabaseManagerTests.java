@@ -6,10 +6,10 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -42,7 +42,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         Assert.assertTrue(genesisBlock.isValid());
 
         // Action
@@ -89,8 +89,8 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -146,9 +146,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -210,9 +210,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -299,10 +299,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -402,13 +402,13 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block3 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
-        final Block block2Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
-        final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -564,13 +564,13 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block3 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-        final Block block1Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
-        final Block block2Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
-        final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_2));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
@@ -726,14 +726,14 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
-        final Block genesisBlock = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block3 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-        final Block block4 = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
-        final Block block2Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
-        final Block block3Prime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
-        final Block block1DoublePrime = blockInflater.fromBytes(BitcoinUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+        final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+        final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain1.BLOCK_1));
 
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());

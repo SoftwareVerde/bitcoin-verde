@@ -10,11 +10,11 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.util.HexUtil;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public class BlockDatabaseManager {
     protected BlockId _getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
-                .setParameter(BitcoinUtil.toHexString(blockHash))
+                .setParameter(HexUtil.toHexString(blockHash.getBytes()))
         );
 
         if (rows.isEmpty()) { return null; }
@@ -81,9 +81,9 @@ public class BlockDatabaseManager {
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
         blockHeader.setPreviousBlockHash(previousBlockHash);
         blockHeader.setVersion(row.getInteger("version"));
-        blockHeader.setMerkleRoot(new MutableMerkleRoot(BitcoinUtil.hexStringToByteArray(row.getString("merkle_root"))));
+        blockHeader.setMerkleRoot(new MutableMerkleRoot(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
         blockHeader.setTimestamp(row.getLong("timestamp"));
-        blockHeader.setDifficulty(ImmutableDifficulty.decode(BitcoinUtil.hexStringToByteArray(row.getString("difficulty"))));
+        blockHeader.setDifficulty(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty"))));
         blockHeader.setNonce(row.getLong("nonce"));
 
         { // Assert that the hashes match after inflation...
@@ -111,13 +111,13 @@ public class BlockDatabaseManager {
 
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET hash = ?, previous_block_id = ?, block_height = ?, merkle_root = ?, version = ?, timestamp = ?, difficulty = ?, nonce = ? WHERE id = ?")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
+                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
+                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
                 .setParameter(blockId)
         );
@@ -130,13 +130,13 @@ public class BlockDatabaseManager {
 
         return BlockId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
+                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
+                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
         ));
     }
@@ -181,7 +181,7 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));
+        return new MutableHash(HexUtil.hexStringToByteArray(row.getString("hash")));
     }
 
     public BlockId getBlockIdFromHash(final Hash blockHash) throws DatabaseException {

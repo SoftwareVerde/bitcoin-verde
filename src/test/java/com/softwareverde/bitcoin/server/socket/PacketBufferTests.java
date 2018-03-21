@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class PacketBufferTests {
     private byte[] _hexStringToByteArray(final String hexString, final Integer extraByteCount) {
-        final byte[] bytes = BitcoinUtil.hexStringToByteArray(hexString.replaceAll(" ", ""));
+        final byte[] bytes = HexUtil.hexStringToByteArray(hexString.replaceAll(" ", ""));
         if (bytes == null) { return null; }
 
         final byte[] bytesWithExtra = new byte[bytes.length + extraByteCount];

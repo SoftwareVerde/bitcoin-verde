@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 
 import java.io.IOException;
