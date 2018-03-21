@@ -18,8 +18,8 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
@@ -65,7 +65,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         mutableTransactionInput.setPreviousOutputTransactionHash(new MutableHash());
         mutableTransactionInput.setPreviousOutputIndex(0);
         mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
-        mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").build());
+        mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
         return mutableTransactionInput;
     }
 
@@ -74,7 +74,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
         mutableTransactionInput.setPreviousOutputIndex(0);
         mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
-        mutableTransactionInput.setUnlockingScript(Script.EMPTY_SCRIPT);
+        mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
         return mutableTransactionInput;
     }
 

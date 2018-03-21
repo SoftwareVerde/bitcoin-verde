@@ -15,6 +15,10 @@ public class ImmutableDifficulty implements Difficulty, Const {
         return new ImmutableDifficulty(ByteUtil.copyBytes(encodedBytes, 1, 3), (ByteUtil.byteToInteger(encodedBytes[0]) - 3));
     }
 
+    protected BigDecimal _toBigDecimal() {
+        return BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
+    }
+
     public ImmutableDifficulty(final byte[] significand, final Integer exponent) {
         _exponent = exponent;
 
@@ -70,9 +74,16 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public BigDecimal getDifficultyRatio() {
-        final BigDecimal currentValue = BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
+        final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal baseDifficultyValue = BigDecimal.valueOf(ByteUtil.bytesToInteger(BASE_DIFFICULTY_SIGNIFICAND), BASE_DIFFICULTY_EXPONENT);
         return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
+    }
+
+    @Override
+    public Difficulty multiplyBy(final float difficultyAdjustment) {
+        final BigDecimal currentValue = _toBigDecimal();
+        final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
+        return new ImmutableDifficulty(bigDecimal.unscaledValue().toByteArray(), bigDecimal.scale());
     }
 
     @Override

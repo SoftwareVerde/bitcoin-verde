@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
@@ -164,6 +166,20 @@ public class BlockDatabaseManager {
         );
     }
 
+    protected BlockHeader _getBlockAtBlockHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE block_chain_segment_id = ? AND block_height = ?")
+                .setParameter(blockChainSegmentId)
+                .setParameter(blockHeight)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final BlockId blockId = BlockId.wrap(row.getLong("id"));
+        return _inflateBlockHeader(blockId);
+    }
+
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
@@ -218,5 +234,29 @@ public class BlockDatabaseManager {
 
     public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
         return _getBlockHeightForBlockId(blockId);
+    }
+
+    public BlockHeader findBlockAtBlockHeight(final BlockChainSegmentId startingBlockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+
+        BlockChainSegmentId blockChainSegmentId = startingBlockChainSegmentId;
+        while (true) {
+            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
+            if (blockChainSegment == null) { break; }
+
+            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
+            final long upperBound = (blockChainSegment.getBlockHeight());
+            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
+                return _getBlockAtBlockHeight(blockChainSegmentId, blockHeight);
+            }
+
+            final BlockId nextBlockId = blockChainSegment.getTailBlockId();
+            final BlockChainSegmentId nextBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(nextBlockId);
+            if (blockChainSegmentId.equals(nextBlockChainSegmentId)) { break; }
+
+            blockChainSegmentId = nextBlockChainSegmentId;
+        }
+
+        return null;
     }
 }

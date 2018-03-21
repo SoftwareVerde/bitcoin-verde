@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -19,22 +20,27 @@ import com.softwareverde.util.Container;
 public class Miner {
     protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);
 
-    protected static boolean _isValidDifficulty(final Hash hash) {
-        final byte zero = 0x00;
-
-        for (int i=0; i<4; ++i) {
-            // if (i == 3) { Logger.log(HexUtil.toHexString(hash)); }
-            if (hash.getByte(i) != zero) { return false; }
-        }
-        return true;
-    }
+//    protected static boolean _isValidDifficulty(final Hash hash) {
+//        final byte zero = 0x00;
+//
+//        for (int i=0; i<4; ++i) {
+//            // if (i == 3) { Logger.log(HexUtil.toHexString(hash)); }
+//            if (hash.getByte(i) != zero) { return false; }
+//        }
+//        return true;
+//    }
 
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
+    protected Boolean _shouldMutateTimestamp = true;
 
     public Miner(final Integer cpuThreadCount, final Integer gpuThreadCount) {
         _cpuThreadCount = cpuThreadCount;
         _gpuThreadCount = gpuThreadCount;
+    }
+
+    public void setShouldMutateTimestamp(final Boolean shouldMutateTimestamp) {
+        _shouldMutateTimestamp = shouldMutateTimestamp;
     }
 
     public Block mineBlock(final Block prototypeBlock) throws Exception {
@@ -80,8 +86,11 @@ public class Miner {
                     final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
 
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
+                    final Difficulty difficulty = mutableBlock.getDifficulty();
 
-                    mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                    if (_shouldMutateTimestamp) {
+                        mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                    }
 
                     long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
@@ -93,8 +102,10 @@ public class Miner {
                             nonce += 1;
                             mutableBlock.setNonce(nonce);
 
-                            if (nonce % 7777 == 0) {
-                                mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                            if (_shouldMutateTimestamp) {
+                                if (nonce % 7777 == 0) {
+                                    mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                                }
                             }
 
                             blockHeaderBytesList.add(new MutableByteArray(blockHeaderDeflater.toBytes(mutableBlock)));
@@ -104,14 +115,15 @@ public class Miner {
 
                         for (int i=0; i<hashesPerIteration; ++i) {
                             final Hash blockHash = blockHashes.get(i);
-                            isValidDifficulty = _isValidDifficulty(blockHash.toReversedEndian());;
+
+                            isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
+                            // isValidDifficulty = _isValidDifficulty(blockHash.toReversedEndian());
 
                             if (isValidDifficulty) {
                                 hasBeenFound.value = true;
 
                                 final BlockHeader blockHeader = blockHeaderInflater.fromBytes(blockHeaderBytesList.get(i));
-                                final Block block = new ImmutableBlock(blockHeader, mutableBlock.getTransactions());
-                                blockContainer.value = block;
+                                blockContainer.value = new ImmutableBlock(blockHeader, mutableBlock.getTransactions());
                             }
                         }
 
@@ -132,8 +144,11 @@ public class Miner {
                     final BlockHasher blockHasher = new BlockHasher();
 
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
+                    final Difficulty difficulty = mutableBlock.getDifficulty();
 
-                    mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                    if (_shouldMutateTimestamp) {
+                        mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                    }
 
                     long nonce = (long) (Math.random() * Long.MAX_VALUE);
 
@@ -142,12 +157,15 @@ public class Miner {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
 
-                        if (nonce % 7777 == 0) {
-                            mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                        if (_shouldMutateTimestamp) {
+                            if (nonce % 7777 == 0) {
+                                mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                            }
                         }
 
                         final Hash blockHash = blockHasher.calculateBlockHash(mutableBlock);
-                        isValidDifficulty = _isValidDifficulty(blockHash);
+                        isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
+                        // isValidDifficulty = _isValidDifficulty(blockHash);
 
                         if (isValidDifficulty) {
                             hasBeenFound.value = true;

@@ -12,6 +12,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -47,14 +49,14 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            final Script unlockingScript;
+            final UnlockingScript unlockingScript;
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                unlockingScript = transactionOutputBeingSpent.getLockingScript();
+                unlockingScript = new ImmutableUnlockingScript(transactionOutputBeingSpent.getLockingScript().getBytes());
             }
             else {
-                unlockingScript = Script.EMPTY_SCRIPT;
+                unlockingScript = UnlockingScript.EMPTY_SCRIPT;
             }
             mutableTransactionInput.setUnlockingScript(unlockingScript);
             mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
