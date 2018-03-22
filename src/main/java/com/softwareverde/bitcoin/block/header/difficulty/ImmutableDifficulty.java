@@ -3,12 +3,16 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
 
 public class ImmutableDifficulty implements Difficulty, Const {
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
+
+    private byte[] _cachedBytes = null;
 
     public static ImmutableDifficulty decode(final byte[] encodedBytes) {
         if (encodedBytes.length != 4) { return null; }
@@ -60,10 +64,13 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public Boolean isSatisfiedBy(final Hash hash) {
-        final byte[] bytes = _convertToBytes();
+        if (_cachedBytes == null) {
+            _cachedBytes = _convertToBytes();
+        }
 
-        for (int i=0; i<bytes.length; ++i) {
-            final int difficultyByte = ByteUtil.byteToInteger(bytes[i]);
+        for (int i=0; i<_cachedBytes.length; ++i) {
+            if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
+            final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes[i]);
             final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }
             return (sha256Byte < difficultyByte);
