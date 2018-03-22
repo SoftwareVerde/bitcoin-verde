@@ -115,6 +115,6 @@ public class SynchronizeVersionMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(userAgent, Endian.BIG);
         byteArrayBuilder.appendBytes(currentBlockHeight, Endian.LITTLE);
         byteArrayBuilder.appendBytes(shouldRelay, Endian.LITTLE);
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

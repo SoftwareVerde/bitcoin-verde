@@ -33,7 +33,7 @@ public abstract class ProtocolMessageInflater {
         final byte[] payload = byteArrayReader.peakBytes(protocolMessageHeader.payloadByteCount, Endian.BIG);
 
         { // Validate Checksum
-            final ByteArray calculatedChecksum = ProtocolMessage.calculateChecksum(new MutableByteArray(payload));
+            final ByteArray calculatedChecksum = ProtocolMessage.calculateChecksum(MutableByteArray.wrap(payload));
             if (! ByteUtil.areEqual(protocolMessageHeader.payloadChecksum, calculatedChecksum.getBytes())) {
                 return null;
             }

@@ -87,7 +87,7 @@ public abstract class ProtocolMessage {
         byteArrayBuilder.appendBytes(checksum.getBytes(), Endian.BIG); // NOTICE: Bitcoin Cash wants the checksum to be big-endian.  Bitcoin Core documentation says little-endian.  Discovered via tcpdump on server.
         byteArrayBuilder.appendBytes(payload.getBytes(), Endian.BIG);
 
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public ProtocolMessage(final MessageType command) {

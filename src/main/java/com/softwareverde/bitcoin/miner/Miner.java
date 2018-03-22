@@ -8,27 +8,25 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.jocl.GpuSha256;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
 
 public class Miner {
     protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);
-
-//    protected static boolean _isValidDifficulty(final Hash hash) {
-//        final byte zero = 0x00;
-//
-//        for (int i=0; i<4; ++i) {
-//            // if (i == 3) { Logger.log(HexUtil.toHexString(hash)); }
-//            if (hash.getByte(i) != zero) { return false; }
-//        }
-//        return true;
-//    }
 
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
@@ -81,12 +79,16 @@ public class Miner {
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    int mutationCount = 0;
                     final GpuSha256 gpuSha256 = GpuSha256.getInstance();
                     final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
                     final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
 
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
                     final Difficulty difficulty = mutableBlock.getDifficulty();
+
+                    final MutableTransaction coinbaseTransaction = new MutableTransaction(mutableBlock.getTransactions().get(0));
+                    final UnlockingScript originalCoinbaseSignature = coinbaseTransaction.getTransactionInputs().get(0).getUnlockingScript();
 
                     if (_shouldMutateTimestamp) {
                         mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
@@ -102,13 +104,26 @@ public class Miner {
                             nonce += 1;
                             mutableBlock.setNonce(nonce);
 
-                            if (_shouldMutateTimestamp) {
-                                if (nonce % 7777 == 0) {
+                            if (nonce % 7777 == 0) {
+                                mutationCount += 1;
+
+                                if (_shouldMutateTimestamp) {
                                     mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                                }
+                                else {
+                                    final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(coinbaseTransaction.getTransactionInputs().get(0));
+                                    final ScriptBuilder scriptBuilder = new ScriptBuilder();
+                                    scriptBuilder.pushString(String.valueOf(mutationCount));
+                                    final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                                    byteArrayBuilder.appendBytes(originalCoinbaseSignature.getBytes());
+                                    byteArrayBuilder.appendBytes(scriptBuilder.build().getBytes());
+                                    mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(byteArrayBuilder.build()));
+                                    coinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
+                                    mutableBlock.replaceTransaction(0, coinbaseTransaction);
                                 }
                             }
 
-                            blockHeaderBytesList.add(new MutableByteArray(blockHeaderDeflater.toBytes(mutableBlock)));
+                            blockHeaderBytesList.add(MutableByteArray.wrap(blockHeaderDeflater.toBytes(mutableBlock)));
                         }
 
                         final List<Hash> blockHashes = gpuSha256.sha256(gpuSha256.sha256(blockHeaderBytesList));
@@ -117,7 +132,6 @@ public class Miner {
                             final Hash blockHash = blockHashes.get(i);
 
                             isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
-                            // isValidDifficulty = _isValidDifficulty(blockHash.toReversedEndian());
 
                             if (isValidDifficulty) {
                                 hasBeenFound.value = true;
@@ -141,10 +155,14 @@ public class Miner {
             final Thread thread = (new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    int mutationCount = 0;
                     final BlockHasher blockHasher = new BlockHasher();
 
                     final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
                     final Difficulty difficulty = mutableBlock.getDifficulty();
+
+                    final MutableTransaction coinbaseTransaction = new MutableTransaction(mutableBlock.getTransactions().get(0));
+                    final UnlockingScript originalCoinbaseSignature = coinbaseTransaction.getTransactionInputs().get(0).getUnlockingScript();
 
                     if (_shouldMutateTimestamp) {
                         mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
@@ -157,15 +175,27 @@ public class Miner {
                         nonce += 1;
                         mutableBlock.setNonce(nonce);
 
-                        if (_shouldMutateTimestamp) {
-                            if (nonce % 7777 == 0) {
+                        if (nonce % 7777 == 0) {
+                            mutationCount += 1;
+
+                            if (_shouldMutateTimestamp) {
                                 mutableBlock.setTimestamp(System.currentTimeMillis() / 1000L);
+                            }
+                            else {
+                                final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(coinbaseTransaction.getTransactionInputs().get(0));
+                                final ScriptBuilder scriptBuilder = new ScriptBuilder();
+                                scriptBuilder.pushString(String.valueOf(mutationCount));
+                                final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                                byteArrayBuilder.appendBytes(originalCoinbaseSignature.getBytes());
+                                byteArrayBuilder.appendBytes(scriptBuilder.build().getBytes());
+                                mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(byteArrayBuilder.build()));
+                                coinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
+                                mutableBlock.replaceTransaction(0, coinbaseTransaction);
                             }
                         }
 
                         final Hash blockHash = blockHasher.calculateBlockHash(mutableBlock);
-                        isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
-                        // isValidDifficulty = _isValidDifficulty(blockHash);
+                        isValidDifficulty = difficulty.isSatisfiedBy(blockHash);
 
                         if (isValidDifficulty) {
                             hasBeenFound.value = true;

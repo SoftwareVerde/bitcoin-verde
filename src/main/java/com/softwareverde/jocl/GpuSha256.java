@@ -48,7 +48,7 @@ public class GpuSha256 {
     protected static final int SHA256_BYTE_COUNT = 64;
 
     protected static final int initialReadBufferByteCount = 1024;
-    public static final int maxBatchSize = (1024 * 128);
+    public static final int maxBatchSize = (1024 * 256);
 
     protected cl_context _context;
     protected cl_kernel _kernel;

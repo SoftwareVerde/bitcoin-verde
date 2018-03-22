@@ -27,6 +27,6 @@ public class BlockDeflater {
             byteArrayBuilder.appendBytes(transactionBytes, Endian.BIG);
         }
 
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

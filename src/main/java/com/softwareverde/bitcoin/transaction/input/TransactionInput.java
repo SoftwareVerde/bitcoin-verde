@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.Constable;
@@ -25,7 +23,7 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput> {
 
     Hash getPreviousOutputTransactionHash();
     Integer getPreviousOutputIndex();
-    Script getUnlockingScript();
+    UnlockingScript getUnlockingScript();
     Long getSequenceNumber();
 
     @Override

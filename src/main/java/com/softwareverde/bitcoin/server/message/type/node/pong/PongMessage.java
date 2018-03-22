@@ -31,6 +31,6 @@ public class PongMessage extends ProtocolMessage {
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(nonce, Endian.LITTLE);
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

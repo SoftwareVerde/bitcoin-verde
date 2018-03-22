@@ -41,6 +41,6 @@ public class RequestDataMessage extends ProtocolMessage {
         for (final DataHash dataHash : _dataHashes) {
             byteArrayBuilder.appendBytes(dataHash.getBytes(), Endian.BIG);
         }
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

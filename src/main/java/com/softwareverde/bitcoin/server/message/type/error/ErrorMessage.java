@@ -112,6 +112,6 @@ public class ErrorMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(rejectMessageCodeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(rejectDescriptionBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(extraDataBytes, Endian.BIG); // TODO: Unsure if should be Big or Little endian...
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

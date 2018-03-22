@@ -51,6 +51,6 @@ public class NodeIpAddressMessage extends ProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(addressCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(networkAddressesBytes, Endian.BIG);
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

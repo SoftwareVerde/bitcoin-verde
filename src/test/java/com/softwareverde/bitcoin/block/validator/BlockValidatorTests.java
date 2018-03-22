@@ -31,6 +31,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class BlockValidatorTests extends IntegrationTest {
+    final PrivateKey _privateKey = PrivateKey.parseFromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
 
     private void _storeBlocks(final int blockCount) throws Exception {
         try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
@@ -50,7 +51,7 @@ public class BlockValidatorTests extends IntegrationTest {
                     final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(mostRecentBlockHash);
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
-                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", Address.fromPrivateKey(PrivateKey.createNewKey()), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", Address.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);
@@ -248,7 +249,8 @@ public class BlockValidatorTests extends IntegrationTest {
         // Block with the first difficulty adjustment: 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 (Block Height: 32256)
         final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
         final float expectedDifficultyRatio = 1.18F;
-        final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
+        // final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
+        final String blockData = "010000001B8B3ACB914B1A81639C33790B2596C531D481E0D7C867977FE47D084F645DEEAD10685911FBE3E80D1B68AA233B4D7D1E709FF6414CEE14CC82A3528A788C0FF8EE3A4B6AD8001DAB2D1D4F0101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0D046AD8001D0104053232303837FFFFFFFF0100F2052A0100000043410428F88CA471C9718C4E52DF12B756BABEDF6A970082C3CC2BDC9F7E0C53479B7F0D9201FD4B0C3EB3E82C48EF6C011B51994EBC18177C85B20FFE8FC844ECA755AC00000000"; // Modified version of 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 with the previousBlockHash set to (the modified version of) 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
         final Block firstBlockWithDifficultyIncrease = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
         { // Modify this (real) block so that it is on the same chain as the previous (semi-faked) block.
             ((MutableBlock) firstBlockWithDifficultyIncrease).setPreviousBlockHash(blockDatabaseManager.getMostRecentBlockHash());

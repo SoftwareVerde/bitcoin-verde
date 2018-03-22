@@ -14,7 +14,7 @@ public class MutableTransactionOutput implements TransactionOutput {
         _amount = transactionOutput.getAmount();
         _index = transactionOutput.getIndex();
 
-        _lockingScript = transactionOutput.getLockingScript();
+        _lockingScript = transactionOutput.getLockingScript().asConst();
     }
 
     @Override
@@ -27,7 +27,7 @@ public class MutableTransactionOutput implements TransactionOutput {
 
     @Override
     public LockingScript getLockingScript() { return _lockingScript; }
-    public void setLockingScript(final LockingScript lockingScript) { _lockingScript = lockingScript; }
+    public void setLockingScript(final LockingScript lockingScript) { _lockingScript = lockingScript.asConst(); }
     public void setLockingScript(final byte[] bytes) {
         _lockingScript = new ImmutableLockingScript(bytes);
     }

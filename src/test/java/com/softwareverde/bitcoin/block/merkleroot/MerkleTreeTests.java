@@ -5,16 +5,113 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+
 public class MerkleTreeTests {
+    private static byte[] hashTwice(final byte[] input1, final byte[] input2) {
+        MessageDigest digest = null;
+        {
+            try { digest = MessageDigest.getInstance("SHA-256"); }
+            catch (final NoSuchAlgorithmException e) { }
+        }
+
+        digest.update(input1, 0, 32);
+        digest.update(input2, 0, 32);
+        return digest.digest(digest.digest());
+    }
+
+    private MerkleRoot referenceImplementation(final List<? extends Hashable> items) {
+        final ArrayList<byte[]> tree = new ArrayList<>();
+        for (final Hashable t : items) {
+            tree.add(t.getHash().getBytes());
+        }
+
+        int levelOffset = 0;
+        for (int levelSize = items.getSize(); levelSize > 1; levelSize = (levelSize + 1) / 2) {
+            for (int left = 0; left < levelSize; left += 2) {
+                int right = Math.min(left + 1, levelSize - 1);
+                byte[] leftBytes = ByteUtil.reverseEndian(tree.get(levelOffset + left));
+                byte[] rightBytes = ByteUtil.reverseEndian(tree.get(levelOffset + right));
+                tree.add(ByteUtil.reverseEndian(hashTwice(leftBytes, rightBytes)));
+            }
+            levelOffset += levelSize;
+        }
+        return new MutableMerkleRoot(tree.get(tree.size() - 1));
+    }
+
+    class Item implements Hashable {
+        private final int _value;
+
+        public Item(final int value) { _value = value; }
+
+        @Override
+        public Hash getHash() {
+            return new MutableHash(BitcoinUtil.sha256(ByteUtil.integerToBytes(_value)));
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (object == null) { return false; }
+            if (! (object instanceof Item)) { return false; }
+
+            final Item item = (Item) object;
+            return (_value == item._value);
+        }
+    }
+
+    private void _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(final Integer nthItem, final Integer treeSize) {
+        // Setup
+        final List<Item> items;
+        {
+            final ImmutableListBuilder<Item> listBuilder = new ImmutableListBuilder<Item>(treeSize);
+            for (int i = 0; i < treeSize; ++i) {
+                listBuilder.add(new Item(i));
+            }
+            items = listBuilder.build();
+        }
+
+        final List<Item> itemsWithReplacements;
+        {
+            final MutableList<Item> mutableList = new MutableList<Item>(items);
+            mutableList.set(nthItem, new Item(-1));
+            itemsWithReplacements = mutableList;
+        }
+
+        final MerkleRoot expectedValue = referenceImplementation(itemsWithReplacements);
+
+        final MerkleTree<Item> merkleTree = new MerkleTreeNode<Item>();
+        for (final Item item : items) {
+            merkleTree.addItem(item);
+        }
+        merkleTree.replaceItem(nthItem, new Item(-1));
+
+        // Action
+        final MerkleRoot merkleRoot = merkleTree.getMerkleRoot();
+
+        // Assert
+        TestUtil.assertEqual(expectedValue.getBytes(), merkleRoot.getBytes());
+        Assert.assertEquals(treeSize.intValue(), merkleTree.getItemCount());
+        Assert.assertEquals(itemsWithReplacements, merkleTree.getItems());
+    }
+
+
     @Test
     public void should_calculate_the_merkle_root_with_one_transaction() {
         // Setup
@@ -222,4 +319,43 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_0_1() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(0, 1);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_0_2() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(0, 2);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_0_3() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(0, 3);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_1_3() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(1, 3);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_2_3() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(2, 3);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_0_9() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(0, 9);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_7_9() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(7, 9);
+    }
+
+    @Test
+    public void should_calculate_the_merkle_root_after_replacing_transactions_8_9() {
+        _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(8, 9);
+    }
 }
