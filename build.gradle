@@ -34,6 +34,8 @@ dependencies {
     compile group: 'com.github.softwareverde',  name: 'java-async',     version: 'v0.2.0+'
     compile group: 'com.github.softwareverde',  name: 'java-db-mysql',  version: 'v2.1.1+'
     compile group: 'com.github.softwareverde',  name: 'mariaDB4j',      version: 'v1.0.0'
+    compile group: 'com.github.softwareverde',  name: 'java-socket',    version: 'v0.1.1+'
+    compile group: 'com.github.softwareverde',  name: 'json',           version: 'v1.0.3+'
 
     compile group: 'org.jocl',                  name: 'jocl',           version: '0.1.9'
 

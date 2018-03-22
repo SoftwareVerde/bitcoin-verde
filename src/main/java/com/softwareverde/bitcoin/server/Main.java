@@ -1,9 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.server.module.AddressModule;
-import com.softwareverde.bitcoin.server.module.DatabaseModule;
-import com.softwareverde.bitcoin.server.module.MinerModule;
-import com.softwareverde.bitcoin.server.module.NodeModule;
+import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.util.Util;
 
 public class Main {
@@ -32,6 +29,14 @@ public class Main {
         _printError("\tDescription: Connects to a remote node and begins downloading and validating the block chain.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: STRATUM");
+        _printError("\tArguments: <Configuration File>");
+        _printError("\tDescription: Starts a Stratum server for pooled mining.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the stratum server.  Ex: conf/server.conf");
         _printError("\t----------------");
         _printError("");
 
@@ -92,6 +97,17 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 NodeModule.execute(configurationFile);
+            } break;
+
+            case "STRATUM": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    _exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                StratumModule.execute(configurationFile);
             } break;
 
             case "DATABASE": {
