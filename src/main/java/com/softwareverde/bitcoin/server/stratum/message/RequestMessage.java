@@ -81,9 +81,13 @@ public class RequestMessage {
         _command = command;
     }
 
-    protected RequestMessage(final String command) {
+    public  RequestMessage(final String command) {
         _id = createId();
         _command = command;
+    }
+
+    public void setParameters(final Json parameters) {
+        _parameters = parameters;
     }
 
     public Integer getId() {
@@ -92,6 +96,16 @@ public class RequestMessage {
 
     public String getCommand() {
         return _command;
+    }
+
+    public Boolean isCommand(final ClientCommand clientCommand) {
+        if (clientCommand == null) { return false; }
+        return clientCommand.getValue().equals(_command);
+    }
+
+    public Boolean isCommand(final ServerCommand serverCommand) {
+        if (serverCommand == null) { return false; }
+        return serverCommand.getValue().equals(_command);
     }
 
     @Override

@@ -42,12 +42,23 @@ public class ResponseMessage {
     protected Json _result = RESULT_FALSE;
     protected final MutableList<String> _error = new MutableList<String>();
 
-    protected ResponseMessage(final Integer id) {
+    public ResponseMessage(final Integer id) {
         _id = id;
     }
 
     public Integer getId() {
         return _id;
+    }
+
+    public void setResult(final Json result) {
+        _result = result;
+    }
+
+    public void setError(final String error1, final String error2, final String error3) {
+        _error.clear();
+        _error.add(error1);
+        _error.add(error2);
+        _error.add(error3);
     }
 
     @Override
