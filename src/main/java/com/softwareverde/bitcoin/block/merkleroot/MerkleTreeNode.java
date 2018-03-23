@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
@@ -37,6 +38,37 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
 
     protected MerkleTreeNode<T> _childNode0 = null;
     protected MerkleTreeNode<T> _childNode1 = null;
+
+    protected void _collectPartialHashes(final ImmutableListBuilder<Hash> listBuilder) {
+        if (_itemCount == 0) { return; }
+        else if (_item0 != null) {
+            if (_item1 != null) {
+                listBuilder.add(_item1.getHash());
+            }
+        }
+        else {
+            if ( (_childNode1 != null) && (! _childNode1.isEmpty()) ) {
+                listBuilder.add(new ImmutableHash(_childNode1._getIntermediaryHash()));
+            }
+        }
+    }
+
+    protected void _getPartialTree(final int index, final ImmutableListBuilder<Hash> partialTreeBuilder) {
+        if ( (_item0 != null) || (_item1 != null) ) {
+            // Nothing.
+        }
+        else {
+            final int childNode0ItemCount = _childNode0.getItemCount();
+            if (index < childNode0ItemCount) {
+                _childNode0._getPartialTree(index, partialTreeBuilder);
+            }
+            else {
+                _childNode1._getPartialTree((index - childNode0ItemCount), partialTreeBuilder);
+            }
+        }
+
+        _collectPartialHashes(partialTreeBuilder);
+    }
 
     protected void _recalculateHash() {
         final Hash hash0;
@@ -251,5 +283,12 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         }
 
         return new ImmutableMerkleRoot(_hash.getBytes());
+    }
+
+    @Override
+    public List<Hash> getPartialTree(final int index) {
+        final ImmutableListBuilder<Hash> partialTreeBuilder = new ImmutableListBuilder<Hash>();
+        _getPartialTree(index, partialTreeBuilder);
+        return partialTreeBuilder.build();
     }
 }

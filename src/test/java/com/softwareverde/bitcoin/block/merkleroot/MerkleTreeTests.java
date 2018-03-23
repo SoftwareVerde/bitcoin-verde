@@ -5,13 +5,12 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.ByteUtil;
@@ -39,8 +38,8 @@ public class MerkleTreeTests {
 
     private MerkleRoot referenceImplementation(final List<? extends Hashable> items) {
         final ArrayList<byte[]> tree = new ArrayList<>();
-        for (final Hashable t : items) {
-            tree.add(t.getHash().getBytes());
+        for (final Hashable item : items) {
+            tree.add(item.getHash().getBytes());
         }
 
         int levelOffset = 0;
@@ -54,6 +53,16 @@ public class MerkleTreeTests {
             levelOffset += levelSize;
         }
         return new MutableMerkleRoot(tree.get(tree.size() - 1));
+    }
+
+    private MerkleRoot _calculateSpvMerkle(final Integer transactionIndex, final Item baseItem, final List<Hash> items) {
+        byte[] hash0 = baseItem.getHash().getBytes();
+        for (final Hash hash1 : items) {
+            byte[] leftBytes = ByteUtil.reverseEndian(hash0);
+            byte[] rightBytes = ByteUtil.reverseEndian(hash1.getBytes());
+            hash0 = ByteUtil.reverseEndian(hashTwice(leftBytes, rightBytes));
+        }
+        return new ImmutableMerkleRoot(hash0);
     }
 
     class Item implements Hashable {
@@ -109,6 +118,30 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedValue.getBytes(), merkleRoot.getBytes());
         Assert.assertEquals(treeSize.intValue(), merkleTree.getItemCount());
         Assert.assertEquals(itemsWithReplacements, merkleTree.getItems());
+    }
+
+    private void _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(final Integer transactionIndex, final Integer itemCount, final Integer expectedPartialTreeSize) {
+        // Setup
+        final Item newItem = new Item(-1);
+
+        final MutableList<Item> items = new MutableList<Item>(itemCount);
+        final MerkleTree<Item> merkleTree = new MerkleTreeNode<Item>();
+        for (int i = 0; i < itemCount; ++i) {
+            final Item item = new Item(i);
+            items.add(item);
+            merkleTree.addItem(item);
+        }
+
+        // Action
+        final List<Hash> partialMerkleTree = merkleTree.getPartialTree(transactionIndex);
+        final MerkleRoot spvMerkle = _calculateSpvMerkle(transactionIndex, newItem, partialMerkleTree);
+
+        // Assert
+        Assert.assertEquals(expectedPartialTreeSize.intValue(), partialMerkleTree.getSize());
+        merkleTree.replaceItem(transactionIndex, newItem);
+        final MerkleRoot expectedMerkleRoot = merkleTree.getMerkleRoot();
+
+        TestUtil.assertEqual(expectedMerkleRoot.getBytes(), spvMerkle.getBytes());
     }
 
 
@@ -357,5 +390,30 @@ public class MerkleTreeTests {
     @Test
     public void should_calculate_the_merkle_root_after_replacing_transactions_8_9() {
         _should_calculate_the_merkle_root_after_replacing_the_Nth_item_with_tree_size_M(8, 9);
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_13() {
+        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 13, 4);
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_4() {
+        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 4, 2);
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_2() {
+        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 2, 1);
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_1() {
+        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 1, 0);
+    }
+
+    @Test
+    public void should_create_partial_tree_for_coinbase_transaction_with_item_count_26() {
+        _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 26, 5);
     }
 }
