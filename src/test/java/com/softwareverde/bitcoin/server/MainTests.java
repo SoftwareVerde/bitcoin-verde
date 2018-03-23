@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class MainTests {
     protected void _loop() {
@@ -28,7 +28,7 @@ public class MainTests {
                 node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                     @Override
                     public void onResult(final Block block) {
-                        Logger.log("BLOCK: " + BitcoinUtil.toHexString(block.getHash()));
+                        Logger.log("BLOCK: " + HexUtil.toHexString(block.getHash().getBytes()));
                     }
                 });
             }

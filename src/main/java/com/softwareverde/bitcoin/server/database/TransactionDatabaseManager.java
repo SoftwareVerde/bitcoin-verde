@@ -10,12 +10,12 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.util.List;
 
@@ -45,7 +45,7 @@ public class TransactionDatabaseManager {
 
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
-                .setParameter(BitcoinUtil.toHexString(transactionHash))
+                .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
 
         if (rows.isEmpty()) { return null; }
@@ -81,7 +81,7 @@ public class TransactionDatabaseManager {
             new Query(
                 "SELECT id FROM transactions WHERE block_id = ? AND hash = ?")
                 .setParameter(blockId)
-                .setParameter(BitcoinUtil.toHexString(transactionHash))
+                .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
 
         if (rows.isEmpty()) { return null; }
@@ -94,7 +94,7 @@ public class TransactionDatabaseManager {
         final LockTime lockTime = transaction.getLockTime();
         _databaseConnection.executeSql(
             new Query("UPDATE transactions SET hash = ?, block_id = ?, version = ?, has_witness_data = ?, lock_time = ? WHERE id = ?")
-                .setParameter(BitcoinUtil.toHexString(transaction.getHash()))
+                .setParameter(HexUtil.toHexString(transaction.getHash().getBytes()))
                 .setParameter(blockId)
                 .setParameter(transaction.getVersion())
                 .setParameter((transaction.hasWitnessData() ? 1 : 0))
@@ -107,7 +107,7 @@ public class TransactionDatabaseManager {
         final LockTime lockTime = transaction.getLockTime();
         return TransactionId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, block_id, version, has_witness_data, lock_time) VALUES (?, ?, ?, ?, ?)")
-                .setParameter(BitcoinUtil.toHexString(transaction.getHash()))
+                .setParameter(HexUtil.toHexString(transaction.getHash().getBytes()))
                 .setParameter(blockId)
                 .setParameter(transaction.getVersion())
                 .setParameter((transaction.hasWitnessData() ? 1 : 0))

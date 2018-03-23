@@ -146,7 +146,11 @@ public class NodeConnection {
     }
 
     public void disconnect() {
-        _connection.close();
+        _connectionThread.halt();
+
+        if (_connection != null) {
+            _connection.close();
+        }
     }
 
     public void queueMessage(final ProtocolMessage message) {

@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.message.type.node.address;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
@@ -51,6 +51,6 @@ public class NodeIpAddressMessage extends ProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(addressCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(networkAddressesBytes, Endian.BIG);
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

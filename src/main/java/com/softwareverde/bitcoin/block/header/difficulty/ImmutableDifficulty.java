@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
 
@@ -10,9 +12,15 @@ public class ImmutableDifficulty implements Difficulty, Const {
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
 
+    private byte[] _cachedBytes = null;
+
     public static ImmutableDifficulty decode(final byte[] encodedBytes) {
         if (encodedBytes.length != 4) { return null; }
         return new ImmutableDifficulty(ByteUtil.copyBytes(encodedBytes, 1, 3), (ByteUtil.byteToInteger(encodedBytes[0]) - 3));
+    }
+
+    protected BigDecimal _toBigDecimal() {
+        return BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
     }
 
     public ImmutableDifficulty(final byte[] significand, final Integer exponent) {
@@ -56,10 +64,13 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public Boolean isSatisfiedBy(final Hash hash) {
-        final byte[] bytes = _convertToBytes();
+        if (_cachedBytes == null) {
+            _cachedBytes = _convertToBytes();
+        }
 
-        for (int i=0; i<bytes.length; ++i) {
-            final int difficultyByte = ByteUtil.byteToInteger(bytes[i]);
+        for (int i=0; i<_cachedBytes.length; ++i) {
+            if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
+            final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes[i]);
             final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }
             return (sha256Byte < difficultyByte);
@@ -70,13 +81,31 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public BigDecimal getDifficultyRatio() {
-        final BigDecimal currentValue = BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
+        final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal baseDifficultyValue = BigDecimal.valueOf(ByteUtil.bytesToInteger(BASE_DIFFICULTY_SIGNIFICAND), BASE_DIFFICULTY_EXPONENT);
         return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
     }
 
     @Override
+    public Difficulty multiplyBy(final float difficultyAdjustment) {
+        final BigDecimal currentValue = _toBigDecimal();
+        final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
+        return new ImmutableDifficulty(bigDecimal.unscaledValue().toByteArray(), bigDecimal.scale());
+    }
+
+    @Override
     public ImmutableDifficulty asConst() {
         return this;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof Difficulty)) { return false; }
+
+        final Difficulty difficulty = (Difficulty) object;
+        if (! _exponent.equals(difficulty.getExponent())) { return false; }
+
+        return ByteUtil.areEqual(_significand, difficulty.getSignificand());
     }
 }

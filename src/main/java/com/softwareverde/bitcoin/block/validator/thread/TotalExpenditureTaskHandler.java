@@ -10,11 +10,11 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.util.Map;
 
@@ -68,7 +68,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Boo
                 transactionOutput = possibleTransactionOutput;
             }
             if (transactionOutput == null) {
-                Logger.log("Tx Input, Output Not Found: " + BitcoinUtil.toHexString(outputTransactionHash) + ":" + transactionOutputIndex);
+                Logger.log("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
                 totalInputValue = -1L;
                 break;
             }

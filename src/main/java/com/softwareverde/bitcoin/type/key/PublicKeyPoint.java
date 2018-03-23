@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.type.key;
 
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class PublicKeyPoint implements Constable<PublicKeyPoint>, Const {
     public enum Type {

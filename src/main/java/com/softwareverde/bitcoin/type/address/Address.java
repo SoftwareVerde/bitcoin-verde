@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.type.address;
 
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.util.ByteUtil;
 
 public class Address extends ImmutableByteArray {
     public static final Byte PREFIX = 0x00;

@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.server.message;
 
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.HexUtil;
 
 /**
  * Protocol Definition:
@@ -15,7 +16,7 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
  */
 
 public abstract class ProtocolMessage {
-    public static final byte[] MAIN_NET_MAGIC_NUMBER = BitcoinUtil.hexStringToByteArray("E8F3E1E3"); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
+    public static final byte[] MAIN_NET_MAGIC_NUMBER = HexUtil.hexStringToByteArray("E8F3E1E3"); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
     public enum MessageType {
@@ -86,7 +87,7 @@ public abstract class ProtocolMessage {
         byteArrayBuilder.appendBytes(checksum.getBytes(), Endian.BIG); // NOTICE: Bitcoin Cash wants the checksum to be big-endian.  Bitcoin Core documentation says little-endian.  Discovered via tcpdump on server.
         byteArrayBuilder.appendBytes(payload.getBytes(), Endian.BIG);
 
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public ProtocolMessage(final MessageType command) {

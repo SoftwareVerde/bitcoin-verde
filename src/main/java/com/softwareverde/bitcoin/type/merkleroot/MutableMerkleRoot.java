@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.type.merkleroot;
 
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.util.HexUtil;
 
 public class MutableMerkleRoot extends MutableHash implements MerkleRoot {
     public static MutableMerkleRoot fromHexString(final String hexString) {
-        final byte[] hashBytes = BitcoinUtil.hexStringToByteArray(hexString);
+        final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
         return new MutableMerkleRoot(hashBytes);
     }
 

@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.type.hash;
 
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 
 public class MutableHash extends MutableByteArray implements Hash {
     public static MutableHash fromHexString(final String hexString) {
-        final byte[] hashBytes = BitcoinUtil.hexStringToByteArray(hexString);
+        final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
         return new MutableHash(hashBytes);
     }
 
