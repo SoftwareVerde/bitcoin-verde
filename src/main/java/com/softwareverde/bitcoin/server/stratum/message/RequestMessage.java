@@ -90,6 +90,10 @@ public class RequestMessage {
         _parameters = parameters;
     }
 
+    public Json getParameters() {
+        return _parameters;
+    }
+
     public Integer getId() {
         return _id;
     }

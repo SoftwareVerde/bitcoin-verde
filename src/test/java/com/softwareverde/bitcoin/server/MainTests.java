@@ -13,7 +13,7 @@ public class MainTests {
         }
     }
 
-//    @Test
+    // @Test
     public void execute() {
         final String host = "btc.softwareverde.com";
         final Integer port = 8333;

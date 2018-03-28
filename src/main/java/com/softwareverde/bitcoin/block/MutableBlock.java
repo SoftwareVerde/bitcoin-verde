@@ -111,8 +111,20 @@ public class MutableBlock implements Block {
         _merkleTree.clear();
     }
 
+    @Override
     public List<Transaction> getTransactions() {
         return _transactions;
+    }
+
+    @Override
+    public Transaction getCoinbaseTransaction() {
+        if (_transactions.isEmpty()) { return null; }
+        return _transactions.get(0);
+    }
+
+    @Override
+    public List<Hash> getPartialMerkleTree(final int transactionIndex) {
+        return _merkleTree.getPartialTree(transactionIndex);
     }
 
     @Override

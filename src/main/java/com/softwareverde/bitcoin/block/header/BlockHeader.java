@@ -9,8 +9,8 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.util.HexUtil;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader> {
-    static final Integer VERSION = 0x04;
-    static final ImmutableHash GENESIS_BLOCK_HEADER_HASH = new ImmutableHash(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"));
+    Integer VERSION = 0x04;
+    ImmutableHash GENESIS_BLOCK_HEADER_HASH = new ImmutableHash(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"));
 
     Hash getPreviousBlockHash();
     MerkleRoot getMerkleRoot();

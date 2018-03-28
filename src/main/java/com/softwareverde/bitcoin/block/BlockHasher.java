@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 
 public class BlockHasher {
     protected final BlockHeaderDeflater _blockHeaderDeflater = new BlockHeaderDeflater();
@@ -16,6 +17,7 @@ public class BlockHasher {
 
     public Hash calculateBlockHash(final BlockHeader blockHeader) {
         final byte[] serializedByteData = _blockHeaderDeflater.toBytes(blockHeader);
+        System.out.println(HexUtil.toHexString(serializedByteData));
         return _calculateDoubleHash(serializedByteData);
     }
 
