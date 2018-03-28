@@ -14,7 +14,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MutableTransaction implements Transaction {
-    protected Integer _version = BlockHeader.VERSION;
+    protected Integer _version = Transaction.VERSION;
     protected Boolean _hasWitnessData = false;
     protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
     protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();

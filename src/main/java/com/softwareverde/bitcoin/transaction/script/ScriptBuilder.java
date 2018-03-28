@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -16,7 +17,6 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class ScriptBuilder {
-
     protected static LockingScript _payToAddress(final Address address) {
         final byte[] addressBytes = address.getBytes();
 
@@ -62,8 +62,8 @@ public class ScriptBuilder {
         }
         else if (dataByteCount <= 0xFFFFL) {
             _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_SHORT.getValue());
-            final byte[] stringDataByteCountBytes = ByteUtil.integerToBytes(dataByteCount);
-            _byteArrayBuilder.appendBytes(new byte[] { stringDataByteCountBytes[3], stringDataByteCountBytes[4] }, Endian.LITTLE);
+            final byte[] dataDataByteCountBytes = ByteUtil.integerToBytes(dataByteCount);
+            _byteArrayBuilder.appendBytes(new byte[] { dataDataByteCountBytes[3], dataDataByteCountBytes[4] }, Endian.LITTLE);
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else {

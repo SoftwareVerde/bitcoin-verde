@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -124,6 +123,7 @@ public class MutableBlock implements Block {
 
     @Override
     public List<Hash> getPartialMerkleTree(final int transactionIndex) {
+        if (_merkleTree.isEmpty()) { return new MutableList<Hash>(); }
         return _merkleTree.getPartialTree(transactionIndex);
     }
 
