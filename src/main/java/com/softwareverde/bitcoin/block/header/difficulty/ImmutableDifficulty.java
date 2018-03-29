@@ -3,10 +3,9 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 public class ImmutableDifficulty implements Difficulty, Const {
     private final Integer _exponent;
@@ -20,7 +19,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     }
 
     protected BigDecimal _toBigDecimal() {
-        return BigDecimal.valueOf(ByteUtil.bytesToLong(_significand), _exponent);
+        return new BigDecimal(new BigInteger(_convertToBytes()), 4);
     }
 
     public ImmutableDifficulty(final byte[] significand, final Integer exponent) {
@@ -69,7 +68,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
         }
 
         for (int i=0; i<_cachedBytes.length; ++i) {
-            if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
+            // if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
             final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes[i]);
             final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }
@@ -82,7 +81,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     @Override
     public BigDecimal getDifficultyRatio() {
         final BigDecimal currentValue = _toBigDecimal();
-        final BigDecimal baseDifficultyValue = BigDecimal.valueOf(ByteUtil.bytesToInteger(BASE_DIFFICULTY_SIGNIFICAND), BASE_DIFFICULTY_EXPONENT);
+        final BigDecimal baseDifficultyValue = Difficulty.BASE_DIFFICULTY._toBigDecimal();
         return baseDifficultyValue.divide(currentValue, BigDecimal.ROUND_HALF_UP);
     }
 

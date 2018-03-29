@@ -6,6 +6,8 @@ import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.math.BigDecimal;
+
 public class DifficultyTests {
     @Test
     public void should_return_bytes_from_exponent_and_significand_0() {
@@ -178,5 +180,19 @@ public class DifficultyTests {
         // Assert
         TestUtil.assertEqual(expectedRawBytes, rawBytes0);
         TestUtil.assertEqual(expectedRawBytes, rawBytes1);
+    }
+
+    @Test
+    public void should_create_correct_difficulty_ratio() {
+        // Setup
+        final String difficultyEncodedString = "18031849"; // Difficulty for Block 0000000000000000019215F45AC2190F5316FF2E4BB6ED300104585384269F93
+        final BigDecimal expectedDifficultyRatio = new BigDecimal("355264363497.1042");
+        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(difficultyEncodedString));
+
+        // Action
+        final BigDecimal difficultyRatio = difficulty.getDifficultyRatio();
+
+        // Assert
+        Assert.assertEquals(expectedDifficultyRatio, difficultyRatio);
     }
 }
