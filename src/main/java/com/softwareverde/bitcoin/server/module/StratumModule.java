@@ -7,13 +7,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
-import com.softwareverde.bitcoin.server.module.stratum.StratumMineBlockTask;
+import com.softwareverde.bitcoin.server.stratum.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
@@ -127,12 +126,16 @@ public class StratumModule {
 
                                     final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
                                     responseMessage.setResult(resultJson);
+
+                                    Logger.log("Sent: "+ responseMessage.toString());
                                     socketConnection.write(responseMessage.toString());
                                 }
                                 else if (requestMessage.isCommand(RequestMessage.ClientCommand.AUTHORIZE)) {
                                     {
                                         final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
                                         responseMessage.setResult(ResponseMessage.RESULT_TRUE);
+
+                                        Logger.log("Sent: "+ responseMessage.toString());
                                         socketConnection.write(responseMessage.toString());
                                     }
 
@@ -153,8 +156,8 @@ public class StratumModule {
                                         stratumMineBlockTask.setCoinbaseTransaction(coinbaseTransaction, totalExtraNonceByteCount);
 
                                         final RequestMessage mineBlockRequest = stratumMineBlockTask.createRequest();
-                                        Logger.log("Sent: "+ mineBlockRequest.toString());
 
+                                        Logger.log("Sent: "+ mineBlockRequest.toString());
                                         socketConnection.write(mineBlockRequest.toString());
                                     }
                                 }
