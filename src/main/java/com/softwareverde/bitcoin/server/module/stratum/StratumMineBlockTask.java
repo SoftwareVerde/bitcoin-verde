@@ -1,11 +1,14 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.ImmutableBlock;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -21,6 +24,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
@@ -39,12 +43,12 @@ public class StratumMineBlockTask {
     final ByteArray _id;
 
     protected final MutableBlock _prototypeBlock = new MutableBlock();
-    protected List<String> _merkleTreeBranches;
+    protected List<String> _merkleTreeBranches; // Little-endian merkle tree (intermediary) branch hashes...
     protected String _extraNonce1;
     protected String _coinbaseTransactionHead;
     protected String _coinbaseTransactionTail;
 
-    private static MerkleRoot _calculateMerkleTree(final Transaction coinbaseTransaction, final List<String> merkleTreeBranches) {
+    protected static MerkleRoot _calculateMerkleRoot(final Transaction coinbaseTransaction, final List<String> merkleTreeBranches) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         byte[] merkleRoot = coinbaseTransaction.getHash().toReversedEndian().getBytes();
@@ -64,11 +68,11 @@ public class StratumMineBlockTask {
         return new ImmutableMerkleRoot(ByteUtil.reverseEndian(merkleRoot));
     }
 
-    private String _createByteString(final char a, final char b) {
+    protected static String _createByteString(final char a, final char b) {
         return String.valueOf(a) + b;
     }
 
-    private String _reverseEndian(final String input) {
+    protected static String _reverseEndian(final String input) {
         if (input.length() % 2 != 0) {
             Logger.log("reverseEndian: Invalid Hex String: "+ input);
             return null;
@@ -83,7 +87,7 @@ public class StratumMineBlockTask {
         return stringBuilder.toString();
     }
 
-    private String _swabBytes(final String input) {
+    protected static String _swabBytes(final String input) {
         // 00 01 02 03 | 04 05 06 07 -> 03 02 01 00 | 07 06 05 04
         final StringBuilder stringBuilder = new StringBuilder();
         for (int i=0; i<input.length()/8; ++i) {
@@ -101,8 +105,38 @@ public class StratumMineBlockTask {
         return stringBuilder.toString();
     }
 
+    public Transaction _assembleCoinbaseTransaction(final String stratumExtraNonce2) {
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        return transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
+            _coinbaseTransactionHead +
+            _extraNonce1 +
+            stratumExtraNonce2 +
+            _coinbaseTransactionTail
+        ));
+    }
+
+    protected BlockHeader _assembleBlockHeader(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
+        final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(stratumExtraNonce2);
+        return _assembleBlockHeader(stratumNonce, coinbaseTransaction, stratumTimestamp);
+    }
+
+    protected BlockHeader _assembleBlockHeader(final String stratumNonce, final Transaction coinbaseTransaction, final String stratumTimestamp) {
+        final MutableBlockHeader blockHeader = new MutableBlockHeader(_prototypeBlock);
+
+        final MerkleRoot merkleRoot = _calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
+        blockHeader.setMerkleRoot(merkleRoot);
+
+        blockHeader.setNonce(ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumNonce)));
+
+        final Long timestamp = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumTimestamp));
+        blockHeader.setTimestamp(timestamp);
+
+        return blockHeader;
+    }
+
     public StratumMineBlockTask() {
         _id = MutableByteArray.wrap(ByteUtil.integerToBytes(getNextId()));
+        _prototypeBlock.addTransaction(new MutableTransaction());
     }
 
     public void setBlockVersion(final String stratumBlockVersion) {
@@ -140,8 +174,19 @@ public class StratumMineBlockTask {
         _prototypeBlock.setDifficulty(difficulty);
     }
 
+    // ViaBTC provides the merkleTreeBranches as little-endian byte strings.
     public void setMerkleTreeBranches(final List<String> merkleTreeBranches) {
         _merkleTreeBranches = merkleTreeBranches.asConst();
+    }
+
+    public void addTransaction(final Transaction transaction) {
+        _prototypeBlock.addTransaction(transaction.asConst());
+    }
+
+    public void clearTransactions() {
+        final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
+        _prototypeBlock.clearTransactions();
+        _prototypeBlock.addTransaction(coinbaseTransaction);
     }
 
     public void setCoinbaseTransaction(final String stratumCoinbaseTransactionHead, final String stratumCoinbaseTransactionTail) {
@@ -157,6 +202,8 @@ public class StratumMineBlockTask {
         final Integer headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - totalExtraNonceByteCount);
         _coinbaseTransactionHead = HexUtil.toHexString(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonces));
         _coinbaseTransactionTail = HexUtil.toHexString(coinbaseTransactionParts.tailBytes);
+
+        _prototypeBlock.replaceTransaction(0, coinbaseTransaction);
     }
 
     public BlockHeader assembleBlockHeader(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
@@ -173,7 +220,7 @@ public class StratumMineBlockTask {
                 _coinbaseTransactionTail
             ));
 
-            merkleRoot = _calculateMerkleTree(coinbaseTransaction, _merkleTreeBranches);
+            merkleRoot = _calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
         }
         blockHeader.setMerkleRoot(merkleRoot);
 
@@ -183,6 +230,19 @@ public class StratumMineBlockTask {
         blockHeader.setTimestamp(timestamp);
 
         return blockHeader;
+    }
+
+    public Block assembleBlock(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
+        final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(stratumExtraNonce2);
+        final BlockHeader blockHeader = _assembleBlockHeader(stratumNonce, coinbaseTransaction, stratumTimestamp);
+        final List<Transaction> transactions;
+        {
+            final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
+            final MutableList<Transaction> mutableList = new MutableList<Transaction>(prototypeBlockTransaction);
+            mutableList.set(0, coinbaseTransaction);
+            transactions = mutableList;
+        }
+        return new ImmutableBlock(blockHeader, transactions);
     }
 
     public RequestMessage createRequest() {
@@ -197,13 +257,13 @@ public class StratumMineBlockTask {
         parametersJson.add(_coinbaseTransactionTail);
 
         final Json partialMerkleTreeJson = new Json(true);
-        { // Create the partialMerkleTree Json...
+        { // Create the partialMerkleTree Json as little-endian hashes...
             final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
             final List<Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
             for (final Hash hash : partialMerkleTree) {
                 final String hashString = hash.toString();
-                partialMerkleTreeJson.add(hashString);
-                listBuilder.add(hashString);
+                partialMerkleTreeJson.add(_reverseEndian(hashString));
+                listBuilder.add(_reverseEndian(hashString));
             }
             _merkleTreeBranches = listBuilder.build();
         }

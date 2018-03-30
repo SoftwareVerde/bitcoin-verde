@@ -17,7 +17,6 @@ public class BlockHasher {
 
     public Hash calculateBlockHash(final BlockHeader blockHeader) {
         final byte[] serializedByteData = _blockHeaderDeflater.toBytes(blockHeader);
-        System.out.println(HexUtil.toHexString(serializedByteData));
         return _calculateDoubleHash(serializedByteData);
     }
 

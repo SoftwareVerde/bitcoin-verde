@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -10,21 +10,15 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.module.stratum.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
+import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.socket.SocketConnection;
@@ -177,12 +171,23 @@ public class StratumModule {
                                     final BlockHeader blockHeader = stratumMineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
                                     final Hash hash = blockHeader.getHash();
                                     Logger.log(hash);
+
+                                    final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), blockHeader.isValid());
+
                                     if (blockHeader.isValid()) {
-                                        final BlockHeaderDeflater blockDeflater = new BlockHeaderDeflater();
-                                        Logger.log("Valid Block: "+ HexUtil.toHexString(blockDeflater.toBytes(blockHeader)));
+                                        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                                        Logger.log("Valid Block: "+ HexUtil.toHexString(blockHeaderDeflater.toBytes(blockHeader)));
+
+                                        final BlockDeflater blockDeflater = new BlockDeflater();
+                                        final Block block = stratumMineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
+                                        Logger.log(blockDeflater.toBytes(block));
+
                                         socketConnection.close();
                                         _stratumServerSocket.stop();
                                     }
+
+                                    Logger.log("Sent: "+ blockAcceptedMessage.toString());
+                                    socketConnection.write(blockAcceptedMessage.toString());
                                 }
                             }
                         }
