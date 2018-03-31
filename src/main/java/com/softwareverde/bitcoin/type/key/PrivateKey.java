@@ -1,12 +1,9 @@
 package com.softwareverde.bitcoin.type.key;
 
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
-import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.security.SecureRandom;
@@ -24,7 +21,7 @@ public class PrivateKey extends ImmutableByteArray {
 
     public static PrivateKey parseFromHexString(final String hexString) {
         final PrivateKey privateKey = new PrivateKey();
-        final byte[] decodedPrivateKeyData = BitcoinUtil.hexStringToByteArray(hexString);
+        final byte[] decodedPrivateKeyData = HexUtil.hexStringToByteArray(hexString);
         if ((decodedPrivateKeyData == null) || (decodedPrivateKeyData.length != KEY_BYTE_COUNT)) { return null; }
 
         for (int i=0; i<KEY_BYTE_COUNT; ++i) {
@@ -116,6 +113,6 @@ public class PrivateKey extends ImmutableByteArray {
 
     @Override
     public String toString() {
-        return BitcoinUtil.toHexString(_bytes);
+        return HexUtil.toHexString(_bytes);
     }
 }

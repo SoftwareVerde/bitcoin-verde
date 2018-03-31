@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.socket.ip;
 
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Ipv6 implements Ip {
@@ -90,7 +90,7 @@ public class Ipv6 implements Ip {
                 }
                 ipSegmentString = new String(charArray);
             }
-            final byte[] segmentBytes = BitcoinUtil.hexStringToByteArray(ipSegmentString);
+            final byte[] segmentBytes = HexUtil.hexStringToByteArray(ipSegmentString);
             if ((segmentBytes == null) || (segmentBytes.length != 2)) {
                 return null;
             }

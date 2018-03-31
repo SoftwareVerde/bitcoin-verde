@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
@@ -243,6 +243,6 @@ public abstract class Operation {
 
     @Override
     public String toString() {
-        return "Operation 0x" + BitcoinUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type + "-" + _type.getSubtype(_opcodeByte);
+        return "Operation 0x" + HexUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type + "-" + _type.getSubtype(_opcodeByte);
     }
 }

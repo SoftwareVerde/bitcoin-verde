@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 
@@ -8,7 +8,7 @@ public class MutableTransactionInput implements TransactionInput {
 
     protected Hash _previousTransactionOutputHash = new MutableHash();
     protected Integer _previousTransactionOutputIndex = 0;
-    protected Script _unlockingScript = Script.EMPTY_SCRIPT;
+    protected UnlockingScript _unlockingScript = UnlockingScript.EMPTY_SCRIPT;
     protected Long _sequenceNumber = MAX_SEQUENCE_NUMBER;
 
     public MutableTransactionInput() { }
@@ -33,8 +33,8 @@ public class MutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public Script getUnlockingScript() { return _unlockingScript; }
-    public void setUnlockingScript(final Script signatureScript) {
+    public UnlockingScript getUnlockingScript() { return _unlockingScript; }
+    public void setUnlockingScript(final UnlockingScript signatureScript) {
         _unlockingScript = signatureScript;
     }
 

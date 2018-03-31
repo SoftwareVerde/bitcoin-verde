@@ -2,6 +2,7 @@
 
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"HELP\"\n" > out/run.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"STRATUM\" \"conf/server.conf\"\n" > out/run-stratum.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"DATABASE\" \"conf/server.conf\"\n" > out/run-database.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"ADDRESS\"\n" > out/run-address.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"MINER\"\n" > out/run-miner.sh

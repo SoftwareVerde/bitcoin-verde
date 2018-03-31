@@ -19,6 +19,15 @@ public class MutableBlockHeader implements BlockHeader {
         _version = VERSION;
     }
 
+    public MutableBlockHeader(final BlockHeader blockHeader) {
+        _version = blockHeader.getVersion();
+        _previousBlockHash = blockHeader.getPreviousBlockHash().asConst();
+        _merkleRoot = blockHeader.getMerkleRoot().asConst();
+        _timestamp = blockHeader.getTimestamp();
+        _difficulty = blockHeader.getDifficulty().asConst();
+        _nonce = blockHeader.getNonce();
+    }
+
     @Override
     public Integer getVersion() { return _version; }
     public void setVersion(final Integer version) { _version = version; }

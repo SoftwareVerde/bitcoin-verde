@@ -1,27 +1,36 @@
 package com.softwareverde.bitcoin.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.block.validator.thread.*;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    // protected final NetworkTime _networkTime;
 
     public BlockValidator(final DatabaseConnectionFactory threadedConnectionsFactory) {
         _databaseConnectionFactory = threadedConnectionsFactory;
+        // _networkTime = networkTime;
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
@@ -63,7 +72,23 @@ public class BlockValidator {
 
         // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
 
-        // TODO: Validate block (calculated) difficulty... (https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated)
+        { // Validate block (calculated) difficulty...
+            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+                final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, block);
+                if (calculatedRequiredDifficulty == null) {
+                    Logger.log("Unable to calculate required difficulty for block: " + blockChainSegmentId + " " + block.getHash());
+                    return false;
+                }
+
+                final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(block.getDifficulty());
+                if (!difficultyIsCorrect) {
+                    Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()) + " Found: " + HexUtil.toHexString(block.getDifficulty().encode()));
+                    return false;
+                }
+            }
+            catch (final DatabaseException databaseException) { databaseException.printStackTrace(); }
+        }
 
         // TODO: Validate coinbase transaction...
 

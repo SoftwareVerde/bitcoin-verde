@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.message.type.version.acknowledge;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class AcknowledgeVersionMessage extends ProtocolMessage {
 

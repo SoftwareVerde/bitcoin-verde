@@ -1,24 +1,13 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -30,9 +19,9 @@ public class ScriptRunnerTests {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
 
-        final Transaction transactionBeingSpent = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0134FFFFFFFF0100F2052A0100000043410411DB93E1DCDB8A016B49840F8C53BC1EB68A382E97B1482ECAD7B148A6909A5CB2E0EADDFB84CCF9744464F82E160BFA9B8B64F9D4C03F999B8643F656B412A3AC00000000"));
+        final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("01000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0704FFFF001D0134FFFFFFFF0100F2052A0100000043410411DB93E1DCDB8A016B49840F8C53BC1EB68A382E97B1482ECAD7B148A6909A5CB2E0EADDFB84CCF9744464F82E160BFA9B8B64F9D4C03F999B8643F656B412A3AC00000000"));
 
-        final Transaction transaction0 = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray(
+        final Transaction transaction0 = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             // Transaction 1
             "01000000" +    // Transaction Version
             "01" +          // Transaction-Input Count
@@ -66,9 +55,9 @@ public class ScriptRunnerTests {
             "410411DB93E1DCDB8A016B49840F8C53BC1EB68A382E97B1482ECAD7B148A6909A5CB2E0EADDFB84CCF9744464F82E160BFA9B8B64F9D4C03F999B8643F656B412A3AC" + // Script
             "00000000"      // Locktime
         ;
-        final Transaction transaction1 = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray(transactionBytesString01));
+        final Transaction transaction1 = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionBytesString01));
 
-        Assert.assertEquals(transactionBytesString01, BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction1)));
+        Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1)));
 
         final Context context = new Context();
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -98,14 +87,14 @@ public class ScriptRunnerTests {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final Transaction transactionBeingSpent = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray(
+        final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             "01000000015AEFC06AF14A9216350A1F549971E0C8381D69B00B492CA20663CAEB5F191825010000006B4830450220210947BCC472D558BED1A36A573BC3C5E11914BE685E868639A46B330AE1879B022100964512E526759EE915A3178F43520CF53D2C38E18A229062EEAB8E2D544A91990121021B36AF5FEDC577DFBF74D75060B20305F1D9127A3C7A7373EF91BF684F6A0491FFFFFFFF0246FBBB84000000001976A914F6A9D96485D1D45D28E38662F617BA39A6B151BB88AC00093D00000000001976A914D948D7A14685B7B5B528034137AA4C590F84F62988AC00000000"
         ));
 
         final String transactionHexString = "0100000001BF9705FAE2004CC9072D7C6D73BC8F38A0A7C67DACEED5FC42E0D20AC8D898C0000000006B483045022100CB0093D91F09644065AC05424DE3DE709C90A9BC963945EE149EAA1CF7B13DA802200EFE508E68A5E2F9C3CBD851B66EB597803ACCDC2F45F07BFD5488DA476727FE0121039500311F6688A8C16A570853AC22230F4B1E0A551D8846550FE4AE56F9799E80FFFFFFFF0200E1F505000000001976A914C23E891A29D290DDB454EBF3456EEAEC56412AB988AC36F3C57E000000001976A914DB89750F929FBD94A8018767A49EF6FC6AC7E46888AC00000000";
-        final Transaction transaction = transactionInflater.fromBytes(BitcoinUtil.hexStringToByteArray(transactionHexString));
+        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionHexString));
 
-        Assert.assertEquals(transactionHexString, BitcoinUtil.toHexString(transactionDeflater.toBytes(transaction)));
+        Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
 
         final Context context = new Context();
         context.setTransaction(transaction);

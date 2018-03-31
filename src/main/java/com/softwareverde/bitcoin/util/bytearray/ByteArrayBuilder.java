@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.util.bytearray;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 import java.util.ArrayList;
 import java.util.List;

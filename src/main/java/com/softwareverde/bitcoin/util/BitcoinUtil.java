@@ -1,46 +1,15 @@
 package com.softwareverde.bitcoin.util;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.security.encoding.Base58;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.util.Base58Util;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class BitcoinUtil {
-    private final static char[] HEX_ALPHABET = "0123456789ABCDEF".toCharArray();
-
-    /**
-     * Returns an uppercase hex representation of the provided bytes without any prefix.
-     */
-    public static String toHexString(final byte[] bytes) {
-        final char[] hexChars = new char[bytes.length * 2];
-        for (int j=0; j<bytes.length; ++j) {
-            final int v = (bytes[j] & 0xFF);
-            hexChars[j * 2] = HEX_ALPHABET[v >>> 4];
-            hexChars[j * 2 + 1] = HEX_ALPHABET[v & 0x0F];
-        }
-        return new String(hexChars);
-    }
-    public static String toHexString(final ByteArray bytes) {
-        return toHexString(bytes.getBytes());
-    }
-
-    /**
-     * Returns the decoded bytes from an uppercase (or lowercase) hex representation without any prefix.
-     */
-    public static byte[] hexStringToByteArray(final String hexString) {
-        final Integer stringLength = hexString.length();
-        if (stringLength % 2 != 0) { return null; }
-
-        final byte[] data = new byte[stringLength / 2];
-        for (int i = 0; i < stringLength; i += 2) {
-            data[i/2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4) + Character.digit(hexString.charAt(i+1), 16));
-        }
-        return data;
-    }
 
     public static byte[] sha1(final byte[] data) {
         try {
@@ -75,11 +44,11 @@ public class BitcoinUtil {
     }
 
     public static String toBase58String(final byte[] bytes) {
-        return Base58.encode(bytes);
+        return Base58Util.toBase58String(bytes);
     }
 
     public static byte[] base58StringToBytes(final String base58String) {
-        return Base58.decode(base58String);
+        return Base58Util.base58StringToByteArray(base58String);
     }
 
     public static String reverseEndianString(final String string) {

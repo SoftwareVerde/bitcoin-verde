@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.HexUtil;
 
 public class BlockHasher {
     protected final BlockHeaderDeflater _blockHeaderDeflater = new BlockHeaderDeflater();

@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class BlockMessage extends ProtocolMessage {
 

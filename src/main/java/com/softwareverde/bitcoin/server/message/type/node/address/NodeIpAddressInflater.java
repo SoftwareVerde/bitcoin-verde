@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.server.message.type.node.address;
 
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv6;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.HexUtil;
 
 public class NodeIpAddressInflater {
     public NodeIpAddress fromBytes(final byte[] bytes) {
@@ -17,7 +17,7 @@ public class NodeIpAddressInflater {
         nodeIpAddress._nodeFeatures.setFeatureFlags(byteArrayReader.readLong(8, Endian.LITTLE));
 
         {
-            final byte[] ipv4CompatibilityBytes = BitcoinUtil.hexStringToByteArray("00000000000000000000FFFF");
+            final byte[] ipv4CompatibilityBytes = HexUtil.hexStringToByteArray("00000000000000000000FFFF");
             final byte[] nextBytes = byteArrayReader.peakBytes(12, Endian.BIG);
             final Boolean isIpv4Address = ByteUtil.areEqual(ipv4CompatibilityBytes, nextBytes);
             if (isIpv4Address) {

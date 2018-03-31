@@ -15,7 +15,7 @@ import java.sql.Connection;
 
 // TODO: Remove dependency on com.softwareverde.bitcoin.server.Configuration
 
-public class EmbeddedMysqlDatabase implements Database<Connection>, DatabaseConnectionFactory {
+public class EmbeddedMysqlDatabase implements Database<Connection> {
     protected DB _databaseInstance;
     protected MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
@@ -149,5 +149,9 @@ public class EmbeddedMysqlDatabase implements Database<Connection>, DatabaseConn
     @Override
     public MysqlDatabaseConnection newConnection() throws DatabaseException {
         return _databaseConnectionFactory.newConnection();
+    }
+
+    public MysqlDatabaseConnectionFactory getDatabaseConnectionFactory() {
+        return _databaseConnectionFactory;
     }
 }

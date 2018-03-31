@@ -5,16 +5,18 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.util.HexUtil;
 
 import java.util.List;
 
@@ -40,7 +42,7 @@ public class BlockDatabaseManager {
     protected BlockId _getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
-                .setParameter(BitcoinUtil.toHexString(blockHash))
+                .setParameter(HexUtil.toHexString(blockHash.getBytes()))
         );
 
         if (rows.isEmpty()) { return null; }
@@ -49,7 +51,7 @@ public class BlockDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
-    protected BlockHeader _inflateBlockFromBlockId(final BlockId blockId) throws DatabaseException {
+    protected BlockHeader _inflateBlockHeader(final BlockId blockId) throws DatabaseException {
         final Row row;
         {
             final List<Row> rows = _databaseConnection.query(
@@ -81,15 +83,15 @@ public class BlockDatabaseManager {
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
         blockHeader.setPreviousBlockHash(previousBlockHash);
         blockHeader.setVersion(row.getInteger("version"));
-        blockHeader.setMerkleRoot(new MutableMerkleRoot(BitcoinUtil.hexStringToByteArray(row.getString("merkle_root"))));
+        blockHeader.setMerkleRoot(new MutableMerkleRoot(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
         blockHeader.setTimestamp(row.getLong("timestamp"));
-        blockHeader.setDifficulty(ImmutableDifficulty.decode(BitcoinUtil.hexStringToByteArray(row.getString("difficulty"))));
+        blockHeader.setDifficulty(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty"))));
         blockHeader.setNonce(row.getLong("nonce"));
 
         { // Assert that the hashes match after inflation...
             final Hash expectedHash = MutableHash.fromHexString(row.getString("hash"));
             final Hash actualHash = blockHeader.getHash();
-            if (!expectedHash.equals(actualHash)) {
+            if (! expectedHash.equals(actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
             }
         }
@@ -111,13 +113,13 @@ public class BlockDatabaseManager {
 
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET hash = ?, previous_block_id = ?, block_height = ?, merkle_root = ?, version = ?, timestamp = ?, difficulty = ?, nonce = ? WHERE id = ?")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
+                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
+                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
                 .setParameter(blockId)
         );
@@ -130,13 +132,13 @@ public class BlockDatabaseManager {
 
         return BlockId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getHash()))
+                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getMerkleRoot()))
+                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(BitcoinUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
         ));
     }
@@ -164,6 +166,20 @@ public class BlockDatabaseManager {
         );
     }
 
+    protected BlockHeader _getBlockAtBlockHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE block_chain_segment_id = ? AND block_height = ?")
+                .setParameter(blockChainSegmentId)
+                .setParameter(blockHeight)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final BlockId blockId = BlockId.wrap(row.getLong("id"));
+        return _inflateBlockHeader(blockId);
+    }
+
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
@@ -181,15 +197,15 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return new MutableHash(BitcoinUtil.hexStringToByteArray(row.getString("hash")));
+        return new MutableHash(HexUtil.hexStringToByteArray(row.getString("hash")));
     }
 
     public BlockId getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
         return _getBlockIdFromHash(blockHash);
     }
 
-    public BlockHeader getBlockHeaderFromId(final BlockId blockId) throws DatabaseException {
-        return _inflateBlockFromBlockId(blockId);
+    public BlockHeader getBlockHeader(final BlockId blockId) throws DatabaseException {
+        return _inflateBlockHeader(blockId);
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
@@ -218,5 +234,29 @@ public class BlockDatabaseManager {
 
     public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
         return _getBlockHeightForBlockId(blockId);
+    }
+
+    public BlockHeader findBlockAtBlockHeight(final BlockChainSegmentId startingBlockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+
+        BlockChainSegmentId blockChainSegmentId = startingBlockChainSegmentId;
+        while (true) {
+            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
+            if (blockChainSegment == null) { break; }
+
+            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
+            final long upperBound = (blockChainSegment.getBlockHeight());
+            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
+                return _getBlockAtBlockHeight(blockChainSegmentId, blockHeight);
+            }
+
+            final BlockId nextBlockId = blockChainSegment.getTailBlockId();
+            final BlockChainSegmentId nextBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(nextBlockId);
+            if (blockChainSegmentId.equals(nextBlockChainSegmentId)) { break; }
+
+            blockChainSegmentId = nextBlockChainSegmentId;
+        }
+
+        return null;
     }
 }

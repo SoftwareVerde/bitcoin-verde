@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 
 public class BlockDeflater {
@@ -27,6 +27,6 @@ public class BlockDeflater {
             byteArrayBuilder.appendBytes(transactionBytes, Endian.BIG);
         }
 
-        return new MutableByteArray(byteArrayBuilder.build());
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

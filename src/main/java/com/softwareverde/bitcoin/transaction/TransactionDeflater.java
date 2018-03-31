@@ -4,48 +4,58 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
+import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
 
 public class TransactionDeflater {
-    protected ByteArrayBuilder _toByteArrayBuilder(final Transaction transaction) {
+    protected void _toFragmentedBytes(final Transaction transaction, final ByteArrayBuilder headBytesBuilder, final ByteArrayBuilder tailBytesBuilder) {
         final byte[] versionBytes = new byte[4];
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(transaction.getVersion()));
 
         final byte[] lockTimeBytes = new byte[4];
         ByteUtil.setBytes(lockTimeBytes, transaction.getLockTime().getBytes());
 
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-
-        byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
+        headBytesBuilder.appendBytes(versionBytes, Endian.LITTLE);
 
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()), Endian.BIG);
+        headBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionInputs.getSize()), Endian.BIG);
+        int transactionInputIndex = 0;
         for (final TransactionInput transactionInput : transactionInputs) {
-            byteArrayBuilder.appendBytes(transactionInputDeflater.toBytes(transactionInput), Endian.BIG);
+            if (transactionInputIndex == 0) {
+                final FragmentedBytes fragmentedTransactionInputBytes = transactionInputDeflater.fragmentTransactionInput(transactionInput);
+                headBytesBuilder.appendBytes(fragmentedTransactionInputBytes.headBytes, Endian.BIG);
+                tailBytesBuilder.appendBytes(fragmentedTransactionInputBytes.tailBytes, Endian.BIG);
+            }
+            else {
+                tailBytesBuilder.appendBytes(transactionInputDeflater.toBytes(transactionInput), Endian.BIG);
+            }
+            transactionInputIndex += 1;
         }
 
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()), Endian.BIG);
+        tailBytesBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(transactionOutputs.getSize()), Endian.BIG);
         for (final TransactionOutput transactionOutput : transactionOutputs) {
-            byteArrayBuilder.appendBytes(transactionOutputDeflater.toBytes(transactionOutput), Endian.BIG);
+            tailBytesBuilder.appendBytes(transactionOutputDeflater.toBytes(transactionOutput), Endian.BIG);
         }
 
-        byteArrayBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
-
-        return byteArrayBuilder;
+        tailBytesBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final Transaction transaction) {
-        return _toByteArrayBuilder(transaction);
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        _toFragmentedBytes(transaction, byteArrayBuilder, byteArrayBuilder);
+        return byteArrayBuilder;
     }
 
     public byte[] toBytes(final Transaction transaction) {
-        return _toByteArrayBuilder(transaction).build();
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        _toFragmentedBytes(transaction, byteArrayBuilder, byteArrayBuilder);
+        return byteArrayBuilder.build();
     }
 
     public Integer getByteCount(final Transaction transaction) {
@@ -80,5 +90,14 @@ public class TransactionDeflater {
         final Integer lockTimeByteCount = 4;
 
         return (versionByteCount + transactionInputsByteCount + transactionOutputsByteCount + lockTimeByteCount);
+    }
+
+    public FragmentedBytes fragmentTransaction(final Transaction transaction) {
+        final ByteArrayBuilder headBytesBuilder = new ByteArrayBuilder();
+        final ByteArrayBuilder tailBytesBuilder = new ByteArrayBuilder();
+
+        _toFragmentedBytes(transaction, headBytesBuilder, tailBytesBuilder);
+
+        return new FragmentedBytes(headBytesBuilder.build(), tailBytesBuilder.build());
     }
 }

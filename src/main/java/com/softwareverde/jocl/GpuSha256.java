@@ -1,19 +1,18 @@
 package com.softwareverde.jocl;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.IoUtil;
-
-
 import org.jocl.*;
+
 import static org.jocl.CL.*;
 // import static org.jocl.Jocl.*;
 
@@ -49,7 +48,7 @@ public class GpuSha256 {
     protected static final int SHA256_BYTE_COUNT = 64;
 
     protected static final int initialReadBufferByteCount = 1024;
-    public static final int maxBatchSize = (1024 * 128);
+    public static final int maxBatchSize = (1024 * 256);
 
     protected cl_context _context;
     protected cl_kernel _kernel;

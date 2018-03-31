@@ -28,8 +28,10 @@ public class Configuration {
 
     public static class ServerProperties {
         private Integer _bitcoinPort;
+        private Integer _stratumPort;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
+        public Integer getStratumPort() { return _stratumPort; }
     }
 
     private final Properties _properties;
@@ -50,6 +52,7 @@ public class Configuration {
     private void _loadServerProperties() {
         _serverProperties = new ServerProperties();
         _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", "8333"));
+        _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", "3333"));
     }
 
     public Configuration(final File configurationFile) {

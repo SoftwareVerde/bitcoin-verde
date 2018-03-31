@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
@@ -9,9 +8,9 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -21,6 +20,7 @@ import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.HexUtil;
 
 import java.io.File;
 
@@ -28,6 +28,7 @@ public class NodeModule {
 
     protected final Configuration _configuration;
     protected final Environment _environment;
+    protected final NetworkTime _networkTime;
 
     protected long _startTime;
     protected int _blockCount = 0;
@@ -73,7 +74,7 @@ public class NodeModule {
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                Logger.log("DOWNLOADED BLOCK: "+ BitcoinUtil.toHexString(block.getHash()));
+                Logger.log("DOWNLOADED BLOCK: "+ HexUtil.toHexString(block.getHash().getBytes()));
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
 
@@ -129,7 +130,7 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final BlockValidator blockValidator = new BlockValidator(database);
+            final BlockValidator blockValidator = new BlockValidator(database.getDatabaseConnectionFactory());
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
 
             if (blockIsValid) {
@@ -174,6 +175,7 @@ public class NodeModule {
         }
 
         _environment = new Environment(database);
+        _networkTime = new NetworkTime();
     }
 
     public void loop() {

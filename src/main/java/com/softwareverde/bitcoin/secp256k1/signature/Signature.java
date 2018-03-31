@@ -1,13 +1,14 @@
 package com.softwareverde.bitcoin.secp256k1.signature;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
-import com.softwareverde.bitcoin.util.ByteUtil;
+
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.ByteUtil;
 
 public class Signature implements Const, Constable<Signature> {
     protected static final Byte DER_MAGIC_NUMBER = 0x30;
