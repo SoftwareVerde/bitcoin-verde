@@ -17,6 +17,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
@@ -130,7 +131,8 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final BlockValidator blockValidator = new BlockValidator(database.getDatabaseConnectionFactory());
+            final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
+            final BlockValidator blockValidator = new BlockValidator(connectionFactory);
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
 
             if (blockIsValid) {

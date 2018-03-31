@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
 
 public class DifficultyCalculator {
@@ -27,7 +28,16 @@ public class DifficultyCalculator {
             final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
 
             final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(block.getHash());
-            final long blockHeight = _blockDatabaseManager.getBlockHeightForBlockId(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
+            if (blockId == null) {
+                Logger.log("Unable to find BlockId from Hash: "+ block.getHash());
+                return null;
+            }
+
+            final Long blockHeight = _blockDatabaseManager.getBlockHeightForBlockId(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
+            if (blockHeight == null) {
+                Logger.log("Invalid BlockHeight for BlockId: "+ blockId);
+                return null;
+            }
 
             final Boolean isFirstBlock = (blockChainSegment.getBlockHeight() == 0);
             final Boolean requiresDifficultyEvaluation = (blockHeight % blockCountPerDifficultyAdjustment == 0);
