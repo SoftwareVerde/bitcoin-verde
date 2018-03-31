@@ -195,4 +195,33 @@ public class DifficultyTests {
         // Assert
         Assert.assertEquals(expectedDifficultyRatio, difficultyRatio);
     }
+
+    @Test
+    public void multiplying_difficulty_by_1_should_not_change_its_value() {
+        // Setup
+        final Difficulty difficulty = Difficulty.BASE_DIFFICULTY;
+
+        // Action
+        final Difficulty multipliedDifficulty = difficulty.multiplyBy(1.0F);
+
+        // Assert
+        Assert.assertEquals(difficulty, multipliedDifficulty);
+    }
+
+    @Test
+    public void should_recreate_first_difficulty_adjustment_based_on_ratio() {
+        // Setup
+        final Difficulty difficulty = Difficulty.BASE_DIFFICULTY;
+        // NOTE: The listed difficulty adjustment on blockchain.info is 1.18.
+        //  However, when investigating the actual difficulty, it is 1.182899...
+        //  Command To Verify: bitcoin-cli getblockhash 32256 | xargs bitcoin-cli getblock
+        final Float firstDifficultyAdjustment = 1.0F / 1.182899534312841F;
+        final Difficulty expectedDifficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1D00D86A"));
+
+        // Action
+        final Difficulty multipliedDifficulty = difficulty.multiplyBy(firstDifficultyAdjustment);
+
+        // Assert
+        Assert.assertEquals(expectedDifficulty, multipliedDifficulty);
+    }
 }

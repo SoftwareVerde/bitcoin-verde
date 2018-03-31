@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -12,9 +13,14 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -22,7 +28,9 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.socket.SocketConnection;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.StringUtil;
 
 import java.io.File;
 
@@ -71,7 +79,7 @@ public class StratumModule {
 
         final StratumMineBlockTask stratumMineBlockTask = new StratumMineBlockTask();
 
-        final PrivateKey privateKey = PrivateKey.createNewKey();
+        // final PrivateKey privateKey = PrivateKey.createNewKey();
         final Integer extraNonceByteCount = 4;
         final Integer extraNonce2ByteCount = 4;
 
@@ -79,8 +87,29 @@ public class StratumModule {
 
         stratumMineBlockTask.setExtraNonce(extraNonce);
 
-        Logger.log("Private Key: " + privateKey);
-        Logger.log("Address:     " + Address.fromPrivateKey(privateKey).toBase58CheckEncoded());
+        {
+            final String blockData = "010000004B0360D834A330EC7833E30E1F523EE05A0793361E29A73421964F980000000027B64A020AF294E903FEED93768705336A20090612A043F47AF462A2F5E5B564F8EE3A4B6AD8001DD3A437070101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF07046AD8001D0104FFFFFFFF0100F2052A0100000043410428F88CA471C9718C4E52DF12B756BABEDF6A970082C3CC2BDC9F7E0C53479B7F0D9201FD4B0C3EB3E82C48EF6C011B51994EBC18177C85B20FFE8FC844ECA755AC00000000";
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            stratumMineBlockTask.setBlockVersion(block.getVersion());
+            stratumMineBlockTask.setPreviousBlockHash(MutableHash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
+            stratumMineBlockTask.setDifficulty(block.getDifficulty());
+
+            final Transaction coinbaseTransaction;
+            {
+                final MutableTransaction mutableTransaction = new MutableTransaction(block.getCoinbaseTransaction());
+                final TransactionInput transactionInput = mutableTransaction.getTransactionInputs().get(0);
+                final TransactionInput newTransactionInput = TransactionInput.createCoinbaseTransactionInputWithExtraNonce(StringUtil.bytesToString(transactionInput.getUnlockingScript().getBytes()), extraNonceByteCount);
+                mutableTransaction.setTransactionInput(0, newTransactionInput);
+                coinbaseTransaction = mutableTransaction;
+            }
+            final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
+            stratumMineBlockTask.setCoinbaseTransaction(coinbaseTransaction, totalExtraNonceByteCount);
+        }
+
+        // Logger.log("Private Key: " + privateKey);
+        // Logger.log("Address:     " + Address.fromPrivateKey(privateKey).toBase58CheckEncoded());
 
         _stratumServerSocket = new StratumServerSocket(serverProperties.getStratumPort());
 
@@ -140,22 +169,7 @@ public class StratumModule {
                                     }
 
                                     { // Submit work request...
-                                        stratumMineBlockTask.setBlockVersion(BlockHeader.VERSION);
-                                        stratumMineBlockTask.setPreviousBlockHash(BlockHeader.GENESIS_BLOCK_HEADER_HASH);
-                                        stratumMineBlockTask.setDifficulty(Difficulty.BASE_DIFFICULTY);
-
-                                        final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
-
-                                        final Transaction coinbaseTransaction;
-                                        {
-                                            final String coinbaseMessage = "/Mined via " + Constants.USER_AGENT + "/";
-                                            final Address address = Address.fromPrivateKey(privateKey);
-                                            final Long satoshis = (50 * Transaction.SATOSHIS_PER_BITCOIN);
-                                            coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(coinbaseMessage, totalExtraNonceByteCount, address, satoshis);
-                                        }
-                                        stratumMineBlockTask.setCoinbaseTransaction(coinbaseTransaction, totalExtraNonceByteCount);
-
-                                        final RequestMessage mineBlockRequest = stratumMineBlockTask.createRequest();
+                                        final RequestMessage mineBlockRequest = stratumMineBlockTask.createRequest(1262152739L); // DateUtil.datetimeToTimestamp("2009-12-30 06:11:04") / 1000L);
 
                                         Logger.log("Sent: "+ mineBlockRequest.toString());
                                         socketConnection.write(mineBlockRequest.toString());

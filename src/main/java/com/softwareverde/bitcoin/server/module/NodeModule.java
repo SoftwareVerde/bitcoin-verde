@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.list.List;
@@ -27,6 +28,7 @@ public class NodeModule {
 
     protected final Configuration _configuration;
     protected final Environment _environment;
+    protected final NetworkTime _networkTime;
 
     protected long _startTime;
     protected int _blockCount = 0;
@@ -173,6 +175,7 @@ public class NodeModule {
         }
 
         _environment = new Environment(database);
+        _networkTime = new NetworkTime();
     }
 
     public void loop() {

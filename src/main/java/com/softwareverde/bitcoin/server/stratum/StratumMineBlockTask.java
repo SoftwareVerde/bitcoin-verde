@@ -105,7 +105,7 @@ public class StratumMineBlockTask {
         return stringBuilder.toString();
     }
 
-    public Transaction _assembleCoinbaseTransaction(final String stratumExtraNonce2) {
+    protected Transaction _assembleCoinbaseTransaction(final String stratumExtraNonce2) {
         final TransactionInflater transactionInflater = new TransactionInflater();
         return transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             _coinbaseTransactionHead +
@@ -132,6 +132,38 @@ public class StratumMineBlockTask {
         blockHeader.setTimestamp(timestamp);
 
         return blockHeader;
+    }
+
+    protected RequestMessage _createRequest(final Long timestamp) {
+        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.NOTIFY.getValue());
+
+        final Json parametersJson = new Json(true);
+        parametersJson.add(HexUtil.toHexString(_id.getBytes()));
+        parametersJson.add(_swabBytes(_reverseEndian(HexUtil.toHexString(_prototypeBlock.getPreviousBlockHash().getBytes()))));
+        parametersJson.add(_coinbaseTransactionHead);
+        parametersJson.add(_coinbaseTransactionTail);
+
+        final Json partialMerkleTreeJson = new Json(true);
+        { // Create the partialMerkleTree Json as little-endian hashes...
+            final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+            final List<Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
+            for (final Hash hash : partialMerkleTree) {
+                final String hashString = hash.toString();
+                partialMerkleTreeJson.add(_reverseEndian(hashString));
+                listBuilder.add(_reverseEndian(hashString));
+            }
+            _merkleTreeBranches = listBuilder.build();
+        }
+        parametersJson.add(partialMerkleTreeJson);
+
+        parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
+        parametersJson.add(HexUtil.toHexString(_prototypeBlock.getDifficulty().encode()));
+        parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(timestamp)));
+        parametersJson.add(true);
+
+        mineBlockMessage.setParameters(parametersJson);
+
+        return mineBlockMessage;
     }
 
     public StratumMineBlockTask() {
@@ -267,36 +299,11 @@ public class StratumMineBlockTask {
     }
 
     public RequestMessage createRequest() {
-        final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.NOTIFY.getValue());
-
         final Long timestamp = (System.currentTimeMillis() / 1000L);
+        return _createRequest(timestamp);
+    }
 
-        final Json parametersJson = new Json(true);
-        parametersJson.add(HexUtil.toHexString(_id.getBytes()));
-        parametersJson.add(_swabBytes(_reverseEndian(HexUtil.toHexString(_prototypeBlock.getPreviousBlockHash().getBytes()))));
-        parametersJson.add(_coinbaseTransactionHead);
-        parametersJson.add(_coinbaseTransactionTail);
-
-        final Json partialMerkleTreeJson = new Json(true);
-        { // Create the partialMerkleTree Json as little-endian hashes...
-            final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
-            final List<Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
-            for (final Hash hash : partialMerkleTree) {
-                final String hashString = hash.toString();
-                partialMerkleTreeJson.add(_reverseEndian(hashString));
-                listBuilder.add(_reverseEndian(hashString));
-            }
-            _merkleTreeBranches = listBuilder.build();
-        }
-        parametersJson.add(partialMerkleTreeJson);
-
-        parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
-        parametersJson.add(HexUtil.toHexString(_prototypeBlock.getDifficulty().encode()));
-        parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(timestamp)));
-        parametersJson.add(true);
-
-        mineBlockMessage.setParameters(parametersJson);
-
-        return mineBlockMessage;
+    public RequestMessage createRequest(final Long timestamp) {
+        return _createRequest(timestamp);
     }
 }
