@@ -33,6 +33,7 @@ public class NodeModule {
 
     protected long _startTime;
     protected int _blockCount = 0;
+    protected int _transactionCount = 0;
 
     protected void _exitFailure() {
         System.exit(1);
@@ -138,8 +139,10 @@ public class NodeModule {
             if (blockIsValid) {
                 TransactionUtil.commitTransaction(databaseConnection);
                 _blockCount += 1;
+                _transactionCount += block.getTransactions().getSize();
 
                 final long msElapsed = (System.currentTimeMillis() - _startTime);
+                Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
                 Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
 
                 return true;

@@ -16,7 +16,7 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     Boolean isSatisfiedBy(final Hash hash);
     BigDecimal getDifficultyRatio();
 
-    Difficulty multiplyBy(final float difficultyAdjustment);
+    Difficulty multiplyBy(final double difficultyAdjustment);
 
     byte[] getBytes();
     byte[] encode();

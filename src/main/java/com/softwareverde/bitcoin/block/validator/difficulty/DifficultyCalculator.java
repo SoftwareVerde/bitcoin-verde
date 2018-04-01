@@ -45,12 +45,18 @@ public class DifficultyCalculator {
                 //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
                 //  1. Get the block that is 2016 blocks behind the head block of this chain.
-                final long previousBlockHeight = (blockHeight - blockCountPerDifficultyAdjustment);
+                final long previousBlockHeight = (blockHeight - blockCountPerDifficultyAdjustment); // NOTE: This is 2015 blocks worth of time (not 2016) because of a bug in Satoshi's implementation and is now part of the protocol definition.
                 final BlockHeader blockWithPreviousAdjustment = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, previousBlockHeight);
                 if (blockWithPreviousAdjustment == null) { return null; }
 
                 //  2. Get the current network time from the other nodes on the network.
-                final Long blockTimestamp = block.getTimestamp(); // _networkTime.getCurrentTime();
+                // final Long blockTimestamp = block.getTimestamp(); // _networkTime.getCurrentTime();
+                final Long blockTimestamp;
+                {
+                    final BlockId previousBlockId = _blockDatabaseManager.getBlockIdFromHash(block.getPreviousBlockHash());
+                    final BlockHeader previousBlock = _blockDatabaseManager.getBlockHeader(previousBlockId);
+                    blockTimestamp = previousBlock.getTimestamp();
+                }
                 final Long previousBlockTimestamp = blockWithPreviousAdjustment.getTimestamp();
 
                 System.out.println(DateUtil.timestampToDatetimeString(blockTimestamp * 1000L));
@@ -64,22 +70,14 @@ public class DifficultyCalculator {
                 final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
                 //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
-                final float difficultyAdjustment = (secondsInTwoWeeks.floatValue() / secondsElapsed.floatValue());
+                final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
                 System.out.println("Adjustment: "+ difficultyAdjustment);
-                // DA = TW / SE
-                // DA * SE = TW
-                // SE = TW / DA
-                // TW = 1209600
-                // DA = 1.182899534312841
-                // SE = 1209600 / 1.182899534312841
-                // SE = 1022572                             // 1022572.048523689
-
 
                 //  6. Bound difficultyAdjustment between [4, 0.25].
-                final float boundedDifficultyAdjustment = (Math.min(4F, Math.max(0.25F, difficultyAdjustment)));
+                final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
 
                 //  7. Multiply the difficulty by the bounded difficultyAdjustment.
-                return (blockWithPreviousAdjustment.getDifficulty().multiplyBy(1.0F / boundedDifficultyAdjustment));
+                return (blockWithPreviousAdjustment.getDifficulty().multiplyBy(1.0D / boundedDifficultyAdjustment));
             }
             else {
                 final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(blockChainSegment.getHeadBlockId());

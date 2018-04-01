@@ -136,7 +136,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     }
 
     @Override
-    public Difficulty multiplyBy(final float difficultyAdjustment) {
+    public Difficulty multiplyBy(final double difficultyAdjustment) {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
         return fromBigInteger(bigDecimal.toBigInteger());
