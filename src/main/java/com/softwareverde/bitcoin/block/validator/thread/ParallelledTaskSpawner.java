@@ -6,6 +6,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 public class ParallelledTaskSpawner<T, S> {
@@ -69,15 +70,15 @@ public class ParallelledTaskSpawner<T, S> {
         }
     }
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
     protected List<TaskThread<T, S>> _taskThreads = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
 
-    public void setTaskHandler(final TaskHandlerFactory<T, S> taskHandlerFactory) {
+    public void setTaskHandlerFactory(final TaskHandlerFactory<T, S> taskHandlerFactory) {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final DatabaseConnectionFactory databaseConnectionFactory) {
+    public ParallelledTaskSpawner(final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
@@ -89,9 +90,7 @@ public class ParallelledTaskSpawner<T, S> {
         final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
         for (int i=0; i<threadCount; ++i) {
             try {
-                final MysqlDatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
-                mysqlDatabaseConnection.executeSql(new Query("SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED"));
-                mysqlDatabaseConnections[i] = mysqlDatabaseConnection;
+                mysqlDatabaseConnections[i] = _databaseConnectionFactory.newConnection();
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);

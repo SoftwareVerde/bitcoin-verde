@@ -18,7 +18,11 @@ import com.softwareverde.util.HexUtil;
 
 import java.util.Map;
 
-public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Boolean> {
+/**
+ * Calculates the total fees available for all Transactions sent to executeTask.
+ * If any expenditures are invalid (i.e. inputs < outputs), then getResult will return null.
+ */
+public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Long> {
     protected MysqlDatabaseConnection _databaseConnection;
     protected boolean _allTransactionsExpendituresAreValid = true;
 
@@ -80,11 +84,12 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Boo
     }
 
     private final BlockChainSegmentId _blockChainSegmentId;
-    private final Map<Hash, Transaction> _queuedTansactionOutputs;
+    private final Map<Hash, Transaction> _queuedTransactionOutputs;
+    private Long _totalFees = 0L;
 
     public TotalExpenditureTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Map<Hash, Transaction> queuedTransactionOutputs) {
         _blockChainSegmentId = blockChainSegmentId;
-        _queuedTansactionOutputs = queuedTransactionOutputs;
+        _queuedTransactionOutputs = queuedTransactionOutputs;
     }
 
     @Override
@@ -97,16 +102,20 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Boo
         if (! _allTransactionsExpendituresAreValid) { return; }
 
         final Long totalOutputValue = transaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(_blockChainSegmentId, transaction, _queuedTansactionOutputs, _databaseConnection);
+        final Long totalInputValue = _calculateTotalTransactionInputs(_blockChainSegmentId, transaction, _queuedTransactionOutputs, _databaseConnection);
 
-        final boolean transactionExpenditureIsValid = ( (totalInputValue != null) && (totalOutputValue <= totalInputValue) );
+        final boolean transactionExpenditureIsValid = (totalOutputValue <= totalInputValue);
         if (! transactionExpenditureIsValid) {
             _allTransactionsExpendituresAreValid = false;
         }
+
+        _totalFees += (totalInputValue - totalOutputValue);
     }
 
     @Override
-    public Boolean getResult() {
-        return _allTransactionsExpendituresAreValid;
+    public Long getResult() {
+        if (! _allTransactionsExpendituresAreValid) { return null; }
+
+        return _totalFees;
     }
 }

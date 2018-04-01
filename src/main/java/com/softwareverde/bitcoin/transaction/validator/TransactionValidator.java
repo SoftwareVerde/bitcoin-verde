@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -14,7 +13,6 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -24,7 +22,6 @@ import com.softwareverde.util.HexUtil;
 public class TransactionValidator {
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
-    protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
 
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
@@ -46,7 +43,6 @@ public class TransactionValidator {
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection) {
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
     }
 
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) {
@@ -76,20 +72,6 @@ public class TransactionValidator {
                 Logger.log("Tx Input: Prev Hash: "+ transactionInput.getPreviousOutputTransactionHash() + " Ix: "+ transactionInput.getPreviousOutputIndex());
                 return false;
             }
-        }
-
-        return true;
-    }
-
-    public Boolean validateTransactionInputsAreOnTheSameBlockChain(final Transaction transaction) {
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
-            final TransactionInput transactionInput = transactionInputs.get(i);
-            final Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-
-
-
         }
 
         return true;
