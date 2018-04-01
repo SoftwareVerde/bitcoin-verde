@@ -27,7 +27,7 @@ public class BitcoinSocket {
     private final OutputStream _rawOutputStream;
     private final InputStream _rawInputStream;
 
-    public Integer bufferSize = 1024;
+    public Integer bufferSize = 1024 * 2;
 
     private void _executeMessageReceivedCallback() {
         if (_messageReceivedCallback != null) {

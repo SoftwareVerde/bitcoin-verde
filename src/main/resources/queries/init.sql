@@ -54,7 +54,7 @@ CREATE TABLE transactions (
     has_witness_data tinyint(1) NOT NULL,
     lock_time bigint unsigned NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_hash_uq (block_id, hash),
+    UNIQUE KEY transaction_hash_uq (hash, block_id),
     FOREIGN KEY transaction_block_id_ix (block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 
