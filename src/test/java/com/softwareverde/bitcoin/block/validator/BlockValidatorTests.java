@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -71,7 +72,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
+        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory);
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
@@ -108,7 +110,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
+        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
@@ -162,7 +165,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
-        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
+        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory);
 
         {
             final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -223,7 +227,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory());
+        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory);
 
         _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
 

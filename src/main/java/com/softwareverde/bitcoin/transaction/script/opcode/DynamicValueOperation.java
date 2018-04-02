@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 
-public class DynamicValueOperation extends Operation {
+public class DynamicValueOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
 
     protected static DynamicValueOperation fromScriptReader(final ScriptReader scriptReader) {
@@ -21,11 +21,8 @@ public class DynamicValueOperation extends Operation {
         return new DynamicValueOperation(opcodeByte, subType);
     }
 
-    protected final SubType _subType;
-
     protected DynamicValueOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+        super(value, TYPE, subType);
     }
 
     @Override
@@ -86,16 +83,5 @@ public class DynamicValueOperation extends Operation {
 
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof DynamicValueOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final DynamicValueOperation operation = (DynamicValueOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }

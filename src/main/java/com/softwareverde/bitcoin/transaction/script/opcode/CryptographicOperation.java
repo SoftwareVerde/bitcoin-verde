@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
 
-public class CryptographicOperation extends Operation {
+public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
 
     protected static CryptographicOperation fromScriptReader(final ScriptReader scriptReader) {
@@ -29,11 +29,8 @@ public class CryptographicOperation extends Operation {
         return new CryptographicOperation(opcodeByte, subType);
     }
 
-    protected final SubType _subType;
-
     protected CryptographicOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+        super(value, TYPE, subType);
     }
 
     @Override
@@ -126,16 +123,5 @@ public class CryptographicOperation extends Operation {
 
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof CryptographicOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final CryptographicOperation operation = (CryptographicOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }

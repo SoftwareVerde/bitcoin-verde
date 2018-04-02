@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 
-public class ComparisonOperation extends Operation {
+public class ComparisonOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_COMPARISON;
 
     protected static ComparisonOperation fromScriptReader(final ScriptReader scriptReader) {
@@ -22,11 +22,8 @@ public class ComparisonOperation extends Operation {
         return new ComparisonOperation(opcodeByte, subType);
     }
 
-    protected final SubType _subType;
-
     protected ComparisonOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+        super(value, TYPE, subType);
     }
 
     protected Boolean _opIsEqual(final Stack stack) {
@@ -132,16 +129,5 @@ public class ComparisonOperation extends Operation {
             case IS_WITHIN_RANGE:
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof ComparisonOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final ComparisonOperation operation = (ComparisonOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }

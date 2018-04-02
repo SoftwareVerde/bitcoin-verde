@@ -39,6 +39,15 @@ public class Stack {
         return _values.remove(_values.size() - 1);
     }
 
+    public Value pop(final Integer index) {
+        if (index >= _values.size()) {
+            _didOverflow = true;
+            return OVERFLOW_VALUE;
+        }
+
+        return _values.remove(_values.size() - index - 1);
+    }
+
     public Boolean isEmpty() {
         return _values.isEmpty();
     }

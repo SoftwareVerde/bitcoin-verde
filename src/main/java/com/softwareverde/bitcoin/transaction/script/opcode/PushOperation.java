@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
-public class PushOperation extends Operation {
+public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
 
     protected static PushOperation fromScriptReader(final ScriptReader scriptReader) {
@@ -69,13 +69,13 @@ public class PushOperation extends Operation {
 
         if (scriptReader.didOverflow()) { return null; }
 
-        return new PushOperation(opcodeByte, value);
+        return new PushOperation(opcodeByte, subType, value);
     }
 
     protected final Value _value;
 
-    protected PushOperation(final byte opcodeByte, final Value value) {
-        super(opcodeByte, TYPE);
+    protected PushOperation(final byte opcodeByte, final SubType subType, final Value value) {
+        super(opcodeByte, TYPE, subType);
         _value = value;
     }
 
@@ -91,6 +91,9 @@ public class PushOperation extends Operation {
 
     @Override
     public boolean equals(final Object object) {
+        final Boolean superEquals = super.equals(object);
+        if (! superEquals) { return false; }
+
         if (! (object instanceof PushOperation)) { return false ;}
         if (! super.equals(object)) { return false; }
 
