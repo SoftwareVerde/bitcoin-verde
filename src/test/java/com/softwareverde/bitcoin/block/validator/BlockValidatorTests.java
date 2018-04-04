@@ -132,7 +132,7 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     @Test
-    public void block_should_be_invalid_if_its_input_only_exists_withing_a_different_chain() throws Exception {
+    public void block_should_be_invalid_if_its_input_only_exists_within_a_different_chain() throws Exception {
         // Setup
 
         /*

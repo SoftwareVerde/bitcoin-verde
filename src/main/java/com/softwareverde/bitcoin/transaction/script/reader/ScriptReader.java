@@ -1,10 +1,13 @@
 package com.softwareverde.bitcoin.transaction.script.reader;
 
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.io.Logger;
 
 public class ScriptReader {
     public static List<Operation> getOperationList(final Script script) {
@@ -13,9 +16,31 @@ public class ScriptReader {
         final ScriptReader scriptReader = new ScriptReader(script);
         while (scriptReader.hasNextByte()) {
             final Operation opcode = operationInflater.fromScriptReader(scriptReader);
+            if (opcode == null) { return null; }
+
             immutableListBuilder.add(opcode);
         }
         return immutableListBuilder.build();
+    }
+
+    public static Boolean containsOperation(final Operation.SubType operationSubType, final Script script) {
+        final OperationInflater operationInflater = new OperationInflater();
+        final ScriptReader scriptReader = new ScriptReader(script);
+        while (scriptReader.hasNextByte()) {
+            final Operation opcode = operationInflater.fromScriptReader(scriptReader);
+            if (operationSubType.matchesByte(opcode.getOpcodeByte())) {
+                Logger.log("Contained SubType: "+ operationSubType + " " + script);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static Script getCodeSeparatorSubscript(final Script script) {
+        final ScriptRunner scriptRunner = new ScriptRunner();
+        final int lastCodeSeparatorIndex = scriptRunner.getCodeSeparatorIndex(script);
+        final int subScriptByteCount = (script.getByteCount() - lastCodeSeparatorIndex);
+        return new ImmutableScript(script.getBytes(lastCodeSeparatorIndex, subScriptByteCount));
     }
 
     protected final Script _script;
@@ -59,6 +84,10 @@ public class ScriptReader {
 
     public boolean hasNextByte() {
         return (_index < _script.getByteCount());
+    }
+
+    public int getPosition() {
+        return _index;
     }
 
     public void resetPosition() {

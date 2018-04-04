@@ -70,6 +70,7 @@ public class TransactionValidator {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 Logger.log("Transaction failed to verify: "+ transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
                 Logger.log("Tx Input: Prev Hash: "+ transactionInput.getPreviousOutputTransactionHash() + " Ix: "+ transactionInput.getPreviousOutputIndex());
+                Logger.log("Tx Input Script: "+ lockingScript);
                 return false;
             }
         }

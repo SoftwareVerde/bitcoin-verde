@@ -118,8 +118,8 @@ public abstract class Operation {
                                                     //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
 
         // LOCK TIME
-        CHECK_LOCK_TIME_THEN_VERIFY         (0xb1),
-        CHECK_SEQUENCE_NUMBER_THEN_VERIFY   (0xb2),
+        CHECK_LOCK_TIME_THEN_VERIFY         (0xB1),
+        CHECK_SEQUENCE_NUMBER_THEN_VERIFY   (0xB2),
 
         // NO OPERATION
         NO_OPERATION                        (0x61),

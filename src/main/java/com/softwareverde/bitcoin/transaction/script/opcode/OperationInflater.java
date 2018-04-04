@@ -23,7 +23,7 @@ public class OperationInflater {
             case OP_COMPARISON:     { return ComparisonOperation.fromScriptReader(scriptReader); }
             case OP_ARITHMETIC:     { break; } // TODO
             case OP_CRYPTOGRAPHIC:  { return CryptographicOperation.fromScriptReader(scriptReader); }
-            case OP_LOCK_TIME:      { break; } // TODO
+            case OP_LOCK_TIME:      { return LockTimeOperation.fromScriptReader(scriptReader); }
             case OP_NOTHING:        { return NothingOperation.fromScriptReader(scriptReader); }
         }
 

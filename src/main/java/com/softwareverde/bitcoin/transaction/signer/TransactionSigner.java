@@ -11,6 +11,9 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -53,7 +56,15 @@ public class TransactionSigner {
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                unlockingScript = new ImmutableUnlockingScript(transactionOutputBeingSpent.getLockingScript().getBytes());
+                final UnlockingScript transactionOutputBeingSpentUnlockingScript = new ImmutableUnlockingScript(transactionOutputBeingSpent.getLockingScript().getBytes());
+                final Boolean scriptContainsCodeSeparator = ScriptReader.containsOperation(Operation.SubType.CODE_SEPARATOR, transactionOutputBeingSpentUnlockingScript);
+                if (scriptContainsCodeSeparator) {
+                    final Script subScript = ScriptReader.getCodeSeparatorSubscript(transactionOutputBeingSpentUnlockingScript);
+                    unlockingScript = new ImmutableUnlockingScript(subScript.getBytes());
+                }
+                else {
+                    unlockingScript = transactionOutputBeingSpentUnlockingScript;
+                }
             }
             else {
                 unlockingScript = UnlockingScript.EMPTY_SCRIPT;
