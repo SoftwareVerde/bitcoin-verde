@@ -117,8 +117,7 @@ public class BitcoinSocket {
                         }
                     }
                     catch (final IOException exception) {
-                        _isClosed = true;
-                        _onSocketClosed();
+                        _closeSocket();
                     }
                 }
             }

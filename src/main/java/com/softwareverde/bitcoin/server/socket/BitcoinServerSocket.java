@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.socket;
 
+import com.softwareverde.io.Logger;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,17 +25,31 @@ public class BitcoinServerSocket {
 
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
-        synchronized (_connections) {
-            Integer i = 0;
-            for (final BitcoinSocket connection : _connections) {
-                if (!connection.isConnected()) {
-                    _connections.remove(i.intValue());
-                    System.out.println("Purging disconnected socket: " + i);
+        final Integer socketCount = _connections.size();
+        final List<BitcoinSocket> connectedSockets = new ArrayList<BitcoinSocket>(socketCount);
+        final List<BitcoinSocket> disconnectedSockets = new ArrayList<BitcoinSocket>(socketCount);
 
-                    _onDisconnect(connection);
+        synchronized (_connections) {
+            int socketIndex = 0;
+            for (final BitcoinSocket connection : _connections) {
+                if (connection.isConnected()) {
+                    connectedSockets.add(connection);
                 }
-                i += 1;
+                else {
+                    disconnectedSockets.add(connection);
+                    Logger.log("Marking socket as disconnected: "+ socketIndex);
+                }
+
+                socketIndex += 1;
             }
+
+            _connections.clear();
+            _connections.addAll(connectedSockets);
+        }
+
+        for (final BitcoinSocket bitcoinSocket : disconnectedSockets) {
+            Logger.log("Purging disconnected socket.");
+            _onDisconnect(bitcoinSocket);
         }
     }
 

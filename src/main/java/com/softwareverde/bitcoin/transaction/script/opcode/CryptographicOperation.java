@@ -77,8 +77,7 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             case CODE_SEPARATOR: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
-                return false;
+                return true;
             }
 
             case CHECK_SIGNATURE_THEN_VERIFY:

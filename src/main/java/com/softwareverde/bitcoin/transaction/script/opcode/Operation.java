@@ -112,9 +112,8 @@ public abstract class Operation {
         CHECK_MULTISIGNATURE                (0xAE),
         CHECK_MULTISIGNATURE_THEN_VERIFY    (0xAF),
 
-        CODE_SEPARATOR                      (0xAB), // NOTE: Tentatively, this may intentionally be implemented as a NOP.
-                                                    //  Its intended use is to designate where signed-content is supposed to begin (rendering parts of the script mutable).
-                                                    //  Its use seems rare and borderline useless, and is likely a security risk.
+        CODE_SEPARATOR                      (0xAB), //  CODE_SEPARATOR's intended use was to designate where signed-content is supposed to begin (rendering parts of the script mutable).
+                                                    //  Its benefit seems rare and borderline useless, and is likely a security risk.
                                                     //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
 
         // LOCK TIME
