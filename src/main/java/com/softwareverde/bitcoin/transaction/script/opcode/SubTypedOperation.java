@@ -21,6 +21,6 @@ public abstract class SubTypedOperation extends Operation {
 
     @Override
     public String toString() {
-        return super.toString() + " - " + _subType;
+        return super.toString() + "-" + _subType;
     }
 }

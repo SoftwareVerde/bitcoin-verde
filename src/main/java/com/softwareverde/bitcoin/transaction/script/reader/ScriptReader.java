@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class ScriptReader {
     public static List<Operation> getOperationList(final Script script) {
@@ -15,12 +16,35 @@ public class ScriptReader {
         final ImmutableListBuilder<Operation> immutableListBuilder = new ImmutableListBuilder<Operation>();
         final ScriptReader scriptReader = new ScriptReader(script);
         while (scriptReader.hasNextByte()) {
+            final int scriptPosition = scriptReader.getPosition();
             final Operation opcode = operationInflater.fromScriptReader(scriptReader);
-            if (opcode == null) { return null; }
+            if (opcode == null) {
+                scriptReader.setPosition(scriptPosition);
+                Logger.log("NOTICE: Unknown opcode. 0x"+ HexUtil.toHexString(new byte[] { scriptReader.peakNextByte() }));
+                return null;
+            }
 
             immutableListBuilder.add(opcode);
         }
         return immutableListBuilder.build();
+    }
+
+    public static String toString(final Script script) {
+        final List<Operation> scriptOperations = getOperationList(script);
+        if (scriptOperations == null) { return null; }
+
+        final StringBuilder stringBuilder = new StringBuilder();
+        for (int i=0; i<scriptOperations.getSize(); ++i) {
+            final Operation operation = scriptOperations.get(i);
+            stringBuilder.append("(");
+            stringBuilder.append(operation.toString());
+            stringBuilder.append(")");
+
+            if (i + 1 < scriptOperations.getSize()) {
+                stringBuilder.append(" ");
+            }
+        }
+        return stringBuilder.toString();
     }
 
     public static Boolean containsOperation(final Operation.SubType operationSubType, final Script script) {
@@ -88,6 +112,10 @@ public class ScriptReader {
 
     public int getPosition() {
         return _index;
+    }
+
+    public void setPosition(final int position) {
+        _index = position;
     }
 
     public void resetPosition() {

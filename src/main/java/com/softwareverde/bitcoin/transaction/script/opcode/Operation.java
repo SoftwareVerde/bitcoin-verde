@@ -167,7 +167,7 @@ public abstract class Operation {
     }
 
     public enum Type {
-        OP_PUSH         (PUSH_ZERO, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
+        OP_PUSH         (PUSH_NEGATIVE_ONE, PUSH_ZERO, PUSH_VALUE, PUSH_DATA, PUSH_DATA_BYTE, PUSH_DATA_SHORT, PUSH_DATA_INTEGER),
         OP_DYNAMIC_VALUE(PUSH_STACK_SIZE, COPY_1ST, COPY_NTH, COPY_2ND, COPY_2ND_THEN_1ST, COPY_3RD_THEN_2ND_THEN_1ST, COPY_4TH_THEN_3RD, COPY_1ST_THEN_MOVE_TO_3RD),
         OP_CONTROL      (IF, NOT_IF, ELSE, END_IF, VERIFY, RETURN),
         OP_STACK        (POP_TO_ALT_STACK, POP_FROM_ALT_STACK, IF_1ST_TRUE_THEN_COPY_1ST, POP, REMOVE_2ND_FROM_TOP, MOVE_NTH_TO_1ST, ROTATE_TOP_3, SWAP_1ST_WITH_2ND, POP_THEN_POP, MOVE_5TH_AND_6TH_TO_TOP, SWAP_1ST_2ND_WITH_3RD_4TH),
@@ -241,6 +241,6 @@ public abstract class Operation {
 
     @Override
     public String toString() {
-        return "Operation 0x" + HexUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type + "-" + _type.getSubtype(_opcodeByte);
+        return "0x" + HexUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type;
     }
 }

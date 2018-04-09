@@ -11,7 +11,10 @@ public class OperationInflater {
 
         final byte b = scriptReader.peakNextByte();
         final Operation.Type type = Operation.Type.getType(b);
-        if (type == null) { return null; }
+        if (type == null) {
+            Logger.log("Unknown Operation Type: 0x"+ HexUtil.toHexString(new byte[]{ b }));
+            return null;
+        }
 
         switch (type) {
             case OP_PUSH:           { return PushOperation.fromScriptReader(scriptReader); }

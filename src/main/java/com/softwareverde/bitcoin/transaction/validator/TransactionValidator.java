@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.constable.list.List;
@@ -68,9 +69,10 @@ public class TransactionValidator {
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                Logger.log("Transaction failed to verify: "+ transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
-                Logger.log("Tx Input: Prev Hash: "+ transactionInput.getPreviousOutputTransactionHash() + " Ix: "+ transactionInput.getPreviousOutputIndex());
-                Logger.log("Tx Input Script: "+ lockingScript);
+                Logger.log("Transaction failed to verify:\n\t" + transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                Logger.log("Unlocking Script:\n\t" + "\n\t" + ScriptReader.toString(unlockingScript));
+                Logger.log("Locking Script:\n\t" + ScriptReader.toString(lockingScript));
+                Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
                 return false;
             }
         }
