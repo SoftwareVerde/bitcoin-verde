@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
@@ -16,8 +17,10 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
@@ -163,13 +166,18 @@ public class NodeModule {
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         final EmbeddedMysqlDatabase database;
         {
             EmbeddedMysqlDatabase databaseInstance = null;
             try {
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties);
+                final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", Constants.DATABASE_VERSION, new DatabaseInitializer.DatabaseUpgradeHandler() {
+                    @Override
+                    public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
+                });
+
+                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
