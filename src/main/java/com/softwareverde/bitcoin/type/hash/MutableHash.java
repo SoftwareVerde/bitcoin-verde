@@ -10,13 +10,22 @@ public class MutableHash extends MutableByteArray implements Hash {
         return new MutableHash(hashBytes);
     }
 
-    public MutableHash() {
-        super(BYTE_COUNT);
+    public static MutableHash wrap(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) { return null; }
+        return new MutableHash(bytes);
     }
 
-    public MutableHash(final byte[] bytes) {
+    public static MutableHash copyOf(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) { return null; }
+        return new MutableHash(ByteUtil.copyBytes(bytes));
+    }
+
+    protected MutableHash(final byte[] bytes) {
+        super(bytes);
+    }
+
+    public MutableHash() {
         super(BYTE_COUNT);
-        ByteUtil.setBytes(_bytes, bytes);
     }
 
     public MutableHash(final Hash hash) {

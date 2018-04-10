@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -45,7 +46,8 @@ public class BlockValidatorTests extends IntegrationTest {
                     final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(mostRecentBlockHash);
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
-                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", Address.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    final AddressInflater addressInflater = new AddressInflater();
+                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);

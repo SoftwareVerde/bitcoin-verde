@@ -5,6 +5,15 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 
 public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash, Const {
+    public static ImmutableHash copyOf(final byte[] bytes) {
+        return new ImmutableHash(bytes);
+    }
+
+    protected ImmutableHash(final byte[] bytes) {
+        super(new byte[BYTE_COUNT]);
+        ByteUtil.setBytes(_bytes, bytes);
+    }
+
     public ImmutableHash() {
         super(new byte[BYTE_COUNT]);
     }
@@ -12,11 +21,6 @@ public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash
     public ImmutableHash(final Hash hash) {
         super(new byte[BYTE_COUNT]);
         ByteUtil.setBytes(_bytes, hash.getBytes());
-    }
-
-    public ImmutableHash(final byte[] bytes) {
-        super(new byte[BYTE_COUNT]);
-        ByteUtil.setBytes(_bytes, bytes);
     }
 
     @Override

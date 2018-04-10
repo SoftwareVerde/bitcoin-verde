@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
@@ -282,7 +283,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
             }
         }
 
-        return new ImmutableMerkleRoot(_hash.getBytes());
+        return MutableMerkleRoot.wrap(_hash.getBytes());
     }
 
     @Override

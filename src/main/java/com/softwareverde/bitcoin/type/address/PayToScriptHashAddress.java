@@ -1,14 +1,14 @@
 package com.softwareverde.bitcoin.type.address;
 
-public class CompressedAddress extends Address {
-    public static final byte PREFIX = (byte) 0x80;
+public class PayToScriptHashAddress extends Address {
+    public static final byte PREFIX = (byte) 0x05;
 
     @Override
     public byte _getPrefix() {
         return PREFIX;
     }
 
-    protected CompressedAddress(final byte[] bytes) {
+    protected PayToScriptHashAddress(final byte[] bytes) {
         super(bytes);
     }
 
@@ -16,7 +16,7 @@ public class CompressedAddress extends Address {
     public Boolean isCompressed() { return true; }
 
     @Override
-    public CompressedAddress asConst() {
+    public PayToScriptHashAddress asConst() {
         return this;
     }
 }

@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
@@ -65,7 +66,7 @@ public class StratumMineBlockTask {
             merkleRoot = BitcoinUtil.sha256(BitcoinUtil.sha256(concatenatedHashes));
         }
 
-        return new ImmutableMerkleRoot(ByteUtil.reverseEndian(merkleRoot));
+        return MutableMerkleRoot.wrap(ByteUtil.reverseEndian(merkleRoot));
     }
 
     protected static String _createByteString(final char a, final char b) {

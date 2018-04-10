@@ -24,6 +24,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -127,6 +128,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
+        final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
@@ -137,7 +139,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         //  This transaction will create an output that can be spent by our private key.
         final Transaction transactionToSpend = _createTransactionContaining(
             _createCoinbaseTransactionInput(),
-            _createTransactionOutput(Address.fromPrivateKey(privateKey))
+            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey))
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -150,7 +152,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
             _createTransactionInputThatSpendsTransaction(transactionToSpend),
-            _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
         );
 
         // Sign the unsigned transaction.
@@ -168,6 +170,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_detect_an_address_attempting_to_spend_an_output_it_cannot_unlock() throws Exception {
         // Setup
+        final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
@@ -178,7 +181,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         //  This transaction output is being sent to an address we don't have access to.
         final Transaction transactionToSpend = _createTransactionContaining(
                 _createCoinbaseTransactionInput(),
-                _createTransactionOutput(Address.fromPrivateKey(PrivateKey.createNewKey()))
+                _createTransactionOutput(addressInflater.fromPrivateKey(PrivateKey.createNewKey()))
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -191,7 +194,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
                 _createTransactionInputThatSpendsTransaction(transactionToSpend),
-                _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+                _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
         );
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
@@ -209,6 +212,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_detect_an_address_attempting_to_spend_an_output_with_the_incorrect_signature() throws Exception {
         // Setup
+        final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
@@ -219,7 +223,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         //  This transaction output is being sent to an address we should have access to.
         final Transaction transactionToSpend = _createTransactionContaining(
                 _createCoinbaseTransactionInput(),
-                _createTransactionOutput(Address.fromPrivateKey(privateKey))
+                _createTransactionOutput(addressInflater.fromPrivateKey(privateKey))
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -232,7 +236,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
                 _createTransactionInputThatSpendsTransaction(transactionToSpend),
-                _createTransactionOutput(Address.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+                _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
         );
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.

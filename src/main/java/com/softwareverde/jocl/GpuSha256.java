@@ -2,6 +2,7 @@ package com.softwareverde.jocl;
 
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -212,7 +213,7 @@ public class GpuSha256 {
                 byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(writeBuffer[(i * integersPerHash) + j]), Endian.BIG);
             }
 
-            listBuilder.add(new ImmutableHash(byteArrayBuilder.build()));
+            listBuilder.add(MutableHash.wrap(byteArrayBuilder.build()));
         }
         return listBuilder.build();
     }

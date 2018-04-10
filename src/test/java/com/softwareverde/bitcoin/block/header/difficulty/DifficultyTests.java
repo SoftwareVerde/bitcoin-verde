@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -56,7 +57,7 @@ public class DifficultyTests {
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000001FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
-        final Boolean isSatisfied = difficulty.isSatisfiedBy(new ImmutableHash(sha256Hash));
+        final Boolean isSatisfied = difficulty.isSatisfiedBy(MutableHash.wrap(sha256Hash));
 
         // Assert
         Assert.assertFalse(isSatisfied);
@@ -70,7 +71,7 @@ public class DifficultyTests {
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
-        final Boolean isSatisfied = difficulty.isSatisfiedBy(new ImmutableHash(sha256Hash));
+        final Boolean isSatisfied = difficulty.isSatisfiedBy(MutableHash.wrap(sha256Hash));
 
         // Assert
         Assert.assertTrue(isSatisfied);
@@ -84,7 +85,7 @@ public class DifficultyTests {
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000000FFFE0000000000000000000000000000000000000000000000000000");
 
         // Action
-        final Boolean isSatisfied = difficulty.isSatisfiedBy(new ImmutableHash(sha256Hash));
+        final Boolean isSatisfied = difficulty.isSatisfiedBy(MutableHash.wrap(sha256Hash));
 
         // Assert
         Assert.assertTrue(isSatisfied);
@@ -98,7 +99,7 @@ public class DifficultyTests {
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
         // Action
-        final Boolean isSatisfied = difficulty.isSatisfiedBy(new ImmutableHash(sha256Hash));
+        final Boolean isSatisfied = difficulty.isSatisfiedBy(MutableHash.wrap(sha256Hash));
 
         // Assert
         Assert.assertTrue(isSatisfied);

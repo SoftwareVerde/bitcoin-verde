@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.type.key;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.address.CompressedAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.HexUtil;
@@ -22,9 +23,11 @@ public class PrivateKeyTests {
 
         final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
 
+        final AddressInflater addressInflater = new AddressInflater();
+
         // Action
-        final Address bitcoinAddress = Address.fromPrivateKey(privateKey);
-        final CompressedAddress compressedAddress = CompressedAddress.fromPrivateKey(privateKey);
+        final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey);
+        final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
         final PublicKey publicKey = privateKey.getPublicKey();
         final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
 
@@ -50,9 +53,11 @@ public class PrivateKeyTests {
 
         final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
 
+        final AddressInflater addressInflater = new AddressInflater();
+
         // Action
-        final Address bitcoinAddress = Address.fromPrivateKey(privateKey);
-        final CompressedAddress compressedAddress = CompressedAddress.fromPrivateKey(privateKey);
+        final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey);
+        final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
         final PublicKey publicKey = privateKey.getPublicKey();
         final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
 

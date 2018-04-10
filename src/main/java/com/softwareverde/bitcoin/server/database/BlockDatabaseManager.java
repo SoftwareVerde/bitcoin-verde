@@ -83,7 +83,7 @@ public class BlockDatabaseManager {
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
         blockHeader.setPreviousBlockHash(previousBlockHash);
         blockHeader.setVersion(row.getInteger("version"));
-        blockHeader.setMerkleRoot(new MutableMerkleRoot(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
+        blockHeader.setMerkleRoot(MutableMerkleRoot.wrap(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
         blockHeader.setTimestamp(row.getLong("timestamp"));
         blockHeader.setDifficulty(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty"))));
         blockHeader.setNonce(row.getLong("nonce"));
@@ -197,7 +197,7 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return new MutableHash(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return MutableHash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
     }
 
     public BlockId getBlockIdFromHash(final Hash blockHash) throws DatabaseException {

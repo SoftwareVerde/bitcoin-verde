@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.type.merkleroot;
 
 import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
 public class MutableMerkleRoot extends MutableHash implements MerkleRoot {
@@ -9,11 +10,21 @@ public class MutableMerkleRoot extends MutableHash implements MerkleRoot {
         return new MutableMerkleRoot(hashBytes);
     }
 
+    public static MutableMerkleRoot wrap(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) { return null; }
+        return new MutableMerkleRoot(bytes);
+    }
+
+    public static MutableMerkleRoot copyOf(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) { return null; }
+        return new MutableMerkleRoot(ByteUtil.copyBytes(bytes));
+    }
+
     public MutableMerkleRoot() {
         super();
     }
 
-    public MutableMerkleRoot(final byte[] bytes) {
+    protected MutableMerkleRoot(final byte[] bytes) {
         super(bytes);
     }
 

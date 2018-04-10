@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
@@ -17,7 +17,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class ScriptBuilder {
-    protected static LockingScript _payToAddress(final Address address) {
+    protected static LockingScript _createPayToAddressScript(final Address address) {
         final byte[] addressBytes = address.getBytes();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -32,10 +32,11 @@ public class ScriptBuilder {
 
     // NOTE: Also known as payToPublicKeyHash (or P2PKH)...
     public static LockingScript payToAddress(final String base58Address) {
-        return _payToAddress(Address.fromBase58Check(base58Address));
+        final AddressInflater addressInflater = new AddressInflater();
+        return _createPayToAddressScript(addressInflater.fromBase58Check(base58Address));
     }
     public static LockingScript payToAddress(final Address base58Address) {
-        return _payToAddress(base58Address);
+        return _createPayToAddressScript(base58Address);
     }
 
     public static UnlockingScript unlockPayToAddress(final ScriptSignature signature, final PublicKey publicKey) {

@@ -22,7 +22,7 @@ public class BitcoinUtil {
     }
 
     public static Hash sha256(final ByteArray data) {
-        return new MutableHash(sha256(data.getBytes()));
+        return MutableHash.wrap(sha256(data.getBytes()));
     }
 
     public static byte[] sha256(final byte[] data) {
