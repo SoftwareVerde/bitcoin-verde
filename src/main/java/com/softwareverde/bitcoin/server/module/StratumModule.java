@@ -5,9 +5,7 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.stratum.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
@@ -15,13 +13,9 @@ import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockR
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -29,7 +23,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.socket.SocketConnection;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 
@@ -170,7 +163,7 @@ public class StratumModule {
                                     }
 
                                     { // Submit work request...
-                                        final RequestMessage mineBlockRequest = stratumMineBlockTask.createRequest(1262152739L); // DateUtil.datetimeToTimestamp("2009-12-30 06:11:04") / 1000L);
+                                        final RequestMessage mineBlockRequest = stratumMineBlockTask.createRequest();
 
                                         Logger.log("Sent: "+ mineBlockRequest.toString());
                                         socketConnection.write(mineBlockRequest.toString());
