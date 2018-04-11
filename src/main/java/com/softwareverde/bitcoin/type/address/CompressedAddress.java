@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.type.address;
 
 public class CompressedAddress extends Address {
-    public static final byte PREFIX = (byte) 0x80;
+    public static final byte PREFIX = (byte) 0x00;
 
     @Override
     public byte _getPrefix() {

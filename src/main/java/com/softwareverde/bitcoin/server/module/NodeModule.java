@@ -229,7 +229,7 @@ public class NodeModule {
         }
 
         while (true) {
-            try { Thread.sleep(5000); } catch (final Exception e) { }
+            try { Thread.sleep(5000); } catch (final Exception e) { break; }
         }
     }
 

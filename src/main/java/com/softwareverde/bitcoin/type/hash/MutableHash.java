@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.type.hash;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
@@ -11,12 +12,18 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public static MutableHash wrap(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) { return null; }
+        if (bytes.length != BYTE_COUNT) {
+            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            return null;
+        }
         return new MutableHash(bytes);
     }
 
     public static MutableHash copyOf(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) { return null; }
+        if (bytes.length != BYTE_COUNT) {
+            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            return null;
+        }
         return new MutableHash(ByteUtil.copyBytes(bytes));
     }
 

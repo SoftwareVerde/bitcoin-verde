@@ -19,14 +19,20 @@ public class AddressInflater {
     }
 
     public CompressedAddress compressedFromPrivateKey(final PrivateKey privateKey) {
-        final PublicKey publicKey = privateKey.getPublicKey();
+        final PublicKey publicKey = privateKey.getCompressedPublicKey();
         final byte[] rawBitcoinAddress = _hashPublicKey(publicKey);
         return new CompressedAddress(rawBitcoinAddress);
     }
 
     public Address fromPublicKey(final PublicKey publicKey) {
-        final byte[] rawBitcoinAddress = _hashPublicKey(publicKey);
-        return new Address(rawBitcoinAddress);
+        if (publicKey.isCompressed()) {
+            final byte[] rawBitcoinAddress = _hashPublicKey(publicKey.decompress());
+            return new Address(rawBitcoinAddress);
+        }
+        else {
+            final byte[] rawBitcoinAddress = _hashPublicKey(publicKey);
+            return new Address(rawBitcoinAddress);
+        }
     }
 
     public CompressedAddress compressedFromPublicKey(final PublicKey publicKey) {
@@ -59,7 +65,7 @@ public class AddressInflater {
 
         switch (prefix) {
             case Address.PREFIX: { return new Address(bytesWithoutPrefixAndWithoutChecksum); }
-            case CompressedAddress.PREFIX: { return new CompressedAddress(bytesWithoutPrefixAndWithoutChecksum); }
+            // case CompressedAddress.PREFIX: { return new CompressedAddress(bytesWithoutPrefixAndWithoutChecksum); }
             case PayToScriptHashAddress.PREFIX: { return new PayToScriptHashAddress(bytesWithoutPrefixAndWithoutChecksum); }
             default: {
                 Logger.log("NOTICE: Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));

@@ -46,7 +46,7 @@ public class GpuSha256 {
 
     protected static final String kernelName = "sha256_crypt_kernel";
     protected static final String programSource = IoUtil.getResource("/kernels/sha256_crypt_kernel.cl");
-    protected static final int SHA256_BYTE_COUNT = 64;
+    protected static final int SHA256_BYTE_COUNT = 32;
 
     protected static final int initialReadBufferByteCount = 1024;
     public static final int maxBatchSize = (1024 * 256);
@@ -166,7 +166,15 @@ public class GpuSha256 {
 
         final int inputsCount = inputs.getSize();
         if (inputsCount == 0) { return new MutableList<Hash>(); }
-        final int byteCountPerInput = inputs.get(0).getByteCount();
+        final int byteCountPerInput;
+        {
+            final ByteArray byteArray = inputs.get(0);
+            if (byteArray == null) {
+                Logger.log("NOTICE: null byte array found in batch at: 0");
+                return null;
+            }
+            byteCountPerInput = byteArray.getByteCount();
+        }
 
         final int commandQueueIndex;
         synchronized (_mutex) {
@@ -176,8 +184,21 @@ public class GpuSha256 {
 
         final byte[] readBuffer = new byte[byteCountPerInput * inputsCount];
         for (int i=0; i<inputsCount; ++i) {
-            final byte[] bytes = inputs.get(i).getBytes();
-            if (bytes.length != byteCountPerInput) { throw new IllegalArgumentException("All input hashes must be the same length."); }
+            final byte[] bytes;
+            {
+                final ByteArray byteArray = inputs.get(i);
+                if (byteArray == null) {
+                    Logger.log("NOTICE: null byte array found in batch at: " + i);
+                    return null;
+                }
+
+                if (byteArray.getByteCount() != byteCountPerInput) {
+                    Logger.log("NOTICE: All input hashes must be the same length at: " + i);
+                    return null;
+                }
+
+                bytes = byteArray.getBytes();
+            }
             System.arraycopy(bytes, 0, readBuffer, (i * byteCountPerInput), byteCountPerInput);
         }
 

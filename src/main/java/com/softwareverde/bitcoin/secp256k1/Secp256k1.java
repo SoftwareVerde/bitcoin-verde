@@ -97,5 +97,14 @@ public class Secp256k1 {
         return new Signature(rBytes, sBytes);
     }
 
+    public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
+        final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
+
+        final BigInteger x = decodedPoint.getX().toBigInteger();
+        final BigInteger y = decodedPoint.getY().toBigInteger();
+        final ECPoint decompressedPoint = CURVE.createPoint(x, y, false);
+        return decompressedPoint.getEncoded();
+    }
+
     protected Secp256k1() { }
 }
