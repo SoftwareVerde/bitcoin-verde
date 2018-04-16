@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.util.bytearray;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class ByteArrayReader {
-    protected final byte[] _bytes;
+    protected final ByteArray _bytes;
     protected int _index;
     protected Boolean _ranOutOfBytes = false;
 
@@ -19,8 +21,8 @@ public class ByteArrayReader {
         for (int i=0; i<byteCount; ++i) {
             final int writeIndex = (endian == Endian.BIG) ? (i) : ((byteCount - i) - 1);
 
-            if (index + i < _bytes.length) {
-                bytes[writeIndex] = _bytes[index + i];
+            if (index + i < _bytes.getByteCount()) {
+                bytes[writeIndex] = _bytes.getByte(index + i);
             }
             else {
                 _ranOutOfBytes = true;
@@ -36,8 +38,8 @@ public class ByteArrayReader {
      *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
      */
     protected byte _readByte(final int index) {
-        if (index < _bytes.length) {
-            return _bytes[index];
+        if (index < _bytes.getByteCount()) {
+            return _bytes.getByte(index);
         }
         else {
             _ranOutOfBytes = true;
@@ -77,12 +79,17 @@ public class ByteArrayReader {
     }
 
     public ByteArrayReader(final byte[] bytes) {
-        _bytes = ByteUtil.copyBytes(bytes);
+        _bytes = MutableByteArray.wrap(bytes);  // Copying the bytes is not needed here, since ByteArrayReader is merely a convenience wrapper, and any outside-change is inconsequential for this class.
+        _index = 0;
+    }
+
+    public ByteArrayReader(final ByteArray bytes) {
+        _bytes = bytes; // ByteArray.asConst() is not needed here, since ByteArrayReader is merely a convenience wrapper, and any outside-change is inconsequential for this class.
         _index = 0;
     }
 
     public Integer remainingByteCount() {
-        return Math.max(0, (_bytes.length - _index));
+        return Math.max(0, (_bytes.getByteCount() - _index));
     }
 
     public void skipBytes(final Integer byteCount) {

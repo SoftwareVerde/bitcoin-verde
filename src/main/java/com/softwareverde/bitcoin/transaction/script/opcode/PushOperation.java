@@ -9,6 +9,7 @@ import com.softwareverde.util.HexUtil;
 
 public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
+    public static final Integer VALUE_MAX_BYTE_COUNT = 520; // Values should not be larger than 520 bytes in size. https://github.com/bitcoin/bitcoin/blob/v0.10.0rc3/src/script/script.h#L18
 
     protected static PushOperation fromScriptReader(final ScriptReader scriptReader) {
         if (! scriptReader.hasNextByte()) { return null; }
@@ -55,12 +56,16 @@ public class PushOperation extends SubTypedOperation {
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_SHORT: {
                 final int byteCount = ByteUtil.bytesToInteger(scriptReader.getNextBytes(2));
+                if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+
                 value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_INTEGER: {
                 final int byteCount = ByteUtil.bytesToInteger(scriptReader.getNextBytes(4));
+                if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+
                 value = Value.fromBytes(scriptReader.getNextBytes(byteCount));
             } break;
 

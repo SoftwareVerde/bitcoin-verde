@@ -10,10 +10,12 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -68,9 +70,16 @@ public class TransactionValidator {
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
+                {
+                    final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+                    byteArrayBuilder.appendBytes(unlockingScript.getBytes());
+                    byteArrayBuilder.appendBytes(lockingScript.getBytes());
+                    final Script script = new ImmutableScript(byteArrayBuilder.build());
+                    Logger.log(ScriptReader.toString(script));
+                }
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 Logger.log("Transaction failed to verify:\n\t" + transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
-                Logger.log("Unlocking Script:\n\t" + "\n\t" + ScriptReader.toString(unlockingScript));
+                Logger.log("Unlocking Script:\n\t" + ScriptReader.toString(unlockingScript));
                 Logger.log("Locking Script:\n\t" + ScriptReader.toString(lockingScript));
                 Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
                 return false;

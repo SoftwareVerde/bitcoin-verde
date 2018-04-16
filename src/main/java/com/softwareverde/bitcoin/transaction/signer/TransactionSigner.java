@@ -60,7 +60,6 @@ public class TransactionSigner {
                 final UnlockingScript transactionOutputBeingSpentUnlockingScript = new ImmutableUnlockingScript(transactionOutputBeingSpent.getLockingScript().getBytes());
                 final Boolean scriptContainsCodeSeparator = ScriptReader.containsOperation(Operation.SubType.CODE_SEPARATOR, transactionOutputBeingSpentUnlockingScript);
                 if (scriptContainsCodeSeparator) {
-                    Logger.log(ScriptReader.toString(transactionOutputBeingSpentUnlockingScript));
                     final Script subScript = ScriptReader.getCodeSeparatorSubscript(transactionOutputBeingSpentUnlockingScript);
                     unlockingScript = new ImmutableUnlockingScript(subScript.getBytes());
                 }

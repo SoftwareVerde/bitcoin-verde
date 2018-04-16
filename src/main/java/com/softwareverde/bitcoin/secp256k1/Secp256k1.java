@@ -56,7 +56,7 @@ public class Secp256k1 {
 
         final ECDSASigner signer = new ECDSASigner();
         signer.init(false, publicKeyParameters);
-        return signer.verifySignature(message, new BigInteger(1, signature.getR()), new BigInteger(1, signature.getS()));
+        return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
     }
 
     public static Signature sign(final byte[] privateKey, final byte[] message) {

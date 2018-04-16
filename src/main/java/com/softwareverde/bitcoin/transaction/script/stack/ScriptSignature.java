@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class ScriptSignature {
     public enum HashType {
@@ -27,11 +28,11 @@ public class ScriptSignature {
         }
     }
 
-    public static ScriptSignature fromBytes(final byte[] bytes) {
+    public static ScriptSignature fromBytes(final ByteArray bytes) {
         final Signature ecdsaSignature = Signature.fromBytes(bytes);
         if (ecdsaSignature == null) { return null; }
 
-        final byte hashTypeByte = bytes[bytes.length - 1];
+        final byte hashTypeByte = bytes.getByte(bytes.getByteCount() - 1);
         final HashType hashType = HashType.fromByte(hashTypeByte);
         if (hashType == null) { return null; }
 

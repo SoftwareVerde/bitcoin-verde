@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.io.Logger;
 
 public class CryptographicOperation extends SubTypedOperation {
@@ -31,6 +33,17 @@ public class CryptographicOperation extends SubTypedOperation {
 
     protected CryptographicOperation(final byte value, final SubType subType) {
         super(value, TYPE, subType);
+    }
+
+    protected static Boolean checkSignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature) {
+        final Transaction transaction = context.getTransaction();
+        final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
+        final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
+
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
+        signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
+        return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
     @Override
@@ -90,34 +103,86 @@ public class CryptographicOperation extends SubTypedOperation {
                 final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
                 if (scriptSignature == null) { return false; }
 
-                final Transaction transaction = context.getTransaction();
-                final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
-                final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
+                final PublicKey publicKey = publicKeyValue.asPublicKey();
 
-                final PublicKey publicKey = new PublicKey(publicKeyValue.getBytes());
-
-                final TransactionSigner transactionSigner = new TransactionSigner();
-                final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
-                signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
-                final Boolean signatureIsValid = transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
+                final Boolean signatureIsValid = checkSignature(context, publicKey, scriptSignature);
 
                 if (_subType == SubType.CHECK_SIGNATURE_THEN_VERIFY) {
                     if (! signatureIsValid) { return false; }
-                    return (! stack.didOverflow());
+                }
+                else {
+                    stack.push(Value.fromBoolean(signatureIsValid));
                 }
 
-                stack.push(Value.fromBoolean(signatureIsValid));
                 return (! stack.didOverflow());
             }
 
-            case CHECK_MULTISIGNATURE: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
-                return false;
-            }
-
+            case CHECK_MULTISIGNATURE:
             case CHECK_MULTISIGNATURE_THEN_VERIFY: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
-                return false;
+                Logger.log(stack);
+
+                final Integer publicKeyCount;
+                {
+                    final Value publicKeyCountValue = stack.pop();
+                    publicKeyCount = publicKeyCountValue.asInteger();
+                }
+
+                final List<PublicKey> publicKeys;
+                {
+                    final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
+                    for (int i = 0; i < publicKeyCount; ++i) {
+                        final Value publicKeyValue = stack.pop();
+                        final PublicKey publicKey = new PublicKey(publicKeyValue.getBytes());
+                        listBuilder.add(publicKey);
+                    }
+                    publicKeys = listBuilder.build();
+                }
+
+                final Integer signatureCount;
+                {
+                    final Value signatureCountValue = stack.pop();
+                    signatureCount = signatureCountValue.asInteger();
+                }
+
+                final List<ScriptSignature> signatures;
+                {
+                    final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>();
+                    for (int i = 0; i < signatureCount; ++i) {
+                        final Value signatureValue = stack.pop();
+                        final ScriptSignature signature = signatureValue.asScriptSignature();
+                        listBuilder.add(signature);
+                    }
+                    signatures = listBuilder.build();
+                }
+
+                stack.pop(); // Pop an extra value due to bug in the protocol...
+
+                if (signatures.getSize() < publicKeys.getSize()) {
+                    Logger.log("NOTICE: "+ _subType + " signature count (" + (signatures.getSize()) + ") does not match public key count (" + (publicKeys.getSize()) + ").");
+                    return false;
+                }
+
+                Boolean signaturesAreValid = true;
+
+                for (int i = 0; i < publicKeys.getSize(); ++i) {
+                    final PublicKey publicKey = publicKeys.get(i);
+                    final ScriptSignature signature = signatures.get(i);
+
+                    final Boolean signatureIsValid = checkSignature(context, publicKey, signature);
+                    if (! signatureIsValid) {
+                        signaturesAreValid = false;
+                    }
+                }
+
+                if (_subType == SubType.CHECK_MULTISIGNATURE_THEN_VERIFY) {
+                    if (! signaturesAreValid) { return false; }
+                }
+                else {
+                    stack.push(Value.fromBoolean(signaturesAreValid));
+                }
+                Logger.log(stack);
+
+                return (! stack.didOverflow());
             }
 
             default: { return false; }

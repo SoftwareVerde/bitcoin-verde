@@ -59,4 +59,17 @@ public class Stack {
     public Boolean didOverflow() {
         return _didOverflow;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; i < _values.size(); ++i) {
+            final Value value = _peak(i);
+            stringBuilder.append(value.toString());
+            stringBuilder.append("\n");
+        }
+
+        return stringBuilder.toString();
+    }
 }

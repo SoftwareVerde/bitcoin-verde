@@ -19,6 +19,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -68,6 +69,8 @@ public class BlockValidator {
         };
 
         // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
+        // TODO: Validate block size...
+        // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
 
         { // Validate coinbase input...
             final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
