@@ -77,7 +77,15 @@ public class DifficultyCalculator {
                 final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
 
                 //  7. Multiply the difficulty by the bounded difficultyAdjustment.
-                return (blockWithPreviousAdjustment.getDifficulty().multiplyBy(1.0D / boundedDifficultyAdjustment));
+                final Difficulty newDifficulty = (blockWithPreviousAdjustment.getDifficulty().multiplyBy(1.0D / boundedDifficultyAdjustment));
+
+                //  8. The new difficulty cannot be less than the base difficulty.
+                final Difficulty minimumDifficulty = Difficulty.BASE_DIFFICULTY;
+                if (newDifficulty.isLessDifficultThan(minimumDifficulty)) {
+                    return minimumDifficulty;
+                }
+
+                return newDifficulty;
             }
             else {
                 final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(blockChainSegment.getHeadBlockId());

@@ -225,4 +225,17 @@ public class DifficultyTests {
         // Assert
         Assert.assertEquals(expectedDifficulty, multipliedDifficulty);
     }
+
+    @Test
+    public void higher_difficulty_value_should_be_less_difficult() {
+        // Setup
+        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1D01B304"));
+        final Difficulty baseDifficulty = Difficulty.BASE_DIFFICULTY;
+
+        // Action
+        final Boolean isLessThan = difficulty.isLessDifficultThan(baseDifficulty);
+
+        // Assert
+        Assert.assertTrue(isLessThan);
+    }
 }

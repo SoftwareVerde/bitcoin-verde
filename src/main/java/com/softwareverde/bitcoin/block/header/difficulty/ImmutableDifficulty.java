@@ -55,6 +55,12 @@ public class ImmutableDifficulty implements Difficulty, Const {
         return new ImmutableDifficulty(ByteUtil.copyBytes(encodedBytes, 1, 3), (ByteUtil.byteToInteger(encodedBytes[0]) - 3));
     }
 
+    protected void _requireCachedBytes() {
+        if (_cachedBytes == null) {
+            _cachedBytes = _convertToBytes();
+        }
+    }
+
     protected BigInteger _toBigInteger() {
         return new BigInteger(_convertToBytes());
     }
@@ -113,9 +119,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public Boolean isSatisfiedBy(final Hash hash) {
-        if (_cachedBytes == null) {
-            _cachedBytes = _convertToBytes();
-        }
+        _requireCachedBytes();
 
         for (int i=0; i<_cachedBytes.length; ++i) {
             // if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
@@ -126,6 +130,25 @@ public class ImmutableDifficulty implements Difficulty, Const {
         }
 
         return true;
+    }
+
+    @Override
+    public Boolean isLessDifficultThan(final Difficulty difficulty) {
+        _requireCachedBytes();
+
+        final byte[] difficultyBytes0 = _cachedBytes;
+        final byte[] difficultyBytes1 = difficulty.getBytes();
+
+        for (int i = 0; i < difficultyBytes0.length; ++i) {
+            final int difficultyByteAsInteger0 = ByteUtil.byteToInteger(difficultyBytes0[i]);
+            final int difficultyByteAsInteger1 = ByteUtil.byteToInteger(difficultyBytes1[i]);
+            if (difficultyByteAsInteger0 == difficultyByteAsInteger1) { continue; }
+
+            // NOTE: Greater values represent less difficulty.
+            return (difficultyByteAsInteger0 > difficultyByteAsInteger1);
+        }
+
+        return false;
     }
 
     @Override
