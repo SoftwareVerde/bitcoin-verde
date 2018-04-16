@@ -1,19 +1,22 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 
 public class Value extends ImmutableByteArray implements Const {
     public static Value fromInteger(final Integer integerValue) {
         final byte[] bytes = new byte[4];
         ByteUtil.setBytes(bytes, ByteUtil.integerToBytes(integerValue));
-        return new Value(bytes);
+        return new Value(ByteUtil.reverseEndian(bytes));
     }
 
     public static Value fromBoolean(final Boolean booleanValue) {
         final byte[] bytes = new byte[4];
-        bytes[bytes.length - 1] = (booleanValue ? (byte) 0x01 : (byte) 0x00);
+        bytes[0] = (booleanValue ? (byte) 0x01 : (byte) 0x00);
         return new Value(bytes);
     }
 
@@ -73,7 +76,11 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public ScriptSignature asScriptSignature() {
-        return ScriptSignature.fromBytes(ByteUtil.copyBytes(_bytes));
+        return ScriptSignature.fromBytes(MutableByteArray.wrap(_bytes));
+    }
+
+    public PublicKey asPublicKey() {
+        return new PublicKey(_bytes);
     }
 
     @Override

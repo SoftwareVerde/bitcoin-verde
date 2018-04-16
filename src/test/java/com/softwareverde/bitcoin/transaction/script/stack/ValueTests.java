@@ -159,4 +159,43 @@ public class ValueTests {
         // Assert
         Assert.assertEquals(expectedValue, receivedValue);
     }
+
+    @Test
+    public void should_maintain_integer_interpretation() {
+        // Setup
+        final Integer expectedIntegerValue = 7;
+        final Value value = Value.fromInteger(expectedIntegerValue);
+
+        // Action
+        final Integer integerValue = value.asInteger();
+
+        // Assert
+        Assert.assertEquals(expectedIntegerValue, integerValue);
+    }
+
+    @Test
+    public void should_maintain_boolean_interpretation() {
+        // Setup
+        final Boolean expectedValue = true;
+        final Value value = Value.fromBoolean(expectedValue);
+
+        // Action
+        final Boolean booleanValue = value.asBoolean();
+
+        // Assert
+        Assert.assertEquals(expectedValue, booleanValue);
+    }
+
+    @Test
+    public void should_convert_boolean_to_integer() {
+        // Setup
+        final Integer expectedIntegerValue = 1;
+        final Value value = Value.fromBoolean(true);
+
+        // Action
+        final Integer integerValue = value.asInteger();
+
+        // Assert
+        Assert.assertEquals(expectedIntegerValue, integerValue);
+    }
 }
