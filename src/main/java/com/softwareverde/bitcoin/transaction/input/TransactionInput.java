@@ -5,8 +5,9 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.json.Jsonable;
 
-public interface TransactionInput extends Constable<ImmutableTransactionInput> {
+public interface TransactionInput extends Constable<ImmutableTransactionInput>, Jsonable {
     Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
 
     static TransactionInput createCoinbaseTransactionInput(final String coinbaseMessage) {

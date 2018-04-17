@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.transaction.locktime;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.DateUtil;
 
 public class ImmutableLockTime implements LockTime, Const {
     private final Type _type;
@@ -45,5 +47,14 @@ public class ImmutableLockTime implements LockTime, Const {
     @Override
     public ImmutableLockTime asConst() {
         return this;
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json();
+        json.put("type", _type);
+        json.put("value", _lockTime);
+        json.put("date", (_type == Type.TIMESTAMP ? DateUtil.Utc.timestampToDatetimeString(_lockTime * 1000L) : null));
+        return json;
     }
 }

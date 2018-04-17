@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.json.Json;
 
 public class MutableTransactionOutput implements TransactionOutput {
     protected Long _amount = 0L;
@@ -35,5 +36,14 @@ public class MutableTransactionOutput implements TransactionOutput {
     @Override
     public ImmutableTransactionOutput asConst() {
         return new ImmutableTransactionOutput(this);
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json();
+        json.put("amount", _amount);
+        json.put("index", _index);
+        json.put("lockingScript", _lockingScript);
+        return json;
     }
 }

@@ -11,6 +11,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
+import com.softwareverde.json.Json;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableHash _hash;
@@ -68,5 +69,29 @@ public class ImmutableTransaction implements Transaction, Const {
     @Override
     public ImmutableTransaction asConst() {
         return this;
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json();
+        json.put("version", Transaction.VERSION);
+        json.put("hasWitnessData", _hasWitnessData);
+
+        final Json inputsJson = new Json();
+        for (final TransactionInput transactionInput : _transactionInputs) {
+            inputsJson.add(transactionInput);
+        }
+        json.put("inputs", inputsJson);
+
+
+        final Json outputsJson = new Json();
+        for (final TransactionOutput transactionOutput : _transactionOutputs) {
+            outputsJson.add(transactionOutput);
+        }
+        json.put("outputs", outputsJson);
+
+        json.put("locktime", _lockTime);
+
+        return json;
     }
 }

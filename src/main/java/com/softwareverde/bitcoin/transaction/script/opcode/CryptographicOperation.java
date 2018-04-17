@@ -132,7 +132,7 @@ public class CryptographicOperation extends SubTypedOperation {
                     final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
                     for (int i = 0; i < publicKeyCount; ++i) {
                         final Value publicKeyValue = stack.pop();
-                        final PublicKey publicKey = new PublicKey(publicKeyValue.getBytes());
+                        final PublicKey publicKey = publicKeyValue.asPublicKey();
                         listBuilder.add(publicKey);
                     }
                     publicKeys = listBuilder.build();
@@ -150,6 +150,8 @@ public class CryptographicOperation extends SubTypedOperation {
                     for (int i = 0; i < signatureCount; ++i) {
                         final Value signatureValue = stack.pop();
                         final ScriptSignature signature = signatureValue.asScriptSignature();
+                        if (signature == null) { return false; }
+
                         listBuilder.add(signature);
                     }
                     signatures = listBuilder.build();
@@ -157,21 +159,38 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 stack.pop(); // Pop an extra value due to bug in the protocol...
 
-                if (signatures.getSize() < publicKeys.getSize()) {
-                    Logger.log("NOTICE: "+ _subType + " signature count (" + (signatures.getSize()) + ") does not match public key count (" + (publicKeys.getSize()) + ").");
-                    return false;
-                }
 
-                Boolean signaturesAreValid = true;
+                final boolean signaturesAreValid;
+                {   // Signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
+                    // Example: P1, P2, P3 <-> S2, S3
+                    //          P1, P2, P3 <-> S1, S3
+                    //          P1, P2, P3 <-> S1, S2
+                    //          P1, P2, P3 <-> S1, S2, S3
 
-                for (int i = 0; i < publicKeys.getSize(); ++i) {
-                    final PublicKey publicKey = publicKeys.get(i);
-                    final ScriptSignature signature = signatures.get(i);
+                    boolean signaturesHaveMatchedPublicKeys = true;
+                    int nextPublicKeyIndex = 0;
+                    for (int i = 0; i < signatureCount; ++i) {
+                        final ScriptSignature signature = signatures.get(i);
 
-                    final Boolean signatureIsValid = checkSignature(context, publicKey, signature);
-                    if (! signatureIsValid) {
-                        signaturesAreValid = false;
+                        boolean signatureHasPublicKeyMatch = false;
+                        for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
+                            nextPublicKeyIndex += 1;
+
+                            final PublicKey publicKey = publicKeys.get(j);
+                            final boolean signatureIsValid = checkSignature(context, publicKey, signature);
+                            if (signatureIsValid) {
+                                signatureHasPublicKeyMatch = true;
+                                break;
+                            }
+                        }
+
+                        if (! signatureHasPublicKeyMatch) {
+                            signaturesHaveMatchedPublicKeys = false;
+                            break;
+                        }
                     }
+
+                    signaturesAreValid = signaturesHaveMatchedPublicKeys;
                 }
 
                 if (_subType == SubType.CHECK_MULTISIGNATURE_THEN_VERIFY) {
@@ -180,7 +199,7 @@ public class CryptographicOperation extends SubTypedOperation {
                 else {
                     stack.push(Value.fromBoolean(signaturesAreValid));
                 }
-                Logger.log(stack);
+                Logger.log(_subType + " " + stack);
 
                 return (! stack.didOverflow());
             }

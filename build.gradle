@@ -5,20 +5,6 @@ apply plugin: 'java'
 
 sourceCompatibility = 1.8
 
-sourceSets {
-    reporting {
-        java {
-            srcDir 'src/reporting/java'
-        }
-        resources {
-            srcDir 'src/reporting/resources'
-        }
-
-        compileClasspath += sourceSets.main.runtimeClasspath
-        runtimeClasspath += sourceSets.main.runtimeClasspath
-    }
-}
-
 repositories {
     mavenCentral()
     maven { url "https://jitpack.io" }
@@ -29,7 +15,7 @@ dependencies {
 
     compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
     compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.1.1+'
-    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v0.1.9+'
+    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.1+'
     compile     group: 'com.github.softwareverde',  name: 'java-tls',               version: 'v0.2.+'
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.+'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v0.0.3+'

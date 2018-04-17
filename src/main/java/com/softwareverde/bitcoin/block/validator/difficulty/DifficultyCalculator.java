@@ -49,8 +49,7 @@ public class DifficultyCalculator {
                 final BlockHeader blockWithPreviousAdjustment = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, previousBlockHeight);
                 if (blockWithPreviousAdjustment == null) { return null; }
 
-                //  2. Get the current network time from the other nodes on the network.
-                // final Long blockTimestamp = block.getTimestamp(); // _networkTime.getCurrentTime();
+                //  2. Get the current block timestamp.
                 final Long blockTimestamp;
                 {
                     final BlockId previousBlockId = _blockDatabaseManager.getBlockIdFromHash(block.getPreviousBlockHash());
@@ -59,19 +58,19 @@ public class DifficultyCalculator {
                 }
                 final Long previousBlockTimestamp = blockWithPreviousAdjustment.getTimestamp();
 
-                System.out.println(DateUtil.timestampToDatetimeString(blockTimestamp * 1000L));
-                System.out.println(DateUtil.timestampToDatetimeString(previousBlockTimestamp * 1000L));
+                Logger.log(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
+                Logger.log(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
 
                 //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
                 final Long secondsElapsed = (blockTimestamp - previousBlockTimestamp);
-                System.out.println("2016 blocks in "+ secondsElapsed + " ("+ (secondsElapsed/60F/60F/24F) +" days)");
+                Logger.log("2016 blocks in "+ secondsElapsed + " ("+ (secondsElapsed/60F/60F/24F) +" days)");
 
                 //  4. Calculate the desired two-weeks elapse-time ("secondsInTwoWeeks").
                 final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
                 //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
                 final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
-                System.out.println("Adjustment: "+ difficultyAdjustment);
+                Logger.log("Adjustment: "+ difficultyAdjustment);
 
                 //  6. Bound difficultyAdjustment between [4, 0.25].
                 final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));

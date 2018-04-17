@@ -4,8 +4,9 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.json.Jsonable;
 
-public interface TransactionOutput extends Constable<ImmutableTransactionOutput> {
+public interface TransactionOutput extends Constable<ImmutableTransactionOutput>, Jsonable {
     static TransactionOutput createCoinbaseTransactionOutput(final Address payToAddress, final Long satoshis) {
         final LockingScript lockingScript = ScriptBuilder.payToAddress(payToAddress);
         final MutableTransactionOutput coinbaseTransactionOutput = new MutableTransactionOutput();

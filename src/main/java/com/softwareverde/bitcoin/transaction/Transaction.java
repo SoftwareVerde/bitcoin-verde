@@ -7,8 +7,9 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction> {
+public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
     Integer VERSION = 0x01;
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 

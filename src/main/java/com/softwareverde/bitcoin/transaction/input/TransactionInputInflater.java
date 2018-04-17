@@ -9,8 +9,8 @@ public class TransactionInputInflater {
     protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
 
-        transactionInput._previousTransactionOutputHash = MutableHash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
-        transactionInput._previousTransactionOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
+        transactionInput._previousOutputTransactionHash = MutableHash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
+        transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         transactionInput._unlockingScript = new ImmutableUnlockingScript(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
