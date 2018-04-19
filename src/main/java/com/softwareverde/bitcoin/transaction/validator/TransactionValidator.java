@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
+import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
@@ -13,8 +15,9 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -23,6 +26,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
 public class TransactionValidator {
+    protected final BlockChainDatabaseManager _blockChainDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
 
@@ -44,6 +48,7 @@ public class TransactionValidator {
     }
 
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection) {
+        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
     }
@@ -51,7 +56,20 @@ public class TransactionValidator {
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) {
         final ScriptRunner scriptRunner = new ScriptRunner();
 
-        final Context context = new Context();
+        final MutableContext context = new MutableContext();
+
+        { // Set the block height for this transaction...
+            try {
+                final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
+                final Long blockHeight = blockChainSegment.getBlockHeight(); // NOTE: This may be insufficient when re-validating previously validated transactions.
+                context.setBlockHeight(blockHeight);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                return false;
+            }
+        }
+
         context.setTransaction(transaction);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
@@ -82,6 +100,8 @@ public class TransactionValidator {
                 Logger.log("Unlocking Script:\n\t" + ScriptReader.toString(unlockingScript));
                 Logger.log("Locking Script:\n\t" + ScriptReader.toString(lockingScript));
                 Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
+
+                Logger.log(transaction.toJson());
                 return false;
             }
         }

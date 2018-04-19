@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.io.Logger;
@@ -31,9 +33,17 @@ public class LockTimeOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final Context context) {
+    public Boolean applyTo(final Stack stack, final MutableContext context) {
+        context.incrementCurrentLockingScriptIndex();
+
         switch (_subType) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
+                final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
+                if (! operationIsEnabled) {
+                    // Before Bip65, CHECK_LOCK_TIME_THEN_VERIFY performed as a no-operation.
+                    return true;
+                }
+
                 final Transaction transaction = context.getTransaction();
                 final LockTime transactionLockTime = transaction.getLockTime();
 
@@ -58,7 +68,9 @@ public class LockTimeOperation extends SubTypedOperation {
                     }
                 }
 
-                if (! lockTimeIsSatisfied) { return false; }
+                if (! lockTimeIsSatisfied) {
+                    return false;
+                }
 
                 return (! stack.didOverflow());
             }

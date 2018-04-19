@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -59,7 +60,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1)));
 
-        final Context context = new Context();
+        final MutableContext context = new MutableContext();
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
@@ -96,7 +97,7 @@ public class ScriptRunnerTests {
 
         Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
 
-        final Context context = new Context();
+        final MutableContext context = new MutableContext();
         context.setTransaction(transaction);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();

@@ -60,13 +60,6 @@ public class ScriptReader {
         return false;
     }
 
-    public static Script getCodeSeparatorSubscript(final Script script) {
-        final ScriptRunner scriptRunner = new ScriptRunner();
-        final int lastCodeSeparatorIndex = scriptRunner.getCodeSeparatorIndex(script);
-        final int subScriptByteCount = (script.getByteCount() - lastCodeSeparatorIndex);
-        return new ImmutableScript(script.getBytes(lastCodeSeparatorIndex, subScriptByteCount));
-    }
-
     protected final Script _script;
     protected int _index = 0;
     protected boolean _didOverflow = false;

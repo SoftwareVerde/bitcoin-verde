@@ -3,7 +3,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -43,11 +44,14 @@ public class CryptographicOperation extends SubTypedOperation {
         final TransactionSigner transactionSigner = new TransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
         signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
+        signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, context.getLockingScriptLastCodeSeparatorIndex());
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final Context context) {
+    public Boolean applyTo(final Stack stack, final MutableContext context) {
+        context.incrementCurrentLockingScriptIndex();
+
         switch (_subType) {
             case RIPEMD_160: {
                 final Value input = stack.pop();
@@ -90,6 +94,8 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             case CODE_SEPARATOR: {
+                final Integer postCodeSeparatorScriptIndex = context.getCurrentLockingScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
+                context.setLockingScriptLastCodeSeparatorIndex(postCodeSeparatorScriptIndex);
                 return true;
             }
 
@@ -198,8 +204,8 @@ public class CryptographicOperation extends SubTypedOperation {
                 }
                 else {
                     stack.push(Value.fromBoolean(signaturesAreValid));
+                    // stack.push(Value.fromBoolean(true));
                 }
-                Logger.log(_subType + " " + stack);
 
                 return (! stack.didOverflow());
             }

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -44,7 +44,9 @@ public class ComparisonOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, Context context) {
+    public Boolean applyTo(final Stack stack, final MutableContext context) {
+        context.incrementCurrentLockingScriptIndex();
+
         switch (_subType) {
             case IS_EQUAL: {
                 final Boolean isEqual = _opIsEqual(stack);

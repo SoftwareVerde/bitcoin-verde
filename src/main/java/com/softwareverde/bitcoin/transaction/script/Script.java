@@ -8,6 +8,8 @@ public interface Script extends ByteArray, Jsonable {
     Script EMPTY_SCRIPT = new ImmutableScript(new byte[0]);
 
     Hash getHash();
+    Script subScript(int opcodeIndex);
+
 
     @Override
     ImmutableScript asConst();

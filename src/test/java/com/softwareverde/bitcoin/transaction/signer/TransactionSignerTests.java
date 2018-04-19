@@ -13,11 +13,11 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
@@ -77,7 +77,7 @@ public class TransactionSignerTests {
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001BE66E10DA854E7AEA9338C1F91CD489768D1D6D7189F586D7A3613F2A24D5396000000008B483045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9FFFFFFFF0123CE0100000000001976A9142BC89C2702E0E618DB7D59EB5CE2F0F147B4075488AC00000000"));
 
         final ScriptRunner scriptRunner = new ScriptRunner();
-        final Context context = new Context();
+        final MutableContext context = new MutableContext();
         context.setTransaction(transaction);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();

@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.io.Logger;
@@ -27,7 +28,9 @@ public class StackOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final Context context) {
+    public Boolean applyTo(final Stack stack, final MutableContext context) {
+        context.incrementCurrentLockingScriptIndex();
+
         switch (_subType) {
             case POP_TO_ALT_STACK: {
                 Logger.log("NOTICE: Opcode not implemented: "+ _subType);

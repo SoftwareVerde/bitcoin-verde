@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.bytearray.overflow.ImmutableOverflowingByt
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
@@ -21,6 +22,18 @@ public class ImmutableScript extends ImmutableOverflowingByteArray implements Sc
     public Hash getHash() {
         final byte[] hashBytes = BitcoinUtil.ripemd160(BitcoinUtil.sha256(_bytes));
         return MutableHash.wrap(hashBytes);
+    }
+
+    @Override
+    public Script subScript(final int opcodeIndex) {
+        final int newByteCount = (_bytes.length - opcodeIndex);
+
+        if (newByteCount <= 0) {
+            return Script.EMPTY_SCRIPT;
+        }
+
+        final byte[] copiedBytes = ByteUtil.copyBytes(_bytes, opcodeIndex, newByteCount);
+        return new ImmutableScript(copiedBytes);
     }
 
     @Override

@@ -11,11 +11,7 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
-import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
@@ -24,7 +20,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
 
 public class TransactionSigner {
 
@@ -57,15 +52,8 @@ public class TransactionSigner {
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                final UnlockingScript transactionOutputBeingSpentUnlockingScript = new ImmutableUnlockingScript(transactionOutputBeingSpent.getLockingScript().getBytes());
-                final Boolean scriptContainsCodeSeparator = ScriptReader.containsOperation(Operation.SubType.CODE_SEPARATOR, transactionOutputBeingSpentUnlockingScript);
-                if (scriptContainsCodeSeparator) {
-                    final Script subScript = ScriptReader.getCodeSeparatorSubscript(transactionOutputBeingSpentUnlockingScript);
-                    unlockingScript = new ImmutableUnlockingScript(subScript.getBytes());
-                }
-                else {
-                    unlockingScript = transactionOutputBeingSpentUnlockingScript;
-                }
+                final Script transactionOutputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript().subScript(signatureContext.getLastCodeSeparatorIndex(i));
+                unlockingScript = UnlockingScript.castFrom(transactionOutputBeingSpentLockingScript);
             }
             else {
                 unlockingScript = UnlockingScript.EMPTY_SCRIPT;
@@ -96,6 +84,8 @@ public class TransactionSigner {
     }
 
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+        // NOTE: ensure signatureContext has its lastCodeSeparatorIndex set.
+
         final MutableTransaction mutableTransaction = new MutableTransaction(signatureContext.getTransaction());
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
         final Signature signature = Secp256k1.sign(privateKey.getBytes(), bytesToSign);

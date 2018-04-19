@@ -5,6 +5,10 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 public interface LockingScript extends Script {
     LockingScript EMPTY_SCRIPT = new ImmutableLockingScript(new byte[0]);
 
+    static LockingScript castFrom(final Script script) {
+        return new ImmutableLockingScript(script.getBytes());
+    }
+
     @Override
     ImmutableLockingScript asConst();
 }

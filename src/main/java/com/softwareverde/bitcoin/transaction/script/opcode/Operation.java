@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
@@ -226,7 +226,7 @@ public abstract class Operation {
         return _type;
     }
 
-    public abstract Boolean applyTo(final Stack stack, final Context context) throws ScriptOperationExecutionException;
+    public abstract Boolean applyTo(final Stack stack, final MutableContext context) throws ScriptOperationExecutionException;
 
     @Override
     public boolean equals(final Object object) {
