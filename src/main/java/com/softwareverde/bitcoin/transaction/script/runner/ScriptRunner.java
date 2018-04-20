@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.io.Logger;
@@ -16,8 +18,13 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
-    public Boolean runScript(final Script lockingScript, final Script unlockingScript, final MutableContext context) {
-        final ScriptReader lockingScriptReader = new ScriptReader(lockingScript);
+    public Boolean runScript(final Script lockingScript, final Script unlockingScript, final Context context) {
+        final MutableContext mutableContext = new MutableContext(context);
+
+        final MutableScript mutableLockingScript = new MutableScript(lockingScript);
+        mutableLockingScript.removeOperations(Operation.SubType.CODE_SEPARATOR);
+
+        final ScriptReader lockingScriptReader = new ScriptReader(mutableLockingScript);
         final ScriptReader unlockingScriptReader = new ScriptReader(unlockingScript);
         final OperationInflater operationInflater = new OperationInflater();
 
@@ -28,15 +35,19 @@ public class ScriptRunner {
                 final Operation opcode = operationInflater.fromScriptReader(unlockingScriptReader);
                 if (opcode == null) { return false; }
 
-                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+                final Boolean wasSuccessful = opcode.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
+
+            // NOTE: Resetting the script's position is important to treat the unlocking/locking scripts as separate scripts that share the same stack (vs combining the scripts and treating them as one).
+            //  More importantly, this call is necessary to correctly determine the bytes signed during signature-checking operations. (i.e. CODE_SEPARATOR)
+            mutableContext.resetScriptPosition();
 
             while (lockingScriptReader.hasNextByte()) {
                 final Operation opcode = operationInflater.fromScriptReader(lockingScriptReader);
                 if (opcode == null) { return false; }
 
-                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+                final Boolean wasSuccessful = opcode.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
         }

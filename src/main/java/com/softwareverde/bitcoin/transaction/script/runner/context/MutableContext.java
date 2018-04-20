@@ -13,8 +13,8 @@ public class MutableContext implements Context, Const {
     protected TransactionInput _transactionInput;
     protected TransactionOutput _transactionOutput;
 
-    protected Integer _currentLockingScriptIndex = 0;
-    protected Integer _lockingScriptLastCodeSeparatorIndex = 0;
+    protected Integer _currentScriptIndex = 0;
+    protected Integer _scriptLastCodeSeparatorIndex = 0;
 
     public MutableContext() { }
 
@@ -25,8 +25,8 @@ public class MutableContext implements Context, Const {
         _transactionInput = context.getTransactionInput();
         _transactionOutput = context.getTransactionOutput();
 
-        _currentLockingScriptIndex = context.getCurrentLockingScriptIndex();
-        _lockingScriptLastCodeSeparatorIndex = context.getLockingScriptLastCodeSeparatorIndex();
+        _currentScriptIndex = context.getCurrentScriptIndex();
+        _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
 
     public void setBlockHeight(final Long blockHeight) {
@@ -49,12 +49,17 @@ public class MutableContext implements Context, Const {
         _transactionOutput = transactionOutput;
     }
 
+    public void resetScriptPosition() {
+        _currentScriptIndex = 0;
+        _scriptLastCodeSeparatorIndex = 0;
+    }
+
     public void incrementCurrentLockingScriptIndex() {
-        _currentLockingScriptIndex += 1;
+        _currentScriptIndex += 1;
     }
 
     public void setLockingScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
-        _lockingScriptLastCodeSeparatorIndex = codeSeparatorIndex;
+        _scriptLastCodeSeparatorIndex = codeSeparatorIndex;
     }
 
     @Override
@@ -83,13 +88,13 @@ public class MutableContext implements Context, Const {
     }
 
     @Override
-    public Integer getCurrentLockingScriptIndex() {
-        return _currentLockingScriptIndex;
+    public Integer getCurrentScriptIndex() {
+        return _currentScriptIndex;
     }
 
     @Override
-    public Integer getLockingScriptLastCodeSeparatorIndex() {
-        return _lockingScriptLastCodeSeparatorIndex;
+    public Integer getScriptLastCodeSeparatorIndex() {
+        return _scriptLastCodeSeparatorIndex;
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.HexUtil;
 
 public class PushOperation extends SubTypedOperation {
@@ -95,6 +96,14 @@ public class PushOperation extends SubTypedOperation {
 
         stack.push(_value);
         return true;
+    }
+
+    @Override
+    public byte[] getBytes() {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        byteArrayBuilder.appendByte(_opcodeByte);
+        byteArrayBuilder.appendBytes(_value.getBytes());
+        return byteArrayBuilder.build();
     }
 
     @Override

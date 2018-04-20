@@ -228,6 +228,10 @@ public abstract class Operation {
 
     public abstract Boolean applyTo(final Stack stack, final MutableContext context) throws ScriptOperationExecutionException;
 
+    public byte[] getBytes() {
+        return new byte[] { _opcodeByte };
+    }
+
     @Override
     public boolean equals(final Object object) {
         if (object == null) { return false; }

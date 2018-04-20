@@ -9,8 +9,11 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
@@ -20,6 +23,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.io.Logger;
 
 public class TransactionSigner {
 
@@ -52,8 +56,23 @@ public class TransactionSigner {
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                final Script transactionOutputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript().subScript(signatureContext.getLastCodeSeparatorIndex(i));
-                unlockingScript = UnlockingScript.castFrom(transactionOutputBeingSpentLockingScript);
+                final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+
+                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
+                if (subscriptIndex > 0) {
+                    Logger.log("***** SUBSCRIPT ("+ subscriptIndex +") *****");
+
+                    final MutableScript mutableLockingScript = new MutableScript(lockingScript);
+                    mutableLockingScript.subScript(subscriptIndex);
+                    mutableLockingScript.removeOperations(Operation.SubType.CODE_SEPARATOR);
+                    unlockingScript = UnlockingScript.castFrom(mutableLockingScript);
+
+                    Logger.log(unlockingScript);
+                    Logger.log("\n");
+                }
+                else {
+                    unlockingScript = UnlockingScript.castFrom(lockingScript);
+                }
             }
             else {
                 unlockingScript = UnlockingScript.EMPTY_SCRIPT;

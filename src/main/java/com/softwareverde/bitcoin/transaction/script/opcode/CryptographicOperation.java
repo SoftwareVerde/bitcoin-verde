@@ -44,7 +44,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final TransactionSigner transactionSigner = new TransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
         signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
-        signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, context.getLockingScriptLastCodeSeparatorIndex());
+        signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, context.getScriptLastCodeSeparatorIndex());
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
@@ -94,7 +94,7 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             case CODE_SEPARATOR: {
-                final Integer postCodeSeparatorScriptIndex = context.getCurrentLockingScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
+                final Integer postCodeSeparatorScriptIndex = context.getCurrentScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
                 context.setLockingScriptLastCodeSeparatorIndex(postCodeSeparatorScriptIndex);
                 return true;
             }

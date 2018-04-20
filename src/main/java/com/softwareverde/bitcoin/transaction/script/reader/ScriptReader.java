@@ -1,10 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.reader;
 
-import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.io.Logger;
@@ -45,19 +43,6 @@ public class ScriptReader {
             }
         }
         return stringBuilder.toString();
-    }
-
-    public static Boolean containsOperation(final Operation.SubType operationSubType, final Script script) {
-        final OperationInflater operationInflater = new OperationInflater();
-        final ScriptReader scriptReader = new ScriptReader(script);
-        while (scriptReader.hasNextByte()) {
-            final Operation opcode = operationInflater.fromScriptReader(scriptReader);
-            if (operationSubType.matchesByte(opcode.getOpcodeByte())) {
-                Logger.log("Contained SubType: "+ operationSubType + " " + script);
-                return true;
-            }
-        }
-        return false;
     }
 
     protected final Script _script;

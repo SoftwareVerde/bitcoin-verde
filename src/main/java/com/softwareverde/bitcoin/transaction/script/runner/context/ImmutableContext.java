@@ -13,8 +13,8 @@ public class ImmutableContext implements Context, Const {
     protected TransactionInput _transactionInput;
     protected TransactionOutput _transactionOutput;
 
-    protected Integer _currentLockingScriptIndex;
-    protected Integer _lockingScriptLastCodeSeparatorIndex;
+    protected Integer _currentScriptIndex;
+    protected Integer _scriptLastCodeSeparatorIndex;
 
     public ImmutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
@@ -23,8 +23,8 @@ public class ImmutableContext implements Context, Const {
         _transactionInput = context.getTransactionInput();
         _transactionOutput = context.getTransactionOutput();
 
-        _currentLockingScriptIndex = context.getCurrentLockingScriptIndex();
-        _lockingScriptLastCodeSeparatorIndex = context.getLockingScriptLastCodeSeparatorIndex();
+        _currentScriptIndex = context.getCurrentScriptIndex();
+        _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
 
     @Override
@@ -53,13 +53,13 @@ public class ImmutableContext implements Context, Const {
     }
 
     @Override
-    public Integer getCurrentLockingScriptIndex() {
-        return _currentLockingScriptIndex;
+    public Integer getCurrentScriptIndex() {
+        return _currentScriptIndex;
     }
 
     @Override
-    public Integer getLockingScriptLastCodeSeparatorIndex() {
-        return _lockingScriptLastCodeSeparatorIndex;
+    public Integer getScriptLastCodeSeparatorIndex() {
+        return _scriptLastCodeSeparatorIndex;
     }
 
     @Override

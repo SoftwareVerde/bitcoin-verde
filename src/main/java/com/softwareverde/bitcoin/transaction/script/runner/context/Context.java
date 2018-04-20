@@ -13,10 +13,10 @@ public interface Context extends Constable<ImmutableContext> {
     Integer getTransactionInputIndex();
 
     /**
-     * Returns the index of the script's current index.
+     * Returns the index of the script's current execution index.
      *  Calling this function during the execution of the first opcode will return zero.
      */
-    Integer getCurrentLockingScriptIndex();
+    Integer getCurrentScriptIndex();
 
     /**
      * Returns the index within script that starts with the index immediately after the last executed CODE_SEPARATOR operation.
@@ -26,7 +26,7 @@ public interface Context extends Constable<ImmutableContext> {
      * Ex: Given:
      *      ix:         0     | 1     | 2              | 3
      *      opcodes:    NO_OP | NO_OP | CODE_SEPARATOR | NO_OP
-     *  Context.getLockingScriptLastCodeSeparatorIndex() will return: 3
+     *  Context.getScriptLastCodeSeparatorIndex() will return: 3
      */
-    Integer getLockingScriptLastCodeSeparatorIndex();
+    Integer getScriptLastCodeSeparatorIndex();
 }

@@ -2,12 +2,12 @@ package com.softwareverde.bitcoin.type.bytearray.overflow;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
-public class MutableOverflowByteArray extends MutableByteArray {
-    public MutableOverflowByteArray(final byte[] bytes) {
+public class MutableOverflowingByteArray extends MutableByteArray {
+    public MutableOverflowingByteArray(final byte[] bytes) {
         super(bytes);
     }
 
-    public MutableOverflowByteArray(final int byteCount) {
+    public MutableOverflowingByteArray(final int byteCount) {
         super(byteCount);
     }
 
