@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
@@ -12,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.io.Logger;
@@ -19,21 +19,21 @@ import com.softwareverde.io.Logger;
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
 
-    protected static CryptographicOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static CryptographicOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new CryptographicOperation(opcodeByte, subType);
+        return new CryptographicOperation(opcodeByte, opcode);
     }
 
-    protected CryptographicOperation(final byte value, final SubType subType) {
-        super(value, TYPE, subType);
+    protected CryptographicOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     protected static Boolean checkSignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature) {
@@ -52,7 +52,7 @@ public class CryptographicOperation extends SubTypedOperation {
     public Boolean applyTo(final Stack stack, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
-        switch (_subType) {
+        switch (_opcode) {
             case RIPEMD_160: {
                 final Value input = stack.pop();
                 final byte[] bytes = BitcoinUtil.ripemd160(input.getBytes());
@@ -113,7 +113,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 final Boolean signatureIsValid = checkSignature(context, publicKey, scriptSignature);
 
-                if (_subType == SubType.CHECK_SIGNATURE_THEN_VERIFY) {
+                if (_opcode == Opcode.CHECK_SIGNATURE_THEN_VERIFY) {
                     if (! signatureIsValid) { return false; }
                 }
                 else {
@@ -199,7 +199,7 @@ public class CryptographicOperation extends SubTypedOperation {
                     signaturesAreValid = signaturesHaveMatchedPublicKeys;
                 }
 
-                if (_subType == SubType.CHECK_MULTISIGNATURE_THEN_VERIFY) {
+                if (_opcode == Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY) {
                     if (! signaturesAreValid) { return false; }
                 }
                 else {

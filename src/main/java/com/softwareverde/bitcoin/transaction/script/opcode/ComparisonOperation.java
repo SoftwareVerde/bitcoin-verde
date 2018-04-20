@@ -1,29 +1,29 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class ComparisonOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_COMPARISON;
 
-    protected static ComparisonOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new ComparisonOperation(opcodeByte, subType);
+        return new ComparisonOperation(opcodeByte, opcode);
     }
 
-    protected ComparisonOperation(final byte value, final SubType subType) {
-        super(value, TYPE, subType);
+    protected ComparisonOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     protected Boolean _opIsEqual(final Stack stack) {
@@ -47,7 +47,7 @@ public class ComparisonOperation extends SubTypedOperation {
     public Boolean applyTo(final Stack stack, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
-        switch (_subType) {
+        switch (_opcode) {
             case IS_EQUAL: {
                 final Boolean isEqual = _opIsEqual(stack);
                 stack.push(Value.fromBoolean(isEqual));

@@ -5,9 +5,16 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class ByteArrayReader {
-    protected final ByteArray _bytes;
-    protected int _index;
-    protected Boolean _ranOutOfBytes = false;
+
+    private static class VariableSizedInteger {
+        final long value;
+        final int bytesConsumedCount;
+
+        public VariableSizedInteger(final long value, final int byteCount) {
+            this.value = value;
+            this.bytesConsumedCount = byteCount;
+        }
+    }
 
     /**
      * Copies byteCount number of _bytes starting at index (inclusive).
@@ -32,6 +39,12 @@ public class ByteArrayReader {
         return bytes;
     }
 
+    protected byte[] _consumeBytes(final int byteCount, final Endian endian) {
+        final byte[] bytes = _readBytes(_index, byteCount, endian);
+        _index += byteCount;
+        return bytes;
+    }
+
     /**
      * Returns the byte at the specified index.
      *  If index is out of bounds, 0x00 is returned.
@@ -47,14 +60,10 @@ public class ByteArrayReader {
         }
     }
 
-    private static class VariableSizedInteger {
-        final long value;
-        final int bytesConsumedCount;
-
-        public VariableSizedInteger(final long value, final int byteCount) {
-            this.value = value;
-            this.bytesConsumedCount = byteCount;
-        }
+    protected byte _consumeByte() {
+        final byte b = _readByte(_index);
+        _index += 1;
+        return b;
     }
 
     protected VariableSizedInteger _readVariableSizedInteger(final int index) {
@@ -78,6 +87,15 @@ public class ByteArrayReader {
         return new VariableSizedInteger(value, 9);
     }
 
+    protected int _calculateRemainingByteCount() {
+        return Math.max(0, (_bytes.getByteCount() - _index));
+    }
+
+
+    protected final ByteArray _bytes;
+    protected int _index;
+    protected Boolean _ranOutOfBytes = false;
+
     public ByteArrayReader(final byte[] bytes) {
         _bytes = MutableByteArray.wrap(bytes);  // Copying the bytes is not needed here, since ByteArrayReader is merely a convenience wrapper, and any outside-change is inconsequential for this class.
         _index = 0;
@@ -88,24 +106,40 @@ public class ByteArrayReader {
         _index = 0;
     }
 
+    public Integer getPosition() {
+        return _index;
+    }
+
+    public void setPosition(final Integer index) {
+        _index = index;
+    }
+
     public Integer remainingByteCount() {
-        return Math.max(0, (_bytes.getByteCount() - _index));
+        return _calculateRemainingByteCount();
+    }
+
+    public Boolean hasBytes() {
+        return (_calculateRemainingByteCount() > 0);
     }
 
     public void skipBytes(final Integer byteCount) {
         _index += byteCount;
     }
 
+    public byte[] readBytes(final Integer byteCount) {
+        return _consumeBytes(byteCount, Endian.BIG);
+    }
+
     public byte[] readBytes(final Integer byteCount, final Endian endian) {
-        final byte[] bytes = _readBytes(_index, byteCount, endian);
-        _index += byteCount;
-        return bytes;
+        return _consumeBytes(byteCount, endian);
     }
 
     public byte readByte() {
-        final byte[] bytes = _readBytes(_index, 1, Endian.BIG);
-        _index += 1;
-        return bytes[0];
+        return _consumeByte();
+    }
+
+    public byte[] peakBytes(final Integer byteCount) {
+        return _readBytes(_index, byteCount, Endian.BIG);
     }
 
     public byte[] peakBytes(final Integer byteCount, final Endian endian) {
@@ -113,31 +147,41 @@ public class ByteArrayReader {
     }
 
     public byte peakByte() {
-        final byte[] bytes = _readBytes(_index, 1, Endian.BIG);
-        return bytes[0];
+        return _readByte(_index);
     }
 
-    public String readString(final Integer byteCount, final Endian endian) {
-        final byte[] bytes = _readBytes(_index, byteCount, endian);
-        _index += byteCount;
+    public String readString(final Integer byteCount) {
+        final byte[] bytes = _consumeBytes(byteCount, Endian.BIG);
         return new String(bytes);
     }
 
-    public Integer readInteger(final Integer byteCount, final Endian endian) {
-        final byte[] bytes = _readBytes(_index, byteCount, endian);
-        _index += byteCount;
+    public String readString(final Integer byteCount, final Endian endian) {
+        final byte[] bytes = _consumeBytes(byteCount, endian);
+        return new String(bytes);
+    }
+
+    public Integer readInteger(final Integer byteCount) {
+        final byte[] bytes = _consumeBytes(byteCount, Endian.BIG);
         return ByteUtil.bytesToInteger(bytes);
     }
 
+    public Integer readInteger(final Integer byteCount, final Endian endian) {
+        final byte[] bytes = _consumeBytes(byteCount, endian);
+        return ByteUtil.bytesToInteger(bytes);
+    }
+
+    public Long readLong(final Integer byteCount) {
+        final byte[] bytes = _consumeBytes(byteCount, Endian.BIG);
+        return ByteUtil.bytesToLong(bytes);
+    }
+
     public Long readLong(final Integer byteCount, final Endian endian) {
-        final byte[] bytes = _readBytes(_index, byteCount, endian);
-        _index += byteCount;
+        final byte[] bytes = _consumeBytes(byteCount, endian);
         return ByteUtil.bytesToLong(bytes);
     }
 
     public Boolean readBoolean() {
-        final byte value = _readByte(_index);
-        _index += 1;
+        final byte value = _consumeByte();
         return (value != 0x00);
     }
 
@@ -153,8 +197,7 @@ public class ByteArrayReader {
 
         if (stringByteCount.value > Integer.MAX_VALUE) { return ""; }
 
-        final byte[] stringBytes = _readBytes(_index, (int) stringByteCount.value, Endian.BIG);
-        _index += stringByteCount.value;
+        final byte[] stringBytes = _consumeBytes((int) stringByteCount.value, Endian.BIG);
 
         return new String(stringBytes);
     }

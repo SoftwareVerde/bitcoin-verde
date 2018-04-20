@@ -5,38 +5,36 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.io.Logger;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class LockTimeOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_LOCK_TIME;
 
-    protected static LockTimeOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static LockTimeOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new LockTimeOperation(opcodeByte, subType);
+        return new LockTimeOperation(opcodeByte, opcode);
     }
 
-    protected LockTimeOperation(final byte value, final SubType subType) {
-        super(value, TYPE, subType);
+    protected LockTimeOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     @Override
     public Boolean applyTo(final Stack stack, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
-        switch (_subType) {
+        switch (_opcode) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
                 final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
                 if (! operationIsEnabled) {

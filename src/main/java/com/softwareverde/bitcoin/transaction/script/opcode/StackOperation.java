@@ -1,43 +1,42 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.io.Logger;
 
 public class StackOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STACK;
 
-    protected static StackOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static StackOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new StackOperation(opcodeByte, subType);
+        return new StackOperation(opcodeByte, opcode);
     }
 
-    protected StackOperation(final byte value, final SubType subType) {
-        super(value, TYPE, subType);
+    protected StackOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     @Override
     public Boolean applyTo(final Stack stack, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
-        switch (_subType) {
+        switch (_opcode) {
             case POP_TO_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
+                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
                 return false;
             }
             case POP_FROM_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _subType);
+                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
                 return false;
             }
             case IF_1ST_TRUE_THEN_COPY_1ST: {

@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class TransactionInputDeflater {
     private void _toFragmentedBytes(final TransactionInput transactionInput, final ByteArrayBuilder headBytes, final ByteArrayBuilder tailBytes) {
@@ -14,11 +15,11 @@ public class TransactionInputDeflater {
         final byte[] indexBytes = new byte[4];
         ByteUtil.setBytes(indexBytes, ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()));
 
-        final byte[] unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
+        final ByteArray unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
 
         headBytes.appendBytes(transactionInput.getPreviousOutputTransactionHash().getBytes(), Endian.LITTLE);
         headBytes.appendBytes(indexBytes, Endian.LITTLE);
-        headBytes.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.length), Endian.BIG);
+        headBytes.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.getByteCount()), Endian.BIG);
         headBytes.appendBytes(unlockingScriptBytes, Endian.BIG);
 
         tailBytes.appendBytes(sequenceBytes, Endian.LITTLE);

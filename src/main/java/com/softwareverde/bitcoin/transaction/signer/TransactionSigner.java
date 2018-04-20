@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -64,7 +63,7 @@ public class TransactionSigner {
 
                     final MutableScript mutableLockingScript = new MutableScript(lockingScript);
                     mutableLockingScript.subScript(subscriptIndex);
-                    mutableLockingScript.removeOperations(Operation.SubType.CODE_SEPARATOR);
+                    mutableLockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
                     unlockingScript = UnlockingScript.castFrom(mutableLockingScript);
 
                     Logger.log(unlockingScript);

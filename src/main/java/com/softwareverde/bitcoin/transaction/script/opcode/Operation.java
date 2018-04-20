@@ -3,18 +3,19 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.Const;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.softwareverde.bitcoin.transaction.script.opcode.Operation.SubType.*;
+import static com.softwareverde.bitcoin.transaction.script.opcode.Operation.Opcode.*;
 
-public abstract class Operation {
+public abstract class Operation implements Const {
     public static class ScriptOperationExecutionException extends Exception { }
 
-    public enum SubType {
+    public enum Opcode {
         // VALUE
         PUSH_NEGATIVE_ONE                   (0x4F),
         PUSH_ZERO                           (0x00),
@@ -131,25 +132,25 @@ public abstract class Operation {
         private final int _minValue;
         private final int _maxValue;
 
-        SubType(final int base) {
+        Opcode(final int base) {
             _minValue = base;
             _maxValue = base;
             _isEnabled = true;
         }
 
-        SubType(final int base, final boolean isEnabled) {
+        Opcode(final int base, final boolean isEnabled) {
             _minValue = base;
             _maxValue = base;
             _isEnabled = isEnabled;
         }
 
-        SubType(final int minValue, final int maxValue) {
+        Opcode(final int minValue, final int maxValue) {
             _minValue = minValue;
             _maxValue = maxValue;
             _isEnabled = true;
         }
 
-        SubType(final int minValue, final int maxValue, final boolean isEnabled) {
+        Opcode(final int minValue, final int maxValue, final boolean isEnabled) {
             _minValue = minValue;
             _maxValue = maxValue;
             _isEnabled = isEnabled;
@@ -182,29 +183,29 @@ public abstract class Operation {
 
         public static Type getType(final byte typeByte) {
             for (final Type type : Type.values()) {
-                for (final SubType subType : type._subTypes) {
-                    if (subType.matchesByte(typeByte)) { return type; }
+                for (final Opcode opcode : type._opcodes) {
+                    if (opcode.matchesByte(typeByte)) { return type; }
                 }
             }
             return null;
         }
 
-        private final SubType[] _subTypes;
-        Type(final SubType... subTypes) {
-            _subTypes = Util.copyArray(subTypes);
+        private final Opcode[] _opcodes;
+        Type(final Opcode... opcodes) {
+            _opcodes = Util.copyArray(opcodes);
         }
 
-        public List<SubType> getSubtypes() {
-            final List<SubType> subTypes = new ArrayList<SubType>();
-            for (final SubType subType : _subTypes) {
-                subTypes.add(subType);
+        public List<Opcode> getSubtypes() {
+            final List<Opcode> opcodes = new ArrayList<Opcode>();
+            for (final Opcode opcode : _opcodes) {
+                opcodes.add(opcode);
             }
-            return subTypes;
+            return opcodes;
         }
 
-        public SubType getSubtype(final byte b) {
-            for (final SubType subType : _subTypes) {
-                if (subType.matchesByte(b)) { return subType; }
+        public Opcode getSubtype(final byte b) {
+            for (final Opcode opcode : _opcodes) {
+                if (opcode.matchesByte(b)) { return opcode; }
             }
             return null;
         }

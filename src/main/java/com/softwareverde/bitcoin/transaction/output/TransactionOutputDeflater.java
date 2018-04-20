@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class TransactionOutputDeflater {
     public Integer getByteCount(final TransactionOutput transactionOutput) {
@@ -25,11 +26,11 @@ public class TransactionOutputDeflater {
         final byte[] valueBytes = new byte[8];
         ByteUtil.setBytes(valueBytes, ByteUtil.longToBytes(transactionOutput.getAmount()));
 
-        final byte[] lockingScriptBytes = transactionOutput.getLockingScript().getBytes();
+        final ByteArray lockingScriptBytes = transactionOutput.getLockingScript().getBytes();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(valueBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.length), Endian.BIG);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.getByteCount()), Endian.BIG);
         byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
 
         return byteArrayBuilder.build();

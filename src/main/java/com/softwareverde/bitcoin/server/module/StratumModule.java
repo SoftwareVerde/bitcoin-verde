@@ -94,7 +94,8 @@ public class StratumModule {
             {
                 final MutableTransaction mutableTransaction = new MutableTransaction(block.getCoinbaseTransaction());
                 final TransactionInput transactionInput = mutableTransaction.getTransactionInputs().get(0);
-                final TransactionInput newTransactionInput = TransactionInput.createCoinbaseTransactionInputWithExtraNonce(StringUtil.bytesToString(transactionInput.getUnlockingScript().getBytes()), extraNonceByteCount);
+                final ByteArray unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
+                final TransactionInput newTransactionInput = TransactionInput.createCoinbaseTransactionInputWithExtraNonce(StringUtil.bytesToString(unlockingScriptBytes.getBytes()), extraNonceByteCount);
                 mutableTransaction.setTransactionInput(0, newTransactionInput);
                 coinbaseTransaction = mutableTransaction;
             }
