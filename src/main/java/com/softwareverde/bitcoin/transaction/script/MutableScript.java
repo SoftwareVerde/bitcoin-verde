@@ -91,12 +91,12 @@ public class MutableScript implements Script {
     @Override
     public String toString() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toString(this);
+        return scriptDeflater.toBytes(this).toString();
     }
 
     @Override
     public int hashCode() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toString(this).hashCode();
+        return scriptDeflater.toBytes(this).hashCode();
     }
 }

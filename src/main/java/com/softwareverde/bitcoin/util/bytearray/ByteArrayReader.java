@@ -16,6 +16,25 @@ public class ByteArrayReader {
         }
     }
 
+    protected final ByteArray _bytes;
+    protected int _index;
+    protected Boolean _ranOutOfBytes = false;
+
+    /**
+     * Returns the byte at the specified index.
+     *  If index is out of bounds, 0x00 is returned.
+     *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
+     */
+    protected byte _getByte(final int index) {
+        if (index < _bytes.getByteCount()) {
+            return _bytes.getByte(index);
+        }
+        else {
+            _ranOutOfBytes = true;
+            return (byte) 0x00;
+        }
+    }
+
     /**
      * Copies byteCount number of _bytes starting at index (inclusive).
      *  If the end of _bytes is reached before byteCount is reached, the buffer is filled with 0x00.
@@ -23,7 +42,7 @@ public class ByteArrayReader {
      *  Bytes are transferred to the buffer in reverse order by Endian.LITTLE is specified.
      *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
      */
-    protected byte[] _readBytes(final int index, final int byteCount, final Endian endian) {
+    protected byte[] _getBytes(final int index, final int byteCount, final Endian endian) {
         final byte[] bytes = new byte[byteCount];
         for (int i=0; i<byteCount; ++i) {
             final int writeIndex = (endian == Endian.BIG) ? (i) : ((byteCount - i) - 1);
@@ -40,61 +59,41 @@ public class ByteArrayReader {
     }
 
     protected byte[] _consumeBytes(final int byteCount, final Endian endian) {
-        final byte[] bytes = _readBytes(_index, byteCount, endian);
+        final byte[] bytes = _getBytes(_index, byteCount, endian);
         _index += byteCount;
         return bytes;
     }
 
-    /**
-     * Returns the byte at the specified index.
-     *  If index is out of bounds, 0x00 is returned.
-     *  Reading past the end of _bytes will set the _ranOutOfBytes flag.
-     */
-    protected byte _readByte(final int index) {
-        if (index < _bytes.getByteCount()) {
-            return _bytes.getByte(index);
-        }
-        else {
-            _ranOutOfBytes = true;
-            return (byte) 0x00;
-        }
-    }
-
     protected byte _consumeByte() {
-        final byte b = _readByte(_index);
+        final byte b = _getByte(_index);
         _index += 1;
         return b;
     }
 
-    protected VariableSizedInteger _readVariableSizedInteger(final int index) {
-        final int prefix = ByteUtil.byteToInteger(_readByte(index));
+    protected VariableSizedInteger _peakVariableSizedInteger(final int index) {
+        final int prefix = ByteUtil.byteToInteger(_getByte(index));
 
         if (prefix < 0xFD) {
             return new VariableSizedInteger(prefix, 1);
         }
 
         if (prefix < 0xFE) {
-            final long value = ByteUtil.bytesToLong(_readBytes(index+1, 2, Endian.LITTLE));
+            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 2, Endian.LITTLE));
             return new VariableSizedInteger(value, 3);
         }
 
         if (prefix < 0xFF) {
-            final long value = ByteUtil.bytesToLong(_readBytes(index+1, 4, Endian.LITTLE));
+            final long value = ByteUtil.bytesToLong(_getBytes(index+1, 4, Endian.LITTLE));
             return new VariableSizedInteger(value, 5);
         }
 
-        final long value = ByteUtil.bytesToLong(_readBytes(index+1, 8, Endian.LITTLE));
+        final long value = ByteUtil.bytesToLong(_getBytes(index+1, 8, Endian.LITTLE));
         return new VariableSizedInteger(value, 9);
     }
 
     protected int _calculateRemainingByteCount() {
         return Math.max(0, (_bytes.getByteCount() - _index));
     }
-
-
-    protected final ByteArray _bytes;
-    protected int _index;
-    protected Boolean _ranOutOfBytes = false;
 
     public ByteArrayReader(final byte[] bytes) {
         _bytes = MutableByteArray.wrap(bytes);  // Copying the bytes is not needed here, since ByteArrayReader is merely a convenience wrapper, and any outside-change is inconsequential for this class.
@@ -126,28 +125,28 @@ public class ByteArrayReader {
         _index += byteCount;
     }
 
-    public byte[] readBytes(final Integer byteCount) {
-        return _consumeBytes(byteCount, Endian.BIG);
+    public byte peakByte() {
+        return _getByte(_index);
     }
 
-    public byte[] readBytes(final Integer byteCount, final Endian endian) {
-        return _consumeBytes(byteCount, endian);
+    public byte[] peakBytes(final Integer byteCount) {
+        return _getBytes(_index, byteCount, Endian.BIG);
+    }
+
+    public byte[] peakBytes(final Integer byteCount, final Endian endian) {
+        return _getBytes(_index, byteCount, endian);
     }
 
     public byte readByte() {
         return _consumeByte();
     }
 
-    public byte[] peakBytes(final Integer byteCount) {
-        return _readBytes(_index, byteCount, Endian.BIG);
+    public byte[] readBytes(final Integer byteCount) {
+        return _consumeBytes(byteCount, Endian.BIG);
     }
 
-    public byte[] peakBytes(final Integer byteCount, final Endian endian) {
-        return _readBytes(_index, byteCount, endian);
-    }
-
-    public byte peakByte() {
-        return _readByte(_index);
+    public byte[] readBytes(final Integer byteCount, final Endian endian) {
+        return _consumeBytes(byteCount, endian);
     }
 
     public String readString(final Integer byteCount) {
@@ -186,13 +185,13 @@ public class ByteArrayReader {
     }
 
     public Long readVariableSizedInteger() {
-        final VariableSizedInteger variableSizedInteger = _readVariableSizedInteger(_index);
+        final VariableSizedInteger variableSizedInteger = _peakVariableSizedInteger(_index);
         _index += variableSizedInteger.bytesConsumedCount;
         return variableSizedInteger.value;
     }
 
     public String readVariableLengthString() {
-        final VariableSizedInteger stringByteCount = _readVariableSizedInteger(_index);
+        final VariableSizedInteger stringByteCount = _peakVariableSizedInteger(_index);
         _index += stringByteCount.bytesConsumedCount;
 
         if (stringByteCount.value > Integer.MAX_VALUE) { return ""; }

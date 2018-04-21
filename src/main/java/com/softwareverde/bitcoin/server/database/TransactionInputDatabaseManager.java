@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -34,12 +35,13 @@ public class TransactionInputDatabaseManager {
 
     protected void _updateTransactionInput(final TransactionInputId transactionInputId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
+        final ByteArray unlockingScript = transactionInput.getUnlockingScript().getBytes();
 
         _databaseConnection.executeSql(
             new Query("UPDATE transaction_inputs SET transaction_id = ?, previous_transaction_output_id = ?, unlocking_script = ?, sequence_number = ? WHERE id = ?")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getUnlockingScript().getBytes())
+                .setParameter(unlockingScript.getBytes())
                 .setParameter(transactionInput.getSequenceNumber())
                 .setParameter(transactionInputId)
         );
@@ -47,12 +49,13 @@ public class TransactionInputDatabaseManager {
 
     protected TransactionInputId _insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
+        final ByteArray unlockingScript = transactionInput.getUnlockingScript().getBytes();
 
         return TransactionInputId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, unlocking_script, sequence_number) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
-                .setParameter(transactionInput.getUnlockingScript().getBytes())
+                .setParameter(unlockingScript.getBytes())
                 .setParameter(transactionInput.getSequenceNumber())
         ));
     }

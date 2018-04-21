@@ -20,7 +20,7 @@ public class ScriptInflater {
             final Operation opcode = operationInflater.fromBytes(byteArrayReader);
             if (opcode == null) {
                 byteArrayReader.setPosition(scriptPosition);
-                Logger.log("NOTICE: Unknown opcode. 0x"+ HexUtil.toHexString(new byte[] { byteArrayReader.peakByte() }));
+                Logger.log("NOTICE: Unable to inflate opcode. 0x"+ HexUtil.toHexString(new byte[] { byteArrayReader.peakByte() }));
                 return null;
             }
 

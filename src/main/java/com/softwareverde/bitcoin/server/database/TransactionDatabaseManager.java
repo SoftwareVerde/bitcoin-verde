@@ -107,7 +107,7 @@ public class TransactionDatabaseManager {
         final LockTime lockTime = transaction.getLockTime();
         return TransactionId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, block_id, version, has_witness_data, lock_time) VALUES (?, ?, ?, ?, ?)")
-                .setParameter(HexUtil.toHexString(transaction.getHash().getBytes()))
+                .setParameter(transaction.getHash())
                 .setParameter(blockId)
                 .setParameter(transaction.getVersion())
                 .setParameter((transaction.hasWitnessData() ? 1 : 0))

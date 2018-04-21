@@ -72,13 +72,11 @@ public class ImmutableScript implements Script, Const {
 
     @Override
     public String toString() {
-        final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toString(this);
+        return _bytes.toString();
     }
 
     @Override
     public int hashCode() {
-        final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toString(this).hashCode();
+        return _bytes.hashCode();
     }
 }
