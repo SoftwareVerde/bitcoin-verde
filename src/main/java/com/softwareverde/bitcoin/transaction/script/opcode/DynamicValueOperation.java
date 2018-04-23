@@ -1,36 +1,35 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
-public class DynamicValueOperation extends Operation {
+public class DynamicValueOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
 
-    protected static DynamicValueOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static DynamicValueOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new DynamicValueOperation(opcodeByte, subType);
+        return new DynamicValueOperation(opcodeByte, opcode);
     }
 
-    protected final SubType _subType;
-
-    protected DynamicValueOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+    protected DynamicValueOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final Context context) {
-        switch (_subType) {
+    public Boolean applyTo(final Stack stack, final MutableContext context) {
+        context.incrementCurrentLockingScriptIndex();
+
+        switch (_opcode) {
             case PUSH_STACK_SIZE: {
                 stack.push(Value.fromInteger(stack.getSize()));
                 return true;
@@ -86,16 +85,5 @@ public class DynamicValueOperation extends Operation {
 
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof DynamicValueOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final DynamicValueOperation operation = (DynamicValueOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }

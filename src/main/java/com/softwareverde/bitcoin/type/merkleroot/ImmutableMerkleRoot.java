@@ -4,12 +4,16 @@ import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.constable.Const;
 
 public class ImmutableMerkleRoot extends ImmutableHash implements MerkleRoot, Const {
+    public static ImmutableMerkleRoot copyOf(final byte[] bytes) {
+        if (bytes.length != SHA_256_BYTE_COUNT) { return null; }
+        return new ImmutableMerkleRoot(bytes);
+    }
 
     public ImmutableMerkleRoot() {
         super();
     }
 
-    public ImmutableMerkleRoot(final byte[] bytes) {
+    protected ImmutableMerkleRoot(final byte[] bytes) {
         super(bytes);
     }
 

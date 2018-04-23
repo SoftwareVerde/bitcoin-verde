@@ -1,8 +1,9 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
 import com.softwareverde.constable.Constable;
+import com.softwareverde.json.Jsonable;
 
-public interface LockTime extends Constable<ImmutableLockTime> {
+public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
     Long MAX_BLOCK_HEIGHT_VALUE = 500_000_000L;
     Long MAX_TIMESTAMP_VALUE = 0xFFFFFFFFL;
     Long MIN_TIMESTAMP_VALUE = 0x00000000L;

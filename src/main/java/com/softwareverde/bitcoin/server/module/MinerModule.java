@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -15,11 +14,11 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class MinerModule {
     public static void execute(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
@@ -50,8 +49,9 @@ public class MinerModule {
     public void run() {
         try {
             final Hash previousBlockHash = MutableHash.fromHexString(_previousBlockHashString);
+            final AddressInflater addressInflater = new AddressInflater();
 
-            final Address address = Address.fromBase58Check(_base58CheckAddress);
+            final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
             if (address == null) {
                 _printError("Invalid Bitcoin Address: "+ _base58CheckAddress);
                 _exitFailure();
@@ -84,7 +84,7 @@ public class MinerModule {
                 prototypeBlock.setPreviousBlockHash(previousBlockHash);
                 prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                 prototypeBlock.setNonce(0L);
-                prototypeBlock.setDifficulty(new ImmutableDifficulty(ByteUtil.integerToBytes(Difficulty.BASE_DIFFICULTY_SIGNIFICAND), Difficulty.BASE_DIFFICULTY_EXPONENT));
+                prototypeBlock.setDifficulty(Difficulty.BASE_DIFFICULTY);
                 prototypeBlock.addTransaction(coinbaseTransaction);
             }
 
@@ -93,7 +93,7 @@ public class MinerModule {
 
             final BlockDeflater blockDeflater = new BlockDeflater();
             Logger.log(block.getHash());
-            Logger.log(BitcoinUtil.toHexString(blockDeflater.toBytes(block)));
+            Logger.log(HexUtil.toHexString(blockDeflater.toBytes(block).getBytes()));
         }
         catch (final Exception exception) {
             exception.printStackTrace();

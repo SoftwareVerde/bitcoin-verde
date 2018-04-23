@@ -1,15 +1,11 @@
 package com.softwareverde.bitcoin.type.address;
 
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.key.PublicKey;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-
 public class CompressedAddress extends Address {
-    public static CompressedAddress fromPrivateKey(final PrivateKey privateKey) {
-        final PublicKey compressedPublicKeyPoint = privateKey.getCompressedPublicKey();
+    public static final byte PREFIX = (byte) 0x00;
 
-        final byte[] rawBitcoinAddress = BitcoinUtil.ripemd160(BitcoinUtil.sha256(compressedPublicKeyPoint.getBytes()));
-        return new CompressedAddress(rawBitcoinAddress);
+    @Override
+    public byte _getPrefix() {
+        return PREFIX;
     }
 
     protected CompressedAddress(final byte[] bytes) {

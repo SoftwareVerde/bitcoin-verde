@@ -3,17 +3,18 @@ package com.softwareverde.bitcoin.block.merkleroot;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.io.Logger;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
-public class MerkleTreeNode implements MerkleTree {
+public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
         @Override
         protected byte[] initialValue() {
-            return new byte[Hash.BYTE_COUNT * 2];
+            return new byte[Hash.SHA_256_BYTE_COUNT * 2];
         }
     };
 
@@ -21,7 +22,7 @@ public class MerkleTreeNode implements MerkleTree {
         final byte[] scratchSpace = _threadLocalScratchSpace.get();
 
         ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian().getBytes());
-        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.BYTE_COUNT);
+        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.SHA_256_BYTE_COUNT);
 
         return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
     }
@@ -29,19 +30,50 @@ public class MerkleTreeNode implements MerkleTree {
     protected Boolean _hashIsValid = false;
     protected final MutableHash _hash = new MutableHash();
 
-    protected int _size = 0;
+    protected int _itemCount = 0; // NOTE: _itemCount is the total number of items, which excludes intermediary hashes.
 
-    protected Hashable _item0 = null;
-    protected Hashable _item1 = null;
+    protected T _item0 = null;
+    protected T _item1 = null;
 
-    protected MerkleTreeNode _childNode0 = null;
-    protected MerkleTreeNode _childNode1 = null;
+    protected MerkleTreeNode<T> _childNode0 = null;
+    protected MerkleTreeNode<T> _childNode1 = null;
+
+    protected void _collectPartialHashes(final ImmutableListBuilder<Hash> listBuilder) {
+        if (_itemCount == 0) { return; }
+        else if (_item0 != null) {
+            if (_item1 != null) {
+                listBuilder.add(_item1.getHash());
+            }
+        }
+        else {
+            if ( (_childNode1 != null) && (! _childNode1.isEmpty()) ) {
+                listBuilder.add(new ImmutableHash(_childNode1._getIntermediaryHash()));
+            }
+        }
+    }
+
+    protected void _getPartialTree(final int index, final ImmutableListBuilder<Hash> partialTreeBuilder) {
+        if ( (_item0 != null) || (_item1 != null) ) {
+            // Nothing.
+        }
+        else {
+            final int childNode0ItemCount = _childNode0.getItemCount();
+            if (index < childNode0ItemCount) {
+                _childNode0._getPartialTree(index, partialTreeBuilder);
+            }
+            else {
+                _childNode1._getPartialTree((index - childNode0ItemCount), partialTreeBuilder);
+            }
+        }
+
+        _collectPartialHashes(partialTreeBuilder);
+    }
 
     protected void _recalculateHash() {
         final Hash hash0;
         final Hash hash1;
         {
-            if (_size == 0) {
+            if (_itemCount == 0) {
                 hash0 = new ImmutableHash();
                 hash1 = hash0;
             }
@@ -59,22 +91,22 @@ public class MerkleTreeNode implements MerkleTree {
         _hashIsValid = true;
     }
 
-    protected MerkleTreeNode(final MerkleTreeNode childNode0, final MerkleTreeNode childNode1) {
+    protected MerkleTreeNode(final MerkleTreeNode<T> childNode0, final MerkleTreeNode<T> childNode1) {
         _childNode0 = childNode0;
         _childNode1 = childNode1;
 
-        _size += (childNode0 == null ? 0 : childNode0.getSize());
-        _size += (childNode1 == null ? 0 : childNode1.getSize());
+        _itemCount += (childNode0 == null ? 0 : childNode0.getItemCount());
+        _itemCount += (childNode1 == null ? 0 : childNode1.getItemCount());
 
         _hashIsValid = false;
     }
 
-    protected MerkleTreeNode(final Hashable item0, final Hashable item1) {
+    protected MerkleTreeNode(final T item0, final T item1) {
         _item0 = item0;
         _item1 = item1;
 
-        _size += (item0 == null ? 0 : 1);
-        _size += (item1 == null ? 0 : 1);
+        _itemCount += (item0 == null ? 0 : 1);
+        _itemCount += (item1 == null ? 0 : 1);
 
         _hashIsValid = false;
     }
@@ -84,20 +116,20 @@ public class MerkleTreeNode implements MerkleTree {
             return (_item1 != null);
         }
         else if (_childNode0 != null) {
-            final int childNode1Size = ((_childNode1 == null) ? 0 : _childNode1.getSize());
-            return (_childNode0.getSize() == childNode1Size);
+            final int childNode1Size = ((_childNode1 == null) ? 0 : _childNode1.getItemCount());
+            return (_childNode0.getItemCount() == childNode1Size);
         }
         return true; // Is empty...
     }
 
-    protected MerkleTreeNode _createChildNodeOfEqualDepth(final Hashable item) {
-        final int depth = BitcoinUtil.log2(_size) - 1;
+    protected MerkleTreeNode<T> _createChildNodeOfEqualDepth(final T item) {
+        final int depth = BitcoinUtil.log2(_itemCount) - 1;
 
-        final MerkleTreeNode nodeOfEqualDepthToChildNode0;
+        final MerkleTreeNode<T> nodeOfEqualDepthToChildNode0;
         {
-            MerkleTreeNode merkleTreeNode = new MerkleTreeNode(item, null);
+            MerkleTreeNode<T> merkleTreeNode = new MerkleTreeNode<T>(item, null);
             for (int i = 0; i < depth; ++i) {
-                merkleTreeNode = new MerkleTreeNode(merkleTreeNode, null);
+                merkleTreeNode = new MerkleTreeNode<T>(merkleTreeNode, null);
             }
             nodeOfEqualDepthToChildNode0 = merkleTreeNode;
         }
@@ -113,20 +145,40 @@ public class MerkleTreeNode implements MerkleTree {
         return _hash;
     }
 
+    protected int _calculateItemCount() {
+        int itemCount = 0;
+        itemCount += (_item0 != null ? 1 : 0);
+        itemCount += (_item1 != null ? 1 : 0);
+        itemCount += (_childNode0 != null ? _childNode0._calculateItemCount() : 0);
+        itemCount += (_childNode1 != null ? _childNode1._calculateItemCount() : 0);
+        return itemCount;
+    }
+
+    private void _addItemsTo(final ImmutableListBuilder<T> immutableListBuilder) {
+        if (_item0 != null) {
+            immutableListBuilder.add(_item0);
+
+            if (_item1 != null) {
+                immutableListBuilder.add(_item1);
+            }
+        }
+        else {
+            if (_childNode0 != null) {
+                _childNode0._addItemsTo(immutableListBuilder);
+
+                if (_childNode1 != null) {
+                    _childNode1._addItemsTo(immutableListBuilder);
+                }
+            }
+        }
+    }
+
     public MerkleTreeNode() {
         _hashIsValid = false;
     }
 
-    public int getSize() {
-        return _size;
-    }
-
-    public boolean isEmpty() {
-        return (_size == 0);
-    }
-
     public void clear() {
-        _size = 0;
+        _itemCount = 0;
         _hashIsValid = false;
         _item0 = null;
         _item1 = null;
@@ -135,8 +187,8 @@ public class MerkleTreeNode implements MerkleTree {
     }
 
     @Override
-    public void addItem(final Hashable item) {
-        if (_size == 0) {
+    public void addItem(final T item) {
+        if (_itemCount == 0) {
             _item0 = item;
         }
         else if (_item0 != null) {
@@ -144,8 +196,8 @@ public class MerkleTreeNode implements MerkleTree {
                 _item1 = item;
             }
             else {
-                _childNode0 = new MerkleTreeNode(_item0, _item1);
-                _childNode1 = new MerkleTreeNode(item, null);
+                _childNode0 = new MerkleTreeNode<T>(_item0, _item1);
+                _childNode1 = new MerkleTreeNode<T>(item, null);
 
                 _item0 = null;
                 _item1 = null;
@@ -153,8 +205,7 @@ public class MerkleTreeNode implements MerkleTree {
         }
         else {
             if (_isBalanced()) {
-                final MerkleTreeNode newMerkleTreeNode = new MerkleTreeNode(_childNode0, _childNode1);
-                _childNode0 = newMerkleTreeNode;
+                _childNode0 = new MerkleTreeNode<T>(_childNode0, _childNode1);
                 _childNode1 = _createChildNodeOfEqualDepth(item);
             }
             else {
@@ -172,13 +223,53 @@ public class MerkleTreeNode implements MerkleTree {
             }
         }
 
-        _size += 1;
+        _itemCount += 1;
         _hashIsValid = false;
     }
 
     @Override
+    public List<T> getItems() {
+        final ImmutableListBuilder<T> immutableListBuilder = new ImmutableListBuilder<T>(_itemCount);
+        _addItemsTo(immutableListBuilder);
+        return immutableListBuilder.build();
+    }
+
+    @Override
+    public void replaceItem(final int index, final T item) {
+        if ( (_item0 != null) || (_item1 != null) ) {
+            if (index == 0) {
+                _item0 = item;
+            }
+            else if (index == 1) {
+                _item1 = item;
+            }
+        }
+        else {
+            final int childNode0ItemCount = _childNode0.getItemCount();
+            if (index < childNode0ItemCount) {
+                _childNode0.replaceItem(index, item);
+            }
+            else {
+                _childNode1.replaceItem((index - childNode0ItemCount), item);
+            }
+        }
+
+        _hashIsValid = false;
+    }
+
+    @Override
+    public int getItemCount() {
+        return _itemCount;
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return (_itemCount == 0);
+    }
+
+    @Override
     public MerkleRoot getMerkleRoot() {
-        if ((_size == 1) && (_item0 != null)) {
+        if ((_itemCount == 1) && (_item0 != null)) {
             if (! _hashIsValid) {
                 _hash.setBytes(_item0.getHash().getBytes());
                 _hashIsValid = true;
@@ -190,6 +281,13 @@ public class MerkleTreeNode implements MerkleTree {
             }
         }
 
-        return new ImmutableMerkleRoot(_hash.getBytes());
+        return MutableMerkleRoot.wrap(_hash.getBytes());
+    }
+
+    @Override
+    public List<Hash> getPartialTree(final int index) {
+        final ImmutableListBuilder<Hash> partialTreeBuilder = new ImmutableListBuilder<Hash>();
+        _getPartialTree(index, partialTreeBuilder);
+        return partialTreeBuilder.build();
     }
 }

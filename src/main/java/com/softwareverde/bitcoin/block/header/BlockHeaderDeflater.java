@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
 public class BlockHeaderDeflater {
-    protected static class BlockHeaderByteData {
+    public static class BlockHeaderByteData {
         public final byte[] version = new byte[4];
         public final byte[] previousBlockHash = new byte[32];
         public final byte[] merkleRoot = new byte[32];
@@ -54,7 +54,10 @@ public class BlockHeaderDeflater {
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
-        final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return byteArrayBuilder;
+        return _serializeByteData(blockHeaderByteData);
+    }
+
+    public BlockHeaderByteData toByteData( final BlockHeader blockHeader) {
+        return _createByteData(blockHeader);
     }
 }

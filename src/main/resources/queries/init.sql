@@ -17,6 +17,7 @@ CREATE TABLE blocks (
     nonce bigint unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
+    UNIQUE KEY block_hash_uq2 (block_chain_segment_id, block_height),
     FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
     INDEX block_timestamp_ix (timestamp) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
@@ -53,7 +54,7 @@ CREATE TABLE transactions (
     has_witness_data tinyint(1) NOT NULL,
     lock_time bigint unsigned NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_hash_uq (block_id, hash),
+    UNIQUE KEY transaction_hash_uq (hash, block_id),
     FOREIGN KEY transaction_block_id_ix (block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8;
 

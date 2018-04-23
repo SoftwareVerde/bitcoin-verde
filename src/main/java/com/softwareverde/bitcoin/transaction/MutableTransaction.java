@@ -1,12 +1,8 @@
 package com.softwareverde.bitcoin.transaction;
 
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.transaction.input.ImmutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
@@ -15,9 +11,10 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.json.Json;
 
 public class MutableTransaction implements Transaction {
-    protected Integer _version = BlockHeader.VERSION;
+    protected Integer _version = Transaction.VERSION;
     protected Boolean _hasWitnessData = false;
     protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
     protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
@@ -26,7 +23,7 @@ public class MutableTransaction implements Transaction {
     /**
      * NOTE: Math with Satoshis
      *  The maximum number of satoshis is 210,000,000,000,000, which is less than the value a Java Long can hold.
-     *  Therefore, using BigInteger is not be necessary any transaction calculation.
+     *  Therefore, using BigInteger is not be necessary any non-multiplicative transaction calculation.
      */
 
     public MutableTransaction() { }
@@ -51,7 +48,7 @@ public class MutableTransaction implements Transaction {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(this);
         final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
-        return new MutableHash(ByteUtil.reverseEndian(doubleSha256));
+        return MutableHash.wrap(ByteUtil.reverseEndian(doubleSha256));
     }
 
     @Override
@@ -106,5 +103,29 @@ public class MutableTransaction implements Transaction {
     @Override
     public ImmutableTransaction asConst() {
         return new ImmutableTransaction(this);
+    }
+
+    @Override
+    public Json toJson() {
+        final Json json = new Json();
+        json.put("version", Transaction.VERSION);
+        json.put("hasWitnessData", _hasWitnessData);
+
+        final Json inputsJson = new Json();
+        for (final TransactionInput transactionInput : _transactionInputs) {
+            inputsJson.add(transactionInput);
+        }
+        json.put("inputs", inputsJson);
+
+
+        final Json outputsJson = new Json();
+        for (final TransactionOutput transactionOutput : _transactionOutputs) {
+            outputsJson.add(transactionOutput);
+        }
+        json.put("outputs", outputsJson);
+
+        json.put("locktime", _lockTime);
+
+        return json;
     }
 }

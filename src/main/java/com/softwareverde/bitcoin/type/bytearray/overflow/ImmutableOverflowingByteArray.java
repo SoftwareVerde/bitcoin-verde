@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.type.bytearray.overflow;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
 
 public class ImmutableOverflowingByteArray extends ImmutableByteArray implements Const {
     public ImmutableOverflowingByteArray(final byte[] bytes) {

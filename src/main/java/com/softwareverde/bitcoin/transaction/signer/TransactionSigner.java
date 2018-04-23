@@ -9,9 +9,13 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -19,6 +23,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.io.Logger;
 
 public class TransactionSigner {
 
@@ -47,16 +52,35 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            final Script unlockingScript;
+            final UnlockingScript unlockingScriptForSigning;
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                unlockingScript = transactionOutputBeingSpent.getLockingScript();
+                final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+
+                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
+                if (subscriptIndex > 0) {
+                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
+
+                    // NOTE: Unsure if the LockingScript should receive the same treatment if it has a CodeSeparator.
+                    // final MutableScript mutableScript = new MutableScript(signatureContext.getCurrentScript()); //  // TODO: Determine if CodeSeparators are valid in UnlockingScripts...
+
+                    final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+                    final MutableScript mutableScript = new MutableScript(unlockingScript);
+
+                    mutableScript.subScript(subscriptIndex);
+                    mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+                    // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
+                    unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
+                }
+                else {
+                    unlockingScriptForSigning = UnlockingScript.castFrom(lockingScript);
+                }
             }
             else {
-                unlockingScript = Script.EMPTY_SCRIPT;
+                unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
             }
-            mutableTransactionInput.setUnlockingScript(unlockingScript);
+            mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
             mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
@@ -82,6 +106,8 @@ public class TransactionSigner {
     }
 
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+        // NOTE: ensure signatureContext has its lastCodeSeparatorIndex set.
+
         final MutableTransaction mutableTransaction = new MutableTransaction(signatureContext.getTransaction());
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
         final Signature signature = Secp256k1.sign(privateKey.getBytes(), bytesToSign);

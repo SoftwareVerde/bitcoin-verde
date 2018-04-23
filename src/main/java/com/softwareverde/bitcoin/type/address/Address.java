@@ -1,17 +1,15 @@
 package com.softwareverde.bitcoin.type.address;
 
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.util.ByteUtil;
 
 public class Address extends ImmutableByteArray {
-    public static final Byte PREFIX = 0x00;
-    protected static final Integer prefixByteCount = 1;
-    protected static final Integer checksumByteCount = 4;
+    public static final byte PREFIX = 0x00;
+
+    protected static final Integer PREFIX_BYTE_COUNT = 1;
+    protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
     protected static byte[] _calculateChecksum(final byte addressPrefix, final byte[] bytes) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -20,43 +18,7 @@ public class Address extends ImmutableByteArray {
         final byte[] versionPayload = byteArrayBuilder.build();
 
         final byte[] fullChecksum = BitcoinUtil.sha256(BitcoinUtil.sha256(versionPayload));
-        return ByteUtil.copyBytes(fullChecksum, 0, checksumByteCount);
-    }
-
-    public static Address fromPrivateKey(final PrivateKey privateKey) {
-        final PublicKey publicKey = privateKey.getPublicKey();
-        final byte[] rawBitcoinAddress = BitcoinUtil.ripemd160(BitcoinUtil.sha256(publicKey.getBytes()));
-        return new Address(rawBitcoinAddress);
-    }
-
-    public static Address fromPublicKey(final PublicKey publicKey) {
-        final byte[] rawBitcoinAddress = BitcoinUtil.ripemd160(BitcoinUtil.sha256(publicKey.getBytes()));
-        return new Address(rawBitcoinAddress);
-    }
-
-    public static Address fromBase58Check(final String base58CheckString) {
-        final byte[] bytesWithPrefixWithChecksum;
-
-        try {
-            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
-        }
-        catch (final Exception exception) {
-            return null;
-        }
-
-        if (bytesWithPrefixWithChecksum.length < (prefixByteCount + checksumByteCount)) { return null; }
-
-        final byte[] bytesWithoutPrefixWithoutChecksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, prefixByteCount, bytesWithPrefixWithChecksum.length - checksumByteCount - prefixByteCount);
-
-        final byte prefix = bytesWithPrefixWithChecksum[0];
-        final byte[] checksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, bytesWithPrefixWithChecksum.length - checksumByteCount, checksumByteCount);
-
-        final byte[] calculatedChecksum = _calculateChecksum(prefix, bytesWithoutPrefixWithoutChecksum);
-
-        final Boolean checksumIsValid = (ByteUtil.areEqual(calculatedChecksum, checksum));
-        if (! checksumIsValid) { return null; }
-
-        return new Address(bytesWithoutPrefixWithoutChecksum);
+        return ByteUtil.copyBytes(fullChecksum, 0, CHECKSUM_BYTE_COUNT);
     }
 
     protected byte _getPrefix() {

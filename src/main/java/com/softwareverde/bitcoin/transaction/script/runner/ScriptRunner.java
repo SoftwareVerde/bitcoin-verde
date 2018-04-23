@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.io.Logger;
 
@@ -16,30 +18,24 @@ import com.softwareverde.io.Logger;
  */
 public class ScriptRunner {
     public Boolean runScript(final Script lockingScript, final Script unlockingScript, final Context context) {
-        final ScriptReader lockingScriptReader = new ScriptReader(lockingScript);
-        final ScriptReader unlockingScriptReader = new ScriptReader(unlockingScript);
-        final OperationInflater operationInflater = new OperationInflater();
+        final MutableContext mutableContext = new MutableContext(context);
 
         final Stack stack = new Stack();
 
         try {
-            while (unlockingScriptReader.hasNextByte()) {
-                final Operation opcode = operationInflater.fromScriptReader(unlockingScriptReader);
-                if (opcode == null) { return false; }
-
-                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+            mutableContext.setCurrentScript(unlockingScript);
+            for (final Operation operation : unlockingScript.getOperations()) {
+                final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
 
-            while (lockingScriptReader.hasNextByte()) {
-                final Operation opcode = operationInflater.fromScriptReader(lockingScriptReader);
-                if (opcode == null) { return false; }
-
-                final Boolean wasSuccessful = opcode.applyTo(stack, context);
+            mutableContext.setCurrentScript(lockingScript);
+            for (final Operation operation : lockingScript.getOperations()) {
+                final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
         }
-        catch (final Operation.ScriptOperationExecutionException exception) {
+        catch (final Exception exception) {
             Logger.log(exception);
             return false;
         }

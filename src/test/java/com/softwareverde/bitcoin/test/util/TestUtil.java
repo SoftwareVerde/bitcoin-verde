@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.test.util;
 
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.util.HexUtil;
 
 public class TestUtil {
     private static void _fail(final String message) {
@@ -46,10 +46,10 @@ public class TestUtil {
     }
 
     public static void assertMatchesMaskedHexString(final String stringMask, final byte[] data) {
-        assertMatchesMaskedHexString(stringMask, BitcoinUtil.toHexString(data));
+        assertMatchesMaskedHexString(stringMask, HexUtil.toHexString(data));
     }
 
     public static void assertEqual(final byte[] expectedBytes, final byte[] bytes) {
-        assertMatchesMaskedHexString(BitcoinUtil.toHexString(expectedBytes), BitcoinUtil.toHexString(bytes));
+        assertMatchesMaskedHexString(HexUtil.toHexString(expectedBytes), HexUtil.toHexString(bytes));
     }
 }

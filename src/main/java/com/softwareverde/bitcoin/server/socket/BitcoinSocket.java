@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.socket;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 
 import java.io.IOException;
@@ -18,16 +18,16 @@ public class BitcoinSocket {
 
     private final Long _id;
     private final Socket _socket;
-    private OutputStream _out;
     private final List<ProtocolMessage> _messages = new ArrayList<ProtocolMessage>();
     private volatile Boolean _isClosed = false;
 
     private Runnable _messageReceivedCallback;
-    private Thread _readThread;
+    private final Thread _readThread;
 
-    private InputStream _rawInputStream;
+    private final OutputStream _rawOutputStream;
+    private final InputStream _rawInputStream;
 
-    public Integer bufferSize = 1024;
+    public Integer bufferSize = 1024 * 2;
 
     private void _executeMessageReceivedCallback() {
         if (_messageReceivedCallback != null) {
@@ -70,12 +70,17 @@ public class BitcoinSocket {
 
         _socket = socket;
 
-        try {
-            _out = socket.getOutputStream();
-
-            _rawInputStream = socket.getInputStream();
+        InputStream inputStream = null;
+        OutputStream outputStream = null;
+        { // Initialize the input and output streams...
+            try {
+                outputStream = socket.getOutputStream();
+                inputStream = socket.getInputStream();
+            }
+            catch (final IOException exception) { }
         }
-        catch (final IOException exception) { }
+        _rawOutputStream = outputStream;
+        _rawInputStream = inputStream;
 
         _readThread = new Thread(new Runnable() {
             @Override
@@ -112,8 +117,7 @@ public class BitcoinSocket {
                         }
                     }
                     catch (final IOException exception) {
-                        _isClosed = true;
-                        _onSocketClosed();
+                        _closeSocket();
                     }
                 }
             }
@@ -130,8 +134,8 @@ public class BitcoinSocket {
         final ByteArray bytes = outboundMessage.getBytes();
 
         try {
-            _out.write(bytes.getBytes());
-            _out.flush();
+            _rawOutputStream.write(bytes.getBytes());
+            _rawOutputStream.flush();
         }
         catch (final Exception e) {
             _closeSocket();

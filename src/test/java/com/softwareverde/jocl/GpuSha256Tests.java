@@ -1,9 +1,9 @@
 package com.softwareverde.jocl;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import org.junit.Assert;
@@ -21,7 +21,7 @@ public class GpuSha256Tests {
         final long cpuStartTime = System.currentTimeMillis();
         final List<Hash> expectedValues;
         {
-            final MutableByteArray mutableByteArray = new MutableByteArray(64);
+            final MutableByteArray mutableByteArray = new MutableByteArray(32);
             final ImmutableListBuilder<Hash> immutableListBuilder = new ImmutableListBuilder<Hash>(totalHashCount);
             for (int i=0; i<totalHashCount; ++i) {
                 for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
@@ -44,7 +44,7 @@ public class GpuSha256Tests {
             final ImmutableListBuilder<ByteArray> hashBatchBuilder = new ImmutableListBuilder<ByteArray>(batchSize);
             for (int hashCount=0; hashCount<totalHashCount;) {
                 for (int i=0; i<Math.min(batchSize, (totalHashCount - hashCount)); ++i) {
-                    final MutableByteArray mutableByteArray = new MutableByteArray(64);
+                    final MutableByteArray mutableByteArray = new MutableByteArray(32);
                     for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
                         mutableByteArray.set(j, (byte) (hashCount + i));
                     }
@@ -54,6 +54,7 @@ public class GpuSha256Tests {
                 hashCount += hashBatchBuilder.getCount();
 
                 final List<Hash> hashes = gpuSha256.sha256(gpuSha256.sha256(hashBatchBuilder.build()));
+                // final List<Hash> hashes = gpuSha256.sha256(hashBatchBuilder.build());
                 immutableListBuilder.addAll(hashes);
             }
 

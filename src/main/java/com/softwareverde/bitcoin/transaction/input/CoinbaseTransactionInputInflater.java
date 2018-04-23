@@ -20,8 +20,8 @@ public class CoinbaseTransactionInputInflater extends TransactionInputInflater {
     protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransactionInput transactionInput = super._fromByteArrayReader(byteArrayReader);
 
-        if (! _areAllBytesEqualTo(transactionInput._previousTransactionOutputHash.getBytes(), (byte) 0x00)) { return null; }
-        if (transactionInput._previousTransactionOutputIndex != 0xFFFFFFFF) { return null; }
+        if (! _areAllBytesEqualTo(transactionInput._previousOutputTransactionHash.getBytes(), (byte) 0x00)) { return null; }
+        if (transactionInput._previousOutputIndex != 0xFFFFFFFF) { return null; }
         if (transactionInput._unlockingScript.getByteCount() > 100) { return null; }
 
         // TODO: The signature script must include a blockHeight value as of Transaction Version 2.

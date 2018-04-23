@@ -10,7 +10,10 @@ public class IntegrationTest {
     }
 
     protected static void _resetDatabase() {
-        final DatabaseInitializer databaseInitializer = new DatabaseInitializer();
+        final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler() {
+            @Override
+            public Boolean onUpgrade(final int i, final int i1) { return false; }
+        });
         try {
             _database.reset();
             databaseInitializer.initializeDatabase(_database.getDatabaseInstance(), _database.getDatabaseConnectionFactory(), _database.getCredentials());

@@ -1,43 +1,43 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
-import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.key.PublicKey;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class ScriptBuilder {
-
-    protected static LockingScript _payToAddress(final Address address) {
+    protected static LockingScript _createPayToAddressScript(final Address address) {
         final byte[] addressBytes = address.getBytes();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendByte(Operation.SubType.COPY_1ST.getValue());
-        byteArrayBuilder.appendByte(Operation.SubType.SHA_256_THEN_RIPEMD_160.getValue());
+        byteArrayBuilder.appendByte(Operation.Opcode.COPY_1ST.getValue());
+        byteArrayBuilder.appendByte(Operation.Opcode.SHA_256_THEN_RIPEMD_160.getValue());
         byteArrayBuilder.appendByte((byte) addressBytes.length);
         byteArrayBuilder.appendBytes(addressBytes, Endian.BIG);
-        byteArrayBuilder.appendByte(Operation.SubType.IS_EQUAL_THEN_VERIFY.getValue());
-        byteArrayBuilder.appendByte(Operation.SubType.CHECK_SIGNATURE.getValue());
-        return new ImmutableLockingScript(byteArrayBuilder.build());
+        byteArrayBuilder.appendByte(Operation.Opcode.IS_EQUAL_THEN_VERIFY.getValue());
+        byteArrayBuilder.appendByte(Operation.Opcode.CHECK_SIGNATURE.getValue());
+
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        return LockingScript.castFrom(scriptInflater.fromBytes(byteArrayBuilder.build()));
     }
 
     // NOTE: Also known as payToPublicKeyHash (or P2PKH)...
     public static LockingScript payToAddress(final String base58Address) {
-        return _payToAddress(Address.fromBase58Check(base58Address));
+        final AddressInflater addressInflater = new AddressInflater();
+        return _createPayToAddressScript(addressInflater.fromBase58Check(base58Address));
     }
     public static LockingScript payToAddress(final Address base58Address) {
-        return _payToAddress(base58Address);
+        return _createPayToAddressScript(base58Address);
     }
 
     public static UnlockingScript unlockPayToAddress(final ScriptSignature signature, final PublicKey publicKey) {
@@ -53,23 +53,23 @@ public class ScriptBuilder {
         if (dataByteCount == 0) {
             // Nothing.
         }
-        else if (dataByteCount <= Operation.SubType.PUSH_DATA.getMaxValue()) {
+        else if (dataByteCount <= Operation.Opcode.PUSH_DATA.getMaxValue()) {
             _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFL) {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_BYTE.getValue());
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_BYTE.getValue());
             _byteArrayBuilder.appendByte((byte) (dataByteCount.intValue()));
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else if (dataByteCount <= 0xFFFFL) {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_SHORT.getValue());
-            final byte[] stringDataByteCountBytes = ByteUtil.integerToBytes(dataByteCount);
-            _byteArrayBuilder.appendBytes(new byte[] { stringDataByteCountBytes[3], stringDataByteCountBytes[4] }, Endian.LITTLE);
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_SHORT.getValue());
+            final byte[] dataDataByteCountBytes = ByteUtil.integerToBytes(dataByteCount);
+            _byteArrayBuilder.appendBytes(new byte[] { dataDataByteCountBytes[3], dataDataByteCountBytes[4] }, Endian.LITTLE);
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
         else {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_INTEGER.getValue());
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_INTEGER.getValue());
             _byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(dataByteCount), Endian.LITTLE);
             _byteArrayBuilder.appendBytes(bytes, Endian.BIG);
         }
@@ -84,23 +84,23 @@ public class ScriptBuilder {
         if (stringDataByteCount == 0) {
             // Nothing.
         }
-        else if (stringDataByteCount <= Operation.SubType.PUSH_DATA.getMaxValue()) {
+        else if (stringDataByteCount <= Operation.Opcode.PUSH_DATA.getMaxValue()) {
             _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFL) {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_BYTE.getValue());
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_BYTE.getValue());
             _byteArrayBuilder.appendByte((byte) (stringDataByteCount.intValue()));
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else if (stringDataByteCount <= 0xFFFFL) {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_SHORT.getValue());
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_SHORT.getValue());
             final byte[] stringDataByteCountBytes = ByteUtil.integerToBytes(stringDataByteCount);
             _byteArrayBuilder.appendBytes(new byte[] { stringDataByteCountBytes[3], stringDataByteCountBytes[4] }, Endian.LITTLE);
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
         else {
-            _byteArrayBuilder.appendByte(Operation.SubType.PUSH_DATA_INTEGER.getValue());
+            _byteArrayBuilder.appendByte(Operation.Opcode.PUSH_DATA_INTEGER.getValue());
             _byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(stringDataByteCount), Endian.LITTLE);
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
@@ -124,14 +124,17 @@ public class ScriptBuilder {
     }
 
     public Script build() {
-        return new ImmutableScript(_byteArrayBuilder.build());
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        return scriptInflater.fromBytes(_byteArrayBuilder.build());
     }
 
     public UnlockingScript buildUnlockingScript() {
-        return new ImmutableUnlockingScript(_byteArrayBuilder.build());
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        return UnlockingScript.castFrom(scriptInflater.fromBytes(_byteArrayBuilder.build()));
     }
 
     public LockingScript buildLockingScript() {
-        return new ImmutableLockingScript(_byteArrayBuilder.build());
+        final ScriptInflater scriptInflater = new ScriptInflater();
+        return LockingScript.castFrom(scriptInflater.fromBytes(_byteArrayBuilder.build()));
     }
 }

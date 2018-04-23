@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.util.bytearray;
 
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,30 +43,6 @@ public class ByteArrayBuilder {
 
     public void appendByte(final byte b) {
         _appendByte(b);
-    }
-
-    public void appendVariableSizedInteger(final long value) {
-        final byte[] bytes = ByteUtil.longToBytes(value);
-
-        if (value < 0xFDL) {
-            _appendByte(bytes[7]);
-        }
-        else if (value < 0xFFFFL) {
-            _appendByte((byte) 0xFD);
-            _appendByte(bytes[7]);
-            _appendByte(bytes[6]);
-        }
-        else if (value < 0xFFFFFFFFL) {
-            _appendByte((byte) 0xFE);
-            _appendByte(bytes[7]);
-            _appendByte(bytes[6]);
-            _appendByte(bytes[5]);
-            _appendByte(bytes[4]);
-        }
-        else {
-            _appendByte((byte) 0xFF);
-            _appendBytes(bytes, Endian.LITTLE);
-        }
     }
 
     public byte[] build() {

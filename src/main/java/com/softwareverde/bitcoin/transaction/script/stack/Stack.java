@@ -39,6 +39,15 @@ public class Stack {
         return _values.remove(_values.size() - 1);
     }
 
+    public Value pop(final Integer index) {
+        if (index >= _values.size()) {
+            _didOverflow = true;
+            return OVERFLOW_VALUE;
+        }
+
+        return _values.remove(_values.size() - index - 1);
+    }
+
     public Boolean isEmpty() {
         return _values.isEmpty();
     }
@@ -49,5 +58,18 @@ public class Stack {
 
     public Boolean didOverflow() {
         return _didOverflow;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder stringBuilder = new StringBuilder();
+
+        for (int i = 0; i < _values.size(); ++i) {
+            final Value value = _peak(i);
+            stringBuilder.append(value.toString());
+            stringBuilder.append("\n");
+        }
+
+        return stringBuilder.toString();
     }
 }

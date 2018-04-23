@@ -13,6 +13,7 @@ public class SignatureContext {
 
     private final MutableList<Boolean> _inputIndexesToSign = new MutableList<Boolean>();
     private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
+    private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
 
     private final MutableList<Boolean> _outputIndexesToSign = new MutableList<Boolean>();
 
@@ -24,6 +25,7 @@ public class SignatureContext {
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
             _inputIndexesToSign.add(false);
             _previousTransactionOutputsBeingSpent.add(null);
+            _codeSeparatorIndexes.add(0);
         }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -35,10 +37,15 @@ public class SignatureContext {
     public void setShouldSignInput(final Integer index, final Boolean shouldSignInput, final TransactionOutput outputBeingSpent) {
         _inputIndexesToSign.set(index, shouldSignInput);
         _previousTransactionOutputsBeingSpent.set(index, outputBeingSpent);
+        _codeSeparatorIndexes.set(index, 0);
     }
 
     public void setShouldSignOutput(final Integer index, final Boolean shouldSignOutput) {
         _outputIndexesToSign.set(index, shouldSignOutput);
+    }
+
+    public void setLastCodeSeparatorIndex(final Integer index, final Integer lastCodeSeparatorIndex) {
+        _codeSeparatorIndexes.set(index, lastCodeSeparatorIndex);
     }
 
     public Transaction getTransaction() {
@@ -59,5 +66,9 @@ public class SignatureContext {
 
     public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {
         return _previousTransactionOutputsBeingSpent.get(index);
+    }
+
+    public Integer getLastCodeSeparatorIndex(final Integer index) {
+        return _codeSeparatorIndexes.get(index);
     }
 }

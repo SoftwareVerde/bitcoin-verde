@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
+import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 
 import java.io.File;
@@ -35,7 +36,7 @@ public class DatabaseModule {
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         Logger.log("[Starting Database]");
         final EmbeddedMysqlDatabase database;

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -8,28 +9,12 @@ import java.io.IOException;
 import java.util.Properties;
 
 public class Configuration {
-    public static class DatabaseProperties {
-        private String _rootPassword;
-        private String _connectionUrl;
-        private String _username;
-        private String _password;
-        private String _schema;
-        private Integer _port;
-        private String _dataDirectory;
-
-        public String getRootPassword() { return  _rootPassword; }
-        public String getConnectionUrl() { return _connectionUrl; }
-        public String getUsername() { return _username; }
-        public String getPassword() { return _password; }
-        public String getSchema() { return _schema; }
-        public Integer getPort() { return _port; }
-        public String getDataDirectory() { return _dataDirectory; }
-    }
-
     public static class ServerProperties {
         private Integer _bitcoinPort;
+        private Integer _stratumPort;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
+        public Integer getStratumPort() { return _stratumPort; }
     }
 
     private final Properties _properties;
@@ -37,19 +22,29 @@ public class Configuration {
     private ServerProperties _serverProperties;
 
     private void _loadDatabaseProperties() {
-        _databaseProperties = new DatabaseProperties();
-        _databaseProperties._rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
-        _databaseProperties._connectionUrl = _properties.getProperty("database.url", "");
-        _databaseProperties._username = _properties.getProperty("database.username", "root");
-        _databaseProperties._password = _properties.getProperty("database.password", "");
-        _databaseProperties._schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
-        _databaseProperties._port = Util.parseInt(_properties.getProperty("database.port", "8336"));
-        _databaseProperties._dataDirectory = _properties.getProperty("database.dataDirectory", "data");
+        final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
+        final String connectionUrl = _properties.getProperty("database.url", "");
+        final String username = _properties.getProperty("database.username", "root");
+        final String password = _properties.getProperty("database.password", "");
+        final String schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
+        final Integer port = Util.parseInt(_properties.getProperty("database.port", "8336"));
+        final String dataDirectory = _properties.getProperty("database.dataDirectory", "data");
+
+        final DatabaseProperties databaseProperties = new DatabaseProperties();
+        databaseProperties.setRootPassword(rootPassword);
+        databaseProperties.setConnectionUrl(connectionUrl);
+        databaseProperties.setUsername(username);
+        databaseProperties.setPassword(password);
+        databaseProperties.setSchema(schema);
+        databaseProperties.setPort(port);
+        databaseProperties.setDataDirectory(dataDirectory);
+        _databaseProperties = databaseProperties;
     }
 
     private void _loadServerProperties() {
         _serverProperties = new ServerProperties();
         _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", "8333"));
+        _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", "3333"));
     }
 
     public Configuration(final File configurationFile) {

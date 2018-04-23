@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -28,23 +29,26 @@ public class TransactionOutputDatabaseManager {
     }
 
     protected void _updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        final ByteArray lockingScript = transactionOutput.getLockingScript().getBytes();
         _databaseConnection.executeSql(
             new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getLockingScript().getBytes())
+                .setParameter(lockingScript.getBytes())
                 .setParameter(transactionOutputId)
         );
     }
 
     protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        final ByteArray lockingScript = transactionOutput.getLockingScript().getBytes();
+
         return TransactionOutputId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(transactionOutput.getLockingScript().getBytes())
+                .setParameter(lockingScript.getBytes())
         ));
     }
 

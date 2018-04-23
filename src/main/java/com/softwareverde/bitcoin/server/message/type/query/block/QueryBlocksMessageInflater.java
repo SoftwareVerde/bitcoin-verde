@@ -28,12 +28,12 @@ public class QueryBlocksMessageInflater extends ProtocolMessageInflater {
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Hash blockHeaderHash = new MutableHash(byteArrayReader.readBytes(32, Endian.LITTLE));
+            final Hash blockHeaderHash = MutableHash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
             queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        queryBlocksMessage._desiredBlockHeaderHash = new MutableHash(blockHeaderHashBytes);
+        queryBlocksMessage._desiredBlockHeaderHash = MutableHash.wrap(blockHeaderHashBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

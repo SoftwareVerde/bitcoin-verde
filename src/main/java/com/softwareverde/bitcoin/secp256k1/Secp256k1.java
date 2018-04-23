@@ -1,12 +1,9 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.type.bytearray.ByteArray;
-import com.softwareverde.bitcoin.type.bytearray.ImmutableByteArray;
-import com.softwareverde.bitcoin.type.bytearray.MutableByteArray;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.HexUtil;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -36,7 +33,7 @@ public class Secp256k1 {
         CURVE = curveParameterSpec.getCurve();
         CURVE_DOMAIN =  new ECDomainParameters(Secp256k1.CURVE, Secp256k1.CURVE_POINT_G, curveParameterSpec.getN());
 
-        CURVE_P = BitcoinUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+        CURVE_P = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
     }
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {
@@ -59,7 +56,7 @@ public class Secp256k1 {
 
         final ECDSASigner signer = new ECDSASigner();
         signer.init(false, publicKeyParameters);
-        return signer.verifySignature(message, new BigInteger(1, signature.getR()), new BigInteger(1, signature.getS()));
+        return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
     }
 
     public static Signature sign(final byte[] privateKey, final byte[] message) {
@@ -98,6 +95,15 @@ public class Secp256k1 {
         }
 
         return new Signature(rBytes, sBytes);
+    }
+
+    public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
+        final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
+
+        final BigInteger x = decodedPoint.getX().toBigInteger();
+        final BigInteger y = decodedPoint.getY().toBigInteger();
+        final ECPoint decompressedPoint = CURVE.createPoint(x, y, false);
+        return decompressedPoint.getEncoded();
     }
 
     protected Secp256k1() { }

@@ -1,0 +1,2 @@
+Difficulty Adjustment Algorithm: https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
+

@@ -4,7 +4,8 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.Credentials;
-import com.softwareverde.database.mysql.embedded.DatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
@@ -14,7 +15,7 @@ import java.sql.SQLException;
 
 public class MysqlTestDatabase extends MysqlDatabase {
     protected final DB _databaseInstance;
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final Credentials _credentials;
 
     protected final String _rootUsername = "root";
@@ -34,7 +35,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
             dbConfiguration = configBuilder.build();
 
             final String connectionString = configBuilder.getURL(_databaseSchema);
-            _databaseConnectionFactory = new DatabaseConnectionFactory(connectionString, _rootUsername, _rootPassword);
+            _databaseConnectionFactory = new MysqlDatabaseConnectionFactory(connectionString, _rootUsername, _rootPassword);
         }
 
         {
@@ -79,7 +80,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
         return _credentials;
     }
 
-    public DatabaseConnectionFactory getDatabaseConnectionFactory() {
+    public MysqlDatabaseConnectionFactory getDatabaseConnectionFactory() {
         return _databaseConnectionFactory;
     }
 }

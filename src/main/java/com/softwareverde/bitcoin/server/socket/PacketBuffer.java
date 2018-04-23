@@ -4,9 +4,9 @@ import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeaderParser;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.LinkedList;
@@ -95,7 +95,7 @@ public class PacketBuffer {
 
     private void _resetBuffer() {
         final byte[] discardedPacket = _readContiguousBytes(_byteCount, true);
-        Logger.log("IO: DISCARDED PACKET: "+ BitcoinUtil.toHexString(discardedPacket));
+        Logger.log("IO: DISCARDED PACKET: "+ HexUtil.toHexString(discardedPacket));
     }
 
     public PacketBuffer() { }
