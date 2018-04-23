@@ -23,15 +23,13 @@ public class ScriptRunner {
         final Stack stack = new Stack();
 
         try {
+            mutableContext.setCurrentScript(unlockingScript);
             for (final Operation operation : unlockingScript.getOperations()) {
                 final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
 
-            // NOTE: Resetting the script's position is important to treat the unlocking/locking scripts as separate scripts that share the same stack (vs combining the scripts and treating them as one).
-            //  More importantly, this call is necessary to correctly determine the bytes signed during signature-checking operations. (i.e. CODE_SEPARATOR)
-            mutableContext.resetScriptPosition();
-
+            mutableContext.setCurrentScript(lockingScript);
             for (final Operation operation : lockingScript.getOperations()) {
                 final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }

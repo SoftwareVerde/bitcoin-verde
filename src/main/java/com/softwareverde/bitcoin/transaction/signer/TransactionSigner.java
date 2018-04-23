@@ -52,7 +52,7 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            final UnlockingScript unlockingScript;
+            final UnlockingScript unlockingScriptForSigning;
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
@@ -60,30 +60,27 @@ public class TransactionSigner {
 
                 final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
                 if (subscriptIndex > 0) {
-                    Logger.log("***** SUBSCRIPT ("+ subscriptIndex +") *****");
-
-//                    final MutableScript mutableLockingScript = new MutableScript(lockingScript);
-//                    mutableLockingScript.subScript(subscriptIndex);
-//                    mutableLockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
-//                    unlockingScript = UnlockingScript.castFrom(mutableLockingScript);
-// HA!  OP_CHECKMULTISIG works now!  I haven't been working on this all weekend.  It's not 2 am on a Sunday. I'm not crazy you're crazy.
-                    final MutableScript mutableUnlockingScript = new MutableScript(transactionInput.getUnlockingScript());
-                    mutableUnlockingScript.subScript(subscriptIndex);
-                    mutableUnlockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
-                    unlockingScript = UnlockingScript.castFrom(mutableUnlockingScript);
-
                     final ScriptDeflater scriptDeflater = new ScriptDeflater();
-                    Logger.log(scriptDeflater.toString(unlockingScript));
-                    Logger.log("\n");
+
+                    // NOTE: Unsure if the LockingScript should receive the same treatment if it has a CodeSeparator.
+                    // final MutableScript mutableScript = new MutableScript(signatureContext.getCurrentScript()); //  // TODO: Determine if CodeSeparators are valid in UnlockingScripts...
+
+                    final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+                    final MutableScript mutableScript = new MutableScript(unlockingScript);
+
+                    mutableScript.subScript(subscriptIndex);
+                    mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+                    // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
+                    unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
                 }
                 else {
-                    unlockingScript = UnlockingScript.castFrom(lockingScript);
+                    unlockingScriptForSigning = UnlockingScript.castFrom(lockingScript);
                 }
             }
             else {
-                unlockingScript = UnlockingScript.EMPTY_SCRIPT;
+                unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
             }
-            mutableTransactionInput.setUnlockingScript(unlockingScript);
+            mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
             mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }

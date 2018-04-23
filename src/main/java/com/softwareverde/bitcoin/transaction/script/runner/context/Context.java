@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner.context;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Constable;
 
 public interface Context extends Constable<ImmutableContext> {
@@ -11,6 +12,8 @@ public interface Context extends Constable<ImmutableContext> {
     TransactionOutput getTransactionOutput();
     Transaction getTransaction();
     Integer getTransactionInputIndex();
+
+    Script getCurrentScript();
 
     /**
      * Returns the index of the script's current execution index.

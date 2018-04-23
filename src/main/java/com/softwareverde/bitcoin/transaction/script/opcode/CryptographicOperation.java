@@ -128,23 +128,6 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case CHECK_MULTISIGNATURE:
             case CHECK_MULTISIGNATURE_THEN_VERIFY: {
-                { // DEBUG LOG
-                    Logger.log(stack);
-
-                    final Transaction transaction = context.getTransaction();
-                    final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
-                    final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
-
-                    final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                    Logger.log("TX: "+ HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
-                    Logger.log("TX-In Ix: "+ transactionInputIndexBeingSigned);
-
-                    final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
-                    Logger.log("Tx-Out Ix: "+ transactionOutputBeingSpent.getIndex());
-                    Logger.log("Tx-Out: " + HexUtil.toHexString(transactionOutputDeflater.toBytes(transactionOutputBeingSpent)));
-                    Logger.log("Code-Sep Ix: " + context.getScriptLastCodeSeparatorIndex());
-                }
-
                 final Integer publicKeyCount;
                 {
                     final Value publicKeyCountValue = stack.pop();

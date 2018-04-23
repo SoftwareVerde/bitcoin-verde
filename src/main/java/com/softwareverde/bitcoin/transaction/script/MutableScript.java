@@ -31,6 +31,12 @@ public class MutableScript implements Script {
         _operations.add(operation);
     }
 
+    public void concatenateScript(final Script script) {
+        for (final Operation operation : script.getOperations()) {
+            _operations.add(operation);
+        }
+    }
+
     public void subScript(final int opcodeIndex) {
         for (int i = 0; i < opcodeIndex; ++i) {
             _operations.remove(0);

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner.context;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
 
 public class MutableContext implements Context, Const {
@@ -13,6 +14,7 @@ public class MutableContext implements Context, Const {
     protected TransactionInput _transactionInput;
     protected TransactionOutput _transactionOutput;
 
+    protected Script _currentScript = null;
     protected Integer _currentScriptIndex = 0;
     protected Integer _scriptLastCodeSeparatorIndex = 0;
 
@@ -20,11 +22,13 @@ public class MutableContext implements Context, Const {
 
     public MutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
-        _transaction = context.getTransaction();
+        _transaction = context.getTransaction().asConst();
         _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = context.getTransactionInput();
-        _transactionOutput = context.getTransactionOutput();
+        _transactionInput = context.getTransactionInput().asConst();
+        _transactionOutput = context.getTransactionOutput().asConst();
 
+        final Script currentScript = context.getCurrentScript();
+        _currentScript = (currentScript != null ? currentScript.asConst() : null);
         _currentScriptIndex = context.getCurrentScriptIndex();
         _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
@@ -49,7 +53,8 @@ public class MutableContext implements Context, Const {
         _transactionOutput = transactionOutput;
     }
 
-    public void resetScriptPosition() {
+    public void setCurrentScript(final Script script) {
+        _currentScript = script;
         _currentScriptIndex = 0;
         _scriptLastCodeSeparatorIndex = 0;
     }
@@ -85,6 +90,11 @@ public class MutableContext implements Context, Const {
     @Override
     public Integer getTransactionInputIndex() {
         return _transactionInputIndex;
+    }
+
+    @Override
+    public Script getCurrentScript() {
+        return _currentScript;
     }
 
     @Override
