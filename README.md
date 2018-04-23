@@ -1,4 +1,4 @@
-# Bitcoin-Verde v0.0.1
+# Bitcoin-Verde v0.1.0
 
 
 ## Description
