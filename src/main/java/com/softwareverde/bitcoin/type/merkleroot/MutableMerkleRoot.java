@@ -11,12 +11,12 @@ public class MutableMerkleRoot extends MutableHash implements MerkleRoot {
     }
 
     public static MutableMerkleRoot wrap(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) { return null; }
+        if (bytes.length != SHA_256_BYTE_COUNT) { return null; }
         return new MutableMerkleRoot(bytes);
     }
 
     public static MutableMerkleRoot copyOf(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) { return null; }
+        if (bytes.length != SHA_256_BYTE_COUNT) { return null; }
         return new MutableMerkleRoot(ByteUtil.copyBytes(bytes));
     }
 

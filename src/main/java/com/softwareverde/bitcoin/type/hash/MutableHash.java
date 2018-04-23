@@ -12,7 +12,7 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public static MutableHash wrap(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) {
+        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
             Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
@@ -20,7 +20,7 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public static MutableHash copyOf(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) {
+        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
             Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
@@ -32,11 +32,11 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public MutableHash() {
-        super(BYTE_COUNT);
+        super(SHA_256_BYTE_COUNT);
     }
 
     public MutableHash(final Hash hash) {
-        super(BYTE_COUNT);
+        super(hash.getByteCount());
         ByteUtil.setBytes(_bytes, hash.getBytes());
     }
 
@@ -46,10 +46,21 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public void setBytes(final byte[] bytes) {
+        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
+            Logger.log("NOTICE: Attempted to set hash bytes of incorrect length: "+ bytes.length);
+            return;
+        }
+
+        if (_bytes.length != bytes.length) {
+            _bytes = new byte[bytes.length];
+        }
         ByteUtil.setBytes(_bytes, bytes);
     }
 
     public void setBytes(final Hash hash) {
+        if (_bytes.length != hash.getByteCount()) {
+            _bytes = new byte[hash.getByteCount()];
+        }
         ByteUtil.setBytes(_bytes, hash.getBytes());
     }
 

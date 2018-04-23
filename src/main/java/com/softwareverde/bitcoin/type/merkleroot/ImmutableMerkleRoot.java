@@ -5,7 +5,7 @@ import com.softwareverde.constable.Const;
 
 public class ImmutableMerkleRoot extends ImmutableHash implements MerkleRoot, Const {
     public static ImmutableMerkleRoot copyOf(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) { return null; }
+        if (bytes.length != SHA_256_BYTE_COUNT) { return null; }
         return new ImmutableMerkleRoot(bytes);
     }
 

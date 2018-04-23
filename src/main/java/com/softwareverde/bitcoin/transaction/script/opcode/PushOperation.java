@@ -22,16 +22,19 @@ public class PushOperation extends SubTypedOperation {
         final Opcode opcode = TYPE.getSubtype(opcodeByte);
         if (opcode == null) { return null; }
 
+        final Boolean shouldSerializeValue;
         final Value value;
         switch (opcode) {
             // Pushes the literal value -1 to the stack.
             case PUSH_NEGATIVE_ONE: {
                 value = Value.fromInteger(-1);
+                shouldSerializeValue = false;
             } break;
 
             // Pushes the literal value 0 to the stack.
             case PUSH_ZERO: {
                 value = Value.fromInteger(0);
+                shouldSerializeValue = false;
             } break;
 
             // Interprets the opcode's value as an integer offset.  Then its value (+1) is pushed to the stack.
@@ -40,18 +43,21 @@ public class PushOperation extends SubTypedOperation {
                 final int offset = (ByteUtil.byteToInteger(opcodeByte) - Opcode.PUSH_VALUE.getMinValue());
                 final int pushedValue = (offset + 1);
                 value = Value.fromInteger(pushedValue);
+                shouldSerializeValue = false;
             } break;
 
             // Interprets the opcode's value as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA: {
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                shouldSerializeValue = true;
             } break;
 
             // Interprets the next byte as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_BYTE: {
                 final int byteCount = byteArrayReader.readInteger(1);
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                shouldSerializeValue = true;
             } break;
 
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
@@ -60,6 +66,7 @@ public class PushOperation extends SubTypedOperation {
                 if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                shouldSerializeValue = true;
             } break;
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
@@ -68,6 +75,7 @@ public class PushOperation extends SubTypedOperation {
                 if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                shouldSerializeValue = true;
             } break;
 
             default: { return null; }
@@ -75,14 +83,16 @@ public class PushOperation extends SubTypedOperation {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return new PushOperation(opcodeByte, opcode, value);
+        return new PushOperation(opcodeByte, opcode, value, shouldSerializeValue);
     }
 
     protected final Value _value;
+    protected final Boolean _shouldSerializeValue;
 
-    protected PushOperation(final byte opcodeByte, final Opcode opcode, final Value value) {
+    protected PushOperation(final byte opcodeByte, final Opcode opcode, final Value value, final Boolean shouldSerializeValue) {
         super(opcodeByte, TYPE, opcode);
         _value = value;
+        _shouldSerializeValue = shouldSerializeValue;
     }
 
     public Value getValue() {
@@ -101,7 +111,9 @@ public class PushOperation extends SubTypedOperation {
     public byte[] getBytes() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte(_opcodeByte);
-        byteArrayBuilder.appendBytes(_value.getBytes());
+        if (_shouldSerializeValue) {
+            byteArrayBuilder.appendBytes(_value.getBytes());
+        }
         return byteArrayBuilder.build();
     }
 

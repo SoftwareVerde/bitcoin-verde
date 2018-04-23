@@ -10,16 +10,16 @@ public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash
     }
 
     protected ImmutableHash(final byte[] bytes) {
-        super(new byte[BYTE_COUNT]);
+        super(new byte[SHA_256_BYTE_COUNT]);
         ByteUtil.setBytes(_bytes, bytes);
     }
 
     public ImmutableHash() {
-        super(new byte[BYTE_COUNT]);
+        super(new byte[SHA_256_BYTE_COUNT]);
     }
 
     public ImmutableHash(final Hash hash) {
-        super(new byte[BYTE_COUNT]);
+        super(new byte[SHA_256_BYTE_COUNT]);
         ByteUtil.setBytes(_bytes, hash.getBytes());
     }
 

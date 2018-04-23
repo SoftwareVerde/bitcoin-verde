@@ -3,20 +3,18 @@ package com.softwareverde.bitcoin.block.merkleroot;
 import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
         @Override
         protected byte[] initialValue() {
-            return new byte[Hash.BYTE_COUNT * 2];
+            return new byte[Hash.SHA_256_BYTE_COUNT * 2];
         }
     };
 
@@ -24,7 +22,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         final byte[] scratchSpace = _threadLocalScratchSpace.get();
 
         ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian().getBytes());
-        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.BYTE_COUNT);
+        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.SHA_256_BYTE_COUNT);
 
         return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
     }

@@ -27,6 +27,10 @@ public class MutableScript implements Script {
         _operations = new MutableList<Operation>(script.getOperations());
     }
 
+    public void addOperation(final Operation operation) {
+        _operations.add(operation);
+    }
+
     public void subScript(final int opcodeIndex) {
         for (int i = 0; i < opcodeIndex; ++i) {
             _operations.remove(0);

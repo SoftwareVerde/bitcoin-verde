@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
@@ -15,6 +17,7 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
@@ -125,7 +128,22 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case CHECK_MULTISIGNATURE:
             case CHECK_MULTISIGNATURE_THEN_VERIFY: {
-                Logger.log(stack);
+                { // DEBUG LOG
+                    Logger.log(stack);
+
+                    final Transaction transaction = context.getTransaction();
+                    final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
+                    final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
+
+                    final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                    Logger.log("TX: "+ HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                    Logger.log("TX-In Ix: "+ transactionInputIndexBeingSigned);
+
+                    final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+                    Logger.log("Tx-Out Ix: "+ transactionOutputBeingSpent.getIndex());
+                    Logger.log("Tx-Out: " + HexUtil.toHexString(transactionOutputDeflater.toBytes(transactionOutputBeingSpent)));
+                    Logger.log("Code-Sep Ix: " + context.getScriptLastCodeSeparatorIndex());
+                }
 
                 final Integer publicKeyCount;
                 {

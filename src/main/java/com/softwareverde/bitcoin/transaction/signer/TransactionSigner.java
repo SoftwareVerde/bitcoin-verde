@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
@@ -61,12 +62,18 @@ public class TransactionSigner {
                 if (subscriptIndex > 0) {
                     Logger.log("***** SUBSCRIPT ("+ subscriptIndex +") *****");
 
-                    final MutableScript mutableLockingScript = new MutableScript(lockingScript);
-                    mutableLockingScript.subScript(subscriptIndex);
-                    mutableLockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
-                    unlockingScript = UnlockingScript.castFrom(mutableLockingScript);
+//                    final MutableScript mutableLockingScript = new MutableScript(lockingScript);
+//                    mutableLockingScript.subScript(subscriptIndex);
+//                    mutableLockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+//                    unlockingScript = UnlockingScript.castFrom(mutableLockingScript);
+// HA!  OP_CHECKMULTISIG works now!  I haven't been working on this all weekend.  It's not 2 am on a Sunday. I'm not crazy you're crazy.
+                    final MutableScript mutableUnlockingScript = new MutableScript(transactionInput.getUnlockingScript());
+                    mutableUnlockingScript.subScript(subscriptIndex);
+                    mutableUnlockingScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+                    unlockingScript = UnlockingScript.castFrom(mutableUnlockingScript);
 
-                    Logger.log(unlockingScript);
+                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
+                    Logger.log(scriptDeflater.toString(unlockingScript));
                     Logger.log("\n");
                 }
                 else {
