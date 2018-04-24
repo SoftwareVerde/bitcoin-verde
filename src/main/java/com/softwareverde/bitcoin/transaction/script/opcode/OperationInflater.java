@@ -23,7 +23,7 @@ public class OperationInflater {
             case OP_STRING:         { break; } // TODO
             case OP_BITWISE:        { break; } // TODO
             case OP_COMPARISON:     { return ComparisonOperation.fromBytes(byteArrayReader); }
-            case OP_ARITHMETIC:     { break; } // TODO
+            case OP_ARITHMETIC:     { return ArithmeticOperation.fromBytes(byteArrayReader); }
             case OP_CRYPTOGRAPHIC:  { return CryptographicOperation.fromBytes(byteArrayReader); }
             case OP_LOCK_TIME:      { return LockTimeOperation.fromBytes(byteArrayReader); }
             case OP_NOTHING:        { return NothingOperation.fromBytes(byteArrayReader); }

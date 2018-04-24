@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 
 /**
@@ -23,14 +24,20 @@ public class ScriptRunner {
         final Stack stack = new Stack();
 
         try {
+            final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
+            if (unlockingScriptOperations == null) { return false; }
+
             mutableContext.setCurrentScript(unlockingScript);
-            for (final Operation operation : unlockingScript.getOperations()) {
+            for (final Operation operation : unlockingScriptOperations) {
                 final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }
 
+            final List<Operation> lockingScriptOperations = lockingScript.getOperations();
+            if (lockingScriptOperations == null) { return false; }
+
             mutableContext.setCurrentScript(lockingScript);
-            for (final Operation operation : lockingScript.getOperations()) {
+            for (final Operation operation : lockingScriptOperations) {
                 final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
                 if (! wasSuccessful) { return false; }
             }

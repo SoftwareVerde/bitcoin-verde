@@ -86,15 +86,6 @@ public class TransactionValidator {
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
-                {
-                    final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-                    byteArrayBuilder.appendBytes(unlockingScript.getBytes());
-                    byteArrayBuilder.appendBytes(lockingScript.getBytes());
-
-                    final ScriptInflater scriptInflater = new ScriptInflater();
-                    final Script script = scriptInflater.fromBytes(byteArrayBuilder.build());
-                    Logger.log(script);
-                }
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 Logger.log("Transaction failed to verify:\n\t" + transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
                 Logger.log("Unlocking Script:\n\t" + unlockingScript);
