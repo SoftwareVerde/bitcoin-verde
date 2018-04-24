@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 
 public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boolean> {
     private final BlockChainSegmentId _blockChainSegmentId;
@@ -23,8 +24,17 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
     public void executeTask(final Transaction transaction) {
         if (! _allInputsAreUnlocked) { return; }
 
-        final boolean inputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, transaction);
-        if (! inputsAreUnlocked) {
+        final boolean transactionInputsAreUnlocked;
+        {
+            boolean inputsAreUnlocked = false;
+            try {
+                inputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, transaction);
+            }
+            catch (final Exception exception) { Logger.log(exception); }
+            transactionInputsAreUnlocked = inputsAreUnlocked;
+        }
+
+        if (! transactionInputsAreUnlocked) {
             _allInputsAreUnlocked = false;
         }
     }

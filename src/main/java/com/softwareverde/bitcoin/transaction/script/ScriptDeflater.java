@@ -40,10 +40,16 @@ public class ScriptDeflater {
         final Json json = new Json();
         json.put("bytes", scriptByteArray);
 
-        final Json operationsJson = new Json();
+        final Json operationsJson;
         final List<Operation> operations = script.getOperations();
-        for (final Operation operation : operations) {
-            operationsJson.add(operation);
+        if (operations != null) {
+            operationsJson = new Json();
+            for (final Operation operation : operations) {
+                operationsJson.add(operation);
+            }
+        }
+        else {
+            operationsJson = null;
         }
         json.put("operations", operationsJson);
 
