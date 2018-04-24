@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.stack;
 
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.Const;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;

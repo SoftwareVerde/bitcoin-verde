@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -38,7 +38,7 @@ public class TransactionDatabaseManager {
         }
     }
 
-    protected TransactionId _getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Hash transactionHash) throws DatabaseException {
+    protected TransactionId _getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
         final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
         if (blockChainSegment == null) { return null; }
@@ -76,7 +76,7 @@ public class TransactionDatabaseManager {
         return null;
     }
 
-    protected TransactionId _getTransactionIdFromHash(final BlockId blockId, final Hash transactionHash) throws DatabaseException {
+    protected TransactionId _getTransactionIdFromHash(final BlockId blockId, final Sha256Hash transactionHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query(
                 "SELECT id FROM transactions WHERE block_id = ? AND hash = ?")
@@ -138,11 +138,11 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
-    public TransactionId getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Hash transactionHash) throws DatabaseException {
+    public TransactionId getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
         return _getTransactionIdFromHash(blockChainSegmentId, transactionHash);
     }
 
-    public TransactionId getTransactionIdFromHash(final BlockId blockId, final Hash transactionHash) throws DatabaseException {
+    public TransactionId getTransactionIdFromHash(final BlockId blockId, final Sha256Hash transactionHash) throws DatabaseException {
         return _getTransactionIdFromHash(blockId, transactionHash);
     }
 }

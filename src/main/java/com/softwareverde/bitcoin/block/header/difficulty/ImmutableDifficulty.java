@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.util.HexUtil;
@@ -118,7 +118,7 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public byte[] getSignificand() { return ByteUtil.copyBytes(_significand); }
 
     @Override
-    public Boolean isSatisfiedBy(final Hash hash) {
+    public Boolean isSatisfiedBy(final Sha256Hash hash) {
         _requireCachedBytes();
 
         for (int i=0; i<_cachedBytes.length; ++i) {

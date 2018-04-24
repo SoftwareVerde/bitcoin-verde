@@ -15,8 +15,8 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -48,7 +48,7 @@ public class MinerModule {
 
     public void run() {
         try {
-            final Hash previousBlockHash = MutableHash.fromHexString(_previousBlockHashString);
+            final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_previousBlockHashString);
             final AddressInflater addressInflater = new AddressInflater();
 
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
@@ -64,7 +64,7 @@ public class MinerModule {
                 final MutableTransactionOutput coinbaseTransactionOutput = new MutableTransactionOutput();
                 final MutableTransaction coinbaseTransaction = new MutableTransaction();
                 {
-                    coinbaseTransactionInput.setPreviousOutputTransactionHash(new MutableHash());
+                    coinbaseTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
                     coinbaseTransactionInput.setPreviousOutputIndex(0);
                     coinbaseTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
                     coinbaseTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());

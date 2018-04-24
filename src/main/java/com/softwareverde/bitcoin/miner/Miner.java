@@ -8,13 +8,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -22,7 +21,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.jocl.GpuSha256;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
 
 public class Miner {
@@ -126,10 +124,10 @@ public class Miner {
                             blockHeaderBytesList.add(MutableByteArray.wrap(blockHeaderDeflater.toBytes(mutableBlock)));
                         }
 
-                        final List<Hash> blockHashes = gpuSha256.sha256(gpuSha256.sha256(blockHeaderBytesList));
+                        final List<Sha256Hash> blockHashes = gpuSha256.sha256(gpuSha256.sha256(blockHeaderBytesList));
 
                         for (int i=0; i<hashesPerIteration; ++i) {
-                            final Hash blockHash = blockHashes.get(i);
+                            final Sha256Hash blockHash = blockHashes.get(i);
 
                             isValidDifficulty = difficulty.isSatisfiedBy(blockHash.toReversedEndian());
 
@@ -194,7 +192,7 @@ public class Miner {
                             }
                         }
 
-                        final Hash blockHash = blockHasher.calculateBlockHash(mutableBlock);
+                        final Sha256Hash blockHash = blockHasher.calculateBlockHash(mutableBlock);
                         isValidDifficulty = difficulty.isSatisfiedBy(blockHash);
 
                         if (isValidDifficulty) {

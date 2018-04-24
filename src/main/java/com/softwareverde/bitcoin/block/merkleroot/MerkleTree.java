@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
 
@@ -13,5 +13,5 @@ public interface MerkleTree<T extends Hashable> {
     boolean isEmpty();
 
     MerkleRoot getMerkleRoot();
-    List<Hash> getPartialTree(int transactionIndex);
+    List<Sha256Hash> getPartialTree(int transactionIndex);
 }

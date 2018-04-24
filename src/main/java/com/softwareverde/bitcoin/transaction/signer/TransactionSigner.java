@@ -23,7 +23,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
 
 public class TransactionSigner {
 

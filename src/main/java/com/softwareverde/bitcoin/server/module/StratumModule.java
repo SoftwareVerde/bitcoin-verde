@@ -14,8 +14,8 @@ import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -87,7 +87,7 @@ public class StratumModule {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
             stratumMineBlockTask.setBlockVersion(block.getVersion());
-            stratumMineBlockTask.setPreviousBlockHash(MutableHash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
+            stratumMineBlockTask.setPreviousBlockHash(MutableSha256Hash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
             stratumMineBlockTask.setDifficulty(block.getDifficulty());
 
             final Transaction coinbaseTransaction;
@@ -181,7 +181,7 @@ public class StratumModule {
                                     final String stratumTimestamp = messageParameters.getString(3);
 
                                     final BlockHeader blockHeader = stratumMineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                                    final Hash hash = blockHeader.getHash();
+                                    final Sha256Hash hash = blockHeader.getHash();
                                     Logger.log(hash);
 
                                     final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), blockHeader.isValid());

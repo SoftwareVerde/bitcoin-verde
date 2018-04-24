@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Jsonable;
@@ -37,7 +37,7 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         return coinbaseTransactionInput;
     }
 
-    Hash getPreviousOutputTransactionHash();
+    Sha256Hash getPreviousOutputTransactionHash();
     Integer getPreviousOutputIndex();
     UnlockingScript getUnlockingScript();
     Long getSequenceNumber();

@@ -4,8 +4,8 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
@@ -44,11 +44,11 @@ public class MutableTransaction implements Transaction {
     }
 
     @Override
-    public Hash getHash() {
+    public Sha256Hash getHash() {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(this);
         final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
-        return MutableHash.wrap(ByteUtil.reverseEndian(doubleSha256));
+        return MutableSha256Hash.wrap(ByteUtil.reverseEndian(doubleSha256));
     }
 
     @Override

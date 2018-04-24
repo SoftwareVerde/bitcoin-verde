@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -9,7 +9,7 @@ public class TransactionInputInflater {
     protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
 
-        transactionInput._previousOutputTransactionHash = MutableHash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
+        transactionInput._previousOutputTransactionHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
         transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();

@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 
 public interface Hashable {
-    Hash getHash();
+    Sha256Hash getHash();
 }

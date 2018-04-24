@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.Node;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -59,9 +59,9 @@ public class NodeModule {
     protected void _downloadAllBlocks(final Node node) {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
 
-        final Hash resumeAfterHash;
+        final Sha256Hash resumeAfterHash;
         {
-            Hash lastKnownHash = null;
+            Sha256Hash lastKnownHash = null;
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                 lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
@@ -71,10 +71,10 @@ public class NodeModule {
             resumeAfterHash = ((lastKnownHash == null) ? Block.GENESIS_BLOCK_HEADER_HASH : lastKnownHash);
         }
 
-        final Container<Hash> lastBlockHash = new Container<Hash>(resumeAfterHash);
+        final Container<Sha256Hash> lastBlockHash = new Container<Sha256Hash>(resumeAfterHash);
         final Container<Node.QueryCallback> getBlocksHashesAfterCallback = new Container<Node.QueryCallback>();
 
-        final MutableList<Hash> availableBlockHashes = new MutableList<Hash>();
+        final MutableList<Sha256Hash> availableBlockHashes = new MutableList<Sha256Hash>();
 
         final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
             @Override
@@ -103,8 +103,8 @@ public class NodeModule {
 
         getBlocksHashesAfterCallback.value = new Node.QueryCallback() {
             @Override
-            public void onResult(final java.util.List<Hash> blockHashes) {
-                final List<Hash> hashes = new ImmutableList<Hash>(blockHashes); // TODO: Remove the conversion requirement.
+            public void onResult(final java.util.List<Sha256Hash> blockHashes) {
+                final List<Sha256Hash> hashes = new ImmutableList<Sha256Hash>(blockHashes); // TODO: Remove the conversion requirement.
                 availableBlockHashes.addAll(hashes);
 
                 if (! availableBlockHashes.isEmpty()) {
@@ -205,7 +205,7 @@ public class NodeModule {
 
         final Boolean hasGenesisBlock;
         {
-            Hash lastKnownHash = null;
+            Sha256Hash lastKnownHash = null;
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                 lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();

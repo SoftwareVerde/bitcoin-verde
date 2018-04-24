@@ -18,7 +18,7 @@ import com.softwareverde.bitcoin.server.message.type.version.acknowledge.Acknowl
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.type.callback.Callback;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -29,20 +29,20 @@ public class Node extends NodeConnectionDelegate {
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
-    public interface QueryCallback extends Callback<List<Hash>> { }
+    public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
 
-    protected static class BlockHashQueryCallback implements Callback<List<Hash>> {
-        public Hash afterBlockHash;
+    protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
+        public Sha256Hash afterBlockHash;
         public QueryCallback callback;
 
-        public BlockHashQueryCallback(final Hash afterBlockHash, final QueryCallback callback) {
+        public BlockHashQueryCallback(final Sha256Hash afterBlockHash, final QueryCallback callback) {
             this.afterBlockHash = afterBlockHash;
             this.callback = callback;
         }
 
         @Override
-        public void onResult(final List<Hash> result) {
+        public void onResult(final List<Sha256Hash> result) {
             this.callback.onResult(result);
         }
     }
@@ -53,7 +53,7 @@ public class Node extends NodeConnectionDelegate {
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
-    protected final Map<Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
 
     protected <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
         Set<S> destinationSet = destinationMap.get(key);
@@ -139,7 +139,7 @@ public class Node extends NodeConnectionDelegate {
 
     @Override
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
-        final Map<DataHashType, List<Hash>> dataHashesMap = new HashMap<DataHashType, List<Hash>>();
+        final Map<DataHashType, List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, List<Sha256Hash>>();
 
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
         for (final DataHash dataHash : dataHashes) {
@@ -149,7 +149,7 @@ public class Node extends NodeConnectionDelegate {
         }
 
         for (final DataHashType dataHashType : dataHashesMap.keySet()) {
-            final List<Hash> objectHashes = dataHashesMap.get(dataHashType);
+            final List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
             if (objectHashes.isEmpty()) { continue; }
 
             {   // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
@@ -158,7 +158,7 @@ public class Node extends NodeConnectionDelegate {
                 //  assumed to be for that callback's request.
 
                 if (dataHashType == DataHashType.BLOCK) {
-                    final Hash blockHash = objectHashes.get(0);
+                    final Sha256Hash blockHash = objectHashes.get(0);
                     _storeInMapSet(_downloadBlockRequests, blockHash, new DownloadBlockCallback() {
                         @Override
                         public void onResult(final Block block) {
@@ -188,17 +188,17 @@ public class Node extends NodeConnectionDelegate {
         final Block block = blockMessage.getBlock();
         final Boolean blockHeaderIsValid = block.isValid();
 
-        final Hash blockHash = block.getHash();
+        final Sha256Hash blockHash = block.getHash();
         _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
     }
 
-    protected void _queryForBlockHashesAfter(final Hash blockHash) {
+    protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         queryBlocksMessage.addBlockHeaderHash(blockHash);
         _queueMessage(queryBlocksMessage);
     }
 
-    protected void _requestBlock(final Hash blockHash) {
+    protected void _requestBlock(final Sha256Hash blockHash) {
         final RequestDataMessage requestDataMessage = new RequestDataMessage();
         requestDataMessage.addInventoryItem(new DataHash(DataHashType.BLOCK, blockHash));
         _queueMessage(requestDataMessage);
@@ -212,12 +212,12 @@ public class Node extends NodeConnectionDelegate {
         }
     }
 
-    public void getBlockHashesAfter(final Hash blockHash, final QueryCallback queryCallback) {
+    public void getBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
     }
 
-    public void requestBlock(final Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
+    public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
         _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
         _requestBlock(blockHash);
     }

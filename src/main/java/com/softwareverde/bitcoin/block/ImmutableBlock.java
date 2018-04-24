@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
@@ -58,7 +58,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     @Override
-    public List<Hash> getPartialMerkleTree(final int transactionIndex) {
+    public List<Sha256Hash> getPartialMerkleTree(final int transactionIndex) {
         if (_merkleTree == null) {
             _buildMerkleTree();
         }

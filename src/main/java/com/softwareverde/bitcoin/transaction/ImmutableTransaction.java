@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -14,7 +14,7 @@ import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
 
 public class ImmutableTransaction implements Transaction, Const {
-    protected final ImmutableHash _hash;
+    protected final ImmutableSha256Hash _hash;
     protected final Integer _version;
     protected final Boolean _hasWitnessData;
     protected final List<ImmutableTransactionInput> _transactionInputs;
@@ -32,7 +32,7 @@ public class ImmutableTransaction implements Transaction, Const {
     }
 
     @Override
-    public Hash getHash() {
+    public Sha256Hash getHash() {
         return _hash;
     }
 

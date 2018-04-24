@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.node.Node;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -22,7 +22,7 @@ public class MainTests {
 
         node.getBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new Node.QueryCallback() {
             @Override
-            public void onResult(final java.util.List<Hash> blockHashes) {
+            public void onResult(final java.util.List<Sha256Hash> blockHashes) {
                 Logger.log(blockHashes.size());
 
                 node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {

@@ -5,9 +5,8 @@ import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -25,7 +24,7 @@ public class QueryResponseMessageInflater extends ProtocolMessageInflater {
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
         for (int i=0; i<inventoryCount; ++i) {
             final Integer inventoryTypeCode = byteArrayReader.readInteger(4, Endian.LITTLE);
-            final Hash objectHash = MutableHash.wrap(byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE));
+            final Sha256Hash objectHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE));
 
             final DataHashType dataType = DataHashType.fromValue(inventoryTypeCode);
             final DataHash dataHash = new DataHash(dataType, objectHash);

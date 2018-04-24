@@ -25,7 +25,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
@@ -63,7 +63,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected TransactionInput _createCoinbaseTransactionInput() {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
-        mutableTransactionInput.setPreviousOutputTransactionHash(new MutableHash());
+        mutableTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
         mutableTransactionInput.setPreviousOutputIndex(0);
         mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());

@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.message.type.query.block;
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 
@@ -28,12 +28,12 @@ public class QueryBlocksMessageInflater extends ProtocolMessageInflater {
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Hash blockHeaderHash = MutableHash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
+            final Sha256Hash blockHeaderHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
             queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        queryBlocksMessage._desiredBlockHeaderHash = MutableHash.wrap(blockHeaderHashBytes);
+        queryBlocksMessage._desiredBlockHeaderHash = MutableSha256Hash.wrap(blockHeaderHashBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

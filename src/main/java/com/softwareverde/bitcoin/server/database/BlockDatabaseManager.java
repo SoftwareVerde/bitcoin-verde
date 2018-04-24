@@ -9,8 +9,8 @@ import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -39,7 +39,7 @@ public class BlockDatabaseManager {
         return row.getLong("block_height");
     }
 
-    protected BlockId _getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
+    protected BlockId _getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
                 .setParameter(HexUtil.toHexString(blockHash.getBytes()))
@@ -63,7 +63,7 @@ public class BlockDatabaseManager {
             row = rows.get(0);
         }
 
-        final Hash previousBlockHash;
+        final Sha256Hash previousBlockHash;
         {
             final Long previousBlockId = row.getLong("previous_block_id");
             final List<Row> rows = _databaseConnection.query(
@@ -72,11 +72,11 @@ public class BlockDatabaseManager {
             );
 
             if (rows.isEmpty()) {
-                previousBlockHash = new MutableHash();
+                previousBlockHash = new MutableSha256Hash();
             }
             else {
                 final Row previousBlockRow = rows.get(0);
-                previousBlockHash = MutableHash.fromHexString(previousBlockRow.getString("hash"));
+                previousBlockHash = MutableSha256Hash.fromHexString(previousBlockRow.getString("hash"));
             }
         }
 
@@ -89,8 +89,8 @@ public class BlockDatabaseManager {
         blockHeader.setNonce(row.getLong("nonce"));
 
         { // Assert that the hashes match after inflation...
-            final Hash expectedHash = MutableHash.fromHexString(row.getString("hash"));
-            final Hash actualHash = blockHeader.getHash();
+            final Sha256Hash expectedHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash actualHash = blockHeader.getHash();
             if (! expectedHash.equals(actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
             }
@@ -192,15 +192,15 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
-    public Hash getMostRecentBlockHash() throws DatabaseException {
+    public Sha256Hash getMostRecentBlockHash() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY timestamp DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return MutableHash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
     }
 
-    public BlockId getBlockIdFromHash(final Hash blockHash) throws DatabaseException {
+    public BlockId getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
         return _getBlockIdFromHash(blockHash);
     }
 

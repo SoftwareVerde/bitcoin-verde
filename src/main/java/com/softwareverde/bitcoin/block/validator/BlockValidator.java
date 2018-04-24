@@ -10,8 +10,8 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -19,7 +19,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +36,7 @@ public class BlockValidator {
         final long startTime = System.currentTimeMillis();
 
         final List<Transaction> transactions;
-        final Map<Hash, Transaction> queuedTransactionOutputs = new HashMap<Hash, Transaction>();
+        final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
             final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(fullTransactionList.getSize());
@@ -84,9 +83,9 @@ public class BlockValidator {
             }
 
             { // Validate previousOutputTransactionHash...
-                final Hash requiredHash = new ImmutableHash();
+                final Sha256Hash requiredHash = new ImmutableSha256Hash();
                 final TransactionInput transactionInput = transactionInputs.get(0);
-                final Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                 if (! requiredHash.equals(previousOutputTransactionHash)) {
                     Logger.log("Invalid coinbase transaction input. PreviousTransactionHash: " + previousOutputTransactionHash + "; " + "Block: " + block.getHash());
                     return false;

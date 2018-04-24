@@ -5,7 +5,6 @@ import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.Credentials;
 import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;

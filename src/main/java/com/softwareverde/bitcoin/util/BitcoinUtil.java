@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.Base58Util;
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
@@ -21,8 +21,8 @@ public class BitcoinUtil {
         }
     }
 
-    public static Hash sha256(final ByteArray data) {
-        return MutableHash.wrap(sha256(data.getBytes()));
+    public static Sha256Hash sha256(final ByteArray data) {
+        return MutableSha256Hash.wrap(sha256(data.getBytes()));
     }
 
     public static byte[] sha256(final byte[] data) {

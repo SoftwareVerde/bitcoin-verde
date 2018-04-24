@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -43,7 +43,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         }
     }
 
-    protected static Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final Map<Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection) {
+    protected static Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection) {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
 
@@ -53,7 +53,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
 
             final TransactionOutput transactionOutput;
@@ -84,10 +84,10 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
     }
 
     private final BlockChainSegmentId _blockChainSegmentId;
-    private final Map<Hash, Transaction> _queuedTransactionOutputs;
+    private final Map<Sha256Hash, Transaction> _queuedTransactionOutputs;
     private Long _totalFees = 0L;
 
-    public TotalExpenditureTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Map<Hash, Transaction> queuedTransactionOutputs) {
+    public TotalExpenditureTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Map<Sha256Hash, Transaction> queuedTransactionOutputs) {
         _blockChainSegmentId = blockChainSegmentId;
         _queuedTransactionOutputs = queuedTransactionOutputs;
     }

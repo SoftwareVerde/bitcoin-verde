@@ -1,9 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;

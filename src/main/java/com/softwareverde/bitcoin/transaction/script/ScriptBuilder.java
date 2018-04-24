@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.script;
 
-import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;

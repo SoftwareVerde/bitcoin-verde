@@ -15,7 +15,7 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -37,7 +37,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
             for (int i=0; i<blockCount; ++i) {
-                final Hash mostRecentBlockHash = blockDatabaseManager.getMostRecentBlockHash();
+                final Sha256Hash mostRecentBlockHash = blockDatabaseManager.getMostRecentBlockHash();
                 MutableBlock block;
 
                 if (mostRecentBlockHash == null) {

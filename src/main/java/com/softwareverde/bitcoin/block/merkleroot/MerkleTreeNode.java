@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -14,21 +14,21 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
         @Override
         protected byte[] initialValue() {
-            return new byte[Hash.SHA_256_BYTE_COUNT * 2];
+            return new byte[Sha256Hash.BYTE_COUNT * 2];
         }
     };
 
-    protected static byte[] _calculateNodeHash(final Hash hash0, final Hash hash1) {
+    protected static byte[] _calculateNodeHash(final Sha256Hash hash0, final Sha256Hash hash1) {
         final byte[] scratchSpace = _threadLocalScratchSpace.get();
 
         ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian().getBytes());
-        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Hash.SHA_256_BYTE_COUNT);
+        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Sha256Hash.BYTE_COUNT);
 
         return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
     }
 
     protected Boolean _hashIsValid = false;
-    protected final MutableHash _hash = new MutableHash();
+    protected final MutableSha256Hash _hash = new MutableSha256Hash();
 
     protected int _itemCount = 0; // NOTE: _itemCount is the total number of items, which excludes intermediary hashes.
 
@@ -38,7 +38,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     protected MerkleTreeNode<T> _childNode0 = null;
     protected MerkleTreeNode<T> _childNode1 = null;
 
-    protected void _collectPartialHashes(final ImmutableListBuilder<Hash> listBuilder) {
+    protected void _collectPartialHashes(final ImmutableListBuilder<Sha256Hash> listBuilder) {
         if (_itemCount == 0) { return; }
         else if (_item0 != null) {
             if (_item1 != null) {
@@ -47,12 +47,12 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         }
         else {
             if ( (_childNode1 != null) && (! _childNode1.isEmpty()) ) {
-                listBuilder.add(new ImmutableHash(_childNode1._getIntermediaryHash()));
+                listBuilder.add(new ImmutableSha256Hash(_childNode1._getIntermediaryHash()));
             }
         }
     }
 
-    protected void _getPartialTree(final int index, final ImmutableListBuilder<Hash> partialTreeBuilder) {
+    protected void _getPartialTree(final int index, final ImmutableListBuilder<Sha256Hash> partialTreeBuilder) {
         if ( (_item0 != null) || (_item1 != null) ) {
             // Nothing.
         }
@@ -70,11 +70,11 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     }
 
     protected void _recalculateHash() {
-        final Hash hash0;
-        final Hash hash1;
+        final Sha256Hash hash0;
+        final Sha256Hash hash1;
         {
             if (_itemCount == 0) {
-                hash0 = new ImmutableHash();
+                hash0 = new ImmutableSha256Hash();
                 hash1 = hash0;
             }
             else if (_item0 != null) {
@@ -82,8 +82,8 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
                 hash1 = (_item1 == null ? hash0 : _item1.getHash());
             }
             else {
-                hash0 = new ImmutableHash(_childNode0._getIntermediaryHash());
-                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableHash(_childNode1._getIntermediaryHash()));
+                hash0 = new ImmutableSha256Hash(_childNode0._getIntermediaryHash());
+                hash1 = ((_childNode1 == null || _childNode1.isEmpty()) ? hash0 : new ImmutableSha256Hash(_childNode1._getIntermediaryHash()));
             }
         }
 
@@ -137,7 +137,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         return nodeOfEqualDepthToChildNode0;
     }
 
-    protected Hash _getIntermediaryHash() {
+    protected Sha256Hash _getIntermediaryHash() {
         if (! _hashIsValid) {
             _recalculateHash();
         }
@@ -285,8 +285,8 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
     }
 
     @Override
-    public List<Hash> getPartialTree(final int index) {
-        final ImmutableListBuilder<Hash> partialTreeBuilder = new ImmutableListBuilder<Hash>();
+    public List<Sha256Hash> getPartialTree(final int index) {
+        final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<Sha256Hash>();
         _getPartialTree(index, partialTreeBuilder);
         return partialTreeBuilder.build();
     }

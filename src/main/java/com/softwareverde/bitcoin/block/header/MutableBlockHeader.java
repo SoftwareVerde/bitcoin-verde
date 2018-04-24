@@ -2,14 +2,14 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 
 public class MutableBlockHeader implements BlockHeader {
     protected Integer _version;
-    protected Hash _previousBlockHash = new MutableHash();
+    protected Sha256Hash _previousBlockHash = new MutableSha256Hash();
     protected MerkleRoot _merkleRoot = new MutableMerkleRoot();
     protected Long _timestamp;
     protected Difficulty _difficulty;
@@ -33,8 +33,8 @@ public class MutableBlockHeader implements BlockHeader {
     public void setVersion(final Integer version) { _version = version; }
 
     @Override
-    public Hash getPreviousBlockHash() { return _previousBlockHash; }
-    public void setPreviousBlockHash(final Hash previousBlockHash) {
+    public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }
+    public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _previousBlockHash = previousBlockHash;
     }
 
@@ -57,7 +57,7 @@ public class MutableBlockHeader implements BlockHeader {
     public void setNonce(final Long nonce) { _nonce = nonce; }
 
     @Override
-    public Hash getHash() {
+    public Sha256Hash getHash() {
         final BlockHasher blockHasher = new BlockHasher();
         return blockHasher.calculateBlockHash(this);
     }
@@ -65,7 +65,7 @@ public class MutableBlockHeader implements BlockHeader {
     @Override
     public Boolean isValid() {
         final BlockHasher blockHasher = new BlockHasher();
-        final Hash calculatedHash = blockHasher.calculateBlockHash(this);
+        final Sha256Hash calculatedHash = blockHasher.calculateBlockHash(this);
         return (_difficulty.isSatisfiedBy(calculatedHash));
     }
 

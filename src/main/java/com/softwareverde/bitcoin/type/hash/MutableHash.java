@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.type.hash;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
@@ -12,18 +11,10 @@ public class MutableHash extends MutableByteArray implements Hash {
     }
 
     public static MutableHash wrap(final byte[] bytes) {
-        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
-            return null;
-        }
         return new MutableHash(bytes);
     }
 
     public static MutableHash copyOf(final byte[] bytes) {
-        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
-            return null;
-        }
         return new MutableHash(ByteUtil.copyBytes(bytes));
     }
 
@@ -31,26 +22,20 @@ public class MutableHash extends MutableByteArray implements Hash {
         super(bytes);
     }
 
-    public MutableHash() {
-        super(SHA_256_BYTE_COUNT);
+    public MutableHash(final Integer byteCount) {
+        super(byteCount);
     }
 
     public MutableHash(final Hash hash) {
-        super(hash.getByteCount());
-        ByteUtil.setBytes(_bytes, hash.getBytes());
+        super(hash);
     }
 
     @Override
     public Hash toReversedEndian() {
-        return new MutableHash(ByteUtil.reverseEndian(_bytes));
+        return MutableHash.wrap(ByteUtil.reverseEndian(_bytes));
     }
 
     public void setBytes(final byte[] bytes) {
-        if (bytes.length != SHA_256_BYTE_COUNT && bytes.length != RIPEMD_160_BYTE_COUNT) {
-            Logger.log("NOTICE: Attempted to set hash bytes of incorrect length: "+ bytes.length);
-            return;
-        }
-
         if (_bytes.length != bytes.length) {
             _bytes = new byte[bytes.length];
         }
