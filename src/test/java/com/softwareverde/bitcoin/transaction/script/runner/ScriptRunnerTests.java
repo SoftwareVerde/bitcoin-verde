@@ -5,8 +5,9 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -71,8 +72,8 @@ public class ScriptRunnerTests {
         context.setTransactionInput(transactionInput);
         context.setTransactionOutput(transactionOutput);
 
-        final Script lockingScript = transactionOutput.getLockingScript();
-        final Script unlockingScript = transactionInput.getUnlockingScript();
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
         // Action
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
@@ -109,8 +110,8 @@ public class ScriptRunnerTests {
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(transactionOutputBeingSpent);
 
-            final Script lockingScript = transactionOutputBeingSpent.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
+            final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);

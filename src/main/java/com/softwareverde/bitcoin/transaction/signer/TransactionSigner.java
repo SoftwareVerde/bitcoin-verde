@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.io.Logger;
 
 public class TransactionSigner {
 
@@ -59,8 +60,6 @@ public class TransactionSigner {
 
                 final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
                 if (subscriptIndex > 0) {
-                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
-
                     // NOTE: Unsure if the LockingScript should receive the same treatment if it has a CodeSeparator.
                     // final MutableScript mutableScript = new MutableScript(signatureContext.getCurrentScript()); //  // TODO: Determine if CodeSeparators are valid in UnlockingScripts...
 
@@ -89,7 +88,10 @@ public class TransactionSigner {
             mutableTransactionOutput.setAmount(transactionOutput.getAmount());
             mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
-            mutableTransaction.addTransactionOutput(mutableTransactionOutput);
+
+            if (hashType != ScriptSignature.HashType.SIGNATURE_HASH_NONE) {
+                mutableTransaction.addTransactionOutput(mutableTransactionOutput);
+            }
         }
 
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);

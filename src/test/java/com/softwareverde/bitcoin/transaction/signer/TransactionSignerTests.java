@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
@@ -88,8 +87,8 @@ public class TransactionSignerTests {
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(transactionOutputBeingSpent);
 
-            final Script lockingScript = transactionOutputBeingSpent.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
+            final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);

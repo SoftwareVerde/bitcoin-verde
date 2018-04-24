@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 
@@ -16,7 +17,7 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
-    public Boolean runScript(final Script lockingScript, final Script unlockingScript, final Context context) {
+    public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
 
         final Stack stack = new Stack();
