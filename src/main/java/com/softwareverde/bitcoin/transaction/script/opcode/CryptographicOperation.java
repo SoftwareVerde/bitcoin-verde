@@ -93,7 +93,7 @@ public class CryptographicOperation extends SubTypedOperation {
             }
 
             case CODE_SEPARATOR: {
-                final Integer postCodeSeparatorScriptIndex = context.getCurrentScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
+                final Integer postCodeSeparatorScriptIndex = context.getScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
                 context.setLockingScriptLastCodeSeparatorIndex(postCodeSeparatorScriptIndex);
                 return true;
             }

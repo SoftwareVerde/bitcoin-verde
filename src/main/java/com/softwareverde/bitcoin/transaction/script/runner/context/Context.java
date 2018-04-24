@@ -5,8 +5,9 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.json.Jsonable;
 
-public interface Context extends Constable<ImmutableContext> {
+public interface Context extends Constable<ImmutableContext>, Jsonable {
     Long getBlockHeight();
     TransactionInput getTransactionInput();
     TransactionOutput getTransactionOutput();
@@ -19,7 +20,7 @@ public interface Context extends Constable<ImmutableContext> {
      * Returns the index of the script's current execution index.
      *  Calling this function during the execution of the first opcode will return zero.
      */
-    Integer getCurrentScriptIndex();
+    Integer getScriptIndex();
 
     /**
      * Returns the index within script that starts with the index immediately after the last executed CODE_SEPARATOR operation.

@@ -53,11 +53,7 @@ public class MutableTransactionInput implements TransactionInput {
 
     @Override
     public Json toJson() {
-        final Json json = new Json();
-        json.put("previousOutputTransactionHash", _previousOutputTransactionHash);
-        json.put("previousOutputIndex", _previousOutputIndex);
-        json.put("unlockingScript", _unlockingScript);
-        json.put("sequenceNumber", _sequenceNumber);
-        return json;
+        final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
+        return transactionInputDeflater.toJson(this);
     }
 }

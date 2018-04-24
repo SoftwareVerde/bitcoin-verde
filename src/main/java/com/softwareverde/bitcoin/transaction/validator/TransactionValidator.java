@@ -14,8 +14,10 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -76,8 +78,8 @@ public class TransactionValidator {
             final TransactionOutput outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
             if (outputToSpend == null) { return false; }
 
-            final Script lockingScript = outputToSpend.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
+            final LockingScript lockingScript = outputToSpend.getLockingScript();
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(outputToSpend);
@@ -88,14 +90,18 @@ public class TransactionValidator {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 Logger.log("Transaction failed to verify:\n\t" + transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
 
-                final ScriptDeflater scriptDeflater = new ScriptDeflater();
-                final String unlockingScriptString = scriptDeflater.toString(unlockingScript);
-                final String lockingScriptString = scriptDeflater.toString(lockingScript);
-                Logger.log("Unlocking Script:\n\t" + (unlockingScriptString != null ? unlockingScriptString : unlockingScript) );
-                Logger.log("Locking Script:\n\t" + (lockingScriptString != null ? lockingScriptString : lockingScript) );
-                Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
+                { // Human Readable Script Output:
+                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
+                    final String unlockingScriptString = scriptDeflater.toString(unlockingScript);
+                    final String lockingScriptString = scriptDeflater.toString(lockingScript);
+                    Logger.log("Unlocking Script:\n\t" + (unlockingScriptString != null ? unlockingScriptString : unlockingScript));
+                    Logger.log("Locking Script:\n\t" + (lockingScriptString != null ? lockingScriptString : lockingScript));
+                    Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
+                }
 
-                Logger.log(transaction.toJson());
+                Logger.log("Context: " + context.toJson());
+                Logger.log("Unlocking Script: " + unlockingScript);
+                Logger.log("Locking Script: " + lockingScript);
                 return false;
             }
         }

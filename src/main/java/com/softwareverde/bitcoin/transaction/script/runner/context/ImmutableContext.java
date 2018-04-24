@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
+import com.softwareverde.json.Json;
 
 public class ImmutableContext implements Context, Const {
     protected Long _blockHeight;
@@ -27,7 +28,7 @@ public class ImmutableContext implements Context, Const {
 
         final Script currentScript = context.getCurrentScript();
         _currentScript = (currentScript != null ? currentScript.asConst() : null);
-        _currentScriptIndex = context.getCurrentScriptIndex();
+        _currentScriptIndex = context.getScriptIndex();
         _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
 
@@ -62,7 +63,7 @@ public class ImmutableContext implements Context, Const {
     }
 
     @Override
-    public Integer getCurrentScriptIndex() {
+    public Integer getScriptIndex() {
         return _currentScriptIndex;
     }
 
@@ -74,5 +75,11 @@ public class ImmutableContext implements Context, Const {
     @Override
     public ImmutableContext asConst() {
         return this;
+    }
+
+    @Override
+    public Json toJson() {
+        final ContextDeflater contextDeflater = new ContextDeflater();
+        return contextDeflater.toJson(this);
     }
 }

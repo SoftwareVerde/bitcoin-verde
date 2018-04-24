@@ -6,9 +6,11 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.HexUtil;
 
 public class TransactionInputDeflater {
-    private void _toFragmentedBytes(final TransactionInput transactionInput, final ByteArrayBuilder headBytes, final ByteArrayBuilder tailBytes) {
+    protected void _toFragmentedBytes(final TransactionInput transactionInput, final ByteArrayBuilder headBytes, final ByteArrayBuilder tailBytes) {
         final byte[] sequenceBytes = new byte[4];
         ByteUtil.setBytes(sequenceBytes, ByteUtil.integerToBytes(transactionInput.getSequenceNumber()));
 
@@ -23,6 +25,12 @@ public class TransactionInputDeflater {
         headBytes.appendBytes(unlockingScriptBytes, Endian.BIG);
 
         tailBytes.appendBytes(sequenceBytes, Endian.LITTLE);
+    }
+
+    protected byte[] _toBytes(final TransactionInput transactionInput) {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        _toFragmentedBytes(transactionInput, byteArrayBuilder, byteArrayBuilder);
+        return byteArrayBuilder.build();
     }
 
     public Integer getByteCount(final TransactionInput transactionInput) {
@@ -44,9 +52,7 @@ public class TransactionInputDeflater {
     }
 
     public byte[] toBytes(final TransactionInput transactionInput) {
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        _toFragmentedBytes(transactionInput, byteArrayBuilder, byteArrayBuilder);
-        return byteArrayBuilder.build();
+        return _toBytes(transactionInput);
     }
 
     public FragmentedBytes fragmentTransactionInput(final TransactionInput transactionInput) {
@@ -56,5 +62,15 @@ public class TransactionInputDeflater {
         _toFragmentedBytes(transactionInput, headBytesBuilder, tailBytesBuilder);
 
         return new FragmentedBytes(headBytesBuilder.build(), tailBytesBuilder.build());
+    }
+
+    public Json toJson(final TransactionInput transactionInput) {
+        final Json json = new Json();
+        json.put("previousOutputTransactionHash", transactionInput.getPreviousOutputTransactionHash());
+        json.put("previousOutputIndex", transactionInput.getPreviousOutputIndex());
+        json.put("unlockingScript", transactionInput.getUnlockingScript());
+        json.put("sequenceNumber", transactionInput.getSequenceNumber());
+        json.put("bytes", HexUtil.toHexString(_toBytes(transactionInput)));
+        return json;
     }
 }

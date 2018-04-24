@@ -9,6 +9,8 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.HexUtil;
 
 public class TransactionDeflater {
     protected void _toFragmentedBytes(final Transaction transaction, final ByteArrayBuilder headBytesBuilder, final ByteArrayBuilder tailBytesBuilder) {
@@ -46,6 +48,12 @@ public class TransactionDeflater {
         tailBytesBuilder.appendBytes(lockTimeBytes, Endian.LITTLE);
     }
 
+    protected byte[] _toBytes(final Transaction transaction) {
+        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+        _toFragmentedBytes(transaction, byteArrayBuilder, byteArrayBuilder);
+        return byteArrayBuilder.build();
+    }
+
     public ByteArrayBuilder toByteArrayBuilder(final Transaction transaction) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         _toFragmentedBytes(transaction, byteArrayBuilder, byteArrayBuilder);
@@ -53,9 +61,7 @@ public class TransactionDeflater {
     }
 
     public byte[] toBytes(final Transaction transaction) {
-        final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        _toFragmentedBytes(transaction, byteArrayBuilder, byteArrayBuilder);
-        return byteArrayBuilder.build();
+        return _toBytes(transaction);
     }
 
     public Integer getByteCount(final Transaction transaction) {
@@ -99,5 +105,30 @@ public class TransactionDeflater {
         _toFragmentedBytes(transaction, headBytesBuilder, tailBytesBuilder);
 
         return new FragmentedBytes(headBytesBuilder.build(), tailBytesBuilder.build());
+    }
+
+    public Json toJson(final Transaction transaction) {
+        final Json json = new Json();
+
+        json.put("version", transaction.VERSION);
+        json.put("hasWitnessData", transaction.hasWitnessData());
+
+        final Json inputsJson = new Json();
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            inputsJson.add(transactionInput);
+        }
+        json.put("inputs", inputsJson);
+
+
+        final Json outputsJson = new Json();
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+            outputsJson.add(transactionOutput);
+        }
+        json.put("outputs", outputsJson);
+
+        json.put("lockTime", transaction.getLockTime());
+        json.put("bytes", HexUtil.toHexString(_toBytes(transaction)));
+
+        return json;
     }
 }
