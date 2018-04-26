@@ -62,13 +62,12 @@ public class ScriptRunner {
         }
 
         { // Pay-To-Script-Hash Validation
-            Logger.log("Pay-To-Script-Hash Validation");
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
             final Boolean scriptIsPayToScriptHash = lockingScript.isPayToScriptHash();
-            final Boolean containsNonPushOperations = unlockingScript.containsNonPushOperations();
 
             if ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash)) {
-                if (containsNonPushOperations) { return false; }
+                final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
+                if (unlockingScriptContainsNonPushOperations) { return false; }
 
                 try {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
