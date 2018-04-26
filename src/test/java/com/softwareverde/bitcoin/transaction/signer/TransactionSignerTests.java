@@ -57,6 +57,7 @@ public class TransactionSignerTests {
         final TransactionSigner transactionSigner = new TransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
         signatureContext.setShouldSignInput(0, true, transactionOutputBeingSpent);
+        signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 
         // Action
         final byte[] bytesForSigning = transactionSigner._getBytesForSigning(signatureContext);

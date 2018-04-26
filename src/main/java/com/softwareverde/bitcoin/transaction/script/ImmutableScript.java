@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.type.hash.ripemd160.MutableRipemd160Hash;
 import com.softwareverde.bitcoin.type.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -57,6 +58,19 @@ public class ImmutableScript implements Script, Const {
     @Override
     public ByteArray getBytes() {
         return _bytes;
+    }
+
+    @Override
+    public Boolean containsNonPushOperations() {
+        _requireCachedOperations();
+
+        for (final Operation operation : _cachedOperations) {
+            if (operation.getType() != PushOperation.TYPE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override

@@ -15,6 +15,8 @@ public interface Script extends Constable<ImmutableScript>, Jsonable {
     int getByteCount();
     ByteArray getBytes();
 
+    Boolean containsNonPushOperations();
+
     @Override
     ImmutableScript asConst();
 }

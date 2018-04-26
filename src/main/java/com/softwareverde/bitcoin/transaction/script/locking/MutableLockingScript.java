@@ -1,11 +1,14 @@
 package com.softwareverde.bitcoin.transaction.script.locking;
 
-import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
+import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 
-public class MutableLockingScript extends ImmutableScript implements LockingScript {
+public class MutableLockingScript extends MutableScript implements LockingScript {
 
-    protected MutableLockingScript() {
+    public MutableLockingScript() {
         super();
     }
 
@@ -15,6 +18,12 @@ public class MutableLockingScript extends ImmutableScript implements LockingScri
 
     public MutableLockingScript(final Script script) {
         super(script);
+    }
+
+    @Override
+    public Boolean isPayToScriptHash() {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        return scriptPatternMatcher.matchesPayToScriptHashFormat(this);
     }
 
     @Override

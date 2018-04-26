@@ -18,6 +18,13 @@ public class Stack {
         return _values.get(_values.size() - index - 1);
     }
 
+    public Stack() { }
+
+    public Stack(final Stack stack) {
+        _values.addAll(stack._values);
+        _didOverflow = stack._didOverflow;
+    }
+
     public void push(final Value value) {
         _values.add(value);
     }

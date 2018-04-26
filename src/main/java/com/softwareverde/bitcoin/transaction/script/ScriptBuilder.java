@@ -16,6 +16,7 @@ import com.softwareverde.util.StringUtil;
 
 public class ScriptBuilder {
     protected static LockingScript _createPayToAddressScript(final Address address) {
+        // TODO: Refactor to use ScriptBuilder (i.e. implement ScriptBuilder.pushOperation())...
         final byte[] addressBytes = address.getBytes();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();

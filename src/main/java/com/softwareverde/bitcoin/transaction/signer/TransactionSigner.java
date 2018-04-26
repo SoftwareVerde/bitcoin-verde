@@ -10,9 +10,11 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -24,6 +26,8 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 public class TransactionSigner {
 
@@ -37,6 +41,10 @@ public class TransactionSigner {
 
         final Transaction transaction = signatureContext.getTransaction();
         final ScriptSignature.HashType hashType = signatureContext.getHashType();
+        final Script currentScript = signatureContext.getCurrentScript();
+        // NOTE: The if the currentScript has not been set, the current script will default to the PreviousTransactionOutput's locking script.
+        // if (currentScript == null) { throw new NullPointerException("SignatureContext must have its currentScript set."); }
+
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
@@ -56,15 +64,11 @@ public class TransactionSigner {
             final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
             if  (shouldSignIndex) {
                 final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+                final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
 
                 final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
                 if (subscriptIndex > 0) {
-                    // NOTE: Unsure if the LockingScript should receive the same treatment if it has a CodeSeparator.
-                    // final MutableScript mutableScript = new MutableScript(signatureContext.getCurrentScript()); //  // TODO: Determine if CodeSeparators are valid in UnlockingScripts...
-
-                    final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
-                    final MutableScript mutableScript = new MutableScript(unlockingScript);
+                    final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
 
                     mutableScript.subScript(subscriptIndex);
                     mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
@@ -72,7 +76,7 @@ public class TransactionSigner {
                     unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
                 }
                 else {
-                    unlockingScriptForSigning = UnlockingScript.castFrom(lockingScript);
+                    unlockingScriptForSigning = UnlockingScript.castFrom(Util.coalesce(currentScript, outputBeingSpentLockingScript));
                 }
             }
             else {

@@ -44,6 +44,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
         signatureContext.setShouldSignInput(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
         signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, context.getScriptLastCodeSeparatorIndex());
+        signatureContext.setCurrentScript(context.getCurrentScript());
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 

@@ -5,8 +5,12 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 
 public class MutableUnlockingScript extends MutableScript implements UnlockingScript {
 
-    protected MutableUnlockingScript() {
+    public MutableUnlockingScript() {
         super();
+    }
+
+    public MutableUnlockingScript(final byte[] bytes) {
+        super(bytes);
     }
 
     public MutableUnlockingScript(final Script script) {

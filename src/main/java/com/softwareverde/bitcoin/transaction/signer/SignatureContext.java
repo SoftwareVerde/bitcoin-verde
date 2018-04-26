@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.signer;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -16,6 +17,8 @@ public class SignatureContext {
     private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
 
     private final MutableList<Boolean> _outputIndexesToSign = new MutableList<Boolean>();
+
+    private Script _currentScript;
 
     public SignatureContext(final Transaction transaction, final ScriptSignature.HashType hashType) {
         _transaction = transaction;
@@ -48,6 +51,10 @@ public class SignatureContext {
         _codeSeparatorIndexes.set(index, lastCodeSeparatorIndex);
     }
 
+    public void setCurrentScript(final Script script) {
+        _currentScript = script;
+    }
+
     public Transaction getTransaction() {
         return _transaction;
     }
@@ -70,5 +77,9 @@ public class SignatureContext {
 
     public Integer getLastCodeSeparatorIndex(final Integer index) {
         return _codeSeparatorIndexes.get(index);
+    }
+
+    public Script getCurrentScript() {
+        return _currentScript;
     }
 }

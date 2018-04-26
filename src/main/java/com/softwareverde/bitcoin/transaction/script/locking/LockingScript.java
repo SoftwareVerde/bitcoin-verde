@@ -9,6 +9,8 @@ public interface LockingScript extends Script {
         return new ImmutableLockingScript(script);
     }
 
+    Boolean isPayToScriptHash();
+
     @Override
     ImmutableLockingScript asConst();
 }
