@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
+import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
@@ -17,6 +18,7 @@ public abstract class NodeConnectionDelegate {
     protected abstract void _onConnect();
     protected abstract void _onDisconnect();
     protected abstract void _onPingReceived(final PingMessage pingMessage);
+    protected abstract void _onPongReceived(final PongMessage pongMessage);
     protected abstract void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage);
     protected abstract void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage);
     protected abstract void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage);
@@ -37,6 +39,9 @@ public abstract class NodeConnectionDelegate {
                 switch (message.getCommand()) {
                     case PING: {
                         _onPingReceived((PingMessage) message);
+                    } break;
+                    case PONG: {
+                        _onPongReceived((PongMessage) message);
                     } break;
                     case SYNCHRONIZE_VERSION: {
                         _onSynchronizeVersion((SynchronizeVersionMessage) message);

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module;
+package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.Node;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -44,7 +45,7 @@ public class NodeModule {
     protected int _blockCount = 0;
     protected int _transactionCount = 0;
 
-    protected final NodePool _nodePool = new NodePool();
+    protected final NodeManager _nodeManager = new NodeManager();
 
     protected void _exitFailure() {
         System.exit(1);
@@ -103,10 +104,10 @@ public class NodeModule {
                 lastBlockHash.value = block.getHash();
 
                 if (! availableBlockHashes.isEmpty()) {
-                    _nodePool.requestBlock(availableBlockHashes.remove(0), this);
+                    _nodeManager.requestBlock(availableBlockHashes.remove(0), this);
                 }
                 else {
-                    _nodePool.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
+                    _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
                 }
             }
         };
@@ -118,12 +119,12 @@ public class NodeModule {
                 availableBlockHashes.addAll(hashes);
 
                 if (! availableBlockHashes.isEmpty()) {
-                    _nodePool.requestBlock(availableBlockHashes.remove(0), downloadBlockCallback);
+                    _nodeManager.requestBlock(availableBlockHashes.remove(0), downloadBlockCallback);
                 }
             }
         };
 
-        _nodePool.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
+        _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
     }
 
     protected Boolean _processBlock(final Block block) {
@@ -196,12 +197,12 @@ public class NodeModule {
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final Node node = new Node(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
-            _nodePool.addNode(node);
+            _nodeManager.addNode(node);
         }
     }
 
     public void loop() {
-        _nodePool.startNodeMaintenanceThread();
+        _nodeManager.startNodeMaintenanceThread();
 
         Logger.log("[Server Online]");
 
@@ -220,7 +221,7 @@ public class NodeModule {
         }
 
         if (! _hasGenesisBlock) {
-            _nodePool.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
+            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
                     if (_hasGenesisBlock) {

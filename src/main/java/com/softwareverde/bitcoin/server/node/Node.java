@@ -42,11 +42,22 @@ public class Node extends NodeConnectionDelegate {
         void onNodeDisconnected();
     }
 
+    protected class PingRequest {
+        public final PingCallback pingCallback;
+        public final Long timestamp;
+
+        public PingRequest(final PingCallback pingCallback) {
+            this.pingCallback = pingCallback;
+            this.timestamp = System.currentTimeMillis();
+        }
+    }
+
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
     public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
+    public interface PingCallback extends Callback<Long> { }
 
     protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
@@ -70,6 +81,7 @@ public class Node extends NodeConnectionDelegate {
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
@@ -156,6 +168,19 @@ public class Node extends NodeConnectionDelegate {
     }
 
     @Override
+    protected void _onPongReceived(final PongMessage pongMessage) {
+        final Long nonce = pongMessage.getNonce();
+        final PingRequest pingRequest = _pingRequests.remove(nonce);
+
+        final PingCallback pingCallback = (pingRequest != null ? pingRequest.pingCallback : null);
+        if (pingCallback != null) {
+            final Long now = System.currentTimeMillis();
+            final Long msElapsed = (now - pingRequest.timestamp);
+            pingCallback.onResult(msElapsed);
+        }
+    }
+
+    @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         // TODO: Should probably not accept any node version...
         final AcknowledgeVersionMessage acknowledgeVersionMessage = new AcknowledgeVersionMessage();
@@ -165,13 +190,10 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
-        Logger.log("Handshake complete.");
-
         if (_nodeHandshakeCompleteCallback != null) {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    Logger.log("Handshake complete callback...");
                     _nodeHandshakeCompleteCallback.onHandshakeComplete();
                 }
             })).start();
@@ -312,8 +334,10 @@ public class Node extends NodeConnectionDelegate {
         _requestBlock(blockHash);
     }
 
-    public void ping() {
+    public void ping(final PingCallback pingCallback) {
         final PingMessage pingMessage = new PingMessage();
+        final PingRequest pingRequest = new PingRequest(pingCallback);
+        _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
     }
 }

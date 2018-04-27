@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.module.*;
+import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.util.Util;
 
 public class Main {
