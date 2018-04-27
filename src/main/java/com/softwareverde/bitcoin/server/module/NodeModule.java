@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.async.HaltableThread;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -48,11 +49,9 @@ public class NodeModule {
 
     protected final MutableList<Runnable> _onNodeConnectedCallbacks = new MutableList<Runnable>();
 
-    protected final Thread _nodeMaintenanceThread = new Thread(new Runnable() {
+    protected final HaltableThread _nodeMaintenanceThread = new HaltableThread(new Runnable() {
         @Override
         public void run() {
-            try { Thread.sleep(10000L); } catch (final Exception exception) { }
-
             _pingIdleNodes();
         }
     });
@@ -83,10 +82,10 @@ public class NodeModule {
             }
         }
 
-        Logger.log("Idle Node Count: " + idleNodes.getSize());
+        Logger.log("Idle Node Count: " + idleNodes.getSize() + " / " + _nodes.size());
         for (final Node idleNode : idleNodes) {
             idleNode.ping();
-            Logger.log("Pinging Idle Node: " + idleNode.getConnectionString());
+            Logger.log("*** Pinging Idle Node: " + idleNode.getConnectionString());
         }
     }
 
@@ -121,6 +120,9 @@ public class NodeModule {
         if (activeNodeCount == 0) { return null; }
 
         final Integer selectedNodeIndex = ( ((int) (Math.random() * 7777)) % activeNodeCount );
+
+        Logger.log("Select Node: " + selectedNodeIndex + " - " + activeNodeCount + " / " + _nodes.size());
+
         return activeNodes.get(selectedNodeIndex);
     }
 
@@ -174,11 +176,25 @@ public class NodeModule {
 
                 lastBlockHash.value = block.getHash();
 
+                final Node nextNode = _selectNode();
+                if (nextNode == null) {
+                    Logger.log("No nodes connected!");
+
+                    _addOnNodeConnectedCallback(new Runnable() {
+                        @Override
+                        public void run() {
+                            _downloadAllBlocks();
+                        }
+                    });
+
+                    return;
+                }
+
                 if (! availableBlockHashes.isEmpty()) {
-                    node.requestBlock(availableBlockHashes.remove(0), this);
+                    nextNode.requestBlock(availableBlockHashes.remove(0), this);
                 }
                 else {
-                    node.getBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
+                    nextNode.getBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
                 }
             }
         };
@@ -239,7 +255,6 @@ public class NodeModule {
     }
 
     protected void _initNode(final Node node) {
-        Logger.log("Initializing Node: "+ node.getConnectionString());
         node.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
@@ -255,8 +270,6 @@ public class NodeModule {
                         }
                     }
 
-                    Logger.log("Connecting to Node: " + connectionString);
-
                     final Node newNode = new Node(address, port);
                     _initNode(newNode);
                 }
@@ -266,10 +279,9 @@ public class NodeModule {
         node.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
             @Override
             public void onNodeConnected() {
-                Logger.log("Node connected.");
                 synchronized (_mutex) {
                     for (final Runnable runnable : _onNodeConnectedCallbacks) {
-                        runnable.run();
+                        new Thread(runnable).start();
                     }
                     _onNodeConnectedCallbacks.clear();
                 }
@@ -277,10 +289,11 @@ public class NodeModule {
         });
 
         _nodes.put(node.getId(), node);
-        Logger.log("Node Initialized: "+ node.getConnectionString());
     }
 
     public NodeModule(final String configurationFilename) {
+        _nodeMaintenanceThread.setSleepTime(10000L);
+
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -336,7 +349,7 @@ public class NodeModule {
         }
 
         synchronized (_mutex) {
-            if (!_hasGenesisBlock) {
+            if (! _hasGenesisBlock) {
                 for (final Node node : _nodes.values()) {
                     node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
                         @Override

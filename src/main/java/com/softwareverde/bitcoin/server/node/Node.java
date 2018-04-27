@@ -115,7 +115,12 @@ public class Node extends NodeConnectionDelegate {
         _connection.queueMessage(synchronizeVersionMessage);
 
         if (_nodeConnectedCallback != null) {
-            _nodeConnectedCallback.onNodeConnected();
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    _nodeConnectedCallback.onNodeConnected();
+                }
+            })).start();
         }
     }
 
@@ -142,9 +147,16 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
+
             Logger.log("Network Address: "+ HexUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
+
             if (_nodeAddressesReceivedCallback != null) {
-                _nodeAddressesReceivedCallback.onNewNodeAddress(nodeIpAddress);
+                (new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        _nodeAddressesReceivedCallback.onNewNodeAddress(nodeIpAddress);
+                    }
+                })).start();
             }
         }
     }

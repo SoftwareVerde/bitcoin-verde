@@ -61,7 +61,6 @@ public abstract class NodeConnectionDelegate {
         _connection.setOnConnectCallback(new Runnable() {
             @Override
             public void run() {
-                Logger.log("On Connect");
                 _onConnect();
             }
         });
