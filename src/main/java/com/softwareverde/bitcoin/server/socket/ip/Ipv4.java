@@ -75,4 +75,17 @@ public class Ipv4 implements Ip {
         }
         return ipv4;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(ByteUtil.byteToInteger(_bytes[0]));
+        stringBuilder.append(".");
+        stringBuilder.append(ByteUtil.byteToInteger(_bytes[1]));
+        stringBuilder.append(".");
+        stringBuilder.append(ByteUtil.byteToInteger(_bytes[2]));
+        stringBuilder.append(".");
+        stringBuilder.append(ByteUtil.byteToInteger(_bytes[3]));
+        return stringBuilder.toString();
+    }
 }

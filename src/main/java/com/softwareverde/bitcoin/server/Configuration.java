@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
+import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -9,12 +10,30 @@ import java.io.IOException;
 import java.util.Properties;
 
 public class Configuration {
+    public static final Integer BITCOIN_PORT = 8333;
+    public static final Integer STRATUM_PORT = 3333;
+
+    public static class SeedNodeProperties {
+        private final String _address;
+        private final Integer _port;
+
+        public SeedNodeProperties(final String address, final Integer port) {
+            _address = address;
+            _port = port;
+        }
+
+        public String getAddress() { return _address; }
+        public Integer getPort() { return _port; }
+    }
+
     public static class ServerProperties {
         private Integer _bitcoinPort;
         private Integer _stratumPort;
+        private SeedNodeProperties[] _seedNodeProperties;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getStratumPort() { return _stratumPort; }
+        public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
     }
 
     private final Properties _properties;
@@ -43,8 +62,27 @@ public class Configuration {
 
     private void _loadServerProperties() {
         _serverProperties = new ServerProperties();
-        _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", "8333"));
-        _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", "3333"));
+        _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BITCOIN_PORT.toString()));
+        _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", STRATUM_PORT.toString()));
+
+        final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]"));
+        _serverProperties._seedNodeProperties = new SeedNodeProperties[seedNodesJson.length()];
+        for (int i = 0; i < seedNodesJson.length(); ++i) {
+            final String propertiesString = seedNodesJson.getString(i);
+
+            final SeedNodeProperties seedNodeProperties;
+            final int indexOfColon = propertiesString.indexOf(":");
+            if (indexOfColon < 0) {
+                seedNodeProperties = new SeedNodeProperties(propertiesString, BITCOIN_PORT);
+            }
+            else {
+                final String address = propertiesString.substring(0, indexOfColon);
+                final Integer port = Util.parseInt(propertiesString.substring(indexOfColon + 1));
+                seedNodeProperties = new SeedNodeProperties(address, port);
+            }
+
+            _serverProperties._seedNodeProperties[i] = seedNodeProperties;
+        }
     }
 
     public Configuration(final File configurationFile) {

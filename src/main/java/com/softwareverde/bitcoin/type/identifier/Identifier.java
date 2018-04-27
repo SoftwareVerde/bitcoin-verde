@@ -1,18 +1,18 @@
-package com.softwareverde.bitcoin.type.database;
+package com.softwareverde.bitcoin.type.identifier;
 
 import com.softwareverde.constable.Const;
 
-public class DatabaseId implements Const, Comparable<Long> {
-    public static DatabaseId wrap(final Long value) {
+public class Identifier implements Const, Comparable<Long> {
+    public static Identifier wrap(final Long value) {
         if (value == null) { return null; }
-        return new DatabaseId(value);
+        return new Identifier(value);
     }
 
     protected final Long _value;
 
-    protected DatabaseId(final Long value) {
+    protected Identifier(final Long value) {
         if (value == null) {
-            throw new NullPointerException("DatabaseId._value must not be null. Return null directly instead.");
+            throw new NullPointerException("Identifier._value must not be null. Return null directly instead.");
         }
 
         _value = value;
@@ -29,8 +29,8 @@ public class DatabaseId implements Const, Comparable<Long> {
 
     @Override
     public boolean equals(final Object object) {
-        if (object instanceof DatabaseId) {
-            final DatabaseId databaseId = (DatabaseId) object;
+        if (object instanceof Identifier) {
+            final Identifier databaseId = (Identifier) object;
             return _value.equals(databaseId._value);
         }
 

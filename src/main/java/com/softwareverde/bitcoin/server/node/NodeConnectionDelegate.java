@@ -22,12 +22,16 @@ public abstract class NodeConnectionDelegate {
     protected abstract void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage);
     protected abstract void _onBlockMessageReceived(final BlockMessage blockMessage);
 
+    protected Long _lastMessageReceivedTimestamp = 0L;
+
     public NodeConnectionDelegate(final String host, final Integer port) {
         _connection = new NodeConnection(host, port);
 
         _connection.setMessageReceivedCallback(new NodeConnection.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final ProtocolMessage message) {
+                _lastMessageReceivedTimestamp = System.currentTimeMillis();
+
                 switch (message.getCommand()) {
                     case PING: {
                         _onPingReceived((PingMessage) message);
@@ -57,6 +61,7 @@ public abstract class NodeConnectionDelegate {
         _connection.setOnConnectCallback(new Runnable() {
             @Override
             public void run() {
+                Logger.log("On Connect");
                 _onConnect();
             }
         });
@@ -69,5 +74,13 @@ public abstract class NodeConnectionDelegate {
         });
 
         _connection.startConnectionThread();
+    }
+
+    public Long getLastMessageReceivedTimestamp() {
+        return _lastMessageReceivedTimestamp;
+    }
+
+    public Boolean hasActiveConnection() {
+        return ( (_connection.isConnected()) && (_lastMessageReceivedTimestamp > 0) );
     }
 }

@@ -26,6 +26,14 @@ import com.softwareverde.util.Util;
 import java.util.*;
 
 public class Node extends NodeConnectionDelegate {
+    public interface NodeAddressesReceivedCallback {
+        void onNewNodeAddress(NodeIpAddress nodeIpAddress);
+    }
+
+    public interface NodeConnectedCallback {
+        void onNodeConnected();
+    }
+
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
@@ -47,13 +55,16 @@ public class Node extends NodeConnectionDelegate {
         }
     }
 
-    protected Long _id;
+    protected NodeId _id;
     protected Boolean _handshakeIsComplete = false;
     protected final List<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+
+    protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
+    protected NodeConnectedCallback _nodeConnectedCallback = null;
 
     protected <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
         Set<S> destinationSet = destinationMap.get(key);
@@ -102,6 +113,10 @@ public class Node extends NodeConnectionDelegate {
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
         }
         _connection.queueMessage(synchronizeVersionMessage);
+
+        if (_nodeConnectedCallback != null) {
+            _nodeConnectedCallback.onNodeConnected();
+        }
     }
 
     @Override
@@ -128,6 +143,9 @@ public class Node extends NodeConnectionDelegate {
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
             Logger.log("Network Address: "+ HexUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
+            if (_nodeAddressesReceivedCallback != null) {
+                _nodeAddressesReceivedCallback.onNewNodeAddress(nodeIpAddress);
+            }
         }
     }
 
@@ -207,9 +225,23 @@ public class Node extends NodeConnectionDelegate {
     public Node(final String host, final Integer port) {
         super(host, port);
         synchronized (NODE_ID_MUTEX) {
-            _id = _nextId;
+            _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
+    }
+
+    public NodeId getId() { return _id; }
+
+    public String getConnectionString() {
+        return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
+    }
+
+    public void setNodeAddressesReceivedCallback(final NodeAddressesReceivedCallback nodeAddressesReceivedCallback) {
+        _nodeAddressesReceivedCallback = nodeAddressesReceivedCallback;
+    }
+
+    public void setNodeConnectedCallback(final NodeConnectedCallback nodeConnectedCallback) {
+        _nodeConnectedCallback = nodeConnectedCallback;
     }
 
     public void getBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
@@ -222,5 +254,8 @@ public class Node extends NodeConnectionDelegate {
         _requestBlock(blockHash);
     }
 
-    public Long getId() { return _id; }
+    public void ping() {
+        final PingMessage pingMessage = new PingMessage();
+        _queueMessage(pingMessage);
+    }
 }

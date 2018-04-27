@@ -56,7 +56,6 @@ public class NodeIpAddress {
         _port = 0x0000;
     }
 
-
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {
         _nodeFeatures.setFeaturesFlags(nodeFeatures);
     }
