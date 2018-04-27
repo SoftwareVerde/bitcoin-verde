@@ -156,6 +156,13 @@ public class Node extends NodeConnectionDelegate {
     }
 
     @Override
+    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+        // TODO: Should probably not accept any node version...
+        final AcknowledgeVersionMessage acknowledgeVersionMessage = new AcknowledgeVersionMessage();
+        _queueMessage(acknowledgeVersionMessage);
+    }
+
+    @Override
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
         Logger.log("Handshake complete.");

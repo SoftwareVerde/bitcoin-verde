@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressM
 import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessage;
+import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -16,6 +17,7 @@ public abstract class NodeConnectionDelegate {
     protected abstract void _onConnect();
     protected abstract void _onDisconnect();
     protected abstract void _onPingReceived(final PingMessage pingMessage);
+    protected abstract void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage);
     protected abstract void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage);
     protected abstract void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage);
     protected abstract void _onErrorMessageReceived(final ErrorMessage errorMessage);
@@ -35,6 +37,9 @@ public abstract class NodeConnectionDelegate {
                 switch (message.getCommand()) {
                     case PING: {
                         _onPingReceived((PingMessage) message);
+                    } break;
+                    case SYNCHRONIZE_VERSION: {
+                        _onSynchronizeVersion((SynchronizeVersionMessage) message);
                     } break;
                     case ACKNOWLEDGE_VERSION: {
                         _onAcknowledgeVersionMessageReceived((AcknowledgeVersionMessage) message);
