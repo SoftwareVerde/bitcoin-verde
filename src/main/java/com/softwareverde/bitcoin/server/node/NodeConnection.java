@@ -87,6 +87,8 @@ public class NodeConnection {
 
                 _socketUsedToBeConnected = true;
                 _connectionCount += 1;
+
+                _connectionThread.halt();
             }
         } catch (final IOException e) { }
     }
@@ -127,6 +129,10 @@ public class NodeConnection {
     public void startConnectionThread() {
         _connectionThread.setSleepTime(1000L);
         _connectionThread.start();
+    }
+
+    public void stopConnectionThread() {
+        _connectionThread.halt();
     }
 
     public void setOnDisconnectCallback(final Runnable callback) {

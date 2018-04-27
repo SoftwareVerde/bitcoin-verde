@@ -34,6 +34,14 @@ public class Node extends NodeConnectionDelegate {
         void onNodeConnected();
     }
 
+    public interface NodeHandshakeCompleteCallback {
+        void onHandshakeComplete();
+    }
+
+    public interface NodeDisconnectedCallback {
+        void onNodeDisconnected();
+    }
+
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
@@ -65,6 +73,8 @@ public class Node extends NodeConnectionDelegate {
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
+    protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
+    protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
         Set<S> destinationSet = destinationMap.get(key);
@@ -127,6 +137,15 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onDisconnect() {
         Logger.log("Socket disconnected.");
+
+        if (_nodeDisconnectedCallback != null) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    _nodeDisconnectedCallback.onNodeDisconnected();
+                }
+            })).start();
+        }
     }
 
     @Override
@@ -139,6 +158,18 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
+        Logger.log("Handshake complete.");
+
+        if (_nodeHandshakeCompleteCallback != null) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Logger.log("Handshake complete callback...");
+                    _nodeHandshakeCompleteCallback.onHandshakeComplete();
+                }
+            })).start();
+        }
+
         while (! _postHandshakeMessageQueue.isEmpty()) {
             _queueMessage(_postHandshakeMessageQueue.remove(0));
         }
@@ -256,7 +287,15 @@ public class Node extends NodeConnectionDelegate {
         _nodeConnectedCallback = nodeConnectedCallback;
     }
 
-    public void getBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
+    public void setNodeHandshakeCompleteCallback(final NodeHandshakeCompleteCallback nodeHandshakeCompleteCallback) {
+        _nodeHandshakeCompleteCallback = nodeHandshakeCompleteCallback;
+    }
+
+    public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
+        _nodeDisconnectedCallback = nodeDisconnectedCallback;
+    }
+
+    public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
     }
