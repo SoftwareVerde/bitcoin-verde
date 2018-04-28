@@ -15,6 +15,38 @@ import java.util.*;
 public class NodeManager {
     public static final Long REQUEST_TIMEOUT_THRESHOLD = 5_000L;
 
+    protected static class RequestTimeoutThread extends Thread {
+        public final Object mutex = new Object();
+
+        private final Container<Boolean> _didMessageTimeOut;
+        private final NodeHealth _nodeHealth;
+        private final Runnable _replayInvocation;
+
+        public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final Runnable replayInvocation) {
+            _didMessageTimeOut = didMessageTimeoutContainer;
+            _nodeHealth = nodeHealth;
+            _replayInvocation = replayInvocation;
+        }
+
+        @Override
+        public void run() {
+            try { Thread.sleep(REQUEST_TIMEOUT_THRESHOLD); }
+            catch (final Exception exception) { return; }
+
+            synchronized (this.mutex) {
+                if (_didMessageTimeOut.value != null) { return; }
+                _didMessageTimeOut.value = true;
+            }
+
+            _nodeHealth.onMessageReceived(false);
+            Logger.log("NOTICE: Request timed out.");
+
+            if (_replayInvocation != null) {
+                _replayInvocation.run();
+            }
+        }
+    }
+
     protected final Object _mutex = new Object();
 
     protected final Map<NodeId, Node> _nodes;
@@ -249,27 +281,6 @@ public class NodeManager {
         }
     }
 
-    protected Thread _createTimeoutThread(final Container<Boolean> didMessageTimeOut, final NodeHealth nodeHealth, final Runnable replayInvocation) {
-        final Thread timeoutThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try { Thread.sleep(REQUEST_TIMEOUT_THRESHOLD); }
-                catch (final Exception exception) { return; }
-
-                if (didMessageTimeOut.value) {
-                    nodeHealth.onMessageReceived(false);
-                    Logger.log("NOTICE: Request timed out.");
-
-                    if (replayInvocation != null) {
-                        replayInvocation.run();
-                    }
-                }
-            }
-        });
-
-        return timeoutThread;
-    }
-
     public NodeManager(final Integer maxNodeCount) {
         _nodes = new HashMap<NodeId, Node>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
@@ -320,14 +331,18 @@ public class NodeManager {
 
             final NodeId nodeId = selectedNode.getId();
             final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-            final Container<Boolean> didMessageTimeOut = new Container<Boolean>(true);
-            final Thread timeoutThread = _createTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
+            final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
+            final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
             nodeHealth.onMessageSent();
             selectedNode.requestBlock(blockHash, new Node.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block result) {
+                    synchronized (timeoutThread.mutex) {
+                        if (didMessageTimeOut.value != null) { return; }
+                        didMessageTimeOut.value = false;
+                    }
+
                     nodeHealth.onMessageReceived(true);
-                    didMessageTimeOut.value = false;
                     timeoutThread.interrupt();
 
                     if (downloadBlockCallback != null) {
@@ -360,14 +375,18 @@ public class NodeManager {
 
             final NodeId nodeId = selectedNode.getId();
             final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-            final Container<Boolean> didMessageTimeOut = new Container<Boolean>(true);
-            final Thread timeoutThread = _createTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
+            final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
+            final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
             nodeHealth.onMessageSent();
             selectedNode.requestBlockHashesAfter(blockHash, new Node.QueryCallback() {
                 @Override
                 public void onResult(final List<Sha256Hash> result) {
+                    synchronized (timeoutThread.mutex) {
+                        if (didMessageTimeOut.value != null) { return; }
+                        didMessageTimeOut.value = false;
+                    }
+
                     nodeHealth.onMessageReceived(true);
-                    didMessageTimeOut.value = false;
                     timeoutThread.interrupt();
 
                     if (queryCallback != null) {
