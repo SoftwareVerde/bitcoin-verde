@@ -45,7 +45,7 @@ public class NodeModule {
     protected int _blockCount = 0;
     protected int _transactionCount = 0;
 
-    protected final NodeManager _nodeManager = new NodeManager();
+    protected final NodeManager _nodeManager;
 
     protected void _exitFailure() {
         System.exit(1);
@@ -194,6 +194,9 @@ public class NodeModule {
 
         _environment = new Environment(database);
         _networkTime = new NetworkTime();
+
+        final Integer maxPeerCount = serverProperties.getMaxPeerCount();
+        _nodeManager = new NodeManager(maxPeerCount);
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final Node node = new Node(seedNodeProperties.getAddress(), seedNodeProperties.getPort());

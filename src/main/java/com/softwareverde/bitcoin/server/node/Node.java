@@ -304,6 +304,10 @@ public class Node extends NodeConnectionDelegate {
 
     public NodeId getId() { return _id; }
 
+    public Boolean handshakeIsComplete() {
+        return _handshakeIsComplete;
+    }
+
     public String getConnectionString() {
         return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
     }
@@ -339,5 +343,34 @@ public class Node extends NodeConnectionDelegate {
         final PingRequest pingRequest = new PingRequest(pingCallback);
         _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
+    }
+
+    public void disconnect() {
+        Logger.log("*** A");
+        _nodeAddressesReceivedCallback = null;
+        Logger.log("*** B");
+        _nodeConnectedCallback = null;
+        Logger.log("*** C");
+        _nodeHandshakeCompleteCallback = null;
+        Logger.log("*** D");
+        _nodeDisconnectedCallback = null;
+        Logger.log("*** E");
+
+        _connection.disconnect();
+        Logger.log("*** F");
+
+        _handshakeIsComplete = false;
+        Logger.log("*** G");
+        _postHandshakeMessageQueue.clear();
+        Logger.log("*** H");
+        _availableDataHashes.clear();
+        Logger.log("*** I");
+
+        _queryRequests.clear();
+        Logger.log("*** J");
+        _downloadBlockRequests.clear();
+        Logger.log("*** K");
+        _pingRequests.clear();
+        Logger.log("*** L");
     }
 }

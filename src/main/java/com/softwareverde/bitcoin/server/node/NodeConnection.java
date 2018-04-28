@@ -152,11 +152,16 @@ public class NodeConnection {
     }
 
     public void disconnect() {
+        Logger.log("*** _0");
         _connectionThread.halt();
+        Logger.log("*** _1");
 
         if (_connection != null) {
+            Logger.log("*** _2");
             _connection.close();
+            Logger.log("*** _3");
         }
+        Logger.log("*** _4");
     }
 
     public void queueMessage(final ProtocolMessage message) {

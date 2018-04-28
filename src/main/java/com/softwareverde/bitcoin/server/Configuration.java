@@ -30,10 +30,12 @@ public class Configuration {
         private Integer _bitcoinPort;
         private Integer _stratumPort;
         private SeedNodeProperties[] _seedNodeProperties;
+        private Integer _maxPeerCount;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getStratumPort() { return _stratumPort; }
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
+        public Integer getMaxPeerCount() { return _maxPeerCount; }
     }
 
     private final Properties _properties;
@@ -83,6 +85,8 @@ public class Configuration {
 
             _serverProperties._seedNodeProperties[i] = seedNodeProperties;
         }
+
+        _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
     }
 
     public Configuration(final File configurationFile) {
