@@ -28,6 +28,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 
 import java.io.File;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeModule {
     public static void execute(final String configurationFileName) {
@@ -35,11 +36,37 @@ public class NodeModule {
         nodeModule.loop();
     }
 
+    class BlockValidatorThread extends Thread {
+        @Override
+        public void run() {
+            while (true) {
+                final Block block = _queuedBlocks.poll();
+                if (block != null) {
+                    final Boolean isValidBlock = _processBlock(block);
+
+                    if (! isValidBlock) {
+                        Logger.log("Invalid block: " + block.getHash());
+                        _exitFailure();
+                    }
+                }
+                else {
+                    try { Thread.sleep(500L); } catch (final Exception exception) { break; }
+                }
+            }
+
+            Logger.log("Block Validator Thread exiting...");
+        }
+    }
+
     protected final Configuration _configuration;
     protected final Environment _environment;
     protected final NetworkTime _networkTime;
 
     protected Boolean _hasGenesisBlock = false;
+
+    protected final Integer _maxQueueSize = 10;
+    protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
+    protected final BlockValidatorThread _blockValidatorThread = new BlockValidatorThread();
 
     protected long _startTime;
     protected int _blockCount = 0;
@@ -66,8 +93,6 @@ public class NodeModule {
     }
 
     protected void _downloadAllBlocks() {
-        // if (true) { return; }
-
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
 
         final Sha256Hash resumeAfterHash;
@@ -94,14 +119,14 @@ public class NodeModule {
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
 
-                final Boolean isValidBlock = _processBlock(block);
-
-                if (! isValidBlock) {
-                    Logger.log("Invalid block: "+ block.getHash());
-                    _exitFailure();
-                }
+                _queuedBlocks.add(block);
+                Logger.log("Block Queue Size: "+ _queuedBlocks.size() + " / " + _maxQueueSize);
 
                 lastBlockHash.value = block.getHash();
+
+                while (_queuedBlocks.size() >= _maxQueueSize) {
+                    try { Thread.sleep(500L); } catch (final Exception exception) { return; }
+                }
 
                 if (! availableBlockHashes.isEmpty()) {
                     _nodeManager.requestBlock(availableBlockHashes.remove(0), this);
@@ -208,6 +233,9 @@ public class NodeModule {
         _nodeManager.startNodeMaintenanceThread();
 
         Logger.log("[Server Online]");
+
+        _blockValidatorThread.start();
+        Logger.log("[Block Validator Thread Online]");
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
 
