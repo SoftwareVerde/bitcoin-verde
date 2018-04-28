@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.bitcoin.type.database.DatabaseId;
+import com.softwareverde.bitcoin.type.identifier.Identifier;
 
-public class TransactionInputId extends DatabaseId {
+public class TransactionInputId extends Identifier {
     public static TransactionInputId wrap(final Long value) {
         if (value == null) { return null; }
         return new TransactionInputId(value);

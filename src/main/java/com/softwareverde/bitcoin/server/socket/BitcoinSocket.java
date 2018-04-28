@@ -118,6 +118,7 @@ public class BitcoinSocket {
                     }
                     catch (final IOException exception) {
                         _closeSocket();
+                        break;
                     }
                 }
             }
@@ -165,6 +166,11 @@ public class BitcoinSocket {
 
         try {
             _rawInputStream.close();
+        }
+        catch (final Exception exception) { }
+
+        try {
+            _rawOutputStream.close();
         }
         catch (final Exception exception) { }
 

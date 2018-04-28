@@ -20,7 +20,7 @@ public class MainTests {
 
         final Node node = new Node(host, port);
 
-        node.getBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new Node.QueryCallback() {
+        node.requestBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new Node.QueryCallback() {
             @Override
             public void onResult(final java.util.List<Sha256Hash> blockHashes) {
                 Logger.log(blockHashes.size());

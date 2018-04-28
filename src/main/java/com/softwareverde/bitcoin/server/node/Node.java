@@ -26,11 +26,38 @@ import com.softwareverde.util.Util;
 import java.util.*;
 
 public class Node extends NodeConnectionDelegate {
+    public interface NodeAddressesReceivedCallback {
+        void onNewNodeAddress(NodeIpAddress nodeIpAddress);
+    }
+
+    public interface NodeConnectedCallback {
+        void onNodeConnected();
+    }
+
+    public interface NodeHandshakeCompleteCallback {
+        void onHandshakeComplete();
+    }
+
+    public interface NodeDisconnectedCallback {
+        void onNodeDisconnected();
+    }
+
+    protected class PingRequest {
+        public final PingCallback pingCallback;
+        public final Long timestamp;
+
+        public PingRequest(final PingCallback pingCallback) {
+            this.pingCallback = pingCallback;
+            this.timestamp = System.currentTimeMillis();
+        }
+    }
+
     protected static final Object NODE_ID_MUTEX = new Object();
     protected static Long _nextId = 0L;
 
     public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
+    public interface PingCallback extends Callback<Long> { }
 
     protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
@@ -47,13 +74,19 @@ public class Node extends NodeConnectionDelegate {
         }
     }
 
-    protected Long _id;
+    protected NodeId _id;
     protected Boolean _handshakeIsComplete = false;
     protected final List<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
+
+    protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
+    protected NodeConnectedCallback _nodeConnectedCallback = null;
+    protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
+    protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
         Set<S> destinationSet = destinationMap.get(key);
@@ -102,11 +135,29 @@ public class Node extends NodeConnectionDelegate {
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
         }
         _connection.queueMessage(synchronizeVersionMessage);
+
+        if (_nodeConnectedCallback != null) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    _nodeConnectedCallback.onNodeConnected();
+                }
+            })).start();
+        }
     }
 
     @Override
     protected void _onDisconnect() {
         Logger.log("Socket disconnected.");
+
+        if (_nodeDisconnectedCallback != null) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    _nodeDisconnectedCallback.onNodeDisconnected();
+                }
+            })).start();
+        }
     }
 
     @Override
@@ -117,8 +168,37 @@ public class Node extends NodeConnectionDelegate {
     }
 
     @Override
+    protected void _onPongReceived(final PongMessage pongMessage) {
+        final Long nonce = pongMessage.getNonce();
+        final PingRequest pingRequest = _pingRequests.remove(nonce);
+
+        final PingCallback pingCallback = (pingRequest != null ? pingRequest.pingCallback : null);
+        if (pingCallback != null) {
+            final Long now = System.currentTimeMillis();
+            final Long msElapsed = (now - pingRequest.timestamp);
+            pingCallback.onResult(msElapsed);
+        }
+    }
+
+    @Override
+    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+        // TODO: Should probably not accept any node version...
+        final AcknowledgeVersionMessage acknowledgeVersionMessage = new AcknowledgeVersionMessage();
+        _queueMessage(acknowledgeVersionMessage);
+    }
+
+    @Override
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
+        if (_nodeHandshakeCompleteCallback != null) {
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    _nodeHandshakeCompleteCallback.onHandshakeComplete();
+                }
+            })).start();
+        }
+
         while (! _postHandshakeMessageQueue.isEmpty()) {
             _queueMessage(_postHandshakeMessageQueue.remove(0));
         }
@@ -127,7 +207,17 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
+
             Logger.log("Network Address: "+ HexUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
+
+            if (_nodeAddressesReceivedCallback != null) {
+                (new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        _nodeAddressesReceivedCallback.onNewNodeAddress(nodeIpAddress);
+                    }
+                })).start();
+            }
         }
     }
 
@@ -207,12 +297,38 @@ public class Node extends NodeConnectionDelegate {
     public Node(final String host, final Integer port) {
         super(host, port);
         synchronized (NODE_ID_MUTEX) {
-            _id = _nextId;
+            _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
     }
 
-    public void getBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
+    public NodeId getId() { return _id; }
+
+    public Boolean handshakeIsComplete() {
+        return _handshakeIsComplete;
+    }
+
+    public String getConnectionString() {
+        return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
+    }
+
+    public void setNodeAddressesReceivedCallback(final NodeAddressesReceivedCallback nodeAddressesReceivedCallback) {
+        _nodeAddressesReceivedCallback = nodeAddressesReceivedCallback;
+    }
+
+    public void setNodeConnectedCallback(final NodeConnectedCallback nodeConnectedCallback) {
+        _nodeConnectedCallback = nodeConnectedCallback;
+    }
+
+    public void setNodeHandshakeCompleteCallback(final NodeHandshakeCompleteCallback nodeHandshakeCompleteCallback) {
+        _nodeHandshakeCompleteCallback = nodeHandshakeCompleteCallback;
+    }
+
+    public void setNodeDisconnectedCallback(final NodeDisconnectedCallback nodeDisconnectedCallback) {
+        _nodeDisconnectedCallback = nodeDisconnectedCallback;
+    }
+
+    public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
     }
@@ -222,5 +338,27 @@ public class Node extends NodeConnectionDelegate {
         _requestBlock(blockHash);
     }
 
-    public Long getId() { return _id; }
+    public void ping(final PingCallback pingCallback) {
+        final PingMessage pingMessage = new PingMessage();
+        final PingRequest pingRequest = new PingRequest(pingCallback);
+        _pingRequests.put(pingMessage.getNonce(), pingRequest);
+        _queueMessage(pingMessage);
+    }
+
+    public void disconnect() {
+        _nodeAddressesReceivedCallback = null;
+        _nodeConnectedCallback = null;
+        _nodeHandshakeCompleteCallback = null;
+        _nodeDisconnectedCallback = null;
+
+        _connection.disconnect();
+
+        _handshakeIsComplete = false;
+        _postHandshakeMessageQueue.clear();
+        _availableDataHashes.clear();
+
+        _queryRequests.clear();
+        _downloadBlockRequests.clear();
+        _pingRequests.clear();
+    }
 }

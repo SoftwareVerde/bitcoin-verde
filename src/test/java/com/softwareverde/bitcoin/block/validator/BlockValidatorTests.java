@@ -215,7 +215,12 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         @Override
-        public Long getCurrentTime() {
+        public Long getCurrentTimeInSeconds() {
+            return _fakeTime;
+        }
+
+        @Override
+        public Long getCurrentTimeInMilliSeconds() {
             return _fakeTime;
         }
     }

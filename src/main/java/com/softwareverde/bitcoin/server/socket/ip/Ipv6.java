@@ -149,4 +149,15 @@ public class Ipv6 implements Ip {
         }
         return ipv6;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder stringBuilder = new StringBuilder();
+        for (final byte b : _bytes) {
+            stringBuilder.append(ByteUtil.byteToInteger(b));
+            stringBuilder.append(":");
+        }
+        stringBuilder.deleteCharAt(stringBuilder.length() - 1); // Remove the last colon...
+        return stringBuilder.toString();
+    }
 }
