@@ -33,16 +33,37 @@ public class NodeManager {
 
     protected final Integer _maxNodeCount;
 
+    protected void _removeNode(final Node node) {
+        final NodeId nodeId = node.getId();
+
+        _nodes.remove(nodeId);
+        final NodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
+
+        node.disconnect();
+
+        Logger.log("Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.calculateHealth() + "hp");
+    }
+
     protected void _checkNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
+                final List<Node> inactiveNodes = _getInactiveNodes();
+                if (inactiveNodes.size() > 0) {
+                    final Node inactiveNode = inactiveNodes.get(0);
+                    _removeNode(inactiveNode);
+                    continue;
+                }
+
+                final Node worstActiveNode = _selectWorstActiveNode();
+                if (worstActiveNode != null) {
+                    _removeNode(worstActiveNode);
+                    continue;
+                }
+
                 final Set<NodeId> keySet = _nodes.keySet();
                 final NodeId firstKey = keySet.iterator().next();
-                final Node removedNode = _nodes.remove(firstKey);
-                removedNode.disconnect();
-                _nodeHealthMap.remove(firstKey);
-
-                Logger.log("Dropped Node: " + removedNode.getConnectionString());
+                final Node node = _nodes.get(firstKey);
+                _removeNode(node);
             }
         }
     }

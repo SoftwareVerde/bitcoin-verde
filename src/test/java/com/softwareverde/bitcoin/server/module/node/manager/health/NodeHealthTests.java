@@ -24,11 +24,18 @@ public class NodeHealthTests {
         }
     }
 
+    protected void _configureNodeHealth(final NodeHealth nodeHealth) {
+        nodeHealth.setHealthPerSecond(10);
+        nodeHealth.setHealthConsumedPerRequest(10);
+        nodeHealth.setMaxHealth(100);
+    }
+
     @Test
     public void should_have_perfect_health_initially() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
 
         // Action
         final Integer nodeHealthValue = nodeHealth.calculateHealth();
@@ -42,6 +49,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent();
 
         // Action
@@ -56,6 +65,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageReceived(false);
 
         // Action
@@ -70,6 +81,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageReceived(true);
         fakeTime.advanceTimeInMilliseconds(10_000L);
         nodeHealth.onMessageReceived(false);
@@ -87,6 +100,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent(); // 90
         fakeTime.advanceTimeInMilliseconds(500L); // 95
         nodeHealth.onMessageSent(); // 85
@@ -103,6 +118,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent(); // 90
         nodeHealth.onMessageSent(); // 80
         nodeHealth.onMessageSent(); // 70
@@ -122,6 +139,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent(); // 90
         fakeTime.advanceTimeInMilliseconds(1_000L); // 100
         nodeHealth.onMessageSent(); // 90
@@ -145,6 +164,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent(); // 90
         fakeTime.advanceTimeInMilliseconds(110L); // 91
         nodeHealth.onMessageReceived(false); // 0
@@ -165,6 +186,8 @@ public class NodeHealthTests {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
+        _configureNodeHealth(nodeHealth);
+
         nodeHealth.onMessageSent(); // 90
         fakeTime.advanceTimeInMilliseconds(110L); // 91
         nodeHealth.onMessageReceived(false); // 91 * 0.0F

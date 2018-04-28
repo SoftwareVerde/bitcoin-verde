@@ -27,8 +27,9 @@ public class NodeHealth {
         }
     }
 
-    public static final Integer HEALTH_PER_SECOND = 10;
-    public static final Integer MAX_HEALTH = 100;
+    protected Integer _healthPerSecond = 1;
+    protected Integer _healthConsumedPerRequest = 10;
+    protected Integer _maxHealth = 100;
 
     protected final Object _mutex = new Object();
     protected final Time _systemTime;
@@ -36,7 +37,7 @@ public class NodeHealth {
     protected Long _regenMsConsumed = 0L;
     protected Long _lastMessageTime = null;
     protected Float _healthRegenRemainder = 0F;
-    protected Integer _health = MAX_HEALTH;
+    protected Integer _health = _maxHealth;
     protected RotatingQueue<Request> _requests = new RotatingQueue<Request>(25);
 
     protected void _calculateHealthRegen() {
@@ -45,10 +46,10 @@ public class NodeHealth {
         final long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
         final long msElapsedSinceLastMessage = Math.max(0L, (nowInMilliseconds - _lastMessageTime));
 
-        final float recencyHealthRegenFloat = ( ( (msElapsedSinceLastMessage - _regenMsConsumed) / 1_000F) * HEALTH_PER_SECOND) + _healthRegenRemainder;
+        final float recencyHealthRegenFloat = ( ( (msElapsedSinceLastMessage - _regenMsConsumed) / 1_000F) * _healthPerSecond) + _healthRegenRemainder;
         final int recencyHealthRegen = (int) (recencyHealthRegenFloat);
 
-        _health = Math.min(MAX_HEALTH, _health + recencyHealthRegen);
+        _health = Math.min(_maxHealth, _health + recencyHealthRegen);
         _healthRegenRemainder = (recencyHealthRegenFloat - recencyHealthRegen);
         _regenMsConsumed = msElapsedSinceLastMessage;
     }
@@ -63,6 +64,18 @@ public class NodeHealth {
         _nodeId = nodeId;
     }
 
+    public void setHealthPerSecond(final Integer healthPerSecond) {
+        _healthPerSecond = healthPerSecond;
+    }
+
+    public void setHealthConsumedPerRequest(final Integer healthConsumedPerRequest) {
+        _healthConsumedPerRequest = healthConsumedPerRequest;
+    }
+
+    public void setMaxHealth(final Integer maxHealth) {
+        _maxHealth = maxHealth;
+    }
+
     public void onMessageSent() {
         synchronized (_mutex) {
             _calculateHealthRegen();
@@ -70,7 +83,7 @@ public class NodeHealth {
             _lastMessageTime = _systemTime.getCurrentTimeInMilliSeconds();
             _regenMsConsumed = 0L;
 
-            _health = Math.max(0, _health - HEALTH_PER_SECOND);
+            _health = Math.max(0, _health - _healthConsumedPerRequest);
         }
     }
 
