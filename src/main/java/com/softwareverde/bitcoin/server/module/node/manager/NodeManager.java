@@ -36,19 +36,13 @@ public class NodeManager {
     protected void _checkNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
-                Logger.log("Removing Node...");
                 final Set<NodeId> keySet = _nodes.keySet();
-                Logger.log("*** 1");
                 final NodeId firstKey = keySet.iterator().next();
-                Logger.log("*** 2");
                 final Node removedNode = _nodes.remove(firstKey);
-                Logger.log("*** 3");
                 removedNode.disconnect();
-                Logger.log("*** 4");
-
-                Logger.log("Removing Node Health...");
                 _nodeHealthMap.remove(firstKey);
-                Logger.log("*** 5");
+
+                Logger.log("Dropped Node: " + removedNode.getConnectionString());
             }
         }
     }
@@ -115,8 +109,10 @@ public class NodeManager {
             public void onNodeDisconnected() {
                 synchronized (_mutex) {
                     final NodeId nodeId = node.getId();
-                    _nodes.remove(nodeId);
+                    final Node disconnectedNode = _nodes.remove(nodeId);
                     _nodeHealthMap.remove(nodeId);
+
+                    Logger.log("Node Disconnected: " + disconnectedNode.getConnectionString());
                 }
             }
         });
@@ -225,10 +221,10 @@ public class NodeManager {
             idleNode.ping(new Node.PingCallback() {
                 @Override
                 public void onResult(final Long pingInMilliseconds) {
-                    Logger.log("*** Node Pong: " + pingInMilliseconds);
+                    Logger.log("Node Pong: " + pingInMilliseconds);
                 }
             });
-            Logger.log("*** Pinging Idle Node: " + idleNode.getConnectionString());
+            Logger.log("Pinging Idle Node: " + idleNode.getConnectionString());
         }
     }
 

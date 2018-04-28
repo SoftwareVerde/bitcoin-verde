@@ -162,36 +162,29 @@ public class BitcoinSocket {
      *  Invoking any write functions after this call throws a runtime exception.
      */
     public void close() {
-        Logger.log("*** $0");
         _isClosed = true;
-        Logger.log("*** $1");
 
         try {
             _rawInputStream.close();
-            Logger.log("*** $2");
         }
         catch (final Exception exception) { }
 
         try {
             _rawOutputStream.close();
-            Logger.log("*** $3");
         }
         catch (final Exception exception) { }
 
         try {
             _readThread.join();
-            Logger.log("*** $4");
         }
         catch (final InterruptedException e) { }
 
         try {
             _socket.close();
-            Logger.log("*** $5");
         }
         catch (final IOException e) { }
 
         _onSocketClosed();
-        Logger.log("*** $6");
     }
 
     /**
