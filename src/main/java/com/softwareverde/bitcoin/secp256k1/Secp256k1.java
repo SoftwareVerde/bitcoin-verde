@@ -1,9 +1,12 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -22,7 +25,7 @@ public class Secp256k1 {
 
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
-    protected static final ECDomainParameters CURVE_DOMAIN;
+    public static final ECDomainParameters CURVE_DOMAIN;
 
     static {
         Security.addProvider(new BouncyCastleProvider());
@@ -46,17 +49,44 @@ public class Secp256k1 {
         return MutableByteArray.wrap(pointQ.getEncoded());
     }
 
-    public static Boolean verifySignature(final Signature signature, final byte[] publicKey, final byte[] message) {
-
+    protected static Boolean _verifySignatureViaBouncyCastle(final Signature signature, final PublicKey publicKey, final byte[] message) {
         final ECPublicKeyParameters publicKeyParameters;
         {
-            final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey);
+            final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey.getBytes());
             publicKeyParameters = new ECPublicKeyParameters(publicKeyPoint, Secp256k1.CURVE_DOMAIN);
         }
 
         final ECDSASigner signer = new ECDSASigner();
         signer.init(false, publicKeyParameters);
-        return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
+
+        try {
+            return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
+        }
+        catch (final Exception exception) {
+            // NOTE: Bouncy Castle contains/contained a bug that would crash during certain specially-crafted malicious signatures.
+            //  Instead of crashing, the signature is instead just marked as invalid.
+            Logger.log(exception);
+            return false;
+        }
+    }
+
+    protected static Boolean _verifySignatureViaJni(final Signature signature, final PublicKey publicKey, final byte[] message) {
+        try {
+            return NativeSecp256k1.verify(message, signature.toCanonical().encodeAsDer().getBytes(), publicKey.getBytes());
+        }
+        catch (Exception e) {
+            Logger.log(e);
+            return false;
+        }
+    }
+
+    public static Boolean verifySignature(final Signature signature, final PublicKey publicKey, final byte[] message) {
+        if (NativeSecp256k1.isEnabled()) {
+            return _verifySignatureViaJni(signature, publicKey, message);
+        }
+
+        // Fallback to BouncyCastle if the libsecp256k1 failed to load for this architecture...
+        return _verifySignatureViaBouncyCastle(signature, publicKey, message);
     }
 
     public static Signature sign(final byte[] privateKey, final byte[] message) {

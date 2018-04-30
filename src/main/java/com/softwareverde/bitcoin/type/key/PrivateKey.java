@@ -35,33 +35,6 @@ public class PrivateKey extends ImmutableByteArray {
         return Secp256k1.getPublicKeyPoint(_bytes);
     }
 
-    protected byte[] _getCompressedPublicKeyPoint() {
-        final byte[] publicKeyPoint = Secp256k1.getPublicKeyPoint(_bytes);
-        final Integer coordinateByteCount = ((publicKeyPoint.length - 1) / 2);
-
-        final Integer prefixByteCount = 1;
-        final byte prefix = publicKeyPoint[0];
-        final byte[] publicKeyPointX = new byte[coordinateByteCount];
-        final byte[] publicKeyPointY = new byte[coordinateByteCount];
-        {
-            for (int i=0; i<coordinateByteCount; ++i) {
-                publicKeyPointX[i] = publicKeyPoint[prefixByteCount + i];
-                publicKeyPointY[i] = publicKeyPoint[prefixByteCount + coordinateByteCount + i];
-            }
-        }
-        final Boolean yCoordinateIsEven = ((publicKeyPointY[coordinateByteCount - 1] & 0xFF) % 2 == 0);
-        final byte compressedPublicKeyPrefix = (yCoordinateIsEven ? (byte) 0x02 : (byte) 0x03);
-        final byte[] compressedPublicKeyPoint = new byte[coordinateByteCount + prefixByteCount];
-        {
-            compressedPublicKeyPoint[0] = compressedPublicKeyPrefix;
-            for (int i=0; i<publicKeyPointX.length; ++i) {
-                compressedPublicKeyPoint[prefixByteCount + i] = publicKeyPointX[i];
-            }
-        }
-
-        return compressedPublicKeyPoint;
-    }
-
     protected PrivateKey() {
         super(new byte[KEY_BYTE_COUNT]);
     }
@@ -73,11 +46,6 @@ public class PrivateKey extends ImmutableByteArray {
 
     public PublicKey getPublicKey() {
         final byte[] publicKeyPoint = _getPublicKeyPoint();
-        return new PublicKey(publicKeyPoint);
-    }
-
-    public PublicKey getCompressedPublicKey() {
-        final byte[] publicKeyPoint = _getCompressedPublicKeyPoint();
         return new PublicKey(publicKeyPoint);
     }
 
