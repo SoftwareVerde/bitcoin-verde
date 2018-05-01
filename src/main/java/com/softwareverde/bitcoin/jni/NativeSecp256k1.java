@@ -32,6 +32,8 @@ import static org.bitcoin.NativeSecp256k1.secp256k1_destroy_context;
 import static org.bitcoin.NativeSecp256k1.secp256k1_ecdsa_verify;
 import static org.bitcoin.Secp256k1Context.secp256k1_init_context;
 
+// NOTE: The last time this message was updated, the included secp256k1 library was built from git hash: 452d8e4
+
 /**
  * <p>This class holds native methods to handle ECDSA verification.</p>
  *
