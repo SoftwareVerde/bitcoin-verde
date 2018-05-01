@@ -39,7 +39,7 @@ public class NodeManager {
             }
 
             _nodeHealth.onMessageReceived(false);
-            Logger.log("NOTICE: Request timed out.");
+            Logger.log("NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
 
             if (_replayInvocation != null) {
                 _replayInvocation.run();

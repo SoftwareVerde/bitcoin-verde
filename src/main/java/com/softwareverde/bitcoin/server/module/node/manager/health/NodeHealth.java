@@ -113,7 +113,7 @@ public class NodeHealth {
                     if (requestAgeInMilliseconds < 60L * 1_000L) {
                         recentMessageCount += 1;
 
-                        if (!request.wasSuccessful) {
+                        if (! request.wasSuccessful) {
                             recentFailureCount += 1;
                         }
                     }

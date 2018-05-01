@@ -11,11 +11,7 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.DERSequenceGenerator;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigInteger;
 
 public class Signature implements Const, Constable<Signature> {
@@ -35,6 +31,45 @@ public class Signature implements Const, Constable<Signature> {
 
         final byte[] bytes = byteArrayReader.readBytes(byteCount, endianness);
         return MutableByteArray.wrap(bytes);
+    }
+
+    protected static byte[] _toDerEncodedInteger(final ByteArray byteArray) {
+        final boolean firstByteHasSignBit = (ByteUtil.byteToInteger(byteArray.getByte(0)) > 0x7F);
+        if (firstByteHasSignBit) {
+            final byte[] bytes = new byte[1 + byteArray.getByteCount()];
+            bytes[0] = 0x00;
+            for (int i = 0; i < byteArray.getByteCount(); ++i) {
+                bytes[i+1] = byteArray.getByte(i);
+            }
+            return bytes;
+        }
+
+        final Integer skippedByteCount;
+        {
+            int firstNonZeroIndex = 0;
+            for (int i = 0; i < byteArray.getByteCount(); ++i) {
+                firstNonZeroIndex = i;
+
+                final byte b = byteArray.getByte(i);
+                if (b != 0x00) {
+                    final boolean byteHasSignBit = (ByteUtil.byteToInteger(byteArray.getByte(i)) > 0x7F);
+                    // NOTE: 0x00 prefix bytes for r and s are not allowed except when their first byte would otherwise be above 0x7F...
+                    if ((i > 0) && (byteHasSignBit)) {
+                        // NOTE: i should always be greater than zero if byteHasSignBit is true due to the firstByteHasSignBit
+                        //  check... however, the code here is defensive in case the skippedByteCount/firstByteHasSignBit check
+                        //  ordering changes in the future.
+                        firstNonZeroIndex -= 1;
+                    }
+                    break;
+                }
+            }
+            skippedByteCount = firstNonZeroIndex;
+        }
+        final byte[] bytes = new byte[byteArray.getByteCount() - skippedByteCount];
+        for (int i = skippedByteCount; i < byteArray.getByteCount(); ++i) {
+            bytes[i - skippedByteCount] = byteArray.getByte(i);
+        }
+        return bytes;
     }
 
     /**
@@ -88,36 +123,22 @@ public class Signature implements Const, Constable<Signature> {
     }
 
     public ByteArray encodeAsDer() {
-        final byte[] rPrefixBytes;
-        {
-            final boolean firstByteHasSignBit = (ByteUtil.byteToInteger(_r.getByte(0)) > 0x7F);
-            rPrefixBytes = new byte[(firstByteHasSignBit ? 1 : 0)];
-        }
-
-        final byte[] sPrefixBytes;
-        {
-            final boolean firstByteHasSignBit = (ByteUtil.byteToInteger(_s.getByte(0)) > 0x7F);
-            sPrefixBytes = new byte[(firstByteHasSignBit ? 1 : 0)];
-        }
-
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendByte(DER_MAGIC_NUMBER);
 
-        final int byteCount = (2 + rPrefixBytes.length + _r.getByteCount() + 2 + sPrefixBytes.length +  _s.getByteCount());
+        final byte[] rBytes = _toDerEncodedInteger(_r);
+        final byte[] sBytes = _toDerEncodedInteger(_s);
+
+        final int byteCount = (2 + rBytes.length + 2 + sBytes.length);
         byteArrayBuilder.appendByte((byte) byteCount);
 
-        final int rByteCount = (rPrefixBytes.length + _r.getByteCount());
-        final int sByteCount = (sPrefixBytes.length + _s.getByteCount());
+        byteArrayBuilder.appendByte(DER_INTEGER_TYPE);
+        byteArrayBuilder.appendByte((byte) rBytes.length);
+        byteArrayBuilder.appendBytes(rBytes, Endian.BIG);
 
         byteArrayBuilder.appendByte(DER_INTEGER_TYPE);
-        byteArrayBuilder.appendByte((byte) rByteCount);
-        byteArrayBuilder.appendBytes(rPrefixBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(_r, Endian.BIG);
-
-        byteArrayBuilder.appendByte(DER_INTEGER_TYPE);
-        byteArrayBuilder.appendByte((byte) sByteCount);
-        byteArrayBuilder.appendBytes(sPrefixBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(_s, Endian.BIG);
+        byteArrayBuilder.appendByte((byte) sBytes.length);
+        byteArrayBuilder.appendBytes(sBytes, Endian.BIG);
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
