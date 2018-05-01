@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.BitcoinSocket;
+import com.softwareverde.bitcoin.server.socket.ip.Ipv6;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.StringUtil;
 
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Queue;
 
 public class NodeConnection {
@@ -48,7 +50,13 @@ public class NodeConnection {
 
             if ( (socket != null) && (socket.isConnected()) ) {
                 final SocketAddress socketAddress = socket.getRemoteSocketAddress();
-                _remoteIp = StringUtil.pregMatch("([0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+)", socketAddress.toString()).get(0);
+                {
+                    final String socketIpString = socketAddress.toString();
+                    final List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
+                    // final String domainName = urlParts.get(0);
+                    _remoteIp = urlParts.get(1); // Ip Address
+                    // final String portString = urlParts.get(2);
+                }
 
                 _connection = new BitcoinSocket(socket);
                 _connection.setMessageReceivedCallback(new Runnable() {

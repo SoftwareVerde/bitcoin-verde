@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 
+import java.util.Arrays;
+
 public class Ipv6 implements Ip {
 
     protected static byte[] _createIpv4CompatibleIpv6(final Ipv4 ipv4) {
@@ -159,5 +161,18 @@ public class Ipv6 implements Ip {
         }
         stringBuilder.deleteCharAt(stringBuilder.length() - 1); // Remove the last colon...
         return stringBuilder.toString();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof Ipv6)) { return false; }
+        final Ipv6 ipv6 = (Ipv6) object;
+        return ByteUtil.areEqual(_bytes, ipv6._bytes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(_bytes);
     }
 }

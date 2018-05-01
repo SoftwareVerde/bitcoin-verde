@@ -105,4 +105,23 @@ public class NodeIpAddress {
 
         return nodeIpAddress;
     }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof NodeIpAddress)) { return false; }
+        final NodeIpAddress nodeIpAddress = (NodeIpAddress) object;
+        if (! _ip.equals(nodeIpAddress._ip)) { return false; }
+        return _port.equals(nodeIpAddress._port);
+    }
+
+    @Override
+    public int hashCode() {
+        return (_ip.hashCode() + _port.hashCode());
+    }
+
+    @Override
+    public String toString() {
+        return (_ip.toString() + ":" + _port);
+    }
 }

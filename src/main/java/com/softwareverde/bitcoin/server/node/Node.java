@@ -16,6 +16,8 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHas
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.socket.ip.Ip;
+import com.softwareverde.bitcoin.server.socket.ip.IpInflater;
 import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -75,6 +77,7 @@ public class Node extends NodeConnectionDelegate {
     }
 
     protected NodeId _id;
+    protected NodeIpAddress _nodeIpAddress = null;
     protected Boolean _handshakeIsComplete = false;
     protected final List<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
@@ -190,6 +193,7 @@ public class Node extends NodeConnectionDelegate {
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         // TODO: Should probably not accept any node version...
         final AcknowledgeVersionMessage acknowledgeVersionMessage = new AcknowledgeVersionMessage();
+        _nodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
         _queueMessage(acknowledgeVersionMessage);
     }
 
@@ -324,6 +328,26 @@ public class Node extends NodeConnectionDelegate {
         return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
     }
 
+    public NodeIpAddress getNodeAddress() {
+        if (! _handshakeIsComplete) { return null; }
+        if (_nodeIpAddress == null) { return null; }
+
+        final NodeIpAddress nodeIpAddress = _nodeIpAddress.copy();
+
+        final IpInflater ipInflater = new IpInflater();
+        final Ip ip = ipInflater.fromString(_connection.getRemoteIp());
+        if (ip != null) {
+            nodeIpAddress.setIp(ip);
+        }
+
+        final Integer port = _connection.getPort();
+        if (port != null) {
+            nodeIpAddress.setPort(port);
+        }
+
+        return nodeIpAddress;
+    }
+
     public void setNodeAddressesReceivedCallback(final NodeAddressesReceivedCallback nodeAddressesReceivedCallback) {
         _nodeAddressesReceivedCallback = nodeAddressesReceivedCallback;
     }
@@ -355,6 +379,20 @@ public class Node extends NodeConnectionDelegate {
         final PingRequest pingRequest = new PingRequest(pingCallback);
         _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
+    }
+
+    public void broadcastNodeAddress(final NodeIpAddress nodeIpAddress) {
+        final NodeIpAddressMessage nodeIpAddressMessage = new NodeIpAddressMessage();
+        nodeIpAddressMessage.addAddress(nodeIpAddress);
+        _queueMessage(nodeIpAddressMessage);
+    }
+
+    public void broadcastNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
+        final NodeIpAddressMessage nodeIpAddressMessage = new NodeIpAddressMessage();
+        for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+            nodeIpAddressMessage.addAddress(nodeIpAddress);
+        }
+        _queueMessage(nodeIpAddressMessage);
     }
 
     public void disconnect() {

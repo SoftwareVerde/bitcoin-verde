@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class Ipv4 implements Ip {
@@ -87,5 +88,18 @@ public class Ipv4 implements Ip {
         stringBuilder.append(".");
         stringBuilder.append(ByteUtil.byteToInteger(_bytes[3]));
         return stringBuilder.toString();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof Ipv4)) { return false; }
+        final Ipv4 ipv4 = (Ipv4) object;
+        return ByteUtil.areEqual(_bytes, ipv4._bytes);
+    }
+
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(_bytes);
     }
 }

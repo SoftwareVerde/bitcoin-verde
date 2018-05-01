@@ -54,6 +54,8 @@ public class NodeManager {
 
     protected final List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
 
+    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
+
     protected final HaltableThread _nodeMaintenanceThread = new HaltableThread(new Runnable() {
         @Override
         public void run() {
@@ -100,11 +102,42 @@ public class NodeManager {
         }
     }
 
+    // NOTE: Requires Mutex Lock...
+    protected void _broadcastNewNodeToExistingNodes(final NodeIpAddress nodeIpAddress) {
+        for (final Node node : _nodes.values()) {
+            node.broadcastNodeAddress(nodeIpAddress);
+            Logger.log("Broadcasting New Node ("+ nodeIpAddress +") to Existing Node ("+ node.getNodeAddress() +")");
+        }
+    }
+
+    // NOTE: Requires Mutex Lock...
+    protected void _broadcastExistingNodesToNewNode(final Node newNode) {
+        final Collection<Node> nodes = _nodes.values();
+
+        final List<NodeIpAddress> nodeAddresses = new ArrayList<NodeIpAddress>(nodes.size());
+        for (final Node node : nodes) {
+            final NodeIpAddress nodeIpAddress = node.getNodeAddress();
+            if (nodeIpAddress == null) { continue; }
+
+            nodeAddresses.add(nodeIpAddress);
+
+            Logger.log("Broadcasting Existing Node ("+ nodeIpAddress +") to New Node ("+ newNode.getConnectionString() +")");
+        }
+
+        newNode.broadcastNodeAddresses(nodeAddresses);
+    }
+
     protected void _initNode(final Node node) {
         node.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
                 synchronized (_mutex) {
+                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
+                    if (haveAlreadySeenNode) { return; }
+
+                    _nodeAddresses.add(nodeIpAddress);
+                    _broadcastNewNodeToExistingNodes(nodeIpAddress);
+
                     final Integer healthyNodeCount = _countNodesAboveHealth(50);
                     if (healthyNodeCount >= _maxNodeCount) { return; }
 
@@ -121,6 +154,8 @@ public class NodeManager {
 
                     final Node newNode = new Node(address, port);
                     _initNode(newNode);
+
+                    _broadcastExistingNodesToNewNode(newNode);
 
                     _checkNodeCount(_maxNodeCount - 1);
 
@@ -397,5 +432,4 @@ public class NodeManager {
             timeoutThread.start();
         }
     }
-
 }
