@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
 public class PushOperation extends SubTypedOperation {
@@ -62,8 +64,11 @@ public class PushOperation extends SubTypedOperation {
 
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_SHORT: {
-                final int byteCount = byteArrayReader.readInteger(2);
-                if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                final int byteCount = byteArrayReader.readInteger(2, Endian.LITTLE);
+                if (byteCount > VALUE_MAX_BYTE_COUNT) {
+                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                }
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 shouldSerializeValue = true;
@@ -71,8 +76,11 @@ public class PushOperation extends SubTypedOperation {
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_INTEGER: {
-                final int byteCount = byteArrayReader.readInteger(4);
-                if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; } // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                final int byteCount = byteArrayReader.readInteger(4, Endian.LITTLE);
+                if (byteCount > VALUE_MAX_BYTE_COUNT) {
+                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                }
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 shouldSerializeValue = true;
