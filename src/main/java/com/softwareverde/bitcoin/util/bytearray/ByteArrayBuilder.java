@@ -10,6 +10,8 @@ public class ByteArrayBuilder {
     private Integer _totalByteCount = 0;
 
     protected void _appendBytes(final byte[] bytes, final Endian endian) {
+        if (bytes.length == 0) { return; }
+
         final byte[] copiedBytes = new byte[bytes.length];
         for (int i=0; i<bytes.length; ++i) {
             final Integer readIndex = ( (endian == Endian.BIG) ? (i) : ((bytes.length - i) - 1) );

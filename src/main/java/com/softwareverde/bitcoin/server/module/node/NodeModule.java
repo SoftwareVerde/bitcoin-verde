@@ -64,7 +64,7 @@ public class NodeModule {
 
     protected Boolean _hasGenesisBlock = false;
 
-    protected final Integer _maxQueueSize = 10;
+    protected final Integer _maxQueueSize;
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
     protected final BlockValidatorThread _blockValidatorThread = new BlockValidatorThread();
 
@@ -216,6 +216,8 @@ public class NodeModule {
             database = databaseInstance;
             Logger.log("[Database Online]");
         }
+
+        _maxQueueSize = serverProperties.getMaxBlockQueueSize();
 
         _environment = new Environment(database);
         _networkTime = new NetworkTime();

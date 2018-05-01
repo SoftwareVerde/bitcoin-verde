@@ -140,7 +140,10 @@ public class Node extends NodeConnectionDelegate {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    _nodeConnectedCallback.onNodeConnected();
+                    final NodeConnectedCallback callback = _nodeConnectedCallback;
+                    if (callback != null) {
+                        callback.onNodeConnected();
+                    }
                 }
             })).start();
         }
@@ -154,7 +157,10 @@ public class Node extends NodeConnectionDelegate {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    _nodeDisconnectedCallback.onNodeDisconnected();
+                    final NodeDisconnectedCallback callback = _nodeDisconnectedCallback;
+                    if (callback != null) {
+                        callback.onNodeDisconnected();
+                    }
                 }
             })).start();
         }
@@ -194,7 +200,10 @@ public class Node extends NodeConnectionDelegate {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    _nodeHandshakeCompleteCallback.onHandshakeComplete();
+                    final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
+                    if (callback != null) {
+                        callback.onHandshakeComplete();
+                    }
                 }
             })).start();
         }
@@ -214,7 +223,10 @@ public class Node extends NodeConnectionDelegate {
                 (new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        _nodeAddressesReceivedCallback.onNewNodeAddress(nodeIpAddress);
+                        final NodeAddressesReceivedCallback callback = _nodeAddressesReceivedCallback;
+                        if (callback != null) {
+                            callback.onNewNodeAddress(nodeIpAddress);
+                        }
                     }
                 })).start();
             }

@@ -12,9 +12,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -25,8 +23,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class TransactionSigner {
@@ -107,7 +103,7 @@ public class TransactionSigner {
 
     public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
         final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
-        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey.getBytes(), bytesForSigning);
+        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
     }
 
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {

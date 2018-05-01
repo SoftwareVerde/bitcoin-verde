@@ -19,7 +19,8 @@ public class AddressInflater {
     }
 
     public CompressedAddress compressedFromPrivateKey(final PrivateKey privateKey) {
-        final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
+        final PublicKey publicKey = privateKey.getPublicKey();
+        final PublicKey compressedPublicKey = publicKey.compress();
         final byte[] rawBitcoinAddress = _hashPublicKey(compressedPublicKey);
         return new CompressedAddress(rawBitcoinAddress);
     }
