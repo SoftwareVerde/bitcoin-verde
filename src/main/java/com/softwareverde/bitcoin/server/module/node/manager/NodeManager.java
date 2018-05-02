@@ -39,7 +39,7 @@ public class NodeManager {
             }
 
             _nodeHealth.onMessageReceived(false);
-            Logger.log("NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
+            Logger.log("P2P: NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
 
             if (_replayInvocation != null) {
                 _replayInvocation.run();
@@ -75,7 +75,7 @@ public class NodeManager {
 
         node.disconnect();
 
-        Logger.log("Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.calculateHealth() + "hp");
+        Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.calculateHealth() + "hp");
     }
 
     protected void _checkNodeCount(final Integer maxNodeCount) {
@@ -106,7 +106,7 @@ public class NodeManager {
     protected void _broadcastNewNodeToExistingNodes(final NodeIpAddress nodeIpAddress) {
         for (final Node node : _nodes.values()) {
             node.broadcastNodeAddress(nodeIpAddress);
-            Logger.log("Broadcasting New Node ("+ nodeIpAddress +") to Existing Node ("+ node.getNodeAddress() +")");
+            Logger.log("P2P: Broadcasting New Node ("+ nodeIpAddress +") to Existing Node ("+ node.getNodeAddress() +")");
         }
     }
 
@@ -121,7 +121,7 @@ public class NodeManager {
 
             nodeAddresses.add(nodeIpAddress);
 
-            Logger.log("Broadcasting Existing Node ("+ nodeIpAddress +") to New Node ("+ newNode.getConnectionString() +")");
+            Logger.log("P2P: Broadcasting Existing Node ("+ nodeIpAddress +") to New Node ("+ newNode.getConnectionString() +")");
         }
 
         newNode.broadcastNodeAddresses(nodeAddresses);
@@ -200,7 +200,7 @@ public class NodeManager {
                     final Node disconnectedNode = _nodes.remove(nodeId);
                     _nodeHealthMap.remove(nodeId);
 
-                    Logger.log("Node Disconnected: " + disconnectedNode.getConnectionString());
+                    Logger.log("P2P: Node Disconnected: " + disconnectedNode.getConnectionString());
                 }
             }
         });
@@ -277,11 +277,7 @@ public class NodeManager {
         final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - 1);
         final Node selectedNode = _nodes.get(bestNodeHealth.getNodeId());
 
-        // for (final NodeHealth nodeHealth : nodeHealthList) {
-        //     Logger.log("Node Health: "+ nodeHealth.getNodeId() + " = " +nodeHealth.calculateHealth());
-        // }
-
-        Logger.log("Selected Node: " + (selectedNode.getId()) + " (" + bestNodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + activeNodeCount + " / " + _nodes.size());
+        Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + bestNodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + activeNodeCount + " / " + _nodes.size());
 
         return selectedNode;
     }
@@ -301,7 +297,7 @@ public class NodeManager {
             }
         }
 
-        Logger.log("Idle Node Count: " + idleNodes.size() + " / " + _nodes.size());
+        Logger.log("P2P: Idle Node Count: " + idleNodes.size() + " / " + _nodes.size());
         for (final Node idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
             // _nodeHealthMap.get(nodeId).onMessageSent();
@@ -309,10 +305,10 @@ public class NodeManager {
             idleNode.ping(new Node.PingCallback() {
                 @Override
                 public void onResult(final Long pingInMilliseconds) {
-                    Logger.log("Node Pong: " + pingInMilliseconds);
+                    Logger.log("P2P: Node Pong: " + pingInMilliseconds);
                 }
             });
-            Logger.log("Pinging Idle Node: " + idleNode.getConnectionString());
+            Logger.log("P2P: Pinging Idle Node: " + idleNode.getConnectionString());
         }
     }
 
@@ -348,7 +344,7 @@ public class NodeManager {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
-                Logger.log("Executing Command: NodeManager.requestBlock " + blockHash);
+                Logger.log("P2P: Executing Command: NodeManager.requestBlock " + blockHash);
                 NodeManager.this.requestBlock(blockHash, downloadBlockCallback);
             }
         };
@@ -357,7 +353,7 @@ public class NodeManager {
             final Node selectedNode = _selectBestNode();
 
             if (selectedNode == null) {
-                Logger.log("Queuing Command: NodeManager.requestBlock " + blockHash);
+                Logger.log("P2P: Queuing Command: NodeManager.requestBlock " + blockHash);
 
                 _queuedNodeRequests.add(replayInvocation);
 
@@ -393,7 +389,7 @@ public class NodeManager {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
-                Logger.log("Executing Command: NodeManager.requestBlockHashesAfter " + blockHash);
+                Logger.log("P2P: Executing Command: NodeManager.requestBlockHashesAfter " + blockHash);
                 NodeManager.this.requestBlockHashesAfter(blockHash, queryCallback);
             }
         };
@@ -402,7 +398,7 @@ public class NodeManager {
             final Node selectedNode = _selectBestNode();
 
             if (selectedNode == null) {
-                Logger.log("Queuing Command: NodeManager.requestBlockHashesAfter " + blockHash);
+                Logger.log("P2P: Queuing Command: NodeManager.requestBlockHashesAfter " + blockHash);
                 _queuedNodeRequests.add(replayInvocation);
 
                 return;
