@@ -4,13 +4,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.HashType;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class SignatureContext {
     private final Transaction _transaction;
-    private final ScriptSignature.HashType _hashType;
+    private final HashType _hashType;
 
     private final MutableList<Boolean> _inputIndexesToSign = new MutableList<Boolean>();
     private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
@@ -18,22 +18,23 @@ public class SignatureContext {
 
     private final MutableList<Boolean> _outputIndexesToSign = new MutableList<Boolean>();
 
+    private Integer _inputIndexBeingSigned = null;
     private Script _currentScript;
 
-    public SignatureContext(final Transaction transaction, final ScriptSignature.HashType hashType) {
+    public SignatureContext(final Transaction transaction, final HashType hashType) {
         _transaction = transaction;
         _hashType = hashType;
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
-            _inputIndexesToSign.add(false);
+            _inputIndexesToSign.add(false); // All inputs are not signed by default...
             _previousTransactionOutputsBeingSpent.add(null);
             _codeSeparatorIndexes.add(0);
         }
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         for (int i = 0; i < transactionOutputs.getSize(); ++i) {
-            _outputIndexesToSign.add(false);
+            _outputIndexesToSign.add(true); // All outputs are signed by default...
         }
     }
 
@@ -51,6 +52,10 @@ public class SignatureContext {
         _codeSeparatorIndexes.set(index, lastCodeSeparatorIndex);
     }
 
+    public void setInputIndexBeingSigned(final Integer inputIndex) {
+        _inputIndexBeingSigned = inputIndex;
+    }
+
     public void setCurrentScript(final Script script) {
         _currentScript = script;
     }
@@ -59,16 +64,16 @@ public class SignatureContext {
         return _transaction;
     }
 
-    public ScriptSignature.HashType getHashType() {
+    public HashType getHashType() {
         return _hashType;
     }
 
-    public Boolean shouldInputIndexBeSigned(final Integer index) {
-        return _inputIndexesToSign.get(index);
+    public Boolean shouldInputIndexBeSigned(final Integer inputIndex) {
+        return _inputIndexesToSign.get(inputIndex);
     }
 
-    public Boolean shouldOutputIndexBeSigned(final Integer index) {
-        return _outputIndexesToSign.get(index);
+    public Boolean shouldOutputIndexBeSigned(final Integer outputIndex) {
+        return _outputIndexesToSign.get(outputIndex);
     }
 
     public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {
@@ -77,6 +82,10 @@ public class SignatureContext {
 
     public Integer getLastCodeSeparatorIndex(final Integer index) {
         return _codeSeparatorIndexes.get(index);
+    }
+
+    public Integer getInputIndexBeingSigned() {
+        return _inputIndexBeingSigned;
     }
 
     public Script getCurrentScript() {

@@ -246,4 +246,38 @@ public class HistoricTransactionsTests {
         // Assert
         Assert.assertTrue(inputIsUnlocked);
     }
+
+    @Test
+    public void should_verify_transaction_51BF528ECF3C161E7C021224197DBE84F9A8564212F6207BAA014C01A1668E1E_0() { // Relies on SIGHASH_ANYONECANPAY...
+        // Setup
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000002F6044C0AD485F633B41F97D0D793EB2837AE40F738FF6D5F50FDFD10528C1D76010000006B48304502205853C7F1395785BFABB03C57E962EB076FF24D8E4E573B04DB13B45ED3ED6EE20221009DC82AE43BE9D4B1FE2847754E1D36DAD48BA801817D485DC529AFC516C2DDB481210305584980367B321FAD7F1C1F4D5D723D0AC80C1D80C8BA12343965B48364537AFFFFFFFF9C6AF0DF6669BCDED19E317E25BEBC8C78E48DF8AE1FE02A7F030818E71ECD40010000006C4930460221008269C9D7BA0A7E730DD16F4082D29E3684FB7463BA064FD093AFC170AD6E0388022100BC6D76373916A3FF6EE41B2C752001FDA3C9E048BCFF0D81D05B39FF0F4217B2812103AAE303D825421545C5BC7CCD5AC87DD5ADD3BCC3A432BA7AA2F2661699F9F659FFFFFFFF01E0930400000000001976A9145C11F917883B927EEF77DC57707AEB853F6D389488AC00000000"));
+
+        final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
+        final TransactionInput transactionInput = transactionInputInflater.fromBytes(HexUtil.hexStringToByteArray("F6044C0AD485F633B41F97D0D793EB2837AE40F738FF6D5F50FDFD10528C1D76010000006B48304502205853C7F1395785BFABB03C57E962EB076FF24D8E4E573B04DB13B45ED3ED6EE20221009DC82AE43BE9D4B1FE2847754E1D36DAD48BA801817D485DC529AFC516C2DDB481210305584980367B321FAD7F1C1F4D5D723D0AC80C1D80C8BA12343965B48364537AFFFFFFFF"));
+
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+        final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(1, HexUtil.hexStringToByteArray("400D0300000000001976A9148551E48A53DECD1CFC63079A4581BCCCFAD1A93C88AC"));
+
+        final MutableContext context = new MutableContext();
+        {
+            context.setBlockHeight(207733L);
+            context.setTransaction(transaction);
+
+            context.setTransactionInput(transactionInput);
+            context.setTransactionOutput(transactionOutput);
+            context.setTransactionInputIndex(0);
+        }
+
+        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("76A9148551E48A53DECD1CFC63079A4581BCCCFAD1A93C88AC"));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray("48304502205853C7F1395785BFABB03C57E962EB076FF24D8E4E573B04DB13B45ED3ED6EE20221009DC82AE43BE9D4B1FE2847754E1D36DAD48BA801817D485DC529AFC516C2DDB481210305584980367B321FAD7F1C1F4D5D723D0AC80C1D80C8BA12343965B48364537A"));
+
+        final ScriptRunner scriptRunner = new ScriptRunner();
+
+        // Action
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+
+        // Assert
+        Assert.assertTrue(inputIsUnlocked);
+    }
 }

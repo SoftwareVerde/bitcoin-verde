@@ -14,7 +14,8 @@ import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScri
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.constable.list.List;
@@ -55,7 +56,7 @@ public class TransactionSignerTests {
         transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(HashType.Mode.SIGNATURE_HASH_ALL, true));
         signatureContext.setShouldSignInput(0, true, transactionOutputBeingSpent);
         signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 

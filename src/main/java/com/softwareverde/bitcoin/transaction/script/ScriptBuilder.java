@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
@@ -117,7 +117,7 @@ public class ScriptBuilder {
     public ScriptBuilder pushSignature(final ScriptSignature scriptSignature) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(scriptSignature.getSignature().encodeAsDer());
-        byteArrayBuilder.appendByte(scriptSignature.getHashType().getValue());
+        byteArrayBuilder.appendByte(scriptSignature.getHashType().toByte());
         _pushBytes(MutableByteArray.wrap(byteArrayBuilder.build()));
 
         return this;

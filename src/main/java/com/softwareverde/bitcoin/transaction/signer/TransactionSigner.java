@@ -14,7 +14,8 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
@@ -35,8 +36,10 @@ public class TransactionSigner {
     protected byte[] _getBytesForSigning(final SignatureContext signatureContext) {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
+        final HashType hashType = signatureContext.getHashType();
+        final HashType.Mode signatureMode = hashType.getMode();
+
         final Transaction transaction = signatureContext.getTransaction();
-        final ScriptSignature.HashType hashType = signatureContext.getHashType();
         final Script currentScript = signatureContext.getCurrentScript();
         // NOTE: The if the currentScript has not been set, the current script will default to the PreviousTransactionOutput's locking script.
         // if (currentScript == null) { throw new NullPointerException("SignatureContext must have its currentScript set."); }
@@ -50,6 +53,14 @@ public class TransactionSigner {
         mutableTransaction.setLockTime(transaction.getLockTime());
 
         for (int i=0; i<transactionInputs.getSize(); ++i) {
+            { // SIGHASH_ANYONECANPAY
+                if (! hashType.shouldSignOtherInputs()) {
+                    if (i != signatureContext.getInputIndexBeingSigned()) {
+                        continue;
+                    }
+                }
+            }
+
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
@@ -89,13 +100,13 @@ public class TransactionSigner {
             mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
 
-            if (hashType != ScriptSignature.HashType.SIGNATURE_HASH_NONE) {
+            if (signatureMode != HashType.Mode.SIGNATURE_HASH_NONE) {
                 mutableTransaction.addTransactionOutput(mutableTransactionOutput);
             }
         }
 
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.toByte())), Endian.LITTLE);
         final byte[] bytes = byteArrayBuilder.build();
 
         return BitcoinUtil.sha256(BitcoinUtil.sha256(bytes));
