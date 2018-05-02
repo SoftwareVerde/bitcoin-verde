@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.signature.HashType;
-import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -41,12 +40,7 @@ public class SignatureContextGenerator {
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 
-            signatureContext.setShouldSignInput(i, true, transactionOutput);
-        }
-
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        for (int i=0; i<transactionOutputs.getSize(); ++i) {
-            signatureContext.setShouldSignOutput(i, true);
+            signatureContext.setShouldSignInputScript(i, true, transactionOutput);
         }
 
         return signatureContext;

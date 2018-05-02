@@ -12,11 +12,9 @@ public class SignatureContext {
     private final Transaction _transaction;
     private final HashType _hashType;
 
-    private final MutableList<Boolean> _inputIndexesToSign = new MutableList<Boolean>();
+    private final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
     private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
     private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
-
-    private final MutableList<Boolean> _outputIndexesToSign = new MutableList<Boolean>();
 
     private Integer _inputIndexBeingSigned = null;
     private Script _currentScript;
@@ -27,25 +25,16 @@ public class SignatureContext {
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
-            _inputIndexesToSign.add(false); // All inputs are not signed by default...
+            _inputScriptsToSign.add(false); // All inputs are NOT signed by default...
             _previousTransactionOutputsBeingSpent.add(null);
             _codeSeparatorIndexes.add(0);
         }
-
-        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
-        for (int i = 0; i < transactionOutputs.getSize(); ++i) {
-            _outputIndexesToSign.add(true); // All outputs are signed by default...
-        }
     }
 
-    public void setShouldSignInput(final Integer index, final Boolean shouldSignInput, final TransactionOutput outputBeingSpent) {
-        _inputIndexesToSign.set(index, shouldSignInput);
+    public void setShouldSignInputScript(final Integer index, final Boolean shouldSignInput, final TransactionOutput outputBeingSpent) {
+        _inputScriptsToSign.set(index, shouldSignInput);
         _previousTransactionOutputsBeingSpent.set(index, outputBeingSpent);
         _codeSeparatorIndexes.set(index, 0);
-    }
-
-    public void setShouldSignOutput(final Integer index, final Boolean shouldSignOutput) {
-        _outputIndexesToSign.set(index, shouldSignOutput);
     }
 
     public void setLastCodeSeparatorIndex(final Integer index, final Integer lastCodeSeparatorIndex) {
@@ -68,12 +57,22 @@ public class SignatureContext {
         return _hashType;
     }
 
-    public Boolean shouldInputIndexBeSigned(final Integer inputIndex) {
-        return _inputIndexesToSign.get(inputIndex);
+    public Boolean shouldInputScriptBeSigned(final Integer inputIndex) {
+        return _inputScriptsToSign.get(inputIndex);
     }
 
-    public Boolean shouldOutputIndexBeSigned(final Integer outputIndex) {
-        return _outputIndexesToSign.get(outputIndex);
+    public Boolean shouldInputBeSigned(final Integer inputIndex) {
+        // SIGHASH_ANYONECANPAY
+        if (! _hashType.shouldSignOtherInputs()) {
+            return (inputIndex.intValue() == _inputIndexBeingSigned.intValue());
+        }
+
+        return true;
+    }
+
+    public Boolean shouldOutputBeSigned(final Integer outputIndex) {
+        final HashType.Mode signatureMode = _hashType.getMode();
+        return (signatureMode != HashType.Mode.SIGNATURE_HASH_NONE);
     }
 
     public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {

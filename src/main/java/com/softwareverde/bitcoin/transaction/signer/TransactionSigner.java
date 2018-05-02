@@ -52,28 +52,22 @@ public class TransactionSigner {
         mutableTransaction.setHasWitnessData(transaction.hasWitnessData());
         mutableTransaction.setLockTime(transaction.getLockTime());
 
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
-            { // SIGHASH_ANYONECANPAY
-                if (! hashType.shouldSignOtherInputs()) {
-                    if (i != signatureContext.getInputIndexBeingSigned()) {
-                        continue;
-                    }
-                }
-            }
+        for (int inputIndex = 0; inputIndex < transactionInputs.getSize(); ++inputIndex) {
+            if (! signatureContext.shouldInputBeSigned(inputIndex)) { continue; }
 
-            final TransactionInput transactionInput = transactionInputs.get(i);
+            final TransactionInput transactionInput = transactionInputs.get(inputIndex);
 
             final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
             final UnlockingScript unlockingScriptForSigning;
-            final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
-            if  (shouldSignIndex) {
-                final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
+            final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
+            if  (shouldSignScript) {
+                final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(inputIndex);
                 final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
 
-                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
+                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(inputIndex);
                 if (subscriptIndex > 0) {
                     final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
 
@@ -94,15 +88,15 @@ public class TransactionSigner {
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
-        for (final TransactionOutput transactionOutput : transactionOutputs) {
+        for (int outputIndex = 0; outputIndex < transactionOutputs.getSize(); ++outputIndex) {
+            if (! signatureContext.shouldOutputBeSigned(outputIndex)) { continue; }
+
+            final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
             mutableTransactionOutput.setAmount(transactionOutput.getAmount());
             mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
-
-            if (signatureMode != HashType.Mode.SIGNATURE_HASH_NONE) {
-                mutableTransaction.addTransactionOutput(mutableTransactionOutput);
-            }
+            mutableTransaction.addTransactionOutput(mutableTransactionOutput);
         }
 
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);
@@ -129,7 +123,7 @@ public class TransactionSigner {
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            if (signatureContext.shouldInputIndexBeSigned(i)) {
+            if (signatureContext.shouldInputScriptBeSigned(i)) {
                 final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(transactionInput);
                 mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, privateKey.getPublicKey()));
                 mutableTransaction.setTransactionInput(i, mutableTransactionInput);
