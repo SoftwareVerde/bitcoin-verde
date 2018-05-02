@@ -61,6 +61,10 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
+            if (! signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
+                mutableTransactionInput.setSequenceNumber(0L);
+            }
+
             final UnlockingScript unlockingScriptForSigning;
             final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
             if  (shouldSignScript) {

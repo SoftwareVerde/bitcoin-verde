@@ -62,9 +62,17 @@ public class SignatureContext {
     }
 
     public Boolean shouldInputBeSigned(final Integer inputIndex) {
-        // SIGHASH_ANYONECANPAY
         if (! _hashType.shouldSignOtherInputs()) {
+            // SIGHASH_ANYONECANPAY
             return (inputIndex.intValue() == _inputIndexBeingSigned.intValue());
+        }
+
+        return true;
+    }
+
+    public Boolean shouldInputSequenceNumberBeSigned(final Integer inputIndex) {
+        if (_hashType.getMode() == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+            return false;
         }
 
         return true;
@@ -72,7 +80,15 @@ public class SignatureContext {
 
     public Boolean shouldOutputBeSigned(final Integer outputIndex) {
         final HashType.Mode signatureMode = _hashType.getMode();
-        return (signatureMode != HashType.Mode.SIGNATURE_HASH_NONE);
+        if (signatureMode == HashType.Mode.SIGNATURE_HASH_NONE) {
+            return false;
+        }
+
+        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+            return (outputIndex.intValue() == _inputIndexBeingSigned.intValue());
+        }
+
+        return true;
     }
 
     public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {
