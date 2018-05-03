@@ -24,9 +24,11 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class TransactionSigner {
+    private static final byte[] INVALID_SIGNATURE_HASH_SINGLE_VALUE = HexUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000");
 
     // Steps:
     // 1. Set all input-scripts to empty scripts.
@@ -36,15 +38,26 @@ public class TransactionSigner {
     protected byte[] _getBytesForSigning(final SignatureContext signatureContext) {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
-        final HashType hashType = signatureContext.getHashType();
-        final HashType.Mode signatureMode = hashType.getMode();
-
         final Transaction transaction = signatureContext.getTransaction();
         // NOTE: The if the currentScript has not been set, the current script will default to the PreviousTransactionOutput's locking script.
         // if (currentScript == null) { throw new NullPointerException("SignatureContext must have its currentScript set."); }
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+
+        final HashType hashType = signatureContext.getHashType();
+        final HashType.Mode signatureMode = hashType.getMode();
+
+        { // Bitcoin Core Bug: https://bitcointalk.org/index.php?topic=260595.0
+            // This bug is caused when an input uses SigHash Single without a matching output.
+            // Originally, the Bitcoin Core client returned "1" as the bytes to be hashed, but the invoker never checked
+            // for that case, which caused the "1" value to be the actual bytes that are signed for the whole transaction.
+            if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+                if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getSize()) {
+                    return INVALID_SIGNATURE_HASH_SINGLE_VALUE;
+                }
+            }
+        }
 
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(transaction.getVersion());

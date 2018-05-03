@@ -71,6 +71,7 @@ public class NodeModule {
     protected long _startTime;
     protected int _blockCount = 0;
     protected int _transactionCount = 0;
+    protected int _totalBlockValidationMsElapsed = 0;
 
     protected final NodeManager _nodeManager;
 
@@ -168,14 +169,20 @@ public class NodeModule {
 
             final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
             final BlockValidator blockValidator = new BlockValidator(connectionFactory);
+            final long blockValidationStartTime = System.currentTimeMillis();
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+            final long blockValidationEndTime = System.currentTimeMillis();
+            final long blockValidationMsElapsed = (blockValidationEndTime - blockValidationStartTime);
+            _totalBlockValidationMsElapsed += blockValidationMsElapsed;
 
             if (blockIsValid) {
                 TransactionUtil.commitTransaction(databaseConnection);
+                final int blockTransactionCount = block.getTransactions().getSize();
                 _blockCount += 1;
-                _transactionCount += block.getTransactions().getSize();
+                _transactionCount += blockTransactionCount;
 
                 final long msElapsed = (System.currentTimeMillis() - _startTime);
+                Logger.log("Block ("+ (blockTransactionCount) +" transactions) validated in " + (blockValidationMsElapsed) + "ms. (" + String.format("%.2f", (1.0D / blockValidationMsElapsed) * 1000) + " bps) (" + String.format("%.2f", (((double) blockTransactionCount) / blockValidationMsElapsed) * 1000) + " tps) ("+ String.format("%.2f", (((double) _transactionCount) / _totalBlockValidationMsElapsed) * 1000) +" avg tps)");
                 Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
                 Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
 
