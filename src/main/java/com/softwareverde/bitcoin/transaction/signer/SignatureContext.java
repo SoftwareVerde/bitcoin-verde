@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.signature.HashType;
+import com.softwareverde.bitcoin.type.hash.Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
@@ -72,7 +73,9 @@ public class SignatureContext {
 
     public Boolean shouldInputSequenceNumberBeSigned(final Integer inputIndex) {
         if (_hashType.getMode() == HashType.Mode.SIGNATURE_HASH_SINGLE) {
-            return false;
+            if (inputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
+                return false;
+            }
         }
 
         return true;
@@ -85,7 +88,18 @@ public class SignatureContext {
         }
 
         if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
-            return (outputIndex.intValue() == _inputIndexBeingSigned.intValue());
+            return (outputIndex <= _inputIndexBeingSigned);
+        }
+
+        return true;
+    }
+
+    public Boolean shouldOutputAmountBeSigned(final Integer outputIndex) {
+        final HashType.Mode signatureMode = _hashType.getMode();
+        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+            if (outputIndex < _inputIndexBeingSigned) {
+                return false;
+            }
         }
 
         return true;

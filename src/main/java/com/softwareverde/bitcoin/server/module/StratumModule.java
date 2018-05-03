@@ -34,6 +34,7 @@ public class StratumModule {
     protected final StratumServerSocket _stratumServerSocket;
 
     protected void _exitFailure() {
+        Logger.shutdown();
         System.exit(1);
     }
 

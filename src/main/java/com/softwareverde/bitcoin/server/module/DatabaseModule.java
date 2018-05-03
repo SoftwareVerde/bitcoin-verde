@@ -15,6 +15,7 @@ public class DatabaseModule {
     protected final Environment _environment;
 
     protected void _exitFailure() {
+        Logger.shutdown();
         System.exit(1);
     }
 

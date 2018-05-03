@@ -61,10 +61,6 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            if (! signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
-                mutableTransactionInput.setSequenceNumber(0L);
-            }
-
             final UnlockingScript unlockingScriptForSigning;
             final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
             if  (shouldSignScript) {
@@ -88,7 +84,14 @@ public class TransactionSigner {
                 unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
             }
             mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
-            mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+
+            if (signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
+                mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+            }
+            else {
+                mutableTransactionInput.setSequenceNumber(0L);
+            }
+
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
@@ -97,7 +100,15 @@ public class TransactionSigner {
 
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
+
+            // TODO: Enable this...
+            // if (signatureContext.shouldOutputAmountBeSigned(outputIndex)) {
             mutableTransactionOutput.setAmount(transactionOutput.getAmount());
+            // }
+            // else {
+            //     mutableTransactionOutput.setAmount(-1L);
+            // }
+
             mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
             mutableTransaction.addTransactionOutput(mutableTransactionOutput);

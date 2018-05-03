@@ -46,6 +46,7 @@ public class Logger {
         }
     });
     static {
+        _logThread.setDaemon(true);
         _logThread.start();
     }
 
@@ -80,5 +81,10 @@ public class Logger {
         if (logCallback != null) {
             logCallback.onLog(object);
         }
+    }
+
+    public static void shutdown() {
+        _logThread.interrupt();
+        try { _logThread.join(); } catch (final Exception exception) { }
     }
 }

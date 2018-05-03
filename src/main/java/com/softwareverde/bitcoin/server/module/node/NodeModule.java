@@ -75,6 +75,7 @@ public class NodeModule {
     protected final NodeManager _nodeManager;
 
     protected void _exitFailure() {
+        Logger.shutdown();
         System.exit(1);
     }
 

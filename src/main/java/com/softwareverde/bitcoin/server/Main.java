@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 public class Main {
@@ -12,6 +13,7 @@ public class Main {
     }
 
     protected void _exitFailure() {
+        Logger.shutdown();
         System.exit(1);
     }
 

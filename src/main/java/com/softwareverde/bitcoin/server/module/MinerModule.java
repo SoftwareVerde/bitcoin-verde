@@ -27,6 +27,7 @@ public class MinerModule {
     }
 
     protected void _exitFailure() {
+        Logger.shutdown();
         System.exit(1);
     }
 

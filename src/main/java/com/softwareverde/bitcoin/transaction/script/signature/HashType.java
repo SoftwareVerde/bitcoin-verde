@@ -45,7 +45,7 @@ public class HashType {
     }
 
     protected final Mode _mode;
-    protected final Boolean _shouldSignOtherInputs;
+    protected final Boolean _shouldSignOtherInputs; // Bitcoin calls this "ANYONECANPAY" (false indicating anyone can pay)...
 
     public HashType(final Mode mode, final Boolean shouldSignOtherInputs) {
         _mode = mode;

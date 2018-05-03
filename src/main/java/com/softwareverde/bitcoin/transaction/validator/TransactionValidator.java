@@ -9,7 +9,9 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.Script;
@@ -88,20 +90,20 @@ public class TransactionValidator {
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                Logger.log("Transaction failed to verify:\n\t" + transaction.getHash() + " " + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
-
-                { // Human Readable Script Output:
-                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
-                    final String unlockingScriptString = scriptDeflater.toString(unlockingScript);
-                    final String lockingScriptString = scriptDeflater.toString(lockingScript);
-                    Logger.log("Unlocking Script:\n\t" + (unlockingScriptString != null ? unlockingScriptString : unlockingScript));
-                    Logger.log("Locking Script:\n\t" + (lockingScriptString != null ? lockingScriptString : lockingScript));
-                    Logger.log("Tx Input:\n\tPrev Hash:\n\t\t" + transactionInput.getPreviousOutputTransactionHash() + "\n\tTx Index:\n\t\t" + transactionInput.getPreviousOutputIndex());
-                }
-
-                Logger.log("Context: " + context.toJson());
-                Logger.log("Unlocking Script: " + unlockingScript);
-                Logger.log("Locking Script: " + lockingScript);
+                final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
+                final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+                Logger.log("\n------------");
+                Logger.log("Transaction failed to verify.");
+                Logger.log("Tx Hash:\t\t\t" + transaction.getHash() + "_" + context.getTransactionInputIndex());
+                Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
+                Logger.log("Tx Input:\t\t" + HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)));
+                final TransactionOutput transactionOutput = context.getTransactionOutput();
+                Logger.log("Tx Output:\t\t" + transactionOutput.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(transactionOutput)));
+                Logger.log("Block Height:\t\t" + context.getBlockHeight());
+                Logger.log("Tx Input Index\t\t" + context.getTransactionInputIndex());
+                Logger.log("Locking Script:\t\t" + lockingScript);
+                Logger.log("Unlocking Script:\t" + unlockingScript);
+                Logger.log("\n------------\n");
                 return false;
             }
         }
