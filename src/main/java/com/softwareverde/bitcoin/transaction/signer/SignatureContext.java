@@ -97,7 +97,18 @@ public class SignatureContext {
     public Boolean shouldOutputAmountBeSigned(final Integer outputIndex) {
         final HashType.Mode signatureMode = _hashType.getMode();
         if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
-            if (outputIndex < _inputIndexBeingSigned) {
+            if (outputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public Boolean shouldOutputScriptBeSigned(final Integer outputIndex) {
+        final HashType.Mode signatureMode = _hashType.getMode();
+        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+            if (outputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
                 return false;
             }
         }

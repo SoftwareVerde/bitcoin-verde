@@ -40,7 +40,6 @@ public class TransactionSigner {
         final HashType.Mode signatureMode = hashType.getMode();
 
         final Transaction transaction = signatureContext.getTransaction();
-        final Script currentScript = signatureContext.getCurrentScript();
         // NOTE: The if the currentScript has not been set, the current script will default to the PreviousTransactionOutput's locking script.
         // if (currentScript == null) { throw new NullPointerException("SignatureContext must have its currentScript set."); }
 
@@ -61,55 +60,70 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            final UnlockingScript unlockingScriptForSigning;
-            final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
-            if  (shouldSignScript) {
-                final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(inputIndex);
-                final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
+            { // Handle Input-Script Signing...
+                final UnlockingScript unlockingScriptForSigning;
+                final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
+                if (shouldSignScript) {
+                    final Script currentScript = signatureContext.getCurrentScript();
+                    final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(inputIndex);
+                    final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
 
-                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(inputIndex);
-                if (subscriptIndex > 0) {
-                    final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
-
-                    mutableScript.subScript(subscriptIndex);
-                    mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
-                    // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
-                    unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
+                    { // Handle Code-Separators...
+                        final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(inputIndex);
+                        if (subscriptIndex > 0) {
+                            final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
+                            mutableScript.subScript(subscriptIndex);
+                            mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+                            // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
+                            unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
+                        }
+                        else {
+                            unlockingScriptForSigning = UnlockingScript.castFrom(Util.coalesce(currentScript, outputBeingSpentLockingScript));
+                        }
+                    }
                 }
                 else {
-                    unlockingScriptForSigning = UnlockingScript.castFrom(Util.coalesce(currentScript, outputBeingSpentLockingScript));
+                    unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
                 }
+                mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
             }
-            else {
-                unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
-            }
-            mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
 
-            if (signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
-                mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
-            }
-            else {
-                mutableTransactionInput.setSequenceNumber(0L);
+            { // Handle Input-Sequence-Number Signing...
+                if (signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
+                    mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+                }
+                else {
+                    mutableTransactionInput.setSequenceNumber(0L);
+                }
             }
 
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
         for (int outputIndex = 0; outputIndex < transactionOutputs.getSize(); ++outputIndex) {
-            if (! signatureContext.shouldOutputBeSigned(outputIndex)) { continue; }
+            if (! signatureContext.shouldOutputBeSigned(outputIndex)) { continue; } // If the output should not be signed, then it is omitted from the signature completely...
 
             final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
 
-            // TODO: Enable this...
-            // if (signatureContext.shouldOutputAmountBeSigned(outputIndex)) {
-            mutableTransactionOutput.setAmount(transactionOutput.getAmount());
-            // }
-            // else {
-            //     mutableTransactionOutput.setAmount(-1L);
-            // }
+            { // Handle Output-Amounts Signing...
+                if (signatureContext.shouldOutputAmountBeSigned(outputIndex)) {
+                    mutableTransactionOutput.setAmount(transactionOutput.getAmount());
+                }
+                else {
+                    mutableTransactionOutput.setAmount(-1L);
+                }
+            }
 
-            mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
+            { // Handle Output-Script Signing...
+                if (signatureContext.shouldOutputScriptBeSigned(outputIndex)) {
+                    mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
+                }
+                else {
+                    mutableTransactionOutput.setLockingScript(LockingScript.EMPTY_SCRIPT);
+                }
+            }
+
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
             mutableTransaction.addTransactionOutput(mutableTransactionOutput);
         }
