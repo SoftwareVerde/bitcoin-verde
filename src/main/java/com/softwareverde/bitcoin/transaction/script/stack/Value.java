@@ -6,6 +6,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
     public static Value fromInteger(final Integer integerValue) {
@@ -81,6 +82,10 @@ public class Value extends ImmutableByteArray implements Const {
 
     public PublicKey asPublicKey() {
         return new PublicKey(_bytes);
+    }
+
+    public String asString() {
+        return StringUtil.bytesToString(_bytes); // UTF-8
     }
 
     @Override

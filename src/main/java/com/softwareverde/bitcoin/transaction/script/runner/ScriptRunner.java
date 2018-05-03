@@ -96,6 +96,8 @@ public class ScriptRunner {
             }
         }
 
-        return true;
+        // return true;
+        Logger.log("!!!!REMOVE ME!!!!");
+        return false;
     }
 }

@@ -425,4 +425,38 @@ public class HistoricTransactionsTests {
         // Assert
         Assert.assertTrue(inputIsUnlocked);
     }
+
+    @Test
+    public void should_verify_transaction_DA47BD83967D81F3CF6520F4FF81B3B6C4797BFE7AC2B5969AEDBF01A840CDA6_0() {
+        // Setup
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000003FE1A25C8774C1E827F9EBDAE731FE609FF159D6F7C15094E1D467A99A01E03100000000002012AFFFFFFFF53A080075D834402E916390940782236B29D23DB6F52DFC940A12B3EFF99159C0000000000FFFFFFFF61E4ED95239756BBB98D11DCF973146BE0C17CC1CC94340DEB8BC4D44CD88E92000000000A516352676A675168948CFFFFFFFF0220AA4400000000001976A9149BC0BBDD3024DA4D0C38ED1AECF5C68DD1D3FA1288AC20AA4400000000001976A914169FF4804FD6596DEB974F360C21584AA1E19C9788AC00000000"));
+
+        final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
+        final TransactionInput transactionInput = transactionInputInflater.fromBytes(HexUtil.hexStringToByteArray("FE1A25C8774C1E827F9EBDAE731FE609FF159D6F7C15094E1D467A99A01E03100000000002012AFFFFFFFF"));
+
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+        final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(0, HexUtil.hexStringToByteArray("A0860100000000000182"));
+
+        final MutableContext context = new MutableContext();
+        {
+            context.setBlockHeight(249977L);
+            context.setTransaction(transaction);
+
+            context.setTransactionInput(transactionInput);
+            context.setTransactionOutput(transactionOutput);
+            context.setTransactionInputIndex(0);
+        }
+
+        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("82"));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray("012A"));
+
+        final ScriptRunner scriptRunner = new ScriptRunner();
+
+        // Action
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+
+        // Assert
+        Assert.assertTrue(inputIsUnlocked);
+    }
 }

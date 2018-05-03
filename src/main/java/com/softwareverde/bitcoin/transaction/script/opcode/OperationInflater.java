@@ -20,7 +20,7 @@ public class OperationInflater {
             case OP_DYNAMIC_VALUE:  { return DynamicValueOperation.fromBytes(byteArrayReader); }
             case OP_CONTROL:        { break; } // TODO
             case OP_STACK:          { return StackOperation.fromBytes(byteArrayReader); }
-            case OP_STRING:         { break; } // TODO
+            case OP_STRING:         { return StringOperation.fromBytes(byteArrayReader); }
             case OP_BITWISE:        { break; } // TODO
             case OP_COMPARISON:     { return ComparisonOperation.fromBytes(byteArrayReader); }
             case OP_ARITHMETIC:     { return ArithmeticOperation.fromBytes(byteArrayReader); }

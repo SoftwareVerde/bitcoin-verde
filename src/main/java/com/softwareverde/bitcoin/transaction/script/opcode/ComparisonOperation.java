@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.io.Logger;
 
 public class ComparisonOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_COMPARISON;
@@ -128,7 +129,37 @@ public class ComparisonOperation extends SubTypedOperation {
                 return true;
             }
 
-            case IS_WITHIN_RANGE:
+            case INTEGER_AND: {
+                final Value value0 = stack.pop();
+                final Value value1 = stack.pop();
+
+                final int intValue0 = value0.asInteger();
+                final int intValue1 = value1.asInteger();
+
+                final Boolean value = ((intValue0 != 0) && (intValue1 != 0));
+                stack.push(Value.fromBoolean(value));
+
+                return (! stack.didOverflow());
+            }
+
+            case INTEGER_OR: {
+                final Value value0 = stack.pop();
+                final Value value1 = stack.pop();
+
+                final int intValue0 = value0.asInteger();
+                final int intValue1 = value1.asInteger();
+
+                final Boolean value = ((intValue0 != 0) || (intValue1 != 0));
+                stack.push(Value.fromBoolean(value));
+
+                return (! stack.didOverflow());
+            }
+
+            case IS_WITHIN_RANGE: {
+                Logger.log("NOTICE: Opcode not implemented: " + _opcode);
+                return false;
+            }
+
             default: { return false; }
         }
     }
