@@ -27,8 +27,6 @@ public class DynamicValueOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
         switch (_opcode) {
             case PUSH_STACK_SIZE: {
                 stack.push(Value.fromInteger(stack.getSize()));

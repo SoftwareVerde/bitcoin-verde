@@ -36,10 +36,13 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(unlockingScript);
                 for (final Operation operation : unlockingScriptOperations) {
-                    if (operation.shouldExecute(stack, controlState, mutableContext)) {
-                        final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
-                        if (! wasSuccessful) { return false; }
-                    }
+                    mutableContext.incrementCurrentLockingScriptIndex();
+
+                    final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
+                    if (! shouldExecute) { continue; }
+
+                    final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                    if (! wasSuccessful) { return false; }
                 }
 
                 payToScriptHashStack = new Stack(stack);
@@ -49,10 +52,13 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
-                    if (operation.shouldExecute(stack, controlState, mutableContext)) {
-                        final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
-                        if (! wasSuccessful) { return false; }
-                    }
+                    mutableContext.incrementCurrentLockingScriptIndex();
+
+                    final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
+                    if (! shouldExecute) { continue; }
+
+                    final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                    if (! wasSuccessful) { return false; }
                 }
             }
             catch (final Exception exception) {
@@ -85,10 +91,13 @@ public class ScriptRunner {
                     if (redeemScriptOperations == null) { return false; }
 
                     for (final Operation operation : redeemScriptOperations) {
-                        if (operation.shouldExecute(payToScriptHashStack, controlState, mutableContext)) {
-                            final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, controlState, mutableContext);
-                            if (! wasSuccessful) { return false; }
-                        }
+                        mutableContext.incrementCurrentLockingScriptIndex();
+
+                        final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
+                        if (! shouldExecute) { continue; }
+                        
+                        final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, controlState, mutableContext);
+                        if (! wasSuccessful) { return false; }
                     }
                 }
                 catch (final Exception exception) {

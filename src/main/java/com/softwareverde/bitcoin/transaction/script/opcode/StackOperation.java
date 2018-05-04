@@ -28,8 +28,6 @@ public class StackOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
         switch (_opcode) {
             case POP_TO_ALT_STACK: {
                 Logger.log("NOTICE: Opcode not implemented: "+ _opcode);

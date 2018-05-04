@@ -51,8 +51,6 @@ public class CryptographicOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
         switch (_opcode) {
             case RIPEMD_160: {
                 final Value input = stack.pop();

@@ -32,8 +32,6 @@ public class LockTimeOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
         switch (_opcode) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
                 final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
