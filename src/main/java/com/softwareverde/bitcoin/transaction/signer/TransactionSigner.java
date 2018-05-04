@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.transaction.script.MutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.signature.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -86,7 +86,7 @@ public class TransactionSigner {
                         if (subscriptIndex > 0) {
                             final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
                             mutableScript.subScript(subscriptIndex);
-                            mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
+                            mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
                             // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
                             unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
                         }

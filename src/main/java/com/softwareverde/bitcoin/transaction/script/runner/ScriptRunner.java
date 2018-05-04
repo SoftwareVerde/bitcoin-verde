@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlState;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
@@ -24,6 +25,7 @@ public class ScriptRunner {
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
 
+        final ControlState controlState = new ControlState();
         final Stack payToScriptHashStack;
 
         { // Normal Script-Validation...
@@ -34,8 +36,10 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(unlockingScript);
                 for (final Operation operation : unlockingScriptOperations) {
-                    final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
-                    if (! wasSuccessful) { return false; }
+                    if (operation.shouldExecute(stack, controlState, mutableContext)) {
+                        final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                        if (! wasSuccessful) { return false; }
+                    }
                 }
 
                 payToScriptHashStack = new Stack(stack);
@@ -45,8 +49,10 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
-                    final Boolean wasSuccessful = operation.applyTo(stack, mutableContext);
-                    if (! wasSuccessful) { return false; }
+                    if (operation.shouldExecute(stack, controlState, mutableContext)) {
+                        final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                        if (! wasSuccessful) { return false; }
+                    }
                 }
             }
             catch (final Exception exception) {
@@ -79,8 +85,10 @@ public class ScriptRunner {
                     if (redeemScriptOperations == null) { return false; }
 
                     for (final Operation operation : redeemScriptOperations) {
-                        final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, mutableContext);
-                        if (! wasSuccessful) { return false; }
+                        if (operation.shouldExecute(payToScriptHashStack, controlState, mutableContext)) {
+                            final Boolean wasSuccessful = operation.applyTo(payToScriptHashStack, controlState, mutableContext);
+                            if (! wasSuccessful) { return false; }
+                        }
                     }
                 }
                 catch (final Exception exception) {
@@ -96,8 +104,8 @@ public class ScriptRunner {
             }
         }
 
-        // return true;
-        Logger.log("!!!!REMOVE ME!!!!");
-        return false;
+        if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
+
+        return true;
     }
 }

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.ControlState;
 import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
@@ -20,11 +21,18 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlocking
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class HistoricTransactionsTests {
+    @After
+    public void shutdown() {
+        Logger.shutdown();
+    }
+
     @Test
     public void should_verify_multisig_transaction_EB3B82C0884E3EFA6D8B0BE55B4915EB20BE124C9766245BCC7F34FDAC32BCCB_1() throws Exception {
         // Setup
@@ -62,13 +70,15 @@ public class HistoricTransactionsTests {
             mutableContext.setLockingScriptLastCodeSeparatorIndex(codeSeparatorIndex);
         }
 
+        final ControlState controlState = new ControlState();
+
         // final CryptographicOperation checkMultisigOperation = new CryptographicOperation((byte) 0xAE, Operation.Opcode.CHECK_MULTISIGNATURE);
         final OperationInflater operationInflater = new OperationInflater();
         final Operation checkMultisigOperation = operationInflater.fromBytes(new ByteArrayReader(new byte[] { (byte) 0xAE }));
         Assert.assertTrue(checkMultisigOperation instanceof CryptographicOperation);
 
         // Action
-        final Boolean shouldContinue = checkMultisigOperation.applyTo(stack, mutableContext);
+        final Boolean shouldContinue = checkMultisigOperation.applyTo(stack, controlState, mutableContext);
         final Value lastValue = stack.pop();
 
         // Assert
@@ -427,16 +437,19 @@ public class HistoricTransactionsTests {
     }
 
     @Test
-    public void should_verify_transaction_DA47BD83967D81F3CF6520F4FF81B3B6C4797BFE7AC2B5969AEDBF01A840CDA6_0() {
+    public void should_verify_transaction_DA47BD83967D81F3CF6520F4FF81B3B6C4797BFE7AC2B5969AEDBF01A840CDA6_2() {
+        // NOTE: This transaction spends the first control-group opcodes.
+        //  This transaction also contains multiple OP_ELSE Opcodes in succession, asserting that "OP_IF .. OP_ELSE .. OP_ELSE .. OP_ENDIF" is a valid paradigm.
+
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000003FE1A25C8774C1E827F9EBDAE731FE609FF159D6F7C15094E1D467A99A01E03100000000002012AFFFFFFFF53A080075D834402E916390940782236B29D23DB6F52DFC940A12B3EFF99159C0000000000FFFFFFFF61E4ED95239756BBB98D11DCF973146BE0C17CC1CC94340DEB8BC4D44CD88E92000000000A516352676A675168948CFFFFFFFF0220AA4400000000001976A9149BC0BBDD3024DA4D0C38ED1AECF5C68DD1D3FA1288AC20AA4400000000001976A914169FF4804FD6596DEB974F360C21584AA1E19C9788AC00000000"));
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final TransactionInput transactionInput = transactionInputInflater.fromBytes(HexUtil.hexStringToByteArray("FE1A25C8774C1E827F9EBDAE731FE609FF159D6F7C15094E1D467A99A01E03100000000002012AFFFFFFFF"));
+        final TransactionInput transactionInput = transactionInputInflater.fromBytes(HexUtil.hexStringToByteArray("61E4ED95239756BBB98D11DCF973146BE0C17CC1CC94340DEB8BC4D44CD88E92000000000A516352676A675168948CFFFFFFFF"));
 
         final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-        final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(0, HexUtil.hexStringToByteArray("A0860100000000000182"));
+        final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(0, HexUtil.hexStringToByteArray("40548900000000000763516751676A68"));
 
         final MutableContext context = new MutableContext();
         {
@@ -445,11 +458,11 @@ public class HistoricTransactionsTests {
 
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(transactionOutput);
-            context.setTransactionInputIndex(0);
+            context.setTransactionInputIndex(2);
         }
 
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("82"));
-        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray("012A"));
+        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("63516751676A68"));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray("516352676A675168948C"));
 
         final ScriptRunner scriptRunner = new ScriptRunner();
 

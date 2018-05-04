@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script;
 
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.type.hash.ripemd160.MutableRipemd160Hash;
@@ -59,7 +60,7 @@ public class MutableScript implements Script {
         }
     }
 
-    public void removeOperations(final Operation.Opcode opcode) {
+    public void removeOperations(final Opcode opcode) {
         int i = 0;
         while (i < _operations.getSize()) {
             final Operation operation = _operations.get(i);

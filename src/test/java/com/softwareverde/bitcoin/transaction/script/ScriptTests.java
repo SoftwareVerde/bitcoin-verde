@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -32,7 +33,7 @@ public class ScriptTests {
             // (0x51 OP_PUSH-PUSH_VALUE Value: 01000000)
             Assert.assertEquals(1, ((PushOperation) operations.get(2)).getValue().asInteger().intValue());
             // (0xAE OP_CRYPTOGRAPHIC-CHECK_MULTISIGNATURE)
-            Assert.assertTrue(Operation.Opcode.CHECK_MULTISIGNATURE.matchesByte(operations.get(3).getOpcodeByte()));
+            Assert.assertTrue(Opcode.CHECK_MULTISIGNATURE.matchesByte(operations.get(3).getOpcodeByte()));
         }
 
         // Action
@@ -48,6 +49,6 @@ public class ScriptTests {
         // (0x51 OP_PUSH-PUSH_VALUE Value: 01000000)
         Assert.assertEquals(1, ((PushOperation) operations.get(2)).getValue().asInteger().intValue());
         // (0xAE OP_CRYPTOGRAPHIC-CHECK_MULTISIGNATURE)
-        Assert.assertTrue(Operation.Opcode.CHECK_MULTISIGNATURE.matchesByte(operations.get(3).getOpcodeByte()));
+        Assert.assertTrue(Opcode.CHECK_MULTISIGNATURE.matchesByte(operations.get(3).getOpcodeByte()));
     }
 }

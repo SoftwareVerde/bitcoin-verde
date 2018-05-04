@@ -25,7 +25,7 @@ public class NothingOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
         return true;

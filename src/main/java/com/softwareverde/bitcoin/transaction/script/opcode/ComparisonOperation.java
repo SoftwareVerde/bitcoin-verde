@@ -45,7 +45,7 @@ public class ComparisonOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final MutableContext context) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         context.incrementCurrentLockingScriptIndex();
 
         switch (_opcode) {

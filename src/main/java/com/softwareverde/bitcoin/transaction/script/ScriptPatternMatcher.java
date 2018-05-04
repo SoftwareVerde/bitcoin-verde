@@ -1,43 +1,44 @@
 package com.softwareverde.bitcoin.transaction.script;
 
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
 public class ScriptPatternMatcher {
-    protected static final List<Operation.Opcode> PAY_TO_PUBLIC_KEY_HASH_PATTERN;
+    protected static final List<Opcode> PAY_TO_PUBLIC_KEY_HASH_PATTERN;
     static {
-        final ImmutableListBuilder<Operation.Opcode> listBuilder = new ImmutableListBuilder<Operation.Opcode>(3);
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<Opcode>(3);
 
-        listBuilder.add(Operation.Opcode.COPY_1ST);
-        listBuilder.add(Operation.Opcode.SHA_256_THEN_RIPEMD_160);
-        listBuilder.add(Operation.Opcode.PUSH_DATA);
-        listBuilder.add(Operation.Opcode.IS_EQUAL_THEN_VERIFY);
-        listBuilder.add(Operation.Opcode.CHECK_SIGNATURE);
+        listBuilder.add(Opcode.COPY_1ST);
+        listBuilder.add(Opcode.SHA_256_THEN_RIPEMD_160);
+        listBuilder.add(Opcode.PUSH_DATA);
+        listBuilder.add(Opcode.IS_EQUAL_THEN_VERIFY);
+        listBuilder.add(Opcode.CHECK_SIGNATURE);
 
         PAY_TO_PUBLIC_KEY_HASH_PATTERN = listBuilder.build();
     }
 
-    protected static final List<Operation.Opcode> PAY_TO_SCRIPT_HASH_PATTERN;
+    protected static final List<Opcode> PAY_TO_SCRIPT_HASH_PATTERN;
     static {
-        final ImmutableListBuilder<Operation.Opcode> listBuilder = new ImmutableListBuilder<Operation.Opcode>(3);
+        final ImmutableListBuilder<Opcode> listBuilder = new ImmutableListBuilder<Opcode>(3);
 
-        listBuilder.add(Operation.Opcode.SHA_256_THEN_RIPEMD_160);
-        listBuilder.add(Operation.Opcode.PUSH_DATA);
-        listBuilder.add(Operation.Opcode.IS_EQUAL);
+        listBuilder.add(Opcode.SHA_256_THEN_RIPEMD_160);
+        listBuilder.add(Opcode.PUSH_DATA);
+        listBuilder.add(Opcode.IS_EQUAL);
 
         PAY_TO_SCRIPT_HASH_PATTERN = listBuilder.build();
     }
 
-    protected Boolean _matchesPattern(final List<Operation.Opcode> pattern, final List<Operation> scriptOperations) {
+    protected Boolean _matchesPattern(final List<Opcode> pattern, final List<Operation> scriptOperations) {
         final int opcodeCount = pattern.getSize();
         final int operationCount = scriptOperations.getSize();
 
         if (opcodeCount != operationCount) { return false; }
 
         for (int i = 0; i < opcodeCount; ++i) {
-            final Operation.Opcode opcode = pattern.get(i);
+            final Opcode opcode = pattern.get(i);
             final Operation operation = scriptOperations.get(i);
 
             final boolean isMatch = (opcode.matchesByte(operation.getOpcodeByte()));
