@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.ProtocolMessage;
 import com.softwareverde.bitcoin.server.socket.BitcoinSocket;
-import com.softwareverde.bitcoin.server.socket.ip.Ipv6;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.StringUtil;
 

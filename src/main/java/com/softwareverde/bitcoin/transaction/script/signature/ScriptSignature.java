@@ -2,8 +2,6 @@ package com.softwareverde.bitcoin.transaction.script.signature;
 
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 
 public class ScriptSignature {
     public static ScriptSignature fromBytes(final ByteArray bytes) {

@@ -62,6 +62,10 @@ public class BitcoinUtil {
         return new String(reverseArray);
     }
 
+    /**
+     * Returns the Log (base2) of x, rounded down.
+     *  Ex: log2(65280) -> 15 (Mathematically this value is 15.99...)
+     */
     public static int log2(int x) {
         int log = 0;
 

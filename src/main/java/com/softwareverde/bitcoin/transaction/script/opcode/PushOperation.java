@@ -29,13 +29,13 @@ public class PushOperation extends SubTypedOperation {
         switch (opcode) {
             // Pushes the literal value -1 to the stack.
             case PUSH_NEGATIVE_ONE: {
-                value = Value.fromInteger(-1);
+                value = Value.fromInteger(-1L);
                 shouldSerializeValue = false;
             } break;
 
             // Pushes the literal value 0 to the stack.
             case PUSH_ZERO: {
-                value = Value.fromInteger(0);
+                value = Value.fromInteger(0L);
                 shouldSerializeValue = false;
             } break;
 
@@ -43,7 +43,7 @@ public class PushOperation extends SubTypedOperation {
             //  (i.e. the literals 1-16)
             case PUSH_VALUE: {
                 final int offset = (ByteUtil.byteToInteger(opcodeByte) - Opcode.PUSH_VALUE.getMinValue());
-                final int pushedValue = (offset + 1);
+                final long pushedValue = (offset + 1);
                 value = Value.fromInteger(pushedValue);
                 shouldSerializeValue = false;
             } break;
@@ -52,6 +52,8 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA: {
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
                 shouldSerializeValue = true;
             } break;
 
@@ -59,6 +61,8 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_BYTE: {
                 final int byteCount = byteArrayReader.readInteger(1);
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
                 shouldSerializeValue = true;
             } break;
 
@@ -71,6 +75,8 @@ public class PushOperation extends SubTypedOperation {
                 }
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
                 shouldSerializeValue = true;
             } break;
 
@@ -83,6 +89,8 @@ public class PushOperation extends SubTypedOperation {
                 }
 
                 value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
                 shouldSerializeValue = true;
             } break;
 

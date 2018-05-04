@@ -8,6 +8,10 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.io.Logger;
 
 public class ComparisonOperation extends SubTypedOperation {
+    // NOTE: The order of the parameters is the top item being the modifier, and the the 2nd item being the base.
+    //  For instance, pushing "2" then "1" on the stack results in [2, 1].
+    //  In this context, for OP_SUB, 1 is subtracted from 2 (2-1), which results in 1 being put on the stack.
+
     public static final Type TYPE = Type.OP_COMPARISON;
 
     protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
@@ -40,7 +44,7 @@ public class ComparisonOperation extends SubTypedOperation {
         final Value value1 = stack.pop();
         if (stack.didOverflow()) { return false; }
 
-        final Boolean areEqual = (value0.asInteger().intValue() == value1.asInteger().intValue());
+        final Boolean areEqual = (value1.asInteger().intValue() == value0.asInteger().intValue());
         return (areEqual);
     }
 
@@ -84,7 +88,7 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Value value1 = stack.pop();
                 if (stack.didOverflow()) { return false; }
 
-                final Boolean isLessThan = (value0.asInteger() < value1.asInteger());
+                final Boolean isLessThan = (value1.asInteger() < value0.asInteger());
                 stack.push (Value.fromBoolean(isLessThan));
                 return true;
             }
@@ -94,7 +98,7 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Value value1 = stack.pop();
                 if (stack.didOverflow()) { return false; }
 
-                final Boolean isGreaterThan = (value0.asInteger() > value1.asInteger());
+                final Boolean isGreaterThan = (value1.asInteger() > value0.asInteger());
                 stack.push (Value.fromBoolean(isGreaterThan));
                 return true;
             }
@@ -107,9 +111,9 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
 
-                final Boolean isLessThan = (valueInteger0 < valueInteger1);
+                final Boolean isLessThan = (valueInteger1 < valueInteger0);
                 final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push (Value.fromBoolean(isLessThan || areEqual));
+                stack.push (Value.fromBoolean( (isLessThan) || (areEqual) ));
                 return true;
             }
 
@@ -121,9 +125,9 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
 
-                final Boolean isGreaterThan = (valueInteger0 > valueInteger1);
-                final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push (Value.fromBoolean(isGreaterThan || areEqual));
+                final Boolean isGreaterThan = (valueInteger1 > valueInteger0);
+                final Boolean areEqual = (valueInteger1.intValue() == valueInteger0.intValue());
+                stack.push (Value.fromBoolean( (isGreaterThan) || (areEqual) ));
                 return true;
             }
 
@@ -134,7 +138,7 @@ public class ComparisonOperation extends SubTypedOperation {
                 final int intValue0 = value0.asInteger();
                 final int intValue1 = value1.asInteger();
 
-                final Boolean value = ((intValue0 != 0) && (intValue1 != 0));
+                final Boolean value = ((intValue1 != 0) && (intValue0 != 0));
                 stack.push(Value.fromBoolean(value));
 
                 return (! stack.didOverflow());
@@ -147,7 +151,7 @@ public class ComparisonOperation extends SubTypedOperation {
                 final int intValue0 = value0.asInteger();
                 final int intValue1 = value1.asInteger();
 
-                final Boolean value = ((intValue0 != 0) || (intValue1 != 0));
+                final Boolean value = ((intValue1 != 0) || (intValue0 != 0));
                 stack.push(Value.fromBoolean(value));
 
                 return (! stack.didOverflow());

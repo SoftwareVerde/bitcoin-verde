@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -10,7 +9,9 @@ import com.softwareverde.io.Logger;
 
 public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
-    public static final Integer MAX_BYTE_COUNT = 512;
+    public static final Integer MAX_BYTE_COUNT = 520;   // NOTE: This value does not have consensus, since the opcodes that use it are disabled.
+                                                        //  However, this value is in parity with the max-bytes per script value.
+                                                        //  (https://en.bitcoin.it/wiki/Script#Arithmetic)
 
     protected static StringOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -57,8 +58,8 @@ public class StringOperation extends SubTypedOperation {
                 }
 
                 final byte[] concatenatedBytes = new byte[totalByteCount];
-                ByteUtil.setBytes(concatenatedBytes, value0.getBytes());
-                ByteUtil.setBytes(concatenatedBytes, value1.getBytes(), value0ByteCount);
+                ByteUtil.setBytes(concatenatedBytes, value1.getBytes());
+                ByteUtil.setBytes(concatenatedBytes, value0.getBytes(), value0ByteCount);
                 final Value newValue = Value.fromBytes(concatenatedBytes);
                 stack.push(newValue);
 
@@ -129,7 +130,7 @@ public class StringOperation extends SubTypedOperation {
 
             case STRING_PUSH_LENGTH: {
                 final Value value = stack.peak();
-                final int byteCount = value.getByteCount();
+                final long byteCount = value.getByteCount();
                 stack.push(Value.fromInteger(byteCount));
                 return (! stack.didOverflow());
             }

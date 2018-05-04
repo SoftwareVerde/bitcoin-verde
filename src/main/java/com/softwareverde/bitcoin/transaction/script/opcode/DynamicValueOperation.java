@@ -29,7 +29,7 @@ public class DynamicValueOperation extends SubTypedOperation {
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case PUSH_STACK_SIZE: {
-                stack.push(Value.fromInteger(stack.getSize()));
+                stack.push(Value.fromInteger(stack.getSize().longValue()));
                 return true;
             }
 

@@ -1,12 +1,12 @@
 package com.softwareverde.bitcoin.secp256k1;
 
+import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;

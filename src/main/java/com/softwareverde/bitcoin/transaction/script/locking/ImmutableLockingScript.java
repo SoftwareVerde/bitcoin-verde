@@ -3,8 +3,6 @@ package com.softwareverde.bitcoin.transaction.script.locking;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 
 public class ImmutableLockingScript extends ImmutableScript implements LockingScript {
 

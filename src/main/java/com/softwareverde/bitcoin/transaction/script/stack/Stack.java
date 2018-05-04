@@ -4,7 +4,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class Stack {
-    public static final Value OVERFLOW_VALUE = Value.fromInteger(0);
+    public static final Value OVERFLOW_VALUE = Value.fromInteger(0L);
 
     protected final List<Value> _values = new LinkedList<Value>();
     protected Boolean _didOverflow = false;
@@ -26,6 +26,11 @@ public class Stack {
     }
 
     public void push(final Value value) {
+        if (value == null) {
+            _didOverflow = true;
+            return;
+        }
+
         _values.add(value);
     }
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.stack;
 
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.type.key.PublicKey;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -9,10 +10,41 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
-    public static Value fromInteger(final Integer integerValue) {
-        final byte[] bytes = new byte[4];
-        ByteUtil.setBytes(bytes, ByteUtil.integerToBytes(integerValue));
-        return new Value(ByteUtil.reverseEndian(bytes));
+    public static Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+
+    // NOTE: Bitcoin uses "MPI" encoding for its numeric values on the stack.
+    //  This fact and/or a specification for how MPI is encoded is not on the wiki (...of course).
+    //  It appears MPI is a minimum-byte-encoding, with a sign bit if negative, similar(ish) to DER encoding.
+    //  Ex: -65280
+    //      MPI:            0x80FF00
+    //      Signed Hex:     -0xFF00
+    //      2's Complement: 0xFFFFFFFFFFFF0100
+    protected static byte[] _longToBytes(final Long value) {
+        final boolean isNegative = (value < 0);
+
+        final long absValue = Math.abs(value);
+        final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
+        final byte[] absValueBytes = ByteUtil.integerToBytes(absValue);
+
+        final boolean requiresSignPadding;
+        if (isNegative) {
+            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
+        }
+        else {
+            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
+        }
+
+        final byte[] bytes = new byte[(requiresSignPadding ? unsignedByteCount + 1 : unsignedByteCount)];
+        ByteUtil.setBytes(bytes, ByteUtil.reverseEndian(absValueBytes));
+        if (isNegative) {
+            bytes[bytes.length - 1] |= (byte) 0x80;
+        }
+
+        return bytes;
+    }
+
+    public static Value fromInteger(final Long longValue) {
+        return new Value(ByteUtil.reverseEndian(_longToBytes(longValue)));
     }
 
     public static Value fromBoolean(final Boolean booleanValue) {
@@ -22,6 +54,7 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public static Value fromBytes(final byte[] bytes) {
+        if (bytes.length > MAX_BYTE_COUNT) { return null; }
         return new Value(bytes);
     }
 
