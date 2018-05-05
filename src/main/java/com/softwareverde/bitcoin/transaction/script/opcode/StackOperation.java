@@ -30,12 +30,14 @@ public class StackOperation extends SubTypedOperation {
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case POP_TO_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
-                return false;
+                final Value value = stack.pop();
+                stack.pushToAltStack(value);
+                return (! stack.didOverflow());
             }
             case POP_FROM_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
-                return false;
+                final Value value = stack.popFromAltStack();
+                stack.push(value);
+                return (! stack.didOverflow());
             }
             case IF_1ST_TRUE_THEN_COPY_1ST: {
                 final Value value = stack.peak();

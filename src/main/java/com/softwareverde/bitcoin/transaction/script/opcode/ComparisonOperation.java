@@ -158,8 +158,20 @@ public class ComparisonOperation extends SubTypedOperation {
             }
 
             case IS_WITHIN_RANGE: {
-                Logger.log("NOTICE: Opcode not implemented: " + _opcode);
-                return false;
+                // NOTE: Pushes true on the stack if the value is greater than or equal to the min, and less than the max.
+                //  Assuming the oldest items on the stack are on the left, the parameters are defined on the stack as: [..., VALUE, MIN, MAX]
+                final Value valueMax = stack.pop();
+                final Value valueMin = stack.pop();
+                final Value value = stack.pop();
+
+                final int intValueMax = valueMax.asInteger();
+                final int intValueMin = valueMin.asInteger();
+                final int intValue = value.asInteger();
+
+                final Boolean resultValue = ((intValue >= intValueMin) || (intValue < intValueMax));
+                stack.push(Value.fromBoolean(resultValue));
+
+                return (! stack.didOverflow());
             }
 
             default: { return false; }
