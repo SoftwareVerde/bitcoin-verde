@@ -544,4 +544,40 @@ public class HistoricTransactionsTests {
         // Assert
         Assert.assertTrue(inputIsUnlocked);
     }
+
+    @Test
+    public void should_verify_transaction_567A53D1CE19CE3D07711885168484439965501536D0D0294C5D46D46C10E53B_0() {
+        // P2SH: (0x6E OP_DYNAMIC_VALUE-COPY_2ND_THEN_1ST) (0x87 OP_COMPARISON-IS_EQUAL) (0x91 OP_ARITHMETIC-NOT) (0x69 OP_CONTROL-VERIFY) (0x90 OP_ARITHMETIC-ABSOLUTE_VALUE) (0x7C OP_STACK-SWAP_1ST_WITH_2ND) (0x90 OP_ARITHMETIC-ABSOLUTE_VALUE) (0x87 OP_COMPARISON-IS_EQUAL)
+
+        // Setup
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001F18CDA90BBBCFB031C65CEDA17C82DC046C7DB0B96242BA4C5B53C411D8C056E020000000C510181086E879169907C9087FFFFFFFF01A0BB0D00000000001976A9149BC0BBDD3024DA4D0C38ED1AECF5C68DD1D3FA1288AC00000000"));
+
+        final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
+        final TransactionInput transactionInput = transactionInputInflater.fromBytes(HexUtil.hexStringToByteArray("F18CDA90BBBCFB031C65CEDA17C82DC046C7DB0B96242BA4C5B53C411D8C056E020000000C510181086E879169907C9087FFFFFFFF"));
+
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+        final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(2, HexUtil.hexStringToByteArray("40420F000000000017A914FE441065B6532231DE2FAC563152205EC4F59C7487"));
+
+        final MutableContext context = new MutableContext();
+        {
+            context.setBlockHeight(257728L);
+            context.setTransaction(transaction);
+
+            context.setTransactionInput(transactionInput);
+            context.setTransactionOutput(transactionOutput);
+            context.setTransactionInputIndex(0);
+        }
+
+        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("A914FE441065B6532231DE2FAC563152205EC4F59C7487"));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray("510181086E879169907C9087"));
+
+        final ScriptRunner scriptRunner = new ScriptRunner();
+
+        // Action
+        final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+
+        // Assert
+        Assert.assertTrue(inputIsUnlocked);
+    }
 }

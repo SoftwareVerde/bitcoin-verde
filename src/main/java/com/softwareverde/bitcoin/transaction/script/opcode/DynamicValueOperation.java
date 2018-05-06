@@ -47,26 +47,36 @@ public class DynamicValueOperation extends SubTypedOperation {
             }
 
             case COPY_2ND: {
-                stack.push(stack.peak(1));
+                final Value value = stack.peak(1);
+                stack.push(value);
                 return (! stack.didOverflow());
             }
 
             case COPY_2ND_THEN_1ST: {
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_3RD_THEN_2ND_THEN_1ST: {
-                stack.push(stack.peak(2));
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                final Value value2 = stack.peak(2);
+
+                stack.push(value2);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_4TH_THEN_3RD: {
-                stack.push(stack.peak(3));
-                stack.push(stack.peak(2));
+                final Value value2 = stack.peak(2);
+                final Value value3 = stack.peak(3);
+
+                stack.push(value3);
+                stack.push(value2);
                 return (! stack.didOverflow());
             }
 
