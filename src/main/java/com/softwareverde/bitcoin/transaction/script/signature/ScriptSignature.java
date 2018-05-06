@@ -11,7 +11,6 @@ public class ScriptSignature {
 
         final byte hashTypeByte = bytes.getByte(bytes.getByteCount() - 1);
         final HashType hashType = HashType.fromByte(hashTypeByte);
-        if (hashType == null) { return null; }
 
         return new ScriptSignature(ecdsaSignature, hashType);
     }

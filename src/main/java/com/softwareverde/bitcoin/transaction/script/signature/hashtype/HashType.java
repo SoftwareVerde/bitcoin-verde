@@ -9,13 +9,25 @@ public class HashType {
         final byte hashTypeByte = (byte) (b & hashTypeBitMask);
 
         final Mode mode = Mode.fromByte(hashTypeByte);
-        return new HashType(mode, (! shouldSignOnlyOneInput));
+        return new HashType(b, mode, (! shouldSignOnlyOneInput));
     }
+
+    protected final byte _byte; // NOTE: The raw byte provided to HashType.fromByte() is needed in order to verify
+                                //  the signature, since it may have other bits set that are currently meaningless...
 
     protected final Mode _mode;
     protected final Boolean _shouldSignOtherInputs; // Bitcoin calls this "ANYONECANPAY" (false indicating anyone can pay)...
 
     public HashType(final Mode mode, final Boolean shouldSignOtherInputs) {
+        final byte signBitMask = (shouldSignOtherInputs ? (byte) 0x00 : (byte) 0x80);
+        _byte = (byte) (signBitMask | mode.getValue());
+
+        _mode = mode;
+        _shouldSignOtherInputs = shouldSignOtherInputs;
+    }
+
+    public HashType(final byte value, final Mode mode, final Boolean shouldSignOtherInputs) {
+        _byte = value;
         _mode = mode;
         _shouldSignOtherInputs = shouldSignOtherInputs;
     }
@@ -29,8 +41,7 @@ public class HashType {
     }
 
     public byte toByte() {
-        final byte signBitMask = (_shouldSignOtherInputs ? (byte) 0x00 : (byte) 0x80);
-        return (byte) (signBitMask | _mode.getValue());
+        return _byte;
     }
 
     @Override
