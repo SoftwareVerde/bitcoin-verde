@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.signature;
 
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.constable.bytearray.ByteArray;
 
 public class ScriptSignature {

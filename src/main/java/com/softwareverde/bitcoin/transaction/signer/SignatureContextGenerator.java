@@ -8,7 +8,8 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.script.signature.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -30,7 +31,7 @@ public class SignatureContextGenerator {
     }
 
     public SignatureContext createContextForEntireTransaction(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) throws DatabaseException {
-        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(HashType.Mode.SIGNATURE_HASH_ALL, true));
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true));
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {

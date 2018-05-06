@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.io.Logger;
 
 public class ComparisonOperation extends SubTypedOperation {
     // NOTE: The order of the parameters is the top item being the modifier, and the the 2nd item being the base.

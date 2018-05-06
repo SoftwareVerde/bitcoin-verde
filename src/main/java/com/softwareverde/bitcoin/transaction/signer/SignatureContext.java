@@ -4,7 +4,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.signature.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
@@ -71,7 +72,7 @@ public class SignatureContext {
     }
 
     public Boolean shouldInputSequenceNumberBeSigned(final Integer inputIndex) {
-        if (_hashType.getMode() == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+        if (_hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) {
             if (inputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
                 return false;
             }
@@ -81,12 +82,12 @@ public class SignatureContext {
     }
 
     public Boolean shouldOutputBeSigned(final Integer outputIndex) {
-        final HashType.Mode signatureMode = _hashType.getMode();
-        if (signatureMode == HashType.Mode.SIGNATURE_HASH_NONE) {
+        final Mode signatureMode = _hashType.getMode();
+        if (signatureMode == Mode.SIGNATURE_HASH_NONE) {
             return false;
         }
 
-        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+        if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
             return (outputIndex <= _inputIndexBeingSigned);
         }
 
@@ -94,8 +95,8 @@ public class SignatureContext {
     }
 
     public Boolean shouldOutputAmountBeSigned(final Integer outputIndex) {
-        final HashType.Mode signatureMode = _hashType.getMode();
-        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+        final Mode signatureMode = _hashType.getMode();
+        if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
             if (outputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
                 return false;
             }
@@ -105,8 +106,8 @@ public class SignatureContext {
     }
 
     public Boolean shouldOutputScriptBeSigned(final Integer outputIndex) {
-        final HashType.Mode signatureMode = _hashType.getMode();
-        if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+        final Mode signatureMode = _hashType.getMode();
+        if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
             if (outputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
                 return false;
             }

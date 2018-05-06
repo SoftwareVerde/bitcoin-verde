@@ -14,8 +14,9 @@ import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
-import com.softwareverde.bitcoin.transaction.script.signature.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
@@ -46,13 +47,13 @@ public class TransactionSigner {
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
         final HashType hashType = signatureContext.getHashType();
-        final HashType.Mode signatureMode = hashType.getMode();
+        final Mode signatureMode = hashType.getMode();
 
         { // Bitcoin Core Bug: https://bitcointalk.org/index.php?topic=260595.0
             // This bug is caused when an input uses SigHash Single without a matching output.
             // Originally, the Bitcoin Core client returned "1" as the bytes to be hashed, but the invoker never checked
             // for that case, which caused the "1" value to be the actual bytes that are signed for the whole transaction.
-            if (signatureMode == HashType.Mode.SIGNATURE_HASH_SINGLE) {
+            if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
                 if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getSize()) {
                     return INVALID_SIGNATURE_HASH_SINGLE_VALUE;
                 }
