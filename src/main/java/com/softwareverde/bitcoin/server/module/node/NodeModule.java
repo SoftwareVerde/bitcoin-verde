@@ -284,5 +284,8 @@ public class NodeModule {
         while (true) {
             try { Thread.sleep(5000); } catch (final Exception e) { break; }
         }
+
+        _nodeManager.stopNodeMaintenanceThread();
+        _blockValidatorThread.interrupt();
     }
 }

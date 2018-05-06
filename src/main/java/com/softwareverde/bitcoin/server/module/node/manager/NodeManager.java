@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.async.HaltableThread;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
 import com.softwareverde.bitcoin.server.module.node.manager.health.NodeHealth;
@@ -56,12 +55,18 @@ public class NodeManager {
 
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
 
-    protected final HaltableThread _nodeMaintenanceThread = new HaltableThread(new Runnable() {
+    protected final Thread _nodeMaintenanceThread = new Thread(new Runnable() {
         @Override
         public void run() {
-            synchronized (_mutex) {
-                _pingIdleNodes();
+            while (true) {
+                synchronized (_mutex) {
+                    _pingIdleNodes();
+                }
+
+                try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
+
+            Logger.log("Node Maintenance Thread exiting...");
         }
     });
 
@@ -316,8 +321,6 @@ public class NodeManager {
         _nodes = new HashMap<NodeId, Node>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
         _maxNodeCount = maxNodeCount;
-
-        _nodeMaintenanceThread.setSleepTime(10000L);
     }
 
     public void addNode(final Node node) {
@@ -337,7 +340,8 @@ public class NodeManager {
     }
 
     public void stopNodeMaintenanceThread() {
-        _nodeMaintenanceThread.halt();
+        _nodeMaintenanceThread.interrupt();
+        try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
     public void requestBlock(final Sha256Hash blockHash, final Node.DownloadBlockCallback downloadBlockCallback) {
