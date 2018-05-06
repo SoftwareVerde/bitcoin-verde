@@ -105,12 +105,19 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 if (stack.didOverflow()) { return false; }
 
-                final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
-                if (scriptSignature == null) { return false; }
-
-                final PublicKey publicKey = publicKeyValue.asPublicKey();
-
-                final Boolean signatureIsValid = checkSignature(context, publicKey, scriptSignature);
+                final Boolean signatureIsValid;
+                {
+                    final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+                    if (scriptSignature != null) {
+                        final PublicKey publicKey = publicKeyValue.asPublicKey();
+                        signatureIsValid = checkSignature(context, publicKey, scriptSignature);
+                    }
+                    else {
+                        // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                        //  Example Transaction: 9FB65B7304AAA77AC9580823C2C06B259CC42591E5CCE66D76A81B6F51CC5C28
+                        signatureIsValid = false;
+                    }
+                }
 
                 if (_opcode == Opcode.CHECK_SIGNATURE_THEN_VERIFY) {
                     if (! signatureIsValid) { return false; }
@@ -153,7 +160,7 @@ public class CryptographicOperation extends SubTypedOperation {
                     for (int i = 0; i < signatureCount; ++i) {
                         final Value signatureValue = stack.pop();
                         final ScriptSignature signature = signatureValue.asScriptSignature();
-                        if (signature == null) { return false; }
+                        // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
 
                         listBuilder.add(signature);
                     }
@@ -180,7 +187,15 @@ public class CryptographicOperation extends SubTypedOperation {
                             nextPublicKeyIndex += 1;
 
                             final PublicKey publicKey = publicKeys.get(j);
-                            final boolean signatureIsValid = checkSignature(context, publicKey, signature);
+                            final boolean signatureIsValid;
+                            {
+                                if (signature != null) {
+                                    signatureIsValid = checkSignature(context, publicKey, signature);
+                                }
+                                else {
+                                    signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                                }
+                            }
                             if (signatureIsValid) {
                                 signatureHasPublicKeyMatch = true;
                                 break;
