@@ -65,17 +65,17 @@ public class StackOperation extends SubTypedOperation {
                 // Where the head is the leftmost element...
                 // 0 1 2 3  // Initial state.
                 //       3
-                //     0 3
-                //   2 0 3
-                // 1 2 0 3  // End state.
+                //     1 3
+                //   0 1 3
+                // 2 0 1 3  // End state.
 
                 final Value valueAtZero = stack.pop();
                 final Value valueAtOne = stack.pop();
                 final Value valueAtTwo = stack.pop();
 
+                stack.push(valueAtOne);
                 stack.push(valueAtZero);
                 stack.push(valueAtTwo);
-                stack.push(valueAtOne);
 
                 return (! stack.didOverflow());
             }
