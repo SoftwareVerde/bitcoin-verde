@@ -20,7 +20,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
@@ -61,6 +61,7 @@ public class NodeModule {
     protected final Configuration _configuration;
     protected final Environment _environment;
     protected final NetworkTime _networkTime;
+    protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
     protected Boolean _hasGenesisBlock = false;
 
@@ -167,8 +168,7 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
-            final BlockValidator blockValidator = new BlockValidator(connectionFactory);
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool);
             final long blockValidationStartTime = System.currentTimeMillis();
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
             final long blockValidationEndTime = System.currentTimeMillis();
@@ -219,16 +219,25 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                _exitFailure();
             }
             database = databaseInstance;
-            Logger.log("[Database Online]");
+
+            if (database != null) {
+                Logger.log("[Database Online]");
+            }
+            else {
+                _exitFailure();
+                // return;
+            }
         }
 
         _maxQueueSize = serverProperties.getMaxBlockQueueSize();
 
         _environment = new Environment(database);
         _networkTime = new NetworkTime();
+
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
+        _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
         _nodeManager = new NodeManager(maxPeerCount);
@@ -287,5 +296,6 @@ public class NodeModule {
 
         _nodeManager.stopNodeMaintenanceThread();
         _blockValidatorThread.interrupt();
+        _readUncommittedDatabaseConnectionPool.shutdown();
     }
 }
