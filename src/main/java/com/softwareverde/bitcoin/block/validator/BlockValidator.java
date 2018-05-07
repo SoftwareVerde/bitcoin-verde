@@ -116,14 +116,24 @@ public class BlockValidator {
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
-        totalExpenditureValidationTaskSpawner.executeTasks(transactions, 5);
+        totalExpenditureValidationTaskSpawner.executeTasks(transactions, 4);
 
         final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
         unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
-        unlockedInputsValidationTaskSpawner.executeTasks(transactions, 5);
+        unlockedInputsValidationTaskSpawner.executeTasks(transactions, 4);
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
         final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();
+
+        if (expenditureResults == null) {
+            Logger.log("NOTICE: Expenditure validator returned null...");
+            return false;
+        }
+
+        if (unlockedInputsResults == null) {
+            Logger.log("NOTICE: Inputs validator returned null...");
+            return false;
+        }
 
         final long endTime = System.currentTimeMillis();
         final long msElapsed = (endTime - startTime);
