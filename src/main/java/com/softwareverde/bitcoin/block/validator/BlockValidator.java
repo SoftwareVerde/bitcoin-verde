@@ -116,11 +116,11 @@ public class BlockValidator {
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
-        totalExpenditureValidationTaskSpawner.executeTasks(transactions, 2);
+        totalExpenditureValidationTaskSpawner.executeTasks(transactions, 5);
 
         final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
         unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
-        unlockedInputsValidationTaskSpawner.executeTasks(transactions, 2);
+        unlockedInputsValidationTaskSpawner.executeTasks(transactions, 5);
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
         final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();

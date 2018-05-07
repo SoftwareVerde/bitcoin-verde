@@ -220,9 +220,6 @@ public class Node extends NodeConnectionDelegate {
     @Override
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
-
-            Logger.log("Network Address: "+ HexUtil.toHexString(nodeIpAddress.getBytesWithTimestamp()));
-
             if (_nodeAddressesReceivedCallback != null) {
                 (new Thread(new Runnable() {
                     @Override

@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BitcoinSocket {
+    public static Boolean LOGGING_ENABLED = false;
 
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
@@ -99,14 +100,18 @@ public class BitcoinSocket {
                         }
 
                         protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
+                        if (LOGGING_ENABLED) {
+                            Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
+                        }
 
                         while (protocolMessageBuffer.hasMessage()) {
                             final ProtocolMessage message = protocolMessageBuffer.popMessage();
 
                             if (message != null) {
                                 synchronized (_messages) {
-                                    Logger.log("IO: Received "+ message.getCommand() +" message.");
+                                    if (LOGGING_ENABLED) {
+                                        Logger.log("IO: Received " + message.getCommand() + " message.");
+                                    }
 
                                     _messages.add(message);
 
@@ -142,7 +147,9 @@ public class BitcoinSocket {
             _closeSocket();
         }
 
-        Logger.log("IO: Sent "+ outboundMessage.getCommand() +" message.");
+        if (LOGGING_ENABLED) {
+            Logger.log("IO: Sent " + outboundMessage.getCommand() + " message.");
+        }
     }
 
     /**
