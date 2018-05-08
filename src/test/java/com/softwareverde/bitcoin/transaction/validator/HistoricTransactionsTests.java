@@ -424,4 +424,21 @@ public class HistoricTransactionsTests {
 
         validateTransaction(testConfig);
     }
+
+    @Test
+    public void should_verify_transaction_8EA98508EFD1F0AADA5D734F743D1A2F4D23A7E8428A8BE1E820391870EB9A69_0() {
+        // NOTE: This transaction relies on zero being encoded as an empty byte array...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0100000001EDFF85E3D7B790E3D0E207EA30FBB0CD3BE18370D1C21C26ACFC874CA57B5AA700000000025100FFFFFFFF0178AF12000000000017A914BB89DD62E80D1801DF9AA570769B012F246C4F6D8700000000";
+        testConfig.transactionInputBytes = "EDFF85E3D7B790E3D0E207EA30FBB0CD3BE18370D1C21C26ACFC874CA57B5AA700000000025100FFFFFFFF";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "88D612000000000017A914B472A266D0BD89C13706A4132CCFB16F7C3B9FCB87";
+        testConfig.blockHeight = 284038L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A914B472A266D0BD89C13706A4132CCFB16F7C3B9FCB87";
+        testConfig.unlockingScriptBytes = "5100";
+
+        validateTransaction(testConfig);
+    }
 }

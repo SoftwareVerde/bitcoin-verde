@@ -15,11 +15,14 @@ public class Value extends ImmutableByteArray implements Const {
     // NOTE: Bitcoin uses "MPI" encoding for its numeric values on the stack.
     //  This fact and/or a specification for how MPI is encoded is not on the wiki (...of course).
     //  It appears MPI is a minimum-byte-encoding, with a sign bit if negative, similar(ish) to DER encoding.
+    //  As an exception, Zero is encoded as zero bytes... Not sure why.
     //  Ex: -65280
     //      MPI:            0x80FF00
     //      Signed Hex:     -0xFF00
     //      2's Complement: 0xFFFFFFFFFFFF0100
     protected static byte[] _longToBytes(final Long value) {
+        if (value == 0L) { return new byte[0]; }
+
         final boolean isNegative = (value < 0);
 
         final long absValue = Math.abs(value);
@@ -44,12 +47,12 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public static Value fromInteger(final Long longValue) {
-        return new Value(ByteUtil.reverseEndian(_longToBytes(longValue)));
+        final byte[] bytes = _longToBytes(longValue);
+        return new Value(ByteUtil.reverseEndian(bytes));
     }
 
     public static Value fromBoolean(final Boolean booleanValue) {
-        final byte[] bytes = new byte[4];
-        bytes[0] = (booleanValue ? (byte) 0x01 : (byte) 0x00);
+        final byte[] bytes = _longToBytes(booleanValue ? 1L : 0L);
         return new Value(bytes);
     }
 
