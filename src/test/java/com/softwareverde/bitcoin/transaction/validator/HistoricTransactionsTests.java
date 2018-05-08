@@ -6,21 +6,12 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.ControlState;
-import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
-import com.softwareverde.bitcoin.transaction.script.stack.Stack;
-import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import org.junit.After;
@@ -78,57 +69,18 @@ public class HistoricTransactionsTests {
     }
 
     @Test
-    public void should_verify_multisig_transaction_EB3B82C0884E3EFA6D8B0BE55B4915EB20BE124C9766245BCC7F34FDAC32BCCB_1() throws Exception {
-        // Setup
-        final Stack stack = new Stack();
-        {
-            stack.push(Value.fromBytes(HexUtil.hexStringToByteArray("00000000")));
-            stack.push(Value.fromBytes(HexUtil.hexStringToByteArray("30440220276D6DAD3DEFA37B5F81ADD3992D510D2F44A317FD85E04F93A1E2DAEA64660202200F862A0DA684249322CEB8ED842FB8C859C0CB94C81E1C5308B4868157A428EE01")));
-            stack.push(Value.fromBytes(HexUtil.hexStringToByteArray("01000000")));
-            stack.push(Value.fromBytes(HexUtil.hexStringToByteArray("0232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A")));
-            stack.push(Value.fromBytes(HexUtil.hexStringToByteArray("01000000")));
-        }
+    public void should_verify_multisig_transaction_EB3B82C0884E3EFA6D8B0BE55B4915EB20BE124C9766245BCC7F34FDAC32BCCB_1() {
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "01000000024DE8B0C4C2582DB95FA6B3567A989B664484C7AD6672C85A3DA413773E63FDB8000000006B48304502205B282FBC9B064F3BC823A23EDCC0048CBB174754E7AA742E3C9F483EBE02911C022100E4B0B3A117D36CAB5A67404DDDBF43DB7BEA3C1530E0FE128EBC15621BD69A3B0121035AA98D5F77CD9A2D88710E6FC66212AFF820026F0DAD8F32D1F7CE87457DDE50FFFFFFFF4DE8B0C4C2582DB95FA6B3567A989B664484C7AD6672C85A3DA413773E63FDB8010000006F004730440220276D6DAD3DEFA37B5F81ADD3992D510D2F44A317FD85E04F93A1E2DAEA64660202200F862A0DA684249322CEB8ED842FB8C859C0CB94C81E1C5308B4868157A428EE01AB51210232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A51AEFFFFFFFF02E0FD1C00000000001976A914380CB3C594DE4E7E9B8E18DB182987BEBB5A4F7088ACC0C62D000000000017142A9BC5447D664C1D0141392A842D23DBA45C4F13B17500000000";
+        testConfig.transactionInputBytes = "4DE8B0C4C2582DB95FA6B3567A989B664484C7AD6672C85A3DA413773E63FDB8010000006F004730440220276D6DAD3DEFA37B5F81ADD3992D510D2F44A317FD85E04F93A1E2DAEA64660202200F862A0DA684249322CEB8ED842FB8C859C0CB94C81E1C5308B4868157A428EE01AB51210232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A51AEFFFFFFFF";
+        testConfig.transactionOutputIndex = 1;
+        testConfig.transactionOutputBytes = "C0C62D000000000017142A9BC5447D664C1D0141392A842D23DBA45C4F13B175";
+        testConfig.blockHeight = 163685L;
+        testConfig.transactionInputIndex = 1;
+        testConfig.lockingScriptBytes = "142A9BC5447D664C1D0141392A842D23DBA45C4F13B175";
+        testConfig.unlockingScriptBytes = "004730440220276D6DAD3DEFA37B5F81ADD3992D510D2F44A317FD85E04F93A1E2DAEA64660202200F862A0DA684249322CEB8ED842FB8C859C0CB94C81E1C5308B4868157A428EE01AB51210232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A51AE";
 
-        final MutableContext mutableContext = new MutableContext();
-        {
-            final TransactionInflater transactionInflater = new TransactionInflater();
-            final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("01000000024DE8B0C4C2582DB95FA6B3567A989B664484C7AD6672C85A3DA413773E63FDB8000000006B48304502205B282FBC9B064F3BC823A23EDCC0048CBB174754E7AA742E3C9F483EBE02911C022100E4B0B3A117D36CAB5A67404DDDBF43DB7BEA3C1530E0FE128EBC15621BD69A3B0121035AA98D5F77CD9A2D88710E6FC66212AFF820026F0DAD8F32D1F7CE87457DDE50FFFFFFFF4DE8B0C4C2582DB95FA6B3567A989B664484C7AD6672C85A3DA413773E63FDB8010000006F004730440220276D6DAD3DEFA37B5F81ADD3992D510D2F44A317FD85E04F93A1E2DAEA64660202200F862A0DA684249322CEB8ED842FB8C859C0CB94C81E1C5308B4868157A428EE01AB51210232ABDC893E7F0631364D7FD01CB33D24DA45329A00357B3A7886211AB414D55A51AEFFFFFFFF02E0FD1C00000000001976A914380CB3C594DE4E7E9B8E18DB182987BEBB5A4F7088ACC0C62D000000000017142A9BC5447D664C1D0141392A842D23DBA45C4F13B17500000000"));
-            final Integer transactionInputIndex = 1;
-
-            final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-            final Integer txOutIndex = 1;
-            final TransactionOutput transactionOutput = transactionOutputInflater.fromBytes(txOutIndex, HexUtil.hexStringToByteArray("C0C62D000000000017142A9BC5447D664C1D0141392A842D23DBA45C4F13B175"));
-            final Integer codeSeparatorIndex = 3;
-
-            final Script unlockingScript;
-            {
-                final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-                final TransactionInput transactionInput = transactionInputs.get(transactionInputIndex);
-                unlockingScript = transactionInput.getUnlockingScript();
-            }
-
-            mutableContext.setCurrentScript(unlockingScript); // Set the current script, since ScriptRunner isn't being used here...
-            mutableContext.setTransaction(transaction);
-            mutableContext.setTransactionInputIndex(transactionInputIndex);
-            mutableContext.setTransactionOutput(transactionOutput);
-            mutableContext.setLockingScriptLastCodeSeparatorIndex(codeSeparatorIndex);
-        }
-
-        final ControlState controlState = new ControlState();
-
-        // final CryptographicOperation checkMultisigOperation = new CryptographicOperation((byte) 0xAE, Operation.Opcode.CHECK_MULTISIGNATURE);
-        final OperationInflater operationInflater = new OperationInflater();
-        final Operation checkMultisigOperation = operationInflater.fromBytes(new ByteArrayReader(new byte[] { (byte) 0xAE }));
-        Assert.assertTrue(checkMultisigOperation instanceof CryptographicOperation);
-
-        // Action
-        final Boolean shouldContinue = checkMultisigOperation.applyTo(stack, controlState, mutableContext);
-        final Value lastValue = stack.pop();
-
-        // Assert
-        Assert.assertTrue(shouldContinue);
-        Assert.assertFalse(stack.didOverflow());
-        Assert.assertTrue(lastValue.asBoolean());
+        validateTransaction(testConfig);
     }
 
     @Test
@@ -438,6 +390,23 @@ public class HistoricTransactionsTests {
         testConfig.transactionInputIndex = 0;
         testConfig.lockingScriptBytes = "A914B472A266D0BD89C13706A4132CCFB16F7C3B9FCB87";
         testConfig.unlockingScriptBytes = "5100";
+
+        validateTransaction(testConfig);
+    }
+
+    @Test
+    public void should_verify_transaction_5DF1375FFE61AC35CA178EBB0CAB9EA26DEDBD0E96005DFCEE7E379FA513232F_1() {
+        // NOTE: This transaction relies on the signatures being removed from the signed script...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0100000002F9CBAFC519425637BA4227F8D0A0B7160B4E65168193D5AF39747891DE98B5B5000000006B4830450221008DD619C563E527C47D9BD53534A770B102E40FAA87F61433580E04E271EF2F960220029886434E18122B53D5DECD25F1F4ACB2480659FEA20AABD856987BA3C3907E0121022B78B756E2258AF13779C1A1F37EA6800259716CA4B7F0B87610E0BF3AB52A01FFFFFFFF42E7988254800876B69F24676B3E0205B77BE476512CA4D970707DD5C60598AB00000000FD260100483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A53034930460221008431BDFA72BC67F9D41FE72E94C88FB8F359FFA30B33C72C121C5A877D922E1002210089EF5FC22DD8BFC6BF9FFDB01A9862D27687D424D1FEFBAB9E9C7176844A187A014C9052483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A5303210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C71210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C7153AEFFFFFFFF01A08601000000000017A914D8DACDADB7462AE15CD906F1878706D0DA8660E68700000000";
+        testConfig.transactionInputBytes = "42E7988254800876B69F24676B3E0205B77BE476512CA4D970707DD5C60598AB00000000FD260100483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A53034930460221008431BDFA72BC67F9D41FE72E94C88FB8F359FFA30B33C72C121C5A877D922E1002210089EF5FC22DD8BFC6BF9FFDB01A9862D27687D424D1FEFBAB9E9C7176844A187A014C9052483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A5303210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C71210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C7153AEFFFFFFFF";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "A08601000000000017A914D8DACDADB7462AE15CD906F1878706D0DA8660E687";
+        testConfig.blockHeight = 290338L;
+        testConfig.transactionInputIndex = 1;
+        testConfig.lockingScriptBytes = "A914D8DACDADB7462AE15CD906F1878706D0DA8660E687";
+        testConfig.unlockingScriptBytes = "00483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A53034930460221008431BDFA72BC67F9D41FE72E94C88FB8F359FFA30B33C72C121C5A877D922E1002210089EF5FC22DD8BFC6BF9FFDB01A9862D27687D424D1FEFBAB9E9C7176844A187A014C9052483045022015BD0139BCCCF990A6AF6EC5C1C52ED8222E03A0D51C334DF139968525D2FCD20221009F9EFE325476EB64C3958E4713E9EEFE49BF1D820ED58D2112721B134E2A1A5303210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C71210378D430274F8C5EC1321338151E9F27F4C676A008BDF8638D07C0B6BE9AB35C7153AE";
 
         validateTransaction(testConfig);
     }

@@ -34,6 +34,26 @@ public class ScriptDeflater {
         return stringBuilder.toString();
     }
 
+    /**
+     * Serializes the script in a format the is commonly used by other applications.
+     *  This format is a more terse version of ScriptDeflater.toString(); Operations are merely their hex opcodes.
+     */
+    public String toStandardString(final Script script) {
+        final List<Operation> scriptOperations = script.getOperations();
+        if (scriptOperations == null) { return null; }
+
+        final StringBuilder stringBuilder = new StringBuilder();
+        for (int i=0; i<scriptOperations.getSize(); ++i) {
+            final Operation operation = scriptOperations.get(i);
+            stringBuilder.append(operation.toStandardString());
+
+            if (i + 1 < scriptOperations.getSize()) {
+                stringBuilder.append(" ");
+            }
+        }
+        return stringBuilder.toString();
+    }
+
     public Json toJson(final Script script) {
         final ByteArray scriptByteArray = script.getBytes();
 

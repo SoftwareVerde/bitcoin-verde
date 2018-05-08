@@ -45,7 +45,7 @@ public abstract class Operation implements Const {
         }
 
         public List<Opcode> getSubtypes() {
-            final List<Opcode> opcodes = new ArrayList<Opcode>();
+            final List<Opcode> opcodes = new ArrayList<Opcode>(_opcodes.length);
             for (final Opcode opcode : _opcodes) {
                 opcodes.add(opcode);
             }
@@ -105,5 +105,9 @@ public abstract class Operation implements Const {
     @Override
     public String toString() {
         return "0x" + HexUtil.toHexString(new byte[] { _opcodeByte } ) + " " + _type;
+    }
+
+    public String toStandardString() {
+        return "0x" + HexUtil.toHexString(new byte[] { _opcodeByte } );
     }
 }

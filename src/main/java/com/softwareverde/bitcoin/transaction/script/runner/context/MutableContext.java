@@ -60,11 +60,11 @@ public class MutableContext implements Context, Const {
         _scriptLastCodeSeparatorIndex = 0;
     }
 
-    public void incrementCurrentLockingScriptIndex() {
+    public void incrementCurrentScriptIndex() {
         _currentScriptIndex += 1;
     }
 
-    public void setLockingScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
+    public void setCurrentScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
         _scriptLastCodeSeparatorIndex = codeSeparatorIndex;
     }
 

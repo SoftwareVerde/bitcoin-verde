@@ -6,8 +6,10 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.Util;
 
 public class SignatureContext {
     private final Transaction _transaction;
@@ -19,6 +21,7 @@ public class SignatureContext {
 
     private Integer _inputIndexBeingSigned = null;
     private Script _currentScript;
+    private List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
 
     public SignatureContext(final Transaction transaction, final HashType hashType) {
         _transaction = transaction;
@@ -48,6 +51,10 @@ public class SignatureContext {
 
     public void setCurrentScript(final Script script) {
         _currentScript = script;
+    }
+
+    public void setBytesToExcludeFromScript(final List<ByteArray> bytesToExcludeFromScript) {
+        _bytesToExcludeFromScript = Util.coalesce(bytesToExcludeFromScript, _bytesToExcludeFromScript).asConst(); // NOTE: Ensure _bytesToExcludeFromScript is never null...
     }
 
     public Transaction getTransaction() {
@@ -130,5 +137,9 @@ public class SignatureContext {
 
     public Script getCurrentScript() {
         return _currentScript;
+    }
+
+    public List<ByteArray> getBytesToExcludeFromScript() {
+        return _bytesToExcludeFromScript;
     }
 }

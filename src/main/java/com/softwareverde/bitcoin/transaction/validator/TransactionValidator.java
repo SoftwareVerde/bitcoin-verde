@@ -60,7 +60,7 @@ public class TransactionValidator {
         { // Set the block height for this transaction...
             try {
                 final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-                final Long blockHeight = blockChainSegment.getBlockHeight(); // NOTE: This may be insufficient when re-validating previously validated transactions.
+                final Long blockHeight = blockChainSegment.getBlockHeight(); // TODO: This may be insufficient when re-validating previously validated transactions, and may be incorrect due to when reading uncommitted values from the database...
                 context.setBlockHeight(blockHeight);
             }
             catch (final DatabaseException exception) {

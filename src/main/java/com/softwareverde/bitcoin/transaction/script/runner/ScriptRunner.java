@@ -36,7 +36,7 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(unlockingScript);
                 for (final Operation operation : unlockingScriptOperations) {
-                    mutableContext.incrementCurrentLockingScriptIndex();
+                    mutableContext.incrementCurrentScriptIndex();
 
                     final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
@@ -52,7 +52,7 @@ public class ScriptRunner {
 
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
-                    mutableContext.incrementCurrentLockingScriptIndex();
+                    mutableContext.incrementCurrentScriptIndex();
 
                     final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
@@ -91,7 +91,7 @@ public class ScriptRunner {
                     if (redeemScriptOperations == null) { return false; }
 
                     for (final Operation operation : redeemScriptOperations) {
-                        mutableContext.incrementCurrentLockingScriptIndex();
+                        mutableContext.incrementCurrentScriptIndex();
 
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
                         if (! shouldExecute) { continue; }

@@ -24,6 +24,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -75,7 +76,7 @@ public class TransactionSigner {
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
             { // Handle Input-Script Signing...
-                final UnlockingScript unlockingScriptForSigning;
+                final Script unlockingScriptForSigning;
                 final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
                 if (shouldSignScript) {
                     final Script currentScript = signatureContext.getCurrentScript();
@@ -88,18 +89,25 @@ public class TransactionSigner {
                             final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
                             mutableScript.subScript(subscriptIndex);
                             mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
-                            // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
-                            unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
+                            unlockingScriptForSigning = mutableScript;
                         }
                         else {
-                            unlockingScriptForSigning = UnlockingScript.castFrom(Util.coalesce(currentScript, outputBeingSpentLockingScript));
+                            unlockingScriptForSigning = Util.coalesce(currentScript, outputBeingSpentLockingScript);
                         }
                     }
                 }
                 else {
                     unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
                 }
-                mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
+
+                { // Remove any ByteArrays that should be excluded from the script signing (aka signatures)...
+                    final MutableScript modifiedScript = new MutableScript(unlockingScriptForSigning);
+                    final List<ByteArray> bytesToExcludeFromScript = signatureContext.getBytesToExcludeFromScript();
+                    for (final ByteArray byteArray : bytesToExcludeFromScript) {
+                        modifiedScript.removePushOperations(byteArray);
+                    }
+                    mutableTransactionInput.setUnlockingScript(UnlockingScript.castFrom(modifiedScript));
+                }
             }
 
             { // Handle Input-Sequence-Number Signing...

@@ -75,6 +75,31 @@ public class MutableScript implements Script {
         }
     }
 
+    public void removePushOperations(final ByteArray byteArray) {
+        int i = 0;
+        while (i < _operations.getSize()) {
+            final Operation operation = _operations.get(i);
+            final boolean shouldRemoveOperation;
+            { // Remove all push-operations containing byteArray...
+                if (operation.getType() == Operation.Type.OP_PUSH) {
+                    final PushOperation pushOperation = (PushOperation) operation;
+                    shouldRemoveOperation = pushOperation.containsBytes(byteArray);
+                }
+                else {
+                    shouldRemoveOperation = false;
+                }
+            }
+
+            if (shouldRemoveOperation) {
+                _operations.remove(i);
+                _cachedByteCount = null;
+            }
+            else {
+                i += 1;
+            }
+        }
+    }
+
     @Override
     public Ripemd160Hash getHash() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -115,6 +116,10 @@ public class PushOperation extends SubTypedOperation {
         return _value;
     }
 
+    public Boolean containsBytes(final ByteArray byteArray) {
+        return ByteUtil.areEqual(_value.getBytes(), byteArray.getBytes());
+    }
+
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         stack.push(_value);
@@ -148,5 +153,15 @@ public class PushOperation extends SubTypedOperation {
     @Override
     public String toString() {
         return (super.toString() + " Value: " + HexUtil.toHexString(_value.getBytes()));
+    }
+
+    @Override
+    public String toStandardString() {
+        if (_shouldSerializeValue) {
+            return (super.toStandardString() + " 0x" + HexUtil.toHexString(_value.getBytes()));
+        }
+        else {
+            return super.toStandardString();
+        }
     }
 }

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
@@ -12,6 +13,8 @@ import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
@@ -35,17 +38,20 @@ public class CryptographicOperation extends SubTypedOperation {
         super(value, TYPE, opcode);
     }
 
-    protected static Boolean checkSignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature) {
+    protected static Boolean checkSignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature, final List<ByteArray> bytesToExcludeFromScript) {
         final Transaction transaction = context.getTransaction();
         final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
         final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
+        final Integer codeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
+        final Script currentScript = context.getCurrentScript();
 
         final TransactionSigner transactionSigner = new TransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
         signatureContext.setInputIndexBeingSigned(transactionInputIndexBeingSigned);
         signatureContext.setShouldSignInputScript(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
-        signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, context.getScriptLastCodeSeparatorIndex());
-        signatureContext.setCurrentScript(context.getCurrentScript());
+        signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, codeSeparatorIndex);
+        signatureContext.setCurrentScript(currentScript);
+        signatureContext.setBytesToExcludeFromScript(bytesToExcludeFromScript);
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
@@ -94,7 +100,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             case CODE_SEPARATOR: {
                 final Integer postCodeSeparatorScriptIndex = context.getScriptIndex(); // NOTE: Context.CurrentLockingScriptIndex has already been incremented. So this value is one-past the current opcode index.
-                context.setLockingScriptLastCodeSeparatorIndex(postCodeSeparatorScriptIndex);
+                context.setCurrentScriptLastCodeSeparatorIndex(postCodeSeparatorScriptIndex);
                 return true;
             }
 
@@ -105,12 +111,19 @@ public class CryptographicOperation extends SubTypedOperation {
 
                 if (stack.didOverflow()) { return false; }
 
+                final List<ByteArray> bytesToRemoveFromScript;
+                { // NOTE: All instances of the signature should be purged from the signed script...
+                    final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(1);
+                    signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes()));
+                    bytesToRemoveFromScript = signatureBytesBuilder.build();
+                }
+
                 final Boolean signatureIsValid;
                 {
                     final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
                     if (scriptSignature != null) {
                         final PublicKey publicKey = publicKeyValue.asPublicKey();
-                        signatureIsValid = checkSignature(context, publicKey, scriptSignature);
+                        signatureIsValid = checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
                     }
                     else {
                         // NOTE: An invalid scriptSignature is permitted, and just simply fails...
@@ -154,17 +167,21 @@ public class CryptographicOperation extends SubTypedOperation {
                     signatureCount = signatureCountValue.asInteger();
                 }
 
+                final List<ByteArray> bytesToRemoveFromScript;
                 final List<ScriptSignature> signatures;
                 {
-                    final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>();
+                    final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
+                    final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
                     for (int i = 0; i < signatureCount; ++i) {
                         final Value signatureValue = stack.pop();
                         final ScriptSignature signature = signatureValue.asScriptSignature();
                         // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
 
+                        signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes())); // NOTE: All instances of the signature should be purged from the signed script...
                         listBuilder.add(signature);
                     }
                     signatures = listBuilder.build();
+                    bytesToRemoveFromScript = signatureBytesBuilder.build();
                 }
 
                 stack.pop(); // Pop an extra value due to bug in the protocol...
@@ -190,7 +207,7 @@ public class CryptographicOperation extends SubTypedOperation {
                             final boolean signatureIsValid;
                             {
                                 if (signature != null) {
-                                    signatureIsValid = checkSignature(context, publicKey, signature);
+                                    signatureIsValid = checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
                                 }
                                 else {
                                     signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
