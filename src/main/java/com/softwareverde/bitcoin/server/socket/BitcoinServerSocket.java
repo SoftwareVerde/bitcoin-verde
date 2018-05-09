@@ -12,6 +12,38 @@ public class BitcoinServerSocket {
         void onDisconnect(BitcoinSocket socketConnection);
     }
 
+    protected class ServerThread extends Thread {
+        public ServerThread() {
+            this.setName("Bitcoin Server Socket - Server Thread - " + this.getId());
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (_shouldContinue) {
+                    if (_socket == null) { return; }
+
+                    final BitcoinSocket connection = new BitcoinSocket(_socket.accept());
+
+                    final Boolean shouldPurgeConnections = (_nextConnectionId % PURGE_EVERY_COUNT == 0L);
+                    if (shouldPurgeConnections) {
+                        _purgeDisconnectedConnections();
+                    }
+
+                    synchronized (_connections) {
+                        _connections.add(connection);
+                        _nextConnectionId += 1L;
+                    }
+
+                    _onConnect(connection);
+                }
+            }
+            catch (final IOException exception) { }
+        }
+    }
+
+    protected static final Long PURGE_EVERY_COUNT = 20L;
+
     protected final Integer _port;
     protected java.net.ServerSocket _socket;
 
@@ -23,7 +55,6 @@ public class BitcoinServerSocket {
 
     protected SocketEventCallback _socketEventCallback = null;
 
-    protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         final Integer socketCount = _connections.size();
         final List<BitcoinSocket> connectedSockets = new ArrayList<BitcoinSocket>(socketCount);
@@ -93,31 +124,7 @@ public class BitcoinServerSocket {
         try {
             _socket = new java.net.ServerSocket(_port);
 
-            _serverThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        while (_shouldContinue) {
-                            if (_socket == null) { return; }
-
-                            final BitcoinSocket connection = new BitcoinSocket(_socket.accept());
-
-                            final Boolean shouldPurgeConnections = (_nextConnectionId % _purgeEveryCount == 0L);
-                            if (shouldPurgeConnections) {
-                                _purgeDisconnectedConnections();
-                            }
-
-                            synchronized (_connections) {
-                                _connections.add(connection);
-                                _nextConnectionId += 1L;
-                            }
-
-                            _onConnect(connection);
-                        }
-                    }
-                    catch (final IOException exception) { }
-                }
-            });
+            _serverThread = new ServerThread();
             _serverThread.start();
 
         }

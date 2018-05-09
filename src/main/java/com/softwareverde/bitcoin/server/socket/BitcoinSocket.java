@@ -17,10 +17,64 @@ public class BitcoinSocket {
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
 
+    private class ReadThread extends Thread {
+        public ReadThread() {
+            this.setName("Bitcoin Socket - Read Thread - " + this.getId());
+        }
+
+        @Override
+        public void run() {
+            final PacketBuffer protocolMessageBuffer = new PacketBuffer();
+
+            protocolMessageBuffer.setBufferSize(bufferSize);
+
+            while (true) {
+                try {
+                    final byte[] buffer = protocolMessageBuffer.getRecycledBuffer();
+                    final Integer bytesRead = _rawInputStream.read(buffer);
+
+                    if (bytesRead < 0) {
+                        throw new IOException("IO: Remote socket closed the connection.");
+                    }
+
+                    protocolMessageBuffer.appendBytes(buffer, bytesRead);
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
+                    }
+
+                    while (protocolMessageBuffer.hasMessage()) {
+                        final ProtocolMessage message = protocolMessageBuffer.popMessage();
+
+                        if (message != null) {
+                            synchronized (_messages) {
+                                if (LOGGING_ENABLED) {
+                                    Logger.log("IO: Received " + message.getCommand() + " message.");
+                                }
+
+                                _messages.add(message);
+
+                                _onMessageReceived(message);
+                            }
+                        }
+                    }
+
+                    if (this.isInterrupted()) { break; }
+                }
+                catch (final Exception exception) {
+                    break;
+                }
+            }
+
+            if (! _isClosed) {
+                _closeSocket();
+            }
+        }
+    }
+
     private final Long _id;
     private final Socket _socket;
     private final List<ProtocolMessage> _messages = new ArrayList<ProtocolMessage>();
-    private volatile Boolean _isClosed = false;
+    private Boolean _isClosed = false;
 
     private Runnable _messageReceivedCallback;
     private final Thread _readThread;
@@ -30,19 +84,15 @@ public class BitcoinSocket {
 
     public Integer bufferSize = 1024 * 2;
 
-    private void _executeMessageReceivedCallback() {
-        if (_messageReceivedCallback != null) {
-            (new Thread(_messageReceivedCallback)).start();
-        }
-    }
-
     /**
      * Internal callback that is executed when a message is received by the client.
      *  Is executed before any external callbacks are received.
      *  Intended for subclass extension.
      */
     protected void _onMessageReceived(final ProtocolMessage message) {
-        // Nothing.
+        if (_messageReceivedCallback != null) {
+            (new Thread(_messageReceivedCallback)).start();
+        }
     }
 
     /**
@@ -55,8 +105,35 @@ public class BitcoinSocket {
     }
 
     protected void _closeSocket() {
+        if (LOGGING_ENABLED) {
+            Logger.log("Closing socket. Thread Id: " + Thread.currentThread().getId() + " " + _socket.getRemoteSocketAddress());
+        }
+
         final Boolean wasClosed = _isClosed;
+
         _isClosed = true;
+
+        _readThread.interrupt();
+
+        try {
+            _rawInputStream.close();
+        }
+        catch (final Exception exception) { }
+
+        try {
+            _rawOutputStream.close();
+        }
+        catch (final Exception exception) { }
+
+        try {
+            _readThread.join();
+        }
+        catch (final Exception exception) { }
+
+        try {
+            _socket.close();
+        }
+        catch (final Exception exception) { }
 
         if (! wasClosed) {
             _onSocketClosed();
@@ -83,51 +160,7 @@ public class BitcoinSocket {
         _rawOutputStream = outputStream;
         _rawInputStream = inputStream;
 
-        _readThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final PacketBuffer protocolMessageBuffer = new PacketBuffer();
-
-                protocolMessageBuffer.setBufferSize(bufferSize);
-
-                while (! _isClosed) {
-                    try {
-                        final byte[] buffer = protocolMessageBuffer.getRecycledBuffer();
-                        final Integer bytesRead = _rawInputStream.read(buffer);
-
-                        if (bytesRead < 0) {
-                            throw new IOException("IO: Remote socket closed the connection.");
-                        }
-
-                        protocolMessageBuffer.appendBytes(buffer, bytesRead);
-                        if (LOGGING_ENABLED) {
-                            Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
-                        }
-
-                        while (protocolMessageBuffer.hasMessage()) {
-                            final ProtocolMessage message = protocolMessageBuffer.popMessage();
-
-                            if (message != null) {
-                                synchronized (_messages) {
-                                    if (LOGGING_ENABLED) {
-                                        Logger.log("IO: Received " + message.getCommand() + " message.");
-                                    }
-
-                                    _messages.add(message);
-
-                                    _onMessageReceived(message);
-                                    _executeMessageReceivedCallback();
-                                }
-                            }
-                        }
-                    }
-                    catch (final IOException exception) {
-                        _closeSocket();
-                        break;
-                    }
-                }
-            }
-        });
+        _readThread = new ReadThread();
 
         _readThread.start();
     }
@@ -169,29 +202,7 @@ public class BitcoinSocket {
      *  Invoking any write functions after this call throws a runtime exception.
      */
     public void close() {
-        _isClosed = true;
-
-        try {
-            _rawInputStream.close();
-        }
-        catch (final Exception exception) { }
-
-        try {
-            _rawOutputStream.close();
-        }
-        catch (final Exception exception) { }
-
-        try {
-            _readThread.join();
-        }
-        catch (final InterruptedException e) { }
-
-        try {
-            _socket.close();
-        }
-        catch (final IOException e) { }
-
-        _onSocketClosed();
+        _closeSocket();
     }
 
     /**

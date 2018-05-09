@@ -14,7 +14,7 @@ import java.util.*;
 public class NodeManager {
     public static final Long REQUEST_TIMEOUT_THRESHOLD = 5_000L;
 
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     protected static class RequestTimeoutThread extends Thread {
         public final Object mutex = new Object();
@@ -27,6 +27,8 @@ public class NodeManager {
             _didMessageTimeOut = didMessageTimeoutContainer;
             _nodeHealth = nodeHealth;
             _replayInvocation = replayInvocation;
+
+            this.setName("Node Manager - Request Timeout Thread - " + this.getId());
         }
 
         @Override
@@ -50,16 +52,11 @@ public class NodeManager {
         }
     }
 
-    protected final Object _mutex = new Object();
+    protected class NodeMaintenanceThread extends Thread {
+        public NodeMaintenanceThread() {
+            this.setName("Node Manager - Maintenance Thread - " + this.getId());
+        }
 
-    protected final Map<NodeId, Node> _nodes;
-    protected final Map<NodeId, NodeHealth> _nodeHealthMap;
-
-    protected final List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
-
-    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
-
-    protected final Thread _nodeMaintenanceThread = new Thread(new Runnable() {
         @Override
         public void run() {
             while (true) {
@@ -74,7 +71,18 @@ public class NodeManager {
                 Logger.log("Node Maintenance Thread exiting...");
             }
         }
-    });
+    }
+
+    protected final Object _mutex = new Object();
+
+    protected final Map<NodeId, Node> _nodes;
+    protected final Map<NodeId, NodeHealth> _nodeHealthMap;
+
+    protected final List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
+
+    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
+
+    protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
 
     protected final Integer _maxNodeCount;
 

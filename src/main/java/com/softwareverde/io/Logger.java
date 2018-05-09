@@ -46,6 +46,7 @@ public class Logger {
         }
     });
     static {
+        _logThread.setName("Log Thread - " + _logThread.getId());
         _logThread.setDaemon(true);
         _logThread.start();
     }

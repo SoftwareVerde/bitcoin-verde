@@ -8,6 +8,7 @@ import com.softwareverde.util.StringUtil;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
@@ -16,6 +17,8 @@ public class NodeConnection {
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
     }
+
+    private static final Integer MAX_CONNECTION_ATTEMPTS = 1024; // Sanity check for connection attempts...
 
     protected class ConnectionThread extends Thread {
         @Override
@@ -32,19 +35,30 @@ public class NodeConnection {
 
             Socket socket = null;
 
+            int attemptCount = 0;
             while (true) {
+                if (attemptCount >= MAX_CONNECTION_ATTEMPTS) {
+                    Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached.");
+                    break;
+                }
+
                 if (_socketIsConnected()) { break; }
 
                 try {
+                    attemptCount += 1;
                     socket = new Socket(_host, _port);
                     if (socket.isConnected()) { break; }
-                    else {
-                        Logger.log("IO: NodeConnection: Connection failed. Retrying in 1000ms...");
-                        Thread.sleep(1000);
-                    }
+                }
+                catch (final UnknownHostException exception) {
+                    Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _host + ":" + _port);
+                    break;
                 }
                 catch (final IOException e) { }
-                catch (final InterruptedException e) { break; }
+
+                if ( (socket == null) || (! socket.isConnected()) ) {
+                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 1000ms...");
+                    try { Thread.sleep(1000); } catch (final Exception exception) { break; }
+                }
             }
 
             if ( (socket != null) && (socket.isConnected()) ) {
