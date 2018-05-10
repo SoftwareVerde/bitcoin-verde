@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;

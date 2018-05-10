@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.server.message.type.version.synchronize;
 
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
+import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.Endian;
 
-public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
+public class SynchronizeVersionMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
     public SynchronizeVersionMessage fromBytes(final byte[] bytes) {
@@ -15,7 +15,7 @@ public class SynchronizeVersionMessageInflater extends ProtocolMessageInflater {
         final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.SYNCHRONIZE_VERSION);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.SYNCHRONIZE_VERSION);
         if (protocolMessageHeader == null) { return null; }
 
         synchronizeVersionMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);

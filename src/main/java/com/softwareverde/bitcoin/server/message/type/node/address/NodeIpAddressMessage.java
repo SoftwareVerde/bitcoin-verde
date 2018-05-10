@@ -1,34 +1,35 @@
 package com.softwareverde.bitcoin.server.message.type.node.address;
 
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class NodeIpAddressMessage extends ProtocolMessage {
-    protected final List<NodeIpAddress> _nodeIpAddresses = new ArrayList<NodeIpAddress>();
+public class NodeIpAddressMessage extends BitcoinProtocolMessage {
+    protected final List<BitcoinNodeIpAddress> _nodeIpAddresses = new ArrayList<BitcoinNodeIpAddress>();
 
     public NodeIpAddressMessage() {
         super(MessageType.NODE_ADDRESSES);
     }
 
-    public void addAddress(final NodeIpAddress nodeIpAddress) {
+    public void addAddress(final BitcoinNodeIpAddress nodeIpAddress) {
         _nodeIpAddresses.add(nodeIpAddress.copy());
     }
 
-    public List<NodeIpAddress> getNodeIpAddresses() {
+    public List<BitcoinNodeIpAddress> getNodeIpAddresses() {
         return Util.copyList(_nodeIpAddresses);
     }
 
     @Override
     protected ByteArray _getPayload() {
-        final int networkAddressByteCount = NodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
+        final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
         final int networkAddressCount = _nodeIpAddresses.size();
 
         final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
@@ -36,7 +37,7 @@ public class NodeIpAddressMessage extends ProtocolMessage {
 
         int addressesByteCount = 0;
         final List<byte[]> addressesBytes = new ArrayList<byte[]>(networkAddressCount);
-        for (final NodeIpAddress nodeIpAddress : _nodeIpAddresses) {
+        for (final BitcoinNodeIpAddress nodeIpAddress : _nodeIpAddresses) {
             final byte[] networkAddressBytes = nodeIpAddress.getBytesWithTimestamp();
             addressesBytes.add(networkAddressBytes);
             addressesByteCount += networkAddressBytes.length;

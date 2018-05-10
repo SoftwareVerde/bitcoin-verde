@@ -1,18 +1,19 @@
 package com.softwareverde.bitcoin.server.message.type.query.block.header;
 
 import com.softwareverde.bitcoin.server.Constants;
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class QueryBlockHeadersMessage extends ProtocolMessage {
+public class QueryBlockHeadersMessage extends BitcoinProtocolMessage {
     public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000;
 
     protected Integer _version;

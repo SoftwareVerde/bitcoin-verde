@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.type.address;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.util.ByteUtil;
 

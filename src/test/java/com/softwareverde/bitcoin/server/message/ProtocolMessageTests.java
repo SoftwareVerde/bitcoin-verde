@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
+import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;

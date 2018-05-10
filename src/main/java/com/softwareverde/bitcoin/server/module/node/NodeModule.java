@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
-import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;

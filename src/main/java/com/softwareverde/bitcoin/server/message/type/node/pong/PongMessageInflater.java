@@ -1,19 +1,19 @@
 package com.softwareverde.bitcoin.server.message.type.node.pong;
 
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
+import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 
-public class PongMessageInflater extends ProtocolMessageInflater {
+public class PongMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
     public PongMessage fromBytes(final byte[] bytes) {
         final PongMessage pingMessage = new PongMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.PONG);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.PONG);
         if (protocolMessageHeader == null) { return null; }
 
         pingMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);

@@ -1,15 +1,15 @@
 package com.softwareverde.bitcoin.server.message.type.node.address;
 
-import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
-import com.softwareverde.bitcoin.server.socket.ip.Ipv6;
+import com.softwareverde.network.ip.Ipv4;
+import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.util.HexUtil;
 
 public class NodeIpAddressInflater {
-    public NodeIpAddress fromBytes(final byte[] bytes) {
-        final NodeIpAddress nodeIpAddress = new NodeIpAddress();
+    public BitcoinNodeIpAddress fromBytes(final byte[] bytes) {
+        final BitcoinNodeIpAddress nodeIpAddress = new BitcoinNodeIpAddress();
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
