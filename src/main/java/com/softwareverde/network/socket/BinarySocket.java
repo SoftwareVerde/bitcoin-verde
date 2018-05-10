@@ -47,12 +47,7 @@ public class BinarySocket {
 
                         if (message != null) {
                             synchronized (_messages) {
-                                if (LOGGING_ENABLED) {
-                                    Logger.log("IO: Received " + message.getCommand() + " message.");
-                                }
-
                                 _messages.addLast(message);
-
                                 _onMessageReceived(message);
                             }
                         }
@@ -178,10 +173,6 @@ public class BinarySocket {
         }
         catch (final Exception e) {
             _closeSocket();
-        }
-
-        if (LOGGING_ENABLED) {
-            Logger.log("IO: Sent " + outboundMessage.getCommand() + " message.");
         }
     }
 

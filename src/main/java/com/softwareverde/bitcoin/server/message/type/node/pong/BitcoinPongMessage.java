@@ -3,13 +3,13 @@ package com.softwareverde.bitcoin.server.message.type.node.pong;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 
-public class BitcoinPongMessage extends BitcoinProtocolMessage implements PongMessage<MessageType> {
+public class BitcoinPongMessage extends BitcoinProtocolMessage implements PongMessage {
 
     protected Long _nonce;
 

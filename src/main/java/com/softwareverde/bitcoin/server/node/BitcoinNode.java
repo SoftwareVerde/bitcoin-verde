@@ -37,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class BitcoinNode extends Node<MessageType> {
+public class BitcoinNode extends Node {
     public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
 

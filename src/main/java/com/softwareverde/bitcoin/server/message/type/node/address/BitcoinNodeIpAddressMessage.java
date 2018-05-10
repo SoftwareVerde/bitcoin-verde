@@ -7,13 +7,14 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implements NodeIpAddressMessage<MessageType> {
+public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implements NodeIpAddressMessage {
     protected final MutableList<BitcoinNodeIpAddress> _nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
 
     public BitcoinNodeIpAddressMessage() {
@@ -31,8 +32,8 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
     }
 
     @Override
-    public List<? extends BitcoinNodeIpAddress> getNodeIpAddresses() {
-        return _nodeIpAddresses;
+    public List<NodeIpAddress> getNodeIpAddresses() {
+        return ConstUtil.downcastList(_nodeIpAddresses);
     }
 
     @Override

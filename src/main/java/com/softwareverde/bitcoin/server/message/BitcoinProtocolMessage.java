@@ -19,7 +19,7 @@ import com.softwareverde.util.HexUtil;
  *  https://en.bitcoin.it/wiki/Protocol_documentation
  */
 
-public abstract class BitcoinProtocolMessage implements ProtocolMessage<MessageType> {
+public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     public static final ByteArray MAIN_NET_MAGIC_NUMBER = new ImmutableByteArray(HexUtil.hexStringToByteArray("E8F3E1E3")); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
     public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(BitcoinProtocolMessage.MAIN_NET_MAGIC_NUMBER, new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageInflater());
 
@@ -63,17 +63,14 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage<MessageT
 
     protected abstract ByteArray _getPayload();
 
-    @Override
     public ByteArray getMagicNumber() {
         return _magicNumber;
     }
 
-    @Override
     public MessageType getCommand() {
         return _command;
     }
 
-    @Override
     public byte[] getHeaderBytes() {
         return ByteUtil.copyBytes(_getBytes().getBytes(), 0, BitcoinProtocolMessageHeaderInflater.HEADER_BYTE_COUNT);
     }

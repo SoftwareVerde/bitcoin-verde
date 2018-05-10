@@ -12,7 +12,7 @@ import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
-public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage implements SynchronizeVersionMessage<MessageType> {
+public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage implements SynchronizeVersionMessage {
     protected Integer _version;
     protected String _userAgent;
     protected final NodeFeatures _nodeFeatures = new NodeFeatures();

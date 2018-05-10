@@ -6,7 +6,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
 
-public class BitcoinAcknowledgeVersionMessage extends BitcoinProtocolMessage implements AcknowledgeVersionMessage<MessageType> {
+public class BitcoinAcknowledgeVersionMessage extends BitcoinProtocolMessage implements AcknowledgeVersionMessage {
 
     public BitcoinAcknowledgeVersionMessage() {
         super(MessageType.ACKNOWLEDGE_VERSION);

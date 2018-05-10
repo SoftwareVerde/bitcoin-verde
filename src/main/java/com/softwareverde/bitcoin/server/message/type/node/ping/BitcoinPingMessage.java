@@ -9,7 +9,7 @@ import com.softwareverde.network.p2p.message.type.PingMessage;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class BitcoinPingMessage extends BitcoinProtocolMessage implements PingMessage<MessageType> {
+public class BitcoinPingMessage extends BitcoinProtocolMessage implements PingMessage {
 
     protected Long _nonce;
 

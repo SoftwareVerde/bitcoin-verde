@@ -11,7 +11,7 @@ import com.softwareverde.util.Util;
 
 import java.util.*;
 
-public abstract class Node<MessageType> {
+public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddress(NodeIpAddress nodeIpAddress); }
     public interface NodeConnectedCallback { void onNodeConnected();}
     public interface NodeHandshakeCompleteCallback { void onHandshakeComplete(); }
@@ -55,7 +55,7 @@ public abstract class Node<MessageType> {
     protected NodeIpAddress _nodeIpAddress = null;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
-    protected final LinkedList<ProtocolMessage<MessageType>> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage<MessageType>>();
+    protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
 
     protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
 
@@ -64,13 +64,13 @@ public abstract class Node<MessageType> {
     protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
     protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
-    protected abstract PingMessage<MessageType> _createPingMessage();
-    protected abstract PongMessage<MessageType> _createPongMessage(final PingMessage<MessageType> pingMessage);
-    protected abstract SynchronizeVersionMessage<MessageType> _createSynchronizeVersionMessage();
-    protected abstract AcknowledgeVersionMessage<MessageType> _createAcknowledgeVersionMessage(SynchronizeVersionMessage<MessageType> synchronizeVersionMessage);
-    protected abstract NodeIpAddressMessage<MessageType> _createNodeIpAddressMessage();
+    protected abstract PingMessage _createPingMessage();
+    protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
+    protected abstract SynchronizeVersionMessage _createSynchronizeVersionMessage();
+    protected abstract AcknowledgeVersionMessage _createAcknowledgeVersionMessage(SynchronizeVersionMessage synchronizeVersionMessage);
+    protected abstract NodeIpAddressMessage _createNodeIpAddressMessage();
 
-    protected void _queueMessage(final ProtocolMessage<MessageType> message) {
+    protected void _queueMessage(final ProtocolMessage message) {
         if (_handshakeIsComplete) {
             _connection.queueMessage(message);
         }
@@ -80,7 +80,7 @@ public abstract class Node<MessageType> {
     }
 
     protected void _onConnect() {
-        final SynchronizeVersionMessage<MessageType> synchronizeVersionMessage = _createSynchronizeVersionMessage();
+        final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
         _connection.queueMessage(synchronizeVersionMessage);
 
         if (_nodeConnectedCallback != null) {
@@ -112,8 +112,8 @@ public abstract class Node<MessageType> {
         }
     }
 
-    protected void _onPingReceived(final PingMessage<MessageType> pingMessage) {
-        final PongMessage<MessageType> pongMessage = _createPongMessage(pingMessage);
+    protected void _onPingReceived(final PingMessage pingMessage) {
+        final PongMessage pongMessage = _createPongMessage(pingMessage);
         _queueMessage(pongMessage);
     }
 
@@ -129,16 +129,16 @@ public abstract class Node<MessageType> {
         }
     }
 
-    protected void _onSynchronizeVersion(final SynchronizeVersionMessage<MessageType> synchronizeVersionMessage) {
+    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         // TODO: Should probably not accept any node version...
 
         _nodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
 
-        final AcknowledgeVersionMessage<MessageType> acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
+        final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
         _queueMessage(acknowledgeVersionMessage);
     }
 
-    protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage<MessageType> acknowledgeVersionMessage) {
+    protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
         if (_nodeHandshakeCompleteCallback != null) {
             (new Thread(new Runnable() {
@@ -157,7 +157,7 @@ public abstract class Node<MessageType> {
         }
     }
 
-    protected void _onNodeAddressesReceived(final NodeIpAddressMessage<MessageType> nodeIpAddressMessage) {
+    protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
             if (_nodeAddressesReceivedCallback != null) {
                 (new Thread(new Runnable() {
@@ -237,20 +237,20 @@ public abstract class Node<MessageType> {
     }
 
     public void ping(final PingCallback pingCallback) {
-        final PingMessage<MessageType> pingMessage = _createPingMessage();
+        final PingMessage pingMessage = _createPingMessage();
         final PingRequest pingRequest = new PingRequest(pingCallback);
         _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
     }
 
     public void broadcastNodeAddress(final NodeIpAddress nodeIpAddress) {
-        final NodeIpAddressMessage<MessageType> nodeIpAddressMessage = _createNodeIpAddressMessage();
+        final NodeIpAddressMessage nodeIpAddressMessage = _createNodeIpAddressMessage();
         nodeIpAddressMessage.addAddress(nodeIpAddress);
         _queueMessage(nodeIpAddressMessage);
     }
 
-    public void broadcastNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
-        final NodeIpAddressMessage<MessageType> nodeIpAddressMessage = _createNodeIpAddressMessage();
+    public void broadcastNodeAddresses(final List<? extends NodeIpAddress> nodeIpAddresses) {
+        final NodeIpAddressMessage nodeIpAddressMessage = _createNodeIpAddressMessage();
         for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
             nodeIpAddressMessage.addAddress(nodeIpAddress);
         }
