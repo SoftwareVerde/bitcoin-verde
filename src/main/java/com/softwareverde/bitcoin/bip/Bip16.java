@@ -7,4 +7,6 @@ public class Bip16 {
     public static Boolean isEnabled(final Long blockHeight) {
         return (Util.coalesce(blockHeight, Long.MAX_VALUE) >= 173805L);
     }
+
+    protected Bip16() { }
 }

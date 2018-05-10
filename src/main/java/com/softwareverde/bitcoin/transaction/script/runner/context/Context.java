@@ -11,9 +11,21 @@ public interface Context extends Constable<ImmutableContext>, Jsonable {
     Long getBlockHeight();
     TransactionInput getTransactionInput();
     TransactionOutput getTransactionOutput();
+
+    /**
+     * Returns the Transaction being validated.
+     */
     Transaction getTransaction();
+
     Integer getTransactionInputIndex();
 
+    /**
+     * Returns the script that is currently being evaluated.
+     *  This script could be one of many things:
+     *      - The Tx Input's Unlocking Script
+     *      - The Tx Output's Locking Script
+     *      - The Tx P2SH
+     */
     Script getCurrentScript();
 
     /**

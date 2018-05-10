@@ -38,6 +38,9 @@ public class MutableContext implements Context, Const {
         _blockHeight = blockHeight;
     }
 
+    /**
+     * Sets the Transaction currently being validated.
+     */
     public void setTransaction(final Transaction transaction) {
         _transaction = transaction;
     }

@@ -11,6 +11,7 @@ public enum Opcode {
     PUSH_DATA_BYTE                      (0x4C),
     PUSH_DATA_SHORT                     (0x4D),
     PUSH_DATA_INTEGER                   (0x4E),
+    PUSH_VERSION                        (0x62, false),
 
     // DYNAMIC VALUE
     PUSH_STACK_SIZE                     (0x74),
@@ -29,6 +30,8 @@ public enum Opcode {
     END_IF                              (0x68),
     VERIFY                              (0x69),
     RETURN                              (0x6A),
+    IF_VERSION                          (0x65, false),
+    IF_NOT_VERSION                      (0x66, false),
 
     // STACK
     POP_TO_ALT_STACK                    (0x6B),
@@ -111,7 +114,9 @@ public enum Opcode {
     // NO OPERATION
     NO_OPERATION                        (0x61),
     NO_OPERATION_1                      (0xB0),
-    NO_OPERATION_2                      (0xB3, 0xB9)
+    NO_OPERATION_2                      (0xB3, 0xB9),
+    RESERVED                            (0x50, false),
+    RESERVED_1                          (0x89, 0x8A, false)
 
     ; // END ENUMS
 

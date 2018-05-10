@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.Bip65;
+import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
@@ -72,6 +73,14 @@ public class LockTimeOperation extends SubTypedOperation {
             }
 
             case CHECK_SEQUENCE_NUMBER_THEN_VERIFY: {
+                final Boolean operationIsEnabled = Bip68.isEnabled(context.getTransaction());
+                if (! operationIsEnabled) {
+                    // Before Bip68, CHECK_SEQUENCE_NUMBER_THEN_VERIFY performed as a no-operation.
+                    return true;
+                }
+
+                // TODO: Ensure all rules are applied here...
+
                 final Value requiredSequenceNumberValue = stack.pop();
                 final Long requiredSequenceNumberLong = requiredSequenceNumberValue.asLong();
 

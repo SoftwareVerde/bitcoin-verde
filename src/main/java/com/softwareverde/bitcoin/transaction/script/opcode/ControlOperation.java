@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -34,7 +35,9 @@ public class ControlOperation extends SubTypedOperation {
             case IF:
             case NOT_IF:
             case ELSE:
-            case END_IF: {
+            case END_IF:
+            case IF_VERSION:
+            case IF_NOT_VERSION: {
                 return true;
             }
 
@@ -46,7 +49,6 @@ public class ControlOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        // NOTE: Currently, no ControlOperations are disabled...
         if (! _opcode.isEnabled()) {
             Logger.log("NOTICE: Opcode is disabled: " + _opcode);
             return false;
@@ -54,11 +56,15 @@ public class ControlOperation extends SubTypedOperation {
 
         switch (_opcode) {
 
-            case IF: {
+            case IF:
+            case NOT_IF: {
                 final Boolean condition;
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
-                    condition = value.asBoolean();
+                    final Boolean booleanValue = value.asBoolean();
+
+                    final Boolean notIf = (_opcode == Opcode.NOT_IF);
+                    condition = ( notIf ? (! booleanValue) : (booleanValue) );
                 }
                 else {
                     condition = false;
@@ -69,11 +75,16 @@ public class ControlOperation extends SubTypedOperation {
                 return (! stack.didOverflow());
             }
 
-            case NOT_IF: {
+            case IF_VERSION:
+            case IF_NOT_VERSION: {
                 final Boolean condition;
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
-                    condition = (! value.asBoolean());
+                    final String userAgent = value.asString();
+                    final Boolean booleanValue = (Constants.USER_AGENT.equalsIgnoreCase(userAgent));
+
+                    final Boolean notIf = (_opcode == Opcode.IF_NOT_VERSION);
+                    condition = ( notIf ? (! booleanValue) : (booleanValue) );
                 }
                 else {
                     condition = false;

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -10,6 +11,7 @@ import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.StringUtil;
 
 public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
@@ -109,6 +111,12 @@ public class PushOperation extends SubTypedOperation {
                 payload = new Payload(true, valueByteCountLength, value);
             } break;
 
+            case PUSH_VERSION: {
+                final Integer valueByteCountLength = null;
+                final Value value = Value.fromBytes(StringUtil.stringToBytes(Constants.USER_AGENT));
+                payload = new Payload(false, valueByteCountLength, value);
+            } break;
+
             default: { return null; }
         }
 
@@ -134,6 +142,11 @@ public class PushOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+        if (! _opcode.isEnabled()) {
+            Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+            return false;
+        }
+
         stack.push(_payload.value);
         return true;
     }
