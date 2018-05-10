@@ -1,6 +1,5 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
@@ -13,7 +12,7 @@ import com.softwareverde.util.Util;
 import java.util.LinkedList;
 import java.util.List;
 
-public class PacketBuffer<S extends ProtocolMessageHeader, T extends ProtocolMessage> {
+public class PacketBuffer {
     protected static class ByteBuffer {
         public byte[] bytes;
         public int startIndex;
@@ -41,8 +40,8 @@ public class PacketBuffer<S extends ProtocolMessageHeader, T extends ProtocolMes
     protected int _bufferSize = 1024;
     protected final LinkedList<ByteBuffer> _recycledByteArrays = new LinkedList<ByteBuffer>();
     protected final LinkedList<ByteBuffer> _byteArrayList = new LinkedList<ByteBuffer>();
-    protected final ProtocolMessageHeaderInflater<S> _protocolMessageHeaderInflater;
-    protected final ProtocolMessageInflater<T> _protocolMessageInflater;
+    protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
+    protected final ProtocolMessageInflater _protocolMessageInflater;
     protected int _byteCount = 0;
 
     protected final byte[] _packetStartingBytesBuffer;
@@ -87,7 +86,7 @@ public class PacketBuffer<S extends ProtocolMessageHeader, T extends ProtocolMes
         return _readContiguousBytes(desiredByteCount, true);
     }
 
-    protected S _peakProtocolHeader() {
+    protected ProtocolMessageHeader _peakProtocolHeader() {
         final int headerByteCount = _protocolMessageHeaderInflater.getHeaderByteCount();
 
         if (_byteCount < headerByteCount) { return null; }
@@ -101,14 +100,14 @@ public class PacketBuffer<S extends ProtocolMessageHeader, T extends ProtocolMes
         Logger.log("IO: DISCARDED PACKET: "+ HexUtil.toHexString(discardedPacket));
     }
 
-    public PacketBuffer(final ByteArray magicNumber, final ProtocolMessageHeaderInflater<S> protocolMessageHeaderInflater, final ProtocolMessageInflater<T> protocolMessageInflater) {
-        final int magicNumberByteCount = magicNumber.getByteCount();
+    public PacketBuffer(final BinaryPacketFormat binaryPacketFormat) {
+        final int magicNumberByteCount = binaryPacketFormat.magicNumber.getByteCount();
         _mainNetMagicNumberByteCount = magicNumberByteCount;
         _packetStartingBytesBuffer = new byte[magicNumberByteCount];
-        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(magicNumber.getBytes());
+        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(binaryPacketFormat.magicNumber.getBytes());
 
-        _protocolMessageHeaderInflater = protocolMessageHeaderInflater;
-        _protocolMessageInflater = protocolMessageInflater;
+        _protocolMessageHeaderInflater = binaryPacketFormat.protocolMessageHeaderInflater;
+        _protocolMessageInflater = binaryPacketFormat.protocolMessageInflater;
     }
 
     public void setBufferSize(final int bufferSize) {

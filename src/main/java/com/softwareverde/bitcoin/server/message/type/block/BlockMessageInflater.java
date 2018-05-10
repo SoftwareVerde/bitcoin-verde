@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class BlockMessageInflater extends BitcoinProtocolMessageInflater {
     @Override

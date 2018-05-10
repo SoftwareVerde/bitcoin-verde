@@ -8,8 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.LinkedList;
 
 public class BinarySocket {
     public static Boolean LOGGING_ENABLED = false;
@@ -17,33 +16,34 @@ public class BinarySocket {
     private static final Object _nextIdMutex = new Object();
     private static Long _nextId = 0L;
 
-    private class ReadThread extends Thread {
-        public ReadThread() {
+    protected class ReadThread extends Thread {
+        private final PacketBuffer _protocolMessageBuffer;
+
+        public ReadThread(final BinaryPacketFormat binaryPacketFormat) {
             this.setName("Bitcoin Socket - Read Thread - " + this.getId());
+
+            _protocolMessageBuffer = new PacketBuffer(binaryPacketFormat);
+            _protocolMessageBuffer.setBufferSize(bufferSize);
         }
 
         @Override
         public void run() {
-            final PacketBuffer protocolMessageBuffer = new PacketBuffer();
-
-            protocolMessageBuffer.setBufferSize(bufferSize);
-
             while (true) {
                 try {
-                    final byte[] buffer = protocolMessageBuffer.getRecycledBuffer();
+                    final byte[] buffer = _protocolMessageBuffer.getRecycledBuffer();
                     final Integer bytesRead = _rawInputStream.read(buffer);
 
                     if (bytesRead < 0) {
                         throw new IOException("IO: Remote socket closed the connection.");
                     }
 
-                    protocolMessageBuffer.appendBytes(buffer, bytesRead);
+                    _protocolMessageBuffer.appendBytes(buffer, bytesRead);
                     if (LOGGING_ENABLED) {
-                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ protocolMessageBuffer.getBufferCount() +") ("+ ((int) (protocolMessageBuffer.getByteCount() / (protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
+                        Logger.log("IO: [Received "+ bytesRead + " bytes from socket.] (Bytes In Buffer: "+ _protocolMessageBuffer.getByteCount() +") (Buffer Count: "+ _protocolMessageBuffer.getBufferCount() +") ("+ ((int) (_protocolMessageBuffer.getByteCount() / (_protocolMessageBuffer.getBufferCount() * bufferSize.floatValue()) * 100)) +"%)");
                     }
 
-                    while (protocolMessageBuffer.hasMessage()) {
-                        final ProtocolMessage message = protocolMessageBuffer.popMessage();
+                    while (_protocolMessageBuffer.hasMessage()) {
+                        final ProtocolMessage message = _protocolMessageBuffer.popMessage();
 
                         if (message != null) {
                             synchronized (_messages) {
@@ -51,7 +51,7 @@ public class BinarySocket {
                                     Logger.log("IO: Received " + message.getCommand() + " message.");
                                 }
 
-                                _messages.add(message);
+                                _messages.addLast(message);
 
                                 _onMessageReceived(message);
                             }
@@ -71,16 +71,16 @@ public class BinarySocket {
         }
     }
 
-    private final Long _id;
-    private final Socket _socket;
-    private final List<ProtocolMessage> _messages = new ArrayList<ProtocolMessage>();
-    private Boolean _isClosed = false;
+    protected final Long _id;
+    protected final Socket _socket;
+    protected final LinkedList<ProtocolMessage> _messages = new LinkedList<ProtocolMessage>();
+    protected Boolean _isClosed = false;
 
-    private Runnable _messageReceivedCallback;
-    private final Thread _readThread;
+    protected Runnable _messageReceivedCallback;
+    protected final Thread _readThread;
 
-    private final OutputStream _rawOutputStream;
-    private final InputStream _rawInputStream;
+    protected final OutputStream _rawOutputStream;
+    protected final InputStream _rawInputStream;
 
     public Integer bufferSize = 1024 * 2;
 
@@ -140,7 +140,7 @@ public class BinarySocket {
         }
     }
 
-    public BinarySocket(final Socket socket) {
+    public BinarySocket(final Socket socket, final BinaryPacketFormat binaryPacketFormat) {
         synchronized (_nextIdMutex) {
             _id = _nextId;
             _nextId += 1;
@@ -160,7 +160,7 @@ public class BinarySocket {
         _rawOutputStream = outputStream;
         _rawInputStream = inputStream;
 
-        _readThread = new ReadThread();
+        _readThread = new ReadThread(binaryPacketFormat);
 
         _readThread.start();
     }
@@ -193,7 +193,7 @@ public class BinarySocket {
         synchronized (_messages) {
             if (_messages.isEmpty()) { return null; }
 
-            return _messages.remove(0);
+            return _messages.removeFirst();
         }
     }
 

@@ -3,12 +3,12 @@ package com.softwareverde.bitcoin.server.message.header;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayReader;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 
-public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHeaderInflater<BitcoinProtocolMessageHeader> {
+public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHeaderInflater {
     public static final Integer HEADER_BYTE_COUNT = 24;
 
     private BitcoinProtocolMessageHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {

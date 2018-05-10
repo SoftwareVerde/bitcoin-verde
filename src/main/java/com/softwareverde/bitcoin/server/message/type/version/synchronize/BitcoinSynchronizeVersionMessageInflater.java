@@ -7,12 +7,12 @@ import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressI
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
-public class SynchronizeVersionMessageInflater extends BitcoinProtocolMessageInflater {
+public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
-    public SynchronizeVersionMessage fromBytes(final byte[] bytes) {
+    public BitcoinSynchronizeVersionMessage fromBytes(final byte[] bytes) {
         final NodeIpAddressInflater nodeIpAddressInflater = new NodeIpAddressInflater();
-        final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.SYNCHRONIZE_VERSION);

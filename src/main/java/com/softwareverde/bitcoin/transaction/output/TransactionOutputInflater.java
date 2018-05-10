@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
-import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputInflater {

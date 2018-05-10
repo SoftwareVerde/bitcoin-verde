@@ -5,38 +5,46 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.message.type.NodeIpAddressMessage;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-import java.util.ArrayList;
-import java.util.List;
+public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implements NodeIpAddressMessage<MessageType> {
+    protected final MutableList<BitcoinNodeIpAddress> _nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>();
 
-public class NodeIpAddressMessage extends BitcoinProtocolMessage {
-    protected final List<BitcoinNodeIpAddress> _nodeIpAddresses = new ArrayList<BitcoinNodeIpAddress>();
-
-    public NodeIpAddressMessage() {
+    public BitcoinNodeIpAddressMessage() {
         super(MessageType.NODE_ADDRESSES);
     }
 
-    public void addAddress(final BitcoinNodeIpAddress nodeIpAddress) {
-        _nodeIpAddresses.add(nodeIpAddress.copy());
+    @Override
+    public void addAddress(final NodeIpAddress nodeIpAddress) {
+        if (! (nodeIpAddress instanceof BitcoinNodeIpAddress)) {
+            Logger.log("NOTICE: Invalid NodeIpAddress type provided to BitcoinNodeIpAddressMessage.");
+            return;
+        }
+
+        _nodeIpAddresses.add((BitcoinNodeIpAddress) nodeIpAddress);
     }
 
-    public List<BitcoinNodeIpAddress> getNodeIpAddresses() {
-        return Util.copyList(_nodeIpAddresses);
+    @Override
+    public List<? extends BitcoinNodeIpAddress> getNodeIpAddresses() {
+        return _nodeIpAddresses;
     }
 
     @Override
     protected ByteArray _getPayload() {
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
-        final int networkAddressCount = _nodeIpAddresses.size();
+        final int networkAddressCount = _nodeIpAddresses.getSize();
 
         final byte[] addressCountBytes = ByteUtil.variableLengthIntegerToBytes(networkAddressCount);
         final byte[] networkAddressesBytes = new byte[networkAddressCount * networkAddressByteCount];
 
         int addressesByteCount = 0;
-        final List<byte[]> addressesBytes = new ArrayList<byte[]>(networkAddressCount);
+        final MutableList<byte[]> addressesBytes = new MutableList<byte[]>(networkAddressCount);
         for (final BitcoinNodeIpAddress nodeIpAddress : _nodeIpAddresses) {
             final byte[] networkAddressBytes = nodeIpAddress.getBytesWithTimestamp();
             addressesBytes.add(networkAddressBytes);

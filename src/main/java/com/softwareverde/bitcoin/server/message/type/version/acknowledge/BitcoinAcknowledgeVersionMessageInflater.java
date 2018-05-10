@@ -5,11 +5,11 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class AcknowledgeVersionMessageInflater extends BitcoinProtocolMessageInflater {
+public class BitcoinAcknowledgeVersionMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
-    public AcknowledgeVersionMessage fromBytes(final byte[] bytes) {
-        final AcknowledgeVersionMessage synchronizeVersionMessage = new AcknowledgeVersionMessage();
+    public BitcoinAcknowledgeVersionMessage fromBytes(final byte[] bytes) {
+        final BitcoinAcknowledgeVersionMessage synchronizeVersionMessage = new BitcoinAcknowledgeVersionMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.ACKNOWLEDGE_VERSION);

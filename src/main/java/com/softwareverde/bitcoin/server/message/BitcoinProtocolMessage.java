@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -18,8 +19,10 @@ import com.softwareverde.util.HexUtil;
  *  https://en.bitcoin.it/wiki/Protocol_documentation
  */
 
-public abstract class BitcoinProtocolMessage extends ProtocolMessage<MessageType> {
+public abstract class BitcoinProtocolMessage implements ProtocolMessage<MessageType> {
     public static final ByteArray MAIN_NET_MAGIC_NUMBER = new ImmutableByteArray(HexUtil.hexStringToByteArray("E8F3E1E3")); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
+    public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(BitcoinProtocolMessage.MAIN_NET_MAGIC_NUMBER, new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageInflater());
+
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
     public static ByteArray calculateChecksum(final ByteArray payload) {
@@ -33,8 +36,12 @@ public abstract class BitcoinProtocolMessage extends ProtocolMessage<MessageType
         return checksum;
     }
 
+    protected final ByteArray _magicNumber;
+    protected final MessageType _command;
+
     public BitcoinProtocolMessage(final MessageType command) {
-        super(command, MAIN_NET_MAGIC_NUMBER);
+        _magicNumber = MAIN_NET_MAGIC_NUMBER;
+        _command = command;
     }
 
     private ByteArray _getBytes() {
@@ -52,6 +59,18 @@ public abstract class BitcoinProtocolMessage extends ProtocolMessage<MessageType
         byteArrayBuilder.appendBytes(payload.getBytes(), Endian.BIG);
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    protected abstract ByteArray _getPayload();
+
+    @Override
+    public ByteArray getMagicNumber() {
+        return _magicNumber;
+    }
+
+    @Override
+    public MessageType getCommand() {
+        return _command;
     }
 
     @Override

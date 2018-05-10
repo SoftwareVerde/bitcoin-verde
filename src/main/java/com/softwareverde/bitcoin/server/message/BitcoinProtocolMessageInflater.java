@@ -6,13 +6,13 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.node.pong.PongMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.version.acknowledge.AcknowledgeVersionMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessageInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -62,10 +62,10 @@ public class BitcoinProtocolMessageInflater implements ProtocolMessageInflater<B
     }
 
     public BitcoinProtocolMessageInflater() {
-        _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new SynchronizeVersionMessageInflater());
-        _commandInflaterMap.put(MessageType.ACKNOWLEDGE_VERSION, new AcknowledgeVersionMessageInflater());
-        _commandInflaterMap.put(MessageType.PING, new PingMessageInflater());
-        _commandInflaterMap.put(MessageType.PONG, new PongMessageInflater());
+        _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new BitcoinSynchronizeVersionMessageInflater());
+        _commandInflaterMap.put(MessageType.ACKNOWLEDGE_VERSION, new BitcoinAcknowledgeVersionMessageInflater());
+        _commandInflaterMap.put(MessageType.PING, new BitcoinPingMessageInflater());
+        _commandInflaterMap.put(MessageType.PONG, new BitcoinPongMessageInflater());
         _commandInflaterMap.put(MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCK_HEADERS, new QueryBlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());

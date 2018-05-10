@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
-import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 /**
  * Is functionally the same as a regular TransactionInputInflater, however additional checks are in place to assert

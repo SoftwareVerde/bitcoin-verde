@@ -9,11 +9,11 @@ import com.softwareverde.util.bytearray.Endian;
 public class NodeIpAddressMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
-    public NodeIpAddressMessage fromBytes(final byte[] bytes) {
+    public BitcoinNodeIpAddressMessage fromBytes(final byte[] bytes) {
         final NodeIpAddressInflater nodeIpAddressInflater = new NodeIpAddressInflater();
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
 
-        final NodeIpAddressMessage nodeIpAddressMessage = new NodeIpAddressMessage();
+        final BitcoinNodeIpAddressMessage nodeIpAddressMessage = new BitcoinNodeIpAddressMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.NODE_ADDRESSES);

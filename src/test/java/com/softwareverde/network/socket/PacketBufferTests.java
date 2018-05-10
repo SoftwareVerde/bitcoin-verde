@@ -1,5 +1,6 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -20,7 +21,7 @@ public class PacketBufferTests {
     @Test
     public void should_read_multiple_sets_of_appended_bytes_in_order() {
         // Setup
-        final PacketBuffer packetBuffer = new PacketBuffer();
+        final PacketBuffer packetBuffer = new PacketBuffer(BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
 
         final byte[] magicNumber        = _hexStringToByteArray("E3E1 F3E8", 6);
         final byte[] command            = _hexStringToByteArray("7665 7273 696F 6E00 0000 0000", 0);
@@ -44,7 +45,7 @@ public class PacketBufferTests {
     @Test
     public void should_be_recycle_byte_arrays_after_reading() {
         // Setup
-        final PacketBuffer packetBuffer = new PacketBuffer();
+        final PacketBuffer packetBuffer = new PacketBuffer(BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
 
         final byte[] magicNumber        = _hexStringToByteArray("FFFF FFFF FFFF FFFF FFFF", 0);
         final byte[] command            = _hexStringToByteArray("FFFF FFFF FFFF FFFF FFFF", 5);

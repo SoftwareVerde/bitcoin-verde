@@ -2,6 +2,7 @@ package com.softwareverde.network.p2p.node;
 
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
 
@@ -9,9 +10,8 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.util.ArrayDeque;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 
 public class NodeConnection {
     public interface MessageReceivedCallback {
@@ -71,7 +71,7 @@ public class NodeConnection {
                     // final String portString = urlParts.get(2);
                 }
 
-                _connection = new BinarySocket(socket);
+                _connection = new BinarySocket(socket, _binaryPacketFormat);
                 _connection.setMessageReceivedCallback(new Runnable() {
                     @Override
                     public void run() {
@@ -109,8 +109,9 @@ public class NodeConnection {
     private final String _host;
     private final Integer _port;
     private String _remoteIp;
+    private final BinaryPacketFormat _binaryPacketFormat;
 
-    private final Queue<ProtocolMessage> _outboundMessageQueue = new ArrayDeque<ProtocolMessage>();
+    private final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
 
     private BinarySocket _connection;
     private Thread _connectionThread;
@@ -132,7 +133,7 @@ public class NodeConnection {
             while (! _outboundMessageQueue.isEmpty()) {
                 if ((_connection == null) || (! _connection.isConnected())) { return; }
 
-                final ProtocolMessage message = _outboundMessageQueue.remove();
+                final ProtocolMessage message = _outboundMessageQueue.removeFirst();
                 _connection.write(message);
             }
         }
@@ -144,16 +145,17 @@ public class NodeConnection {
                 _connection.write(message);
             }
             else {
-                _outboundMessageQueue.add(message);
+                _outboundMessageQueue.addLast(message);
             }
         }
     }
 
-    public NodeConnection(final String host, final Integer port) {
+    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
         _host = host;
         _port = port;
 
         _connectionThread = new ConnectionThread();
+        _binaryPacketFormat = binaryPacketFormat;
     }
 
     public void startConnectionThread() {

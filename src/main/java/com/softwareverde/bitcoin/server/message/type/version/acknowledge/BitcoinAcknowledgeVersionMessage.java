@@ -4,10 +4,11 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.network.p2p.message.type.AcknowledgeVersionMessage;
 
-public class AcknowledgeVersionMessage extends BitcoinProtocolMessage {
+public class BitcoinAcknowledgeVersionMessage extends BitcoinProtocolMessage implements AcknowledgeVersionMessage<MessageType> {
 
-    public AcknowledgeVersionMessage() {
+    public BitcoinAcknowledgeVersionMessage() {
         super(MessageType.ACKNOWLEDGE_VERSION);
     }
 

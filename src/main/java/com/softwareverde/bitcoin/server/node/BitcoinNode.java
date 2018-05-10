@@ -1,26 +1,43 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.message.type.node.ping.PingMessage;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
+import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
+import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
+import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
-import com.softwareverde.network.p2p.node.Node;
+import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
+import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
+import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.p2p.message.type.PingMessage;
+import com.softwareverde.network.p2p.message.type.PongMessage;
+import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
+import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
+import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.util.Util;
-
-public class BitcoinNode extends Node {
+public class BitcoinNode extends Node<MessageType> {
     public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
 
@@ -39,32 +56,85 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
+        final Set<S> callbackSet = callbackMap.remove(key);
+        if (callbackSet == null) { return; }
+
+        for (final S callback : callbackSet) {
+            callback.onResult(value);
+        }
+    }
+
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
 
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
-    public BitcoinNode() {
+    @Override
+    protected BitcoinPingMessage _createPingMessage() {
+        return new BitcoinPingMessage();
+    }
+
+    @Override
+    protected BitcoinPongMessage _createPongMessage(final PingMessage pingMessage) {
+        final BitcoinPongMessage pongMessage = new BitcoinPongMessage();
+        pongMessage.setNonce(pingMessage.getNonce());
+        return pongMessage;
+    }
+
+    @Override
+    protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
+        { // Set Remote NodeIpAddress...
+            final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
+            remoteNodeIpAddress.setIp(Ipv4.parse(_connection.getRemoteIp()));
+            remoteNodeIpAddress.setPort(_connection.getPort());
+            remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
+            synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
+        }
+        return synchronizeVersionMessage;
+    }
+
+    @Override
+    protected BitcoinAcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
+        return new BitcoinAcknowledgeVersionMessage();
+    }
+
+    @Override
+    protected BitcoinNodeIpAddressMessage _createNodeIpAddressMessage() {
+        return new BitcoinNodeIpAddressMessage();
+    }
+
+    public BitcoinNode(final String host, final Integer port) {
+        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+
         _connection.setMessageReceivedCallback(new NodeConnection.MessageReceivedCallback() {
             @Override
-            public void onMessageReceived(final ProtocolMessage<MessageType> message) {
+            public void onMessageReceived(final ProtocolMessage protocolMessage) {
+                if (! (protocolMessage instanceof BitcoinProtocolMessage)) {
+                    Logger.log("NOTICE: Disregarding Non-Bitcoin ProtocolMessage.");
+                    return;
+                }
+
+                final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
+
                 _lastMessageReceivedTimestamp = System.currentTimeMillis();
 
                 switch (message.getCommand()) {
-                    case MessageType.PING: {
-                        _onPingReceived((PingMessage) message);
+                    case PING: {
+                        _onPingReceived((BitcoinPingMessage) message);
                     } break;
                     case PONG: {
                         _onPongReceived((PongMessage) message);
                     } break;
                     case SYNCHRONIZE_VERSION: {
-                        _onSynchronizeVersion((SynchronizeVersionMessage) message);
+                        _onSynchronizeVersion((BitcoinSynchronizeVersionMessage) message);
                     } break;
                     case ACKNOWLEDGE_VERSION: {
-                        _onAcknowledgeVersionMessageReceived((AcknowledgeVersionMessage) message);
+                        _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message);
                     } break;
                     case NODE_ADDRESSES: {
-                        _onNodeAddressesReceived((NodeIpAddressMessage) message);
+                        _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message);
                     } break;
                     case ERROR: {
                         _onErrorMessageReceived((ErrorMessage) message);
@@ -99,14 +169,11 @@ public class BitcoinNode extends Node {
         _connection.startConnectionThread();
     }
 
-
-    @Override
     protected void _onErrorMessageReceived(final ErrorMessage errorMessage) {
         final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
         Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ HexUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ HexUtil.toHexString(errorMessage.getExtraData()));
     }
 
-    @Override
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
         final Map<DataHashType, List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, List<Sha256Hash>>();
 
@@ -181,6 +248,11 @@ public class BitcoinNode extends Node {
     public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
         _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
         _requestBlock(blockHash);
+    }
+
+    @Override
+    public BitcoinNodeIpAddress getNodeAddress() {
+        return (BitcoinNodeIpAddress) _nodeIpAddress;
     }
 
     @Override

@@ -15,4 +15,9 @@ public class BitcoinProtocolMessageHeader implements ProtocolMessageHeader {
         this.payloadByteCount = payloadByteCount;
         this.payloadChecksum = payloadChecksum;
     }
+
+    @Override
+    public Integer getPayloadByteCount() {
+        return this.payloadByteCount;
+    }
 }

@@ -6,11 +6,11 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
-public class PongMessageInflater extends BitcoinProtocolMessageInflater {
+public class BitcoinPongMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
-    public PongMessage fromBytes(final byte[] bytes) {
-        final PongMessage pingMessage = new PongMessage();
+    public BitcoinPongMessage fromBytes(final byte[] bytes) {
+        final BitcoinPongMessage pingMessage = new BitcoinPongMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.PONG);

@@ -2,10 +2,11 @@ package com.softwareverde.network.socket;
 
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.message.ProtocolMessage;
 
 import java.io.IOException;
 
-public class BinaryServerSocket {
+public class BinaryServerSocket<S> {
     public interface SocketEventCallback {
         void onConnect(BinarySocket socketConnection);
         void onDisconnect(BinarySocket socketConnection);
@@ -22,7 +23,7 @@ public class BinaryServerSocket {
                 while (_shouldContinue) {
                     if (_socket == null) { return; }
 
-                    final BinarySocket connection = new BinarySocket(_socket.accept());
+                    final BinarySocket connection = new BinarySocket(_socket.accept(), _binaryPacketFormat);
 
                     final Boolean shouldPurgeConnections = (_nextConnectionId % PURGE_EVERY_COUNT == 0L);
                     if (shouldPurgeConnections) {
@@ -44,6 +45,7 @@ public class BinaryServerSocket {
     protected static final Long PURGE_EVERY_COUNT = 20L;
 
     protected final Integer _port;
+    protected final BinaryPacketFormat _binaryPacketFormat;
     protected java.net.ServerSocket _socket;
 
     protected final MutableList<BinarySocket> _connections = new MutableList<BinarySocket>();
@@ -109,8 +111,9 @@ public class BinaryServerSocket {
         }
     }
 
-    public BinaryServerSocket(final Integer port) {
+    public BinaryServerSocket(final Integer port, final BinaryPacketFormat binaryPacketFormat) {
         _port = port;
+        _binaryPacketFormat = binaryPacketFormat;
     }
 
     public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {
