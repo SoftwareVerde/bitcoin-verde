@@ -1,5 +1,5 @@
 package com.softwareverde.network.p2p.message;
 
-public interface ProtocolMessageInflater<T extends ProtocolMessage> {
+public interface ProtocolMessageFactory<T extends ProtocolMessage> {
     T fromBytes(byte[] bytes);
 }

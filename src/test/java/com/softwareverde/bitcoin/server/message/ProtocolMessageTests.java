@@ -58,7 +58,7 @@ public class ProtocolMessageTests {
     @Test
     public void should_deserialize_bitcoin_xt_version_protocol_message() {
         // Setup
-        final BitcoinProtocolMessageInflater protocolMessageFactory = new BitcoinProtocolMessageInflater();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String versionMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
@@ -111,7 +111,7 @@ public class ProtocolMessageTests {
     @Test
     public void shoul_deserialize_bitcoin_xt_getheaders_protocol_message() {
         // Setup
-        final BitcoinProtocolMessageInflater protocolMessageFactory = new BitcoinProtocolMessageInflater();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String getHeadersMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
@@ -177,7 +177,7 @@ public class ProtocolMessageTests {
     @Test
     public void shoul_deserialize_bitcoin_xt_getblocks_protocol_message() {
         // Setup
-        final BitcoinProtocolMessageInflater protocolMessageFactory = new BitcoinProtocolMessageInflater();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String getHeadersMessageHexString =
             "E3E1 F3E8"+                        // Magic Header

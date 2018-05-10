@@ -4,7 +4,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
-import com.softwareverde.network.p2p.message.ProtocolMessageInflater;
+import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -41,7 +41,7 @@ public class PacketBuffer {
     protected final LinkedList<ByteBuffer> _recycledByteArrays = new LinkedList<ByteBuffer>();
     protected final LinkedList<ByteBuffer> _byteArrayList = new LinkedList<ByteBuffer>();
     protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
-    protected final ProtocolMessageInflater _protocolMessageInflater;
+    protected final ProtocolMessageFactory _protocolMessageFactory;
     protected int _byteCount = 0;
 
     protected final byte[] _packetStartingBytesBuffer;
@@ -107,7 +107,7 @@ public class PacketBuffer {
         _reversedMainNetMagicNumber = ByteUtil.reverseEndian(binaryPacketFormat.magicNumber.getBytes());
 
         _protocolMessageHeaderInflater = binaryPacketFormat.protocolMessageHeaderInflater;
-        _protocolMessageInflater = binaryPacketFormat.protocolMessageInflater;
+        _protocolMessageFactory = binaryPacketFormat._protocolMessageFactory;
     }
 
     public void setBufferSize(final int bufferSize) {
@@ -180,6 +180,6 @@ public class PacketBuffer {
 
         final int fullPacketLength = (headerByteCount + payloadByteCount);
         final byte[] fullPacket = _consumeContiguousBytes(fullPacketLength);
-        return _protocolMessageInflater.fromBytes(fullPacket);
+        return _protocolMessageFactory.fromBytes(fullPacket);
     }
 }
