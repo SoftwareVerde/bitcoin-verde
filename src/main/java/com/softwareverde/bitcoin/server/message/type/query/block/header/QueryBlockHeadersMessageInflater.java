@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.server.message.type.query.block.header;
 
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
+import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.Endian;
 
-public class QueryBlockHeadersMessageInflater extends ProtocolMessageInflater {
+public class QueryBlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
     public QueryBlockHeadersMessage fromBytes(final byte[] bytes) {
@@ -15,7 +15,7 @@ public class QueryBlockHeadersMessageInflater extends ProtocolMessageInflater {
         final QueryBlockHeadersMessage queryBlockHeadersMessage = new QueryBlockHeadersMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.QUERY_BLOCK_HEADERS);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.QUERY_BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
         queryBlockHeadersMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);

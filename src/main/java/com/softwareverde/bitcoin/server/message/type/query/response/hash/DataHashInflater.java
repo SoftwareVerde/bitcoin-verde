@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 
 public class DataHashInflater {
     public static final Integer HASH_BYTE_COUNT = 32;

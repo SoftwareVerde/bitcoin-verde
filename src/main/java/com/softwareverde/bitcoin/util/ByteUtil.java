@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+
 public class ByteUtil {
     public static byte[] integerToBytes(final int value) {
         return new byte[] {
@@ -159,9 +161,22 @@ public class ByteUtil {
 
     public static Boolean areEqual(final byte[] bytes0, final byte[] bytes1) {
         if (bytes0.length != bytes1.length) { return false; }
-        for (int i=0; i<bytes0.length; ++i) {
+
+        for (int i = 0; i < bytes0.length; ++i) {
             final byte b0 = bytes0[i];
             final byte b1 = bytes1[i];
+            if (b0 != b1) { return false; }
+        }
+        return true;
+    }
+
+    public static Boolean areEqual(final ByteArray bytes0, final ByteArray bytes1) {
+        final int byteCount0 = bytes0.getByteCount();
+        if (byteCount0 != bytes1.getByteCount()) { return false; }
+
+        for (int i = 0; i < byteCount0; ++i) {
+            final byte b0 = bytes0.getByte(i);
+            final byte b1 = bytes1.getByte(i);
             if (b0 != b1) { return false; }
         }
         return true;

@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
-import com.softwareverde.bitcoin.server.node.Node;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -111,11 +111,11 @@ public class NodeModule {
         }
 
         final Container<Sha256Hash> lastBlockHash = new Container<Sha256Hash>(resumeAfterHash);
-        final Container<Node.QueryCallback> getBlocksHashesAfterCallback = new Container<Node.QueryCallback>();
+        final Container<BitcoinNode.QueryCallback> getBlocksHashesAfterCallback = new Container<BitcoinNode.QueryCallback>();
 
         final MutableList<Sha256Hash> availableBlockHashes = new MutableList<Sha256Hash>();
 
-        final Node.DownloadBlockCallback downloadBlockCallback = new Node.DownloadBlockCallback() {
+        final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 Logger.log("DOWNLOADED BLOCK: "+ HexUtil.toHexString(block.getHash().getBytes()));
@@ -140,7 +140,7 @@ public class NodeModule {
             }
         };
 
-        getBlocksHashesAfterCallback.value = new Node.QueryCallback() {
+        getBlocksHashesAfterCallback.value = new BitcoinNode.QueryCallback() {
             @Override
             public void onResult(final java.util.List<Sha256Hash> blockHashes) {
                 final List<Sha256Hash> hashes = new ImmutableList<Sha256Hash>(blockHashes); // TODO: Remove the conversion requirement. (Requires Constable.LinkedList)
@@ -243,7 +243,7 @@ public class NodeModule {
         _nodeManager = new NodeManager(maxPeerCount);
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
-            final Node node = new Node(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
+            final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             _nodeManager.addNode(node);
         }
     }
@@ -271,7 +271,7 @@ public class NodeModule {
         }
 
         if (! _hasGenesisBlock) {
-            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new Node.DownloadBlockCallback() {
+            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
                     if (_hasGenesisBlock) {

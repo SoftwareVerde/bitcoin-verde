@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;

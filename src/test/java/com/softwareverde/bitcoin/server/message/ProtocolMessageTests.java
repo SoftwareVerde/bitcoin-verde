@@ -1,14 +1,15 @@
 package com.softwareverde.bitcoin.server.message;
 
-import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.message.type.version.synchronize.SynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.socket.ip.Ipv4;
+import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -39,12 +40,12 @@ public class ProtocolMessageTests {
         final NodeFeatures nodeFeatures = new NodeFeatures();
         nodeFeatures.enableFeatureFlag(NodeFeatures.Flags.BLOCKCHAIN_ENABLED);
 
-        final NodeIpAddress remoteNodeIpAddress = new NodeIpAddress();
+        final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
         remoteNodeIpAddress.setIp(Ipv4.parse("192.168.1.1"));
         remoteNodeIpAddress.setPort(8333);
         remoteNodeIpAddress.setNodeFeatures(nodeFeatures);
 
-        final SynchronizeVersionMessage synchronizeVersionMessage = new SynchronizeVersionMessage();
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
         synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
 
         // Action
@@ -57,7 +58,7 @@ public class ProtocolMessageTests {
     @Test
     public void should_deserialize_bitcoin_xt_version_protocol_message() {
         // Setup
-        final ProtocolMessageFactory protocolMessageFactory = new ProtocolMessageFactory();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String versionMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
@@ -79,23 +80,23 @@ public class ProtocolMessageTests {
         final byte[] versionMessage = HexUtil.hexStringToByteArray(versionMessageHexString.replaceAll("\\s", ""));
 
         // Action
-        final SynchronizeVersionMessage synchronizeVersionMessage = (SynchronizeVersionMessage) protocolMessageFactory.fromBytes(versionMessage);
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) protocolMessageFactory.fromBytes(versionMessage);
 
         // Assert
         Assert.assertNotNull(synchronizeVersionMessage);
 
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), synchronizeVersionMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.MessageType.SYNCHRONIZE_VERSION, synchronizeVersionMessage.getCommand());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), synchronizeVersionMessage.getMagicNumber().getBytes());
+        Assert.assertEquals(MessageType.SYNCHRONIZE_VERSION, synchronizeVersionMessage.getCommand());
 
         Assert.assertEquals(0x0000000000000037L, synchronizeVersionMessage.getNodeFeatures().getFeatureFlags().longValue());
         Assert.assertEquals(0x000000005A7B4EE5L, synchronizeVersionMessage.getTimestamp().longValue());
 
-        final NodeIpAddress remoteNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
+        final BitcoinNodeIpAddress remoteNodeIpAddress = synchronizeVersionMessage.getRemoteNodeIpAddress();
         TestUtil.assertEqual(new byte[]{ (byte) 0x18, (byte) 0x23, (byte) 0x3C, (byte) 0x8A }, remoteNodeIpAddress.getIp().getBytes());
         Assert.assertEquals(50764, remoteNodeIpAddress.getPort().intValue());
         Assert.assertEquals(0x0000000000000001L, remoteNodeIpAddress.getNodeFeatures().getFeatureFlags().longValue());
 
-        final NodeIpAddress localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        final BitcoinNodeIpAddress localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
         TestUtil.assertEqual(new byte[]{ (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 }, localNodeIpAddress.getIp().getBytes());
         Assert.assertEquals(0, localNodeIpAddress.getPort().intValue());
         Assert.assertEquals(0x0000000000000037L, localNodeIpAddress.getNodeFeatures().getFeatureFlags().longValue());
@@ -110,7 +111,7 @@ public class ProtocolMessageTests {
     @Test
     public void shoul_deserialize_bitcoin_xt_getheaders_protocol_message() {
         // Setup
-        final ProtocolMessageFactory protocolMessageFactory = new ProtocolMessageFactory();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String getHeadersMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
@@ -161,8 +162,8 @@ public class ProtocolMessageTests {
         // Assert
         Assert.assertNotNull(queryBlockHeadersMessage);
 
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlockHeadersMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.MessageType.QUERY_BLOCK_HEADERS, queryBlockHeadersMessage.getCommand());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlockHeadersMessage.getMagicNumber().getBytes());
+        Assert.assertEquals(MessageType.QUERY_BLOCK_HEADERS, queryBlockHeadersMessage.getCommand());
 
         final List<byte[]> blockHeaderHashes = queryBlockHeadersMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());
@@ -176,7 +177,7 @@ public class ProtocolMessageTests {
     @Test
     public void shoul_deserialize_bitcoin_xt_getblocks_protocol_message() {
         // Setup
-        final ProtocolMessageFactory protocolMessageFactory = new ProtocolMessageFactory();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
         final String getHeadersMessageHexString =
             "E3E1 F3E8"+                        // Magic Header
@@ -227,8 +228,8 @@ public class ProtocolMessageTests {
         // Assert
         Assert.assertNotNull(queryBlocksMessage);
 
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlocksMessage.getMagicNumber());
-        Assert.assertEquals(ProtocolMessage.MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlocksMessage.getMagicNumber().getBytes());
+        Assert.assertEquals(MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = queryBlocksMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());

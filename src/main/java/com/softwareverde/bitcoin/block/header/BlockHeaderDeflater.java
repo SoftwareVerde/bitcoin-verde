@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class BlockHeaderDeflater {
     public static class BlockHeaderByteData {

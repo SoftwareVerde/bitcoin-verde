@@ -1,12 +1,14 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.module.node.manager.health.NodeHealth;
-import com.softwareverde.bitcoin.server.node.Node;
-import com.softwareverde.bitcoin.server.node.NodeId;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.Node;
+import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.util.Container;
 
 import java.util.*;
@@ -75,12 +77,12 @@ public class NodeManager {
 
     protected final Object _mutex = new Object();
 
-    protected final Map<NodeId, Node> _nodes;
+    protected final Map<NodeId, BitcoinNode> _nodes;
     protected final Map<NodeId, NodeHealth> _nodeHealthMap;
 
     protected final List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
 
-    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
+    protected final Set<BitcoinNodeIpAddress> _nodeAddresses = new HashSet<BitcoinNodeIpAddress>();
 
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
 
@@ -124,7 +126,7 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected void _broadcastNewNodeToExistingNodes(final NodeIpAddress nodeIpAddress) {
+    protected void _broadcastNewNodeToExistingNodes(final BitcoinNodeIpAddress nodeIpAddress) {
         for (final Node node : _nodes.values()) {
             node.broadcastNodeAddress(nodeIpAddress);
             if (LOGGING_ENABLED) {
@@ -135,11 +137,11 @@ public class NodeManager {
 
     // NOTE: Requires Mutex Lock...
     protected void _broadcastExistingNodesToNewNode(final Node newNode) {
-        final Collection<Node> nodes = _nodes.values();
+        final Collection<BitcoinNode> nodes = _nodes.values();
 
-        final List<NodeIpAddress> nodeAddresses = new ArrayList<NodeIpAddress>(nodes.size());
-        for (final Node node : nodes) {
-            final NodeIpAddress nodeIpAddress = node.getNodeAddress();
+        final List<BitcoinNodeIpAddress> nodeAddresses = new ArrayList<BitcoinNodeIpAddress>(nodes.size());
+        for (final BitcoinNode node : nodes) {
+            final BitcoinNodeIpAddress nodeIpAddress = node.getNodeAddress();
             if (nodeIpAddress == null) { continue; }
 
             nodeAddresses.add(nodeIpAddress);
@@ -153,15 +155,18 @@ public class NodeManager {
     }
 
     protected void _initNode(final Node node) {
-        node.setNodeAddressesReceivedCallback(new Node.NodeAddressesReceivedCallback() {
+        node.setNodeAddressesReceivedCallback(new BitcoinNode.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
+                if (! (nodeIpAddress instanceof BitcoinNodeIpAddress)) { Logger.log("NOTICE: Disregarding Non-Bitcoin NodeIpAddress..."); return; }
+                final BitcoinNodeIpAddress bitcoinNodeIpAddress = (BitcoinNodeIpAddress) nodeIpAddress;
+
                 synchronized (_mutex) {
-                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
+                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(bitcoinNodeIpAddress);
                     if (haveAlreadySeenNode) { return; }
 
-                    _nodeAddresses.add(nodeIpAddress);
-                    _broadcastNewNodeToExistingNodes(nodeIpAddress);
+                    _nodeAddresses.add(bitcoinNodeIpAddress);
+                    _broadcastNewNodeToExistingNodes(bitcoinNodeIpAddress);
 
                     final Integer healthyNodeCount = _countNodesAboveHealth(50);
                     if (healthyNodeCount >= _maxNodeCount) { return; }
@@ -177,7 +182,7 @@ public class NodeManager {
                         }
                     }
 
-                    final Node newNode = new Node(address, port);
+                    final BitcoinNode newNode = new BitcoinNode(address, port);
                     _initNode(newNode);
 
                     _broadcastExistingNodesToNewNode(newNode);
@@ -288,7 +293,7 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected Node _selectBestNode() {
+    protected BitcoinNode _selectBestNode() {
         final List<Node> activeNodes = _getActiveNodes();
 
         final Integer activeNodeCount = activeNodes.size();
@@ -302,7 +307,7 @@ public class NodeManager {
         Collections.sort(nodeHealthList, NodeHealth.COMPARATOR);
 
         final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - 1);
-        final Node selectedNode = _nodes.get(bestNodeHealth.getNodeId());
+        final BitcoinNode selectedNode = _nodes.get(bestNodeHealth.getNodeId());
 
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + bestNodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + activeNodeCount + " / " + _nodes.size());
@@ -349,12 +354,12 @@ public class NodeManager {
     }
 
     public NodeManager(final Integer maxNodeCount) {
-        _nodes = new HashMap<NodeId, Node>(maxNodeCount);
+        _nodes = new HashMap<NodeId, BitcoinNode>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
         _maxNodeCount = maxNodeCount;
     }
 
-    public void addNode(final Node node) {
+    public void addNode(final BitcoinNode node) {
         _initNode(node);
 
         synchronized (_mutex) {
@@ -375,7 +380,7 @@ public class NodeManager {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    public void requestBlock(final Sha256Hash blockHash, final Node.DownloadBlockCallback downloadBlockCallback) {
+    public void requestBlock(final Sha256Hash blockHash, final BitcoinNode.DownloadBlockCallback downloadBlockCallback) {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
@@ -387,7 +392,7 @@ public class NodeManager {
         };
 
         synchronized (_mutex) {
-            final Node selectedNode = _selectBestNode();
+            final BitcoinNode selectedNode = _selectBestNode();
 
             if (selectedNode == null) {
                 if (LOGGING_ENABLED) {
@@ -404,7 +409,7 @@ public class NodeManager {
             final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
             final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
             nodeHealth.onMessageSent();
-            selectedNode.requestBlock(blockHash, new Node.DownloadBlockCallback() {
+            selectedNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block result) {
                     synchronized (timeoutThread.mutex) {
@@ -424,7 +429,7 @@ public class NodeManager {
         }
     }
 
-    public void requestBlockHashesAfter(final Sha256Hash blockHash, final Node.QueryCallback queryCallback) {
+    public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback queryCallback) {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
@@ -436,7 +441,7 @@ public class NodeManager {
         };
 
         synchronized (_mutex) {
-            final Node selectedNode = _selectBestNode();
+            final BitcoinNode selectedNode = _selectBestNode();
 
             if (selectedNode == null) {
                 if (LOGGING_ENABLED) {
@@ -452,7 +457,7 @@ public class NodeManager {
             final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
             final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
             nodeHealth.onMessageSent();
-            selectedNode.requestBlockHashesAfter(blockHash, new Node.QueryCallback() {
+            selectedNode.requestBlockHashesAfter(blockHash, new BitcoinNode.QueryCallback() {
                 @Override
                 public void onResult(final List<Sha256Hash> result) {
                     synchronized (timeoutThread.mutex) {

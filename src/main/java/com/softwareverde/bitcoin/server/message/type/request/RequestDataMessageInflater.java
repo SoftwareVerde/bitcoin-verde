@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.server.message.type.request;
 
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.server.message.ProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.message.header.ProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
+import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
-public class RequestDataMessageInflater extends ProtocolMessageInflater {
+public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
     public static final Integer HASH_BYTE_COUNT = 32;
 
     @Override
@@ -17,7 +17,7 @@ public class RequestDataMessageInflater extends ProtocolMessageInflater {
         final RequestDataMessage inventoryMessage = new RequestDataMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final ProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, ProtocolMessage.MessageType.REQUEST_OBJECT);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.REQUEST_OBJECT);
         if (protocolMessageHeader == null) { return null; }
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
