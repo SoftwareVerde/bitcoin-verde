@@ -7,12 +7,12 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.key.PublicKey;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class ScriptBuilder {
     protected static LockingScript _createPayToAddressScript(final Address address) {

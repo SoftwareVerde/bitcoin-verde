@@ -4,11 +4,11 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class BlockDeflater {
     public ByteArray toBytes(final Block block) {

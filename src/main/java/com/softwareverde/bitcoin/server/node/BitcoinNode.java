@@ -2,8 +2,6 @@ package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -28,7 +26,6 @@ import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
-import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 

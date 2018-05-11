@@ -6,11 +6,11 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
-import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage implements SynchronizeVersionMessage {
     protected Integer _version;

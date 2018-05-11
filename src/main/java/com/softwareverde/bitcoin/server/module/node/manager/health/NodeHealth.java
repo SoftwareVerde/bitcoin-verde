@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.manager.health;
 
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.bitcoin.type.time.SystemTime;
 import com.softwareverde.bitcoin.type.time.Time;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.RotatingQueue;
 
 import java.util.Comparator;

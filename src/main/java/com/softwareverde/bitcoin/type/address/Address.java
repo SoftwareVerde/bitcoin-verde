@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.type.address;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class Address extends ImmutableByteArray {
     public static final byte PREFIX = 0x00;

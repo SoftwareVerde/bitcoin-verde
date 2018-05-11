@@ -22,12 +22,12 @@ import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionSigner {
     private static final byte[] INVALID_SIGNATURE_HASH_SINGLE_VALUE = HexUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000");

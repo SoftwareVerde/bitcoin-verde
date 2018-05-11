@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.block.header;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
-import com.softwareverde.constable.bytearray.ByteArray;
 
 public class BlockHeaderInflater {
     protected MutableBlockHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {

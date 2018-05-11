@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.transaction.input;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInputDeflater {
     protected void _toFragmentedBytes(final TransactionInput transactionInput, final ByteArrayBuilder headBytes, final ByteArrayBuilder tailBytes) {

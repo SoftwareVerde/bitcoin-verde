@@ -2,13 +2,13 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class ScriptInflater {
     protected MutableList<Operation> _getOperationList(final ByteArray bytes) {

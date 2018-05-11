@@ -4,14 +4,14 @@ import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHea
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.network.socket.BinaryPacketFormat;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 /**
  * Protocol Definition:

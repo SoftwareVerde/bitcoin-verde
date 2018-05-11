@@ -2,9 +2,9 @@ package com.softwareverde.network.socket;
 
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeader;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
-import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;

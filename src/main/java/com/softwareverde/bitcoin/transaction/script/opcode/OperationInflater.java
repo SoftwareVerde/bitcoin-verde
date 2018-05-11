@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class OperationInflater {
     public Operation fromBytes(final ByteArrayReader byteArrayReader) {

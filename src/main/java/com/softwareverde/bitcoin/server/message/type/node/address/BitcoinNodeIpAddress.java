@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.message.type.node.address;
 
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;

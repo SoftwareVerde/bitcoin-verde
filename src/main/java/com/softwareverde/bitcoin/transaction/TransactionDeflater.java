@@ -6,11 +6,11 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionDeflater {
     protected void _toFragmentedBytes(final Transaction transaction, final ByteArrayBuilder headBytesBuilder, final ByteArrayBuilder tailBytesBuilder) {

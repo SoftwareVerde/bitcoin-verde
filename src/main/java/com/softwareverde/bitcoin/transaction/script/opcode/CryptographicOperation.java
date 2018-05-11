@@ -12,11 +12,11 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;

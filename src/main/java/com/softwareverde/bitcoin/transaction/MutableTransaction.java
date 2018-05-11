@@ -8,10 +8,10 @@ import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MutableTransaction implements Transaction {
     protected Integer _version = Transaction.VERSION;

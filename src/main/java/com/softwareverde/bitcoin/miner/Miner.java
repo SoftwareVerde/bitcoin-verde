@@ -14,7 +14,6 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -22,6 +21,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.jocl.GpuSha256;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class Miner {
     protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);

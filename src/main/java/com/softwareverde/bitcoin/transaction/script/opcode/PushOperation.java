@@ -5,13 +5,13 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.ByteArrayReader;
-import com.softwareverde.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.Endian;
 
 public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
