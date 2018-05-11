@@ -247,6 +247,7 @@ public class NodeModule {
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
+            node.handshake();
             _nodeManager.addNode(node);
         }
 
@@ -255,8 +256,9 @@ public class NodeModule {
             @Override
             public void run(final BinarySocket binarySocket) {
                 Logger.log("New Connection: " + binarySocket);
-                final BitcoinNode bitcoinNode = new BitcoinNode(binarySocket);
-                _nodeManager.addNode(bitcoinNode);
+                final BitcoinNode node = new BitcoinNode(binarySocket);
+                node.handshake();
+                _nodeManager.addNode(node);
             }
         });
     }

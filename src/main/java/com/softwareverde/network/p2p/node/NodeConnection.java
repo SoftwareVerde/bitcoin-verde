@@ -72,36 +72,7 @@ public class NodeConnection {
                 }
 
                 _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
-                _binarySocket.setMessageReceivedCallback(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (_messageReceivedCallback != null) {
-                            _messageReceivedCallback.onMessageReceived(_binarySocket.popMessage());
-                        }
-                    }
-                });
-
-                final Boolean isFirstConnection = (_connectionCount == 0);
-                if (isFirstConnection) {
-                    Logger.log("IO: NodeConnection: Connection established.");
-
-                    _processOutboundMessageQueue();
-
-                    if (_onConnectCallback != null) {
-                        (new Thread(_onConnectCallback)).start();
-                    }
-                }
-                else {
-                    Logger.log("IO: NodeConnection: Connection regained.");
-                    _processOutboundMessageQueue();
-
-                    if (_onReconnectCallback != null) {
-                        (new Thread(_onReconnectCallback)).start();
-                    }
-                }
-
-                _socketUsedToBeConnected = true;
-                _connectionCount += 1;
+                _onSocketConnected();
             }
         }
     }
@@ -126,6 +97,39 @@ public class NodeConnection {
 
     private Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
+    }
+
+    private void _onSocketConnected() {
+        _binarySocket.setMessageReceivedCallback(new Runnable() {
+            @Override
+            public void run() {
+                if (_messageReceivedCallback != null) {
+                    _messageReceivedCallback.onMessageReceived(_binarySocket.popMessage());
+                }
+            }
+        });
+
+        final Boolean isFirstConnection = (_connectionCount == 0);
+        if (isFirstConnection) {
+            Logger.log("IO: NodeConnection: Connection established.");
+
+            _processOutboundMessageQueue();
+
+            if (_onConnectCallback != null) {
+                (new Thread(_onConnectCallback)).start();
+            }
+        }
+        else {
+            Logger.log("IO: NodeConnection: Connection regained.");
+            _processOutboundMessageQueue();
+
+            if (_onReconnectCallback != null) {
+                (new Thread(_onReconnectCallback)).start();
+            }
+        }
+
+        _socketUsedToBeConnected = true;
+        _connectionCount += 1;
     }
 
     private void _processOutboundMessageQueue() {
@@ -164,6 +168,8 @@ public class NodeConnection {
         _binarySocket = binarySocket;
         _connectionThread = new ConnectionThread();
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
+
+        _onSocketConnected();
     }
 
     public void startConnectionThread() {
@@ -221,6 +227,6 @@ public class NodeConnection {
 
     @Override
     public String toString() {
-        return _binarySocket.toString();
+        return (_host +":" + _port);
     }
 }

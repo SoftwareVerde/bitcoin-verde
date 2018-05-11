@@ -54,6 +54,7 @@ public abstract class Node {
     protected final NodeConnection _connection;
 
     protected NodeIpAddress _nodeIpAddress = null;
+    protected Boolean _hasSentVersion = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
@@ -80,9 +81,16 @@ public abstract class Node {
         }
     }
 
+    protected void _handshake() {
+        if (! _hasSentVersion) {
+            final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
+            _connection.queueMessage(synchronizeVersionMessage);
+            _hasSentVersion = true;
+        }
+    }
+
     protected void _onConnect() {
-        final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
-        _connection.queueMessage(synchronizeVersionMessage);
+        _handshake();
 
         if (_nodeConnectedCallback != null) {
             (new Thread(new Runnable() {
@@ -136,7 +144,7 @@ public abstract class Node {
         _nodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
 
         final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
-        _queueMessage(acknowledgeVersionMessage);
+        _connection.queueMessage(acknowledgeVersionMessage);
     }
 
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
@@ -193,6 +201,10 @@ public abstract class Node {
     }
 
     public NodeId getId() { return _id; }
+
+    public void handshake() {
+        _handshake();
+    }
 
     public Boolean handshakeIsComplete() {
         return _handshakeIsComplete;

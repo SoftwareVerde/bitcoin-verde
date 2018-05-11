@@ -114,6 +114,8 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
+                Logger.log("Received: "+ message.getCommand());
+
                 _lastMessageReceivedTimestamp = System.currentTimeMillis();
 
                 switch (message.getCommand()) {
@@ -169,14 +171,13 @@ public class BitcoinNode extends Node {
                 _onDisconnect();
             }
         });
-
-        _connection.startConnectionThread();
     }
 
     public BitcoinNode(final String host, final Integer port) {
         super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
 
         _initConnection();
+        _connection.startConnectionThread();
     }
 
     public BitcoinNode(final BinarySocket binarySocket) {
