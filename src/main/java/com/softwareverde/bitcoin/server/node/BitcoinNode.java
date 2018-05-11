@@ -239,7 +239,6 @@ public class BitcoinNode extends Node {
         _queueMessage(requestDataMessage);
     }
 
-
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);

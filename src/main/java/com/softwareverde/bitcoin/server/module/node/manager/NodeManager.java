@@ -1,10 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.module.node.manager.health.NodeHealth;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -15,8 +13,22 @@ import java.util.*;
 
 public class NodeManager {
     public static final Long REQUEST_TIMEOUT_THRESHOLD = 5_000L;
-
     public static Boolean LOGGING_ENABLED = true;
+
+    /**
+     * NodeApiInvocation.run() should invoke an Api Call on the provided Node.
+     *  It is required that within the callback of the Node Api Call, nodeApiInvocationCallback.didTimeout() is invoked immediately.
+     *  nodeApiInvocationCallback.didTimeout() cancels the retry-thread timeout and returns true if the request has already timed out.
+     *  If nodeApiInvocationCallback.didTimeout() returns true, then the the Node Api Callback should abort.
+     */
+    public interface NodeApiInvocation {
+        void run(BitcoinNode node, NodeApiInvocationCallback nodeApiInvocationCallback);
+    }
+
+    public static abstract class NodeApiInvocationCallback {
+        protected NodeApiInvocationCallback() { }
+        abstract Boolean didTimeout();
+    }
 
     protected static class RequestTimeoutThread extends Thread {
         public final Object mutex = new Object();
@@ -380,100 +392,53 @@ public class NodeManager {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    public void requestBlock(final Sha256Hash blockHash, final BitcoinNode.DownloadBlockCallback downloadBlockCallback) {
+    public void executeRequest(final NodeApiInvocation nodeApiInvocation) {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
-                if (LOGGING_ENABLED) {
-                    Logger.log("P2P: Executing Command: NodeManager.requestBlock " + blockHash);
-                }
-                NodeManager.this.requestBlock(blockHash, downloadBlockCallback);
+                NodeManager.this.executeRequest(nodeApiInvocation);
             }
         };
 
-        synchronized (_mutex) {
-            final BitcoinNode selectedNode = _selectBestNode();
+        final BitcoinNode selectedNode;
+        final NodeHealth nodeHealth;
+        {
+            synchronized (_mutex) {
+                selectedNode = _selectBestNode();
 
-            if (selectedNode == null) {
-                if (LOGGING_ENABLED) {
-                    Logger.log("P2P: Queuing Command: NodeManager.requestBlock " + blockHash);
+                if (selectedNode == null) {
+                    _queuedNodeRequests.add(replayInvocation);
+                    return;
                 }
 
-                _queuedNodeRequests.add(replayInvocation);
-
-                return;
+                final NodeId nodeId = selectedNode.getId();
+                nodeHealth = _nodeHealthMap.get(nodeId);
             }
+        }
 
-            final NodeId nodeId = selectedNode.getId();
-            final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
+        final RequestTimeoutThread timeoutThread;
+        final NodeApiInvocationCallback cancelRequestTimeout;
+        {
             final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
-            final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
-            nodeHealth.onMessageSent();
-            selectedNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+            timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
+
+            cancelRequestTimeout = new NodeApiInvocationCallback() {
                 @Override
-                public void onResult(final Block result) {
+                public Boolean didTimeout() {
                     synchronized (timeoutThread.mutex) {
-                        if (didMessageTimeOut.value != null) { return; }
+                        if (didMessageTimeOut.value != null) { return true; }
                         didMessageTimeOut.value = false;
                     }
 
                     nodeHealth.onMessageReceived(true);
                     timeoutThread.interrupt();
-
-                    if (downloadBlockCallback != null) {
-                        downloadBlockCallback.onResult(result);
-                    }
+                    return false;
                 }
-            });
-            timeoutThread.start();
+            };
         }
-    }
 
-    public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback queryCallback) {
-        final Runnable replayInvocation = new Runnable() {
-            @Override
-            public void run() {
-                if (LOGGING_ENABLED) {
-                    Logger.log("P2P: Executing Command: NodeManager.requestBlockHashesAfter " + blockHash);
-                }
-                NodeManager.this.requestBlockHashesAfter(blockHash, queryCallback);
-            }
-        };
-
-        synchronized (_mutex) {
-            final BitcoinNode selectedNode = _selectBestNode();
-
-            if (selectedNode == null) {
-                if (LOGGING_ENABLED) {
-                    Logger.log("P2P: Queuing Command: NodeManager.requestBlockHashesAfter " + blockHash);
-                }
-                _queuedNodeRequests.add(replayInvocation);
-
-                return;
-            }
-
-            final NodeId nodeId = selectedNode.getId();
-            final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-            final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
-            final RequestTimeoutThread timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
-            nodeHealth.onMessageSent();
-            selectedNode.requestBlockHashesAfter(blockHash, new BitcoinNode.QueryCallback() {
-                @Override
-                public void onResult(final List<Sha256Hash> result) {
-                    synchronized (timeoutThread.mutex) {
-                        if (didMessageTimeOut.value != null) { return; }
-                        didMessageTimeOut.value = false;
-                    }
-
-                    nodeHealth.onMessageReceived(true);
-                    timeoutThread.interrupt();
-
-                    if (queryCallback != null) {
-                        queryCallback.onResult(result);
-                    }
-                }
-            });
-            timeoutThread.start();
-        }
+        timeoutThread.start();
+        nodeHealth.onMessageSent();
+        nodeApiInvocation.run(selectedNode, cancelRequestTimeout);
     }
 }
