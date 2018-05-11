@@ -119,7 +119,7 @@ public class StackOperation extends SubTypedOperation {
                 // 2 3 0 1 4 5 6// End state.
 
                 final Value valueAtTwo = stack.pop(2);
-                final Value valueAtThree = stack.pop(3);
+                final Value valueAtThree = stack.pop(2);
                 stack.push(valueAtThree);
                 stack.push(valueAtTwo);
 
