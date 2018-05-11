@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.manager.health;
+package com.softwareverde.network.p2p.node.manager.health;
 
 import com.softwareverde.bitcoin.type.time.Time;
 import com.softwareverde.network.p2p.node.NodeId;
