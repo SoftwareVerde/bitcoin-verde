@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -23,6 +24,8 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.socket.SocketServer;
+import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 
@@ -74,6 +77,7 @@ public class NodeModule {
     protected int _totalBlockValidationMsElapsed = 0;
 
     protected final BitcoinNodeManager _nodeManager;
+    protected final SocketServer _socketServer;
 
     protected void _exitFailure() {
         Logger.shutdown();
@@ -245,6 +249,16 @@ public class NodeModule {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             _nodeManager.addNode(node);
         }
+
+        _socketServer = new SocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+        _socketServer.setSocketConnectedCallback(new SocketServer.SocketConnectedCallback() {
+            @Override
+            public void run(final BinarySocket binarySocket) {
+                Logger.log("New Connection: " + binarySocket);
+                final BitcoinNode bitcoinNode = new BitcoinNode(binarySocket);
+                _nodeManager.addNode(bitcoinNode);
+            }
+        });
     }
 
     public void loop() {
@@ -254,6 +268,9 @@ public class NodeModule {
 
         _blockValidatorThread.start();
         Logger.log("[Block Validator Thread Online]");
+
+        _socketServer.start();
+        Logger.log("[Listening For Connections]");
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
 
@@ -296,5 +313,6 @@ public class NodeModule {
         _nodeManager.stopNodeMaintenanceThread();
         _blockValidatorThread.interrupt();
         _readUncommittedDatabaseConnectionPool.shutdown();
+        _socketServer.stop();
     }
 }

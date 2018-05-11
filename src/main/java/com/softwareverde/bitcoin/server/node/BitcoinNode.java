@@ -26,6 +26,7 @@ import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
+import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -102,9 +103,7 @@ public class BitcoinNode extends Node {
         return new BitcoinNodeIpAddressMessage();
     }
 
-    public BitcoinNode(final String host, final Integer port) {
-        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
-
+    protected void _initConnection() {
         _connection.setMessageReceivedCallback(new NodeConnection.MessageReceivedCallback() {
             @Override
             public void onMessageReceived(final ProtocolMessage protocolMessage) {
@@ -121,27 +120,35 @@ public class BitcoinNode extends Node {
                     case PING: {
                         _onPingReceived((BitcoinPingMessage) message);
                     } break;
+
                     case PONG: {
                         _onPongReceived((PongMessage) message);
                     } break;
+
                     case SYNCHRONIZE_VERSION: {
                         _onSynchronizeVersion((BitcoinSynchronizeVersionMessage) message);
                     } break;
+
                     case ACKNOWLEDGE_VERSION: {
                         _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message);
                     } break;
+
                     case NODE_ADDRESSES: {
                         _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message);
                     } break;
+
                     case ERROR: {
                         _onErrorMessageReceived((ErrorMessage) message);
                     } break;
+
                     case QUERY_RESPONSE: {
                         _onQueryResponseMessageReceived((QueryResponseMessage) message);
                     } break;
+
                     case BLOCK: {
                         _onBlockMessageReceived((BlockMessage) message);
                     } break;
+
                     default: {
                         Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
                     } break;
@@ -164,6 +171,18 @@ public class BitcoinNode extends Node {
         });
 
         _connection.startConnectionThread();
+    }
+
+    public BitcoinNode(final String host, final Integer port) {
+        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+
+        _initConnection();
+    }
+
+    public BitcoinNode(final BinarySocket binarySocket) {
+        super(binarySocket);
+
+        _initConnection();
     }
 
     protected void _onErrorMessageReceived(final ErrorMessage errorMessage) {

@@ -71,12 +71,12 @@ public class NodeConnection {
                     // final String portString = urlParts.get(2);
                 }
 
-                _connection = new BinarySocket(socket, _binaryPacketFormat);
-                _connection.setMessageReceivedCallback(new Runnable() {
+                _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
+                _binarySocket.setMessageReceivedCallback(new Runnable() {
                     @Override
                     public void run() {
                         if (_messageReceivedCallback != null) {
-                            _messageReceivedCallback.onMessageReceived(_connection.popMessage());
+                            _messageReceivedCallback.onMessageReceived(_binarySocket.popMessage());
                         }
                     }
                 });
@@ -113,7 +113,7 @@ public class NodeConnection {
 
     private final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
 
-    private BinarySocket _connection;
+    private BinarySocket _binarySocket;
     private Thread _connectionThread;
     private MessageReceivedCallback _messageReceivedCallback;
 
@@ -125,16 +125,16 @@ public class NodeConnection {
     private Runnable _onConnectCallback;
 
     private Boolean _socketIsConnected() {
-        return ( (_connection != null) && (_connection.isConnected()) );
+        return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
     }
 
     private void _processOutboundMessageQueue() {
         synchronized (_outboundMessageQueue) {
             while (! _outboundMessageQueue.isEmpty()) {
-                if ((_connection == null) || (! _connection.isConnected())) { return; }
+                if ((_binarySocket == null) || (! _binarySocket.isConnected())) { return; }
 
                 final ProtocolMessage message = _outboundMessageQueue.removeFirst();
-                _connection.write(message);
+                _binarySocket.write(message);
             }
         }
     }
@@ -142,7 +142,7 @@ public class NodeConnection {
     private void _writeOrQueueMessage(final ProtocolMessage message) {
         synchronized (_outboundMessageQueue) {
             if (_socketIsConnected()) {
-                _connection.write(message);
+                _binarySocket.write(message);
             }
             else {
                 _outboundMessageQueue.addLast(message);
@@ -156,6 +156,14 @@ public class NodeConnection {
 
         _connectionThread = new ConnectionThread();
         _binaryPacketFormat = binaryPacketFormat;
+    }
+
+    public NodeConnection(final BinarySocket binarySocket) {
+        _host = binarySocket.getHost();
+        _port = binarySocket.getPort();
+        _binarySocket = binarySocket;
+        _connectionThread = new ConnectionThread();
+        _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
     }
 
     public void startConnectionThread() {
@@ -185,8 +193,8 @@ public class NodeConnection {
     public void disconnect() {
         _connectionThread.interrupt();
 
-        if (_connection != null) {
-            _connection.close();
+        if (_binarySocket != null) {
+            _binarySocket.close();
         }
     }
 
@@ -210,4 +218,9 @@ public class NodeConnection {
     public String getHost() { return _host; }
 
     public Integer getPort() { return _port; }
+
+    @Override
+    public String toString() {
+        return _binarySocket.toString();
+    }
 }

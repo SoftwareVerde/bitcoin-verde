@@ -7,6 +7,7 @@ import com.softwareverde.network.p2p.message.ProtocolMessage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.util.LinkedList;
 
@@ -19,10 +20,10 @@ public class BinarySocket {
     protected class ReadThread extends Thread {
         private final PacketBuffer _protocolMessageBuffer;
 
-        public ReadThread(final BinaryPacketFormat binaryPacketFormat) {
+        public ReadThread() {
             this.setName("Bitcoin Socket - Read Thread - " + this.getId());
 
-            _protocolMessageBuffer = new PacketBuffer(binaryPacketFormat);
+            _protocolMessageBuffer = new PacketBuffer(_binaryPacketFormat);
             _protocolMessageBuffer.setBufferSize(bufferSize);
         }
 
@@ -68,6 +69,7 @@ public class BinarySocket {
 
     protected final Long _id;
     protected final Socket _socket;
+    protected final BinaryPacketFormat _binaryPacketFormat;
     protected final LinkedList<ProtocolMessage> _messages = new LinkedList<ProtocolMessage>();
     protected Boolean _isClosed = false;
 
@@ -78,6 +80,15 @@ public class BinarySocket {
     protected final InputStream _rawInputStream;
 
     public Integer bufferSize = 1024 * 2;
+
+    protected String _getHost() {
+        final InetAddress inetAddress = _socket.getInetAddress();
+        return inetAddress.getHostName();
+    }
+
+    protected Integer _getPort() {
+        return _socket.getPort();
+    }
 
     /**
      * Internal callback that is executed when a message is received by the client.
@@ -142,6 +153,7 @@ public class BinarySocket {
         }
 
         _socket = socket;
+        _binaryPacketFormat = binaryPacketFormat;
 
         InputStream inputStream = null;
         OutputStream outputStream = null;
@@ -155,8 +167,7 @@ public class BinarySocket {
         _rawOutputStream = outputStream;
         _rawInputStream = inputStream;
 
-        _readThread = new ReadThread(binaryPacketFormat);
-
+        _readThread = new ReadThread();
         _readThread.start();
     }
 
@@ -188,6 +199,18 @@ public class BinarySocket {
         }
     }
 
+    public String getHost() {
+        return _getHost();
+    }
+
+    public Integer getPort() {
+        return _getPort();
+    }
+
+    public BinaryPacketFormat getBinaryPacketFormat() {
+        return _binaryPacketFormat;
+    }
+
     /**
      * Ceases all reads, and closes the socket.
      *  Invoking any write functions after this call throws a runtime exception.
@@ -215,5 +238,10 @@ public class BinarySocket {
 
         final BinarySocket socketConnectionObject = (BinarySocket) object;
         return _id.equals(socketConnectionObject._id);
+    }
+
+    @Override
+    public String toString() {
+        return _getHost() + ":" + _getPort();
     }
 }

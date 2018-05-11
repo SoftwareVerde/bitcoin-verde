@@ -5,15 +5,18 @@ import com.softwareverde.io.Logger;
 
 import java.io.IOException;
 
-public class BinaryServerSocket<S> {
-    public interface SocketEventCallback {
-        void onConnect(BinarySocket socketConnection);
-        void onDisconnect(BinarySocket socketConnection);
+public class SocketServer {
+    public interface SocketConnectedCallback {
+        void run(BinarySocket socketConnection);
+    }
+
+    public interface SocketDisconnectedCallback {
+        void run(BinarySocket socketConnection);
     }
 
     protected class ServerThread extends Thread {
         public ServerThread() {
-            this.setName("Bitcoin Server Socket - Server Thread - " + this.getId());
+            this.setName("Socket Server - Server Thread - " + this.getId());
         }
 
         @Override
@@ -37,7 +40,7 @@ public class BinaryServerSocket<S> {
                     _onConnect(connection);
                 }
             }
-            catch (final IOException exception) { }
+            catch (final Exception exception) { }
         }
     }
 
@@ -53,29 +56,27 @@ public class BinaryServerSocket<S> {
     protected volatile Boolean _shouldContinue = true;
     protected Thread _serverThread = null;
 
-    protected SocketEventCallback _socketEventCallback = null;
+    protected SocketConnectedCallback _socketConnectedCallback = null;
+    protected SocketDisconnectedCallback _socketDisconnectedCallback = null;
 
     protected void _purgeDisconnectedConnections() {
         final Integer socketCount = _connections.getSize();
-        final MutableList<BinarySocket> connectedSockets = new MutableList<BinarySocket>(socketCount);
         final MutableList<BinarySocket> disconnectedSockets = new MutableList<BinarySocket>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;
-            for (final BinarySocket connection : _connections) {
-                if (connection.isConnected()) {
-                    connectedSockets.add(connection);
-                }
-                else {
+            while (socketIndex < _connections.getSize()) {
+                final BinarySocket connection = _connections.get(socketIndex);
+
+                if (! connection.isConnected()) {
+                    _connections.remove(socketIndex);
                     disconnectedSockets.add(connection);
                     Logger.log("Marking socket as disconnected: "+ socketIndex);
                 }
-
-                socketIndex += 1;
+                else {
+                    socketIndex += 1;
+                }
             }
-
-            _connections.clear();
-            _connections.addAll(connectedSockets);
         }
 
         for (final BinarySocket bitcoinSocket : disconnectedSockets) {
@@ -85,38 +86,42 @@ public class BinaryServerSocket<S> {
     }
 
     protected void _onConnect(final BinarySocket socketConnection) {
-        final SocketEventCallback socketEventCallback = _socketEventCallback;
+        final SocketConnectedCallback socketConnectedCallback = _socketConnectedCallback;
 
-        if (socketEventCallback != null) {
+        if (socketConnectedCallback != null) {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    socketEventCallback.onConnect(socketConnection);
+                    socketConnectedCallback.run(socketConnection);
                 }
             })).start();
         }
     }
 
     protected void _onDisconnect(final BinarySocket socketConnection) {
-        final SocketEventCallback socketEventCallback = _socketEventCallback;
+        final SocketDisconnectedCallback socketDisconnectedCallback = _socketDisconnectedCallback;
 
-        if (socketEventCallback != null) {
+        if (socketDisconnectedCallback != null) {
             (new Thread(new Runnable() {
                 @Override
                 public void run() {
-                    socketEventCallback.onDisconnect(socketConnection);
+                    socketDisconnectedCallback.run(socketConnection);
                 }
             })).start();
         }
     }
 
-    public BinaryServerSocket(final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public SocketServer(final Integer port, final BinaryPacketFormat binaryPacketFormat) {
         _port = port;
         _binaryPacketFormat = binaryPacketFormat;
     }
 
-    public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {
-        _socketEventCallback = socketEventCallback;
+    public void setSocketConnectedCallback(final SocketConnectedCallback socketConnectedCallback) {
+        _socketConnectedCallback = socketConnectedCallback;
+    }
+
+    public void setSocketDisconnectedCallback(final SocketDisconnectedCallback socketDisconnectedCallback) {
+        _socketDisconnectedCallback = socketDisconnectedCallback;
     }
 
     public void start() {
@@ -145,6 +150,7 @@ public class BinaryServerSocket<S> {
         _socket = null;
 
         try {
+            _serverThread.interrupt();
             if (_serverThread != null) {
                 _serverThread.join();
             }

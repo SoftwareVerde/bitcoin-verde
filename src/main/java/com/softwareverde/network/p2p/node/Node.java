@@ -7,6 +7,7 @@ import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
+import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.Util;
 
 import java.util.*;
@@ -182,6 +183,15 @@ public abstract class Node {
         _connection = new NodeConnection(host, port, binaryPacketFormat);
     }
 
+    public Node(final BinarySocket binarySocket) {
+        synchronized (NODE_ID_MUTEX) {
+            _id = NodeId.wrap(_nextId);
+            _nextId += 1;
+        }
+
+        _connection = new NodeConnection(binarySocket);
+    }
+
     public NodeId getId() { return _id; }
 
     public Boolean handshakeIsComplete() {
@@ -269,5 +279,10 @@ public abstract class Node {
         _postHandshakeMessageQueue.clear();
 
         _pingRequests.clear();
+    }
+
+    @Override
+    public String toString() {
+        return _connection.toString();
     }
 }

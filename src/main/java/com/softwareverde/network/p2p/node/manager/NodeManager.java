@@ -137,7 +137,7 @@ public class NodeManager<NODE extends Node> {
         for (final NODE node : _nodes.values()) {
             node.broadcastNodeAddress(nodeIpAddress);
             if (LOGGING_ENABLED) {
-                Logger.log("P2P: Broadcasting New Node (" + nodeIpAddress + ") to Existing Node (" + node.getNodeAddress() + ")");
+                Logger.log("P2P: Broadcasting New Node (" + nodeIpAddress + ") to Existing Node (" + node + ")");
             }
         }
     }
@@ -154,7 +154,7 @@ public class NodeManager<NODE extends Node> {
             nodeAddresses.add(nodeIpAddress);
 
             if (LOGGING_ENABLED) {
-                Logger.log("P2P: Broadcasting Existing Node (" + nodeIpAddress + ") to New Node (" + newNode.getConnectionString() + ")");
+                Logger.log("P2P: Broadcasting Existing Node (" + nodeIpAddress + ") to New Node (" + newNode + ")");
             }
         }
 
