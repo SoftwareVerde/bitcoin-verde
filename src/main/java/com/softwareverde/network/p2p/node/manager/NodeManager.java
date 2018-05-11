@@ -1,17 +1,16 @@
-package com.softwareverde.bitcoin.server.module.node.manager;
+package com.softwareverde.network.p2p.node.manager;
 
-import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
-import com.softwareverde.bitcoin.server.module.node.manager.health.NodeHealth;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
+import com.softwareverde.network.p2p.node.NodeFactory;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
+import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.util.Container;
 
 import java.util.*;
 
-public class NodeManager {
+public class NodeManager<NODE extends Node> {
     public static final Long REQUEST_TIMEOUT_THRESHOLD = 5_000L;
     public static Boolean LOGGING_ENABLED = true;
 
@@ -21,13 +20,13 @@ public class NodeManager {
      *  nodeApiInvocationCallback.didTimeout() cancels the retry-thread timeout and returns true if the request has already timed out.
      *  If nodeApiInvocationCallback.didTimeout() returns true, then the the Node Api Callback should abort.
      */
-    public interface NodeApiInvocation {
-        void run(BitcoinNode node, NodeApiInvocationCallback nodeApiInvocationCallback);
+    public interface NodeApiInvocation<NODE> {
+        void run(NODE node, NodeApiInvocationCallback nodeApiInvocationCallback);
     }
 
     public static abstract class NodeApiInvocationCallback {
         protected NodeApiInvocationCallback() { }
-        abstract Boolean didTimeout();
+        public abstract Boolean didTimeout();
     }
 
     protected static class RequestTimeoutThread extends Thread {
@@ -88,19 +87,15 @@ public class NodeManager {
     }
 
     protected final Object _mutex = new Object();
-
-    protected final Map<NodeId, BitcoinNode> _nodes;
+    protected final NodeFactory<NODE> _nodeFactory;
+    protected final Map<NodeId, NODE> _nodes;
     protected final Map<NodeId, NodeHealth> _nodeHealthMap;
-
     protected final List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
-
-    protected final Set<BitcoinNodeIpAddress> _nodeAddresses = new HashSet<BitcoinNodeIpAddress>();
-
+    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
-
     protected final Integer _maxNodeCount;
 
-    protected void _removeNode(final Node node) {
+    protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
 
         _nodes.remove(nodeId);
@@ -116,14 +111,14 @@ public class NodeManager {
     protected void _checkNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
-                final List<Node> inactiveNodes = _getInactiveNodes();
+                final List<NODE> inactiveNodes = _getInactiveNodes();
                 if (inactiveNodes.size() > 0) {
-                    final Node inactiveNode = inactiveNodes.get(0);
+                    final NODE inactiveNode = inactiveNodes.get(0);
                     _removeNode(inactiveNode);
                     continue;
                 }
 
-                final Node worstActiveNode = _selectWorstActiveNode();
+                final NODE worstActiveNode = _selectWorstActiveNode();
                 if (worstActiveNode != null) {
                     _removeNode(worstActiveNode);
                     continue;
@@ -131,15 +126,15 @@ public class NodeManager {
 
                 final Set<NodeId> keySet = _nodes.keySet();
                 final NodeId firstKey = keySet.iterator().next();
-                final Node node = _nodes.get(firstKey);
+                final NODE node = _nodes.get(firstKey);
                 _removeNode(node);
             }
         }
     }
 
     // NOTE: Requires Mutex Lock...
-    protected void _broadcastNewNodeToExistingNodes(final BitcoinNodeIpAddress nodeIpAddress) {
-        for (final Node node : _nodes.values()) {
+    protected void _broadcastNewNodeToExistingNodes(final NodeIpAddress nodeIpAddress) {
+        for (final NODE node : _nodes.values()) {
             node.broadcastNodeAddress(nodeIpAddress);
             if (LOGGING_ENABLED) {
                 Logger.log("P2P: Broadcasting New Node (" + nodeIpAddress + ") to Existing Node (" + node.getNodeAddress() + ")");
@@ -148,12 +143,12 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected void _broadcastExistingNodesToNewNode(final Node newNode) {
-        final Collection<BitcoinNode> nodes = _nodes.values();
+    protected void _broadcastExistingNodesToNewNode(final NODE newNode) {
+        final Collection<NODE> nodes = _nodes.values();
 
-        final List<BitcoinNodeIpAddress> nodeAddresses = new ArrayList<BitcoinNodeIpAddress>(nodes.size());
-        for (final BitcoinNode node : nodes) {
-            final BitcoinNodeIpAddress nodeIpAddress = node.getNodeAddress();
+        final List<NodeIpAddress> nodeAddresses = new ArrayList<NodeIpAddress>(nodes.size());
+        for (final NODE node : nodes) {
+            final NodeIpAddress nodeIpAddress = node.getNodeAddress();
             if (nodeIpAddress == null) { continue; }
 
             nodeAddresses.add(nodeIpAddress);
@@ -166,19 +161,17 @@ public class NodeManager {
         newNode.broadcastNodeAddresses(nodeAddresses);
     }
 
-    protected void _initNode(final Node node) {
-        node.setNodeAddressesReceivedCallback(new BitcoinNode.NodeAddressesReceivedCallback() {
+    protected void _initNode(final NODE node) {
+        node.setNodeAddressesReceivedCallback(new NODE.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
-                if (! (nodeIpAddress instanceof BitcoinNodeIpAddress)) { Logger.log("NOTICE: Disregarding Non-Bitcoin NodeIpAddress..."); return; }
-                final BitcoinNodeIpAddress bitcoinNodeIpAddress = (BitcoinNodeIpAddress) nodeIpAddress;
 
                 synchronized (_mutex) {
-                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(bitcoinNodeIpAddress);
+                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
                     if (haveAlreadySeenNode) { return; }
 
-                    _nodeAddresses.add(bitcoinNodeIpAddress);
-                    _broadcastNewNodeToExistingNodes(bitcoinNodeIpAddress);
+                    _nodeAddresses.add(nodeIpAddress);
+                    _broadcastNewNodeToExistingNodes(nodeIpAddress);
 
                     final Integer healthyNodeCount = _countNodesAboveHealth(50);
                     if (healthyNodeCount >= _maxNodeCount) { return; }
@@ -187,14 +180,14 @@ public class NodeManager {
                     final Integer port = nodeIpAddress.getPort();
                     final String connectionString = (address + ":" + port);
 
-                    for (final Node existingNode : _nodes.values()) {
+                    for (final NODE existingNode : _nodes.values()) {
                         final Boolean isAlreadyConnectedToNode = (existingNode.getConnectionString().equals(connectionString));
                         if (isAlreadyConnectedToNode) {
                             return;
                         }
                     }
 
-                    final BitcoinNode newNode = new BitcoinNode(address, port);
+                    final NODE newNode = _nodeFactory.newNode(address, port);
                     _initNode(newNode);
 
                     _broadcastExistingNodesToNewNode(newNode);
@@ -208,7 +201,7 @@ public class NodeManager {
             }
         });
 
-        node.setNodeConnectedCallback(new Node.NodeConnectedCallback() {
+        node.setNodeConnectedCallback(new NODE.NodeConnectedCallback() {
             @Override
             public void onNodeConnected() {
                 if (! node.hasActiveConnection()) { return; }
@@ -222,7 +215,7 @@ public class NodeManager {
             }
         });
 
-        node.setNodeHandshakeCompleteCallback(new Node.NodeHandshakeCompleteCallback() {
+        node.setNodeHandshakeCompleteCallback(new NODE.NodeHandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
                 synchronized (_mutex) {
@@ -234,12 +227,12 @@ public class NodeManager {
             }
         });
 
-        node.setNodeDisconnectedCallback(new Node.NodeDisconnectedCallback() {
+        node.setNodeDisconnectedCallback(new NODE.NodeDisconnectedCallback() {
             @Override
             public void onNodeDisconnected() {
                 synchronized (_mutex) {
                     final NodeId nodeId = node.getId();
-                    final Node disconnectedNode = _nodes.remove(nodeId);
+                    final NODE disconnectedNode = _nodes.remove(nodeId);
                     _nodeHealthMap.remove(nodeId);
 
                     if (LOGGING_ENABLED) {
@@ -253,8 +246,8 @@ public class NodeManager {
     // NOTE: Requires Mutex Lock...
     protected Integer _countNodesAboveHealth(final Integer minimumHealth) {
         int nodeCount = 0;
-        final List<Node> activeNodes = _getActiveNodes();
-        for (final Node node : activeNodes) {
+        final List<NODE> activeNodes = _getActiveNodes();
+        for (final NODE node : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
             if (nodeHealth.calculateHealth() > minimumHealth) {
                 nodeCount += 1;
@@ -264,9 +257,9 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected List<Node> _getInactiveNodes() {
-        final List<Node> inactiveNodes = new ArrayList<Node>(_nodes.size());
-        for (final Node node : _nodes.values()) {
+    protected List<NODE> _getInactiveNodes() {
+        final List<NODE> inactiveNodes = new ArrayList<NODE>(_nodes.size());
+        for (final NODE node : _nodes.values()) {
             if (! node.hasActiveConnection()) {
                 inactiveNodes.add(node);
             }
@@ -275,9 +268,9 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected List<Node> _getActiveNodes() {
-        final List<Node> activeNodes = new ArrayList<Node>(_nodes.size());
-        for (final Node node : _nodes.values()) {
+    protected List<NODE> _getActiveNodes() {
+        final List<NODE> activeNodes = new ArrayList<NODE>(_nodes.size());
+        for (final NODE node : _nodes.values()) {
             if (node.hasActiveConnection()) {
                 activeNodes.add(node);
             }
@@ -287,14 +280,14 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected Node _selectWorstActiveNode() {
-        final List<Node> activeNodes = _getActiveNodes();
+    protected NODE _selectWorstActiveNode() {
+        final List<NODE> activeNodes = _getActiveNodes();
 
         final Integer activeNodeCount = activeNodes.size();
         if (activeNodeCount == 0) { return null; }
 
         final List<NodeHealth> nodeHealthList = new ArrayList<NodeHealth>(activeNodeCount);
-        for (final Node activeNode : activeNodes) {
+        for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             nodeHealthList.add(nodeHealth);
         }
@@ -305,21 +298,21 @@ public class NodeManager {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected BitcoinNode _selectBestNode() {
-        final List<Node> activeNodes = _getActiveNodes();
+    protected NODE _selectBestNode() {
+        final List<NODE> activeNodes = _getActiveNodes();
 
         final Integer activeNodeCount = activeNodes.size();
         if (activeNodeCount == 0) { return null; }
 
         final List<NodeHealth> nodeHealthList = new ArrayList<NodeHealth>(activeNodeCount);
-        for (final Node activeNode : activeNodes) {
+        for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             nodeHealthList.add(nodeHealth);
         }
         Collections.sort(nodeHealthList, NodeHealth.COMPARATOR);
 
         final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - 1);
-        final BitcoinNode selectedNode = _nodes.get(bestNodeHealth.getNodeId());
+        final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
 
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + bestNodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + activeNodeCount + " / " + _nodes.size());
@@ -333,8 +326,8 @@ public class NodeManager {
 
         final Long now = System.currentTimeMillis();
 
-        final List<Node> idleNodes = new ArrayList<Node>(_nodes.size());
-        for (final Node node : _nodes.values()) {
+        final List<NODE> idleNodes = new ArrayList<NODE>(_nodes.size());
+        for (final NODE node : _nodes.values()) {
             final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
             final Long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
 
@@ -346,11 +339,11 @@ public class NodeManager {
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Idle Node Count: " + idleNodes.size() + " / " + _nodes.size());
         }
-        for (final Node idleNode : idleNodes) {
+        for (final NODE idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
             // _nodeHealthMap.get(nodeId).onMessageSent();
 
-            idleNode.ping(new Node.PingCallback() {
+            idleNode.ping(new NODE.PingCallback() {
                 @Override
                 public void onResult(final Long pingInMilliseconds) {
                     if (LOGGING_ENABLED) {
@@ -365,13 +358,14 @@ public class NodeManager {
         }
     }
 
-    public NodeManager(final Integer maxNodeCount) {
-        _nodes = new HashMap<NodeId, BitcoinNode>(maxNodeCount);
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory) {
+        _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
         _maxNodeCount = maxNodeCount;
+        _nodeFactory = nodeFactory;
     }
 
-    public void addNode(final BitcoinNode node) {
+    public void addNode(final NODE node) {
         _initNode(node);
 
         synchronized (_mutex) {
@@ -392,7 +386,7 @@ public class NodeManager {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    public void executeRequest(final NodeApiInvocation nodeApiInvocation) {
+    public void executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation) {
         final Runnable replayInvocation = new Runnable() {
             @Override
             public void run() {
@@ -400,7 +394,7 @@ public class NodeManager {
             }
         };
 
-        final BitcoinNode selectedNode;
+        final NODE selectedNode;
         final NodeHealth nodeHealth;
         {
             synchronized (_mutex) {

@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.NodeManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -74,7 +73,7 @@ public class NodeModule {
     protected int _transactionCount = 0;
     protected int _totalBlockValidationMsElapsed = 0;
 
-    protected final NodeManager _nodeManager;
+    protected final BitcoinNodeManager _nodeManager;
 
     protected void _exitFailure() {
         Logger.shutdown();
@@ -240,7 +239,7 @@ public class NodeModule {
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
-        _nodeManager = new NodeManager(maxPeerCount);
+        _nodeManager = new BitcoinNodeManager(maxPeerCount);
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
