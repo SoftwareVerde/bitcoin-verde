@@ -66,7 +66,7 @@ public enum Opcode {
     INTEGER_OR                          (0x9B),
     IS_EQUAL                            (0x87),
     IS_EQUAL_THEN_VERIFY                (0x88),
-    IS_FALSE                            (0x92),
+    IS_TRUE                             (0x92),
     IS_NUMERICALLY_EQUAL                (0x9C),
     IS_NUMERICALLY_EQUAL_THEN_VERIFY    (0x9D),
     IS_NUMERICALLY_NOT_EQUAL            (0x9E),

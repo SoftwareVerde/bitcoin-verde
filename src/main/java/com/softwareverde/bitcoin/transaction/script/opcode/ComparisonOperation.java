@@ -53,73 +53,74 @@ public class ComparisonOperation extends SubTypedOperation {
             case IS_EQUAL: {
                 final Boolean isEqual = _opIsEqual(stack);
                 stack.push(Value.fromBoolean(isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_EQUAL_THEN_VERIFY: {
-                return _opIsEqual(stack);
+                final Boolean areEqual = _opIsEqual(stack);
+                if (stack.didOverflow()) { return false; }
+                return areEqual;
             }
 
-            case IS_FALSE: {
-                final Boolean isEqual = _opIsEqual(stack);
-                stack.push(Value.fromBoolean(! isEqual));
-                return true;
+            case IS_TRUE: {
+                final Value value = stack.pop();
+                final Boolean booleanValue = value.asBoolean();
+                stack.push(Value.fromBoolean(booleanValue));
+                return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL: {
                 final Boolean isEqual = _opIsNumericallyEqual(stack);
                 stack.push(Value.fromBoolean(isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL_THEN_VERIFY: {
-                return _opIsNumericallyEqual(stack);
+                final Boolean areEqual = _opIsNumericallyEqual(stack);
+                if (stack.didOverflow()) { return false; }
+                return areEqual;
             }
 
             case IS_NUMERICALLY_NOT_EQUAL: {
                 final Boolean isEqual = _opIsNumericallyEqual(stack);
                 stack.push(Value.fromBoolean(! isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_LESS_THAN: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Boolean isLessThan = (value1.asInteger() < value0.asInteger());
-                stack.push (Value.fromBoolean(isLessThan));
-                return true;
+                stack.push(Value.fromBoolean(isLessThan));
+                return (! stack.didOverflow());
             }
 
             case IS_GREATER_THAN: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Boolean isGreaterThan = (value1.asInteger() > value0.asInteger());
-                stack.push (Value.fromBoolean(isGreaterThan));
-                return true;
+                stack.push(Value.fromBoolean(isGreaterThan));
+                return (! stack.didOverflow());
             }
 
             case IS_LESS_THAN_OR_EQUAL: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
 
                 final Boolean isLessThan = (valueInteger1 < valueInteger0);
                 final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push (Value.fromBoolean( (isLessThan) || (areEqual) ));
-                return true;
+                stack.push(Value.fromBoolean( (isLessThan) || (areEqual) ));
+                return (! stack.didOverflow());
             }
 
             case IS_GREATER_THAN_OR_EQUAL: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
@@ -127,7 +128,7 @@ public class ComparisonOperation extends SubTypedOperation {
                 final Boolean isGreaterThan = (valueInteger1 > valueInteger0);
                 final Boolean areEqual = (valueInteger1.intValue() == valueInteger0.intValue());
                 stack.push (Value.fromBoolean( (isGreaterThan) || (areEqual) ));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case INTEGER_AND: {
