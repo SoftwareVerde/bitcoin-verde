@@ -79,7 +79,8 @@ public class SignatureContext {
     }
 
     public Boolean shouldInputSequenceNumberBeSigned(final Integer inputIndex) {
-        if (_hashType.getMode() == Mode.SIGNATURE_HASH_SINGLE) {
+        final Mode mode = _hashType.getMode();
+        if ( (mode == Mode.SIGNATURE_HASH_SINGLE) || (mode == Mode.SIGNATURE_HASH_NONE) ) {
             if (inputIndex.intValue() != _inputIndexBeingSigned.intValue()) {
                 return false;
             }
