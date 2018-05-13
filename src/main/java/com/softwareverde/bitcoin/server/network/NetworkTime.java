@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.network;
 
-import com.softwareverde.bitcoin.type.time.Time;
+import com.softwareverde.util.type.time.Time;
 
 public class NetworkTime implements Time {
 

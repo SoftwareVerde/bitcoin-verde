@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.identifier;
+package com.softwareverde.util.type.identifier;
 
 import com.softwareverde.constable.Const;
 

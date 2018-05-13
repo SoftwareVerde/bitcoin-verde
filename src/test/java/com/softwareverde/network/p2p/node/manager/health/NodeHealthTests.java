@@ -1,6 +1,6 @@
 package com.softwareverde.network.p2p.node.manager.health;
 
-import com.softwareverde.bitcoin.type.time.Time;
+import com.softwareverde.util.type.time.Time;
 import com.softwareverde.network.p2p.node.NodeId;
 import org.junit.Assert;
 import org.junit.Test;

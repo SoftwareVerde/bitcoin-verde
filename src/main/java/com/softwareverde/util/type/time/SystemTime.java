@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.time;
+package com.softwareverde.util.type.time;
 
 public class SystemTime implements Time {
     @Override

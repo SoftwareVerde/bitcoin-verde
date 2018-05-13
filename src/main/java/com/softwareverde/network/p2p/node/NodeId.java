@@ -1,6 +1,6 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.bitcoin.type.identifier.Identifier;
+import com.softwareverde.util.type.identifier.Identifier;
 
 public class NodeId extends Identifier {
     public static NodeId wrap(final Long value) {

@@ -18,7 +18,7 @@ public class NodeConnection {
         void onMessageReceived(ProtocolMessage message);
     }
 
-    private static final Integer MAX_CONNECTION_ATTEMPTS = 1024; // Sanity check for connection attempts...
+    protected static final Integer MAX_CONNECTION_ATTEMPTS = 1024; // Sanity check for connection attempts...
 
     protected class ConnectionThread extends Thread {
         @Override
@@ -77,29 +77,29 @@ public class NodeConnection {
         }
     }
 
-    private final String _host;
-    private final Integer _port;
-    private String _remoteIp;
-    private final BinaryPacketFormat _binaryPacketFormat;
+    protected final String _host;
+    protected final Integer _port;
+    protected String _remoteIp;
+    protected final BinaryPacketFormat _binaryPacketFormat;
 
-    private final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
+    protected final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
 
-    private BinarySocket _binarySocket;
-    private Thread _connectionThread;
-    private MessageReceivedCallback _messageReceivedCallback;
+    protected BinarySocket _binarySocket;
+    protected Thread _connectionThread;
+    protected MessageReceivedCallback _messageReceivedCallback;
 
-    private Boolean _socketUsedToBeConnected = false;
+    protected Boolean _socketUsedToBeConnected = false;
 
-    private Long _connectionCount = 0L;
-    private Runnable _onDisconnectCallback;
-    private Runnable _onReconnectCallback;
-    private Runnable _onConnectCallback;
+    protected Long _connectionCount = 0L;
+    protected Runnable _onDisconnectCallback;
+    protected Runnable _onReconnectCallback;
+    protected Runnable _onConnectCallback;
 
-    private Boolean _socketIsConnected() {
+    protected Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
     }
 
-    private void _onSocketConnected() {
+    protected void _onSocketConnected() {
         _binarySocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
@@ -132,7 +132,7 @@ public class NodeConnection {
         _connectionCount += 1;
     }
 
-    private void _processOutboundMessageQueue() {
+    protected void _processOutboundMessageQueue() {
         synchronized (_outboundMessageQueue) {
             while (! _outboundMessageQueue.isEmpty()) {
                 if ((_binarySocket == null) || (! _binarySocket.isConnected())) { return; }
@@ -143,7 +143,7 @@ public class NodeConnection {
         }
     }
 
-    private void _writeOrQueueMessage(final ProtocolMessage message) {
+    protected void _writeOrQueueMessage(final ProtocolMessage message) {
         synchronized (_outboundMessageQueue) {
             if (_socketIsConnected()) {
                 _binarySocket.write(message);

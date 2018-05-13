@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.chain.segment;
 
-import com.softwareverde.bitcoin.type.identifier.Identifier;
+import com.softwareverde.util.type.identifier.Identifier;
 
 public class BlockChainSegmentId extends Identifier {
     public static BlockChainSegmentId wrap(final Long value) {

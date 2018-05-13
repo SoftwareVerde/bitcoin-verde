@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.output;
 
-import com.softwareverde.bitcoin.type.identifier.Identifier;
+import com.softwareverde.util.type.identifier.Identifier;
 
 public class TransactionOutputId extends Identifier {
     public static TransactionOutputId wrap(final Long value) {
