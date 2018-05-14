@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlock;
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -81,7 +82,7 @@ public abstract class Operation implements Const {
     public Boolean shouldExecute(final Stack stack, final ControlState controlState, final Context context) {
         if (controlState.isInCodeBlock()) {
             final CodeBlock codeBlock = controlState.getCodeBlock();
-            return codeBlock.condition;
+            return Util.coalesce(codeBlock.condition, false);
         }
 
         return true;
