@@ -16,7 +16,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     protected Integer _version;
     protected String _userAgent;
     protected final NodeFeatures _nodeFeatures = new NodeFeatures();
-    protected Long _timestamp;
+    protected Long _timestampInSeconds;
     protected BitcoinNodeIpAddress _remoteNodeIpAddress;
     protected BitcoinNodeIpAddress _localNodeIpAddress;
     protected Long _nonce;
@@ -33,7 +33,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         _remoteNodeIpAddress = new BitcoinNodeIpAddress();
         _localNodeIpAddress = new BitcoinNodeIpAddress();
 
-        _timestamp = (System.currentTimeMillis() / 1000L);
+        _timestampInSeconds = (System.currentTimeMillis() / 1000L);
         _nonce = (long) (Math.random() * Long.MAX_VALUE);
         _currentBlockHeight = 0;
 
@@ -43,7 +43,6 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     public Integer getVersion() { return _version; }
     public String getUserAgent() { return _userAgent; }
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
-    public Long getTimestamp() { return _timestamp; }
     public Long getNonce() { return _nonce; }
     public Boolean relayIsEnabled() { return _relayIsEnabled; }
     public Integer getCurrentBlockHeight() { return _currentBlockHeight; }
@@ -56,6 +55,10 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         _localNodeIpAddress = nodeIpAddress.copy();
     }
 
+    @Override
+    public Long getTimestamp() { return _timestampInSeconds; }
+
+    @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         return _localNodeIpAddress.copy();
     }
@@ -90,7 +93,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
         ByteUtil.setBytes(version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
-        ByteUtil.setBytes(timestamp, ByteUtil.longToBytes(_timestamp));
+        ByteUtil.setBytes(timestamp, ByteUtil.longToBytes(_timestampInSeconds));
         ByteUtil.setBytes(remoteAddress, _remoteNodeIpAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(localAddress, _localNodeIpAddress.getBytesWithoutTimestamp());
         ByteUtil.setBytes(nonce, ByteUtil.longToBytes(_nonce));

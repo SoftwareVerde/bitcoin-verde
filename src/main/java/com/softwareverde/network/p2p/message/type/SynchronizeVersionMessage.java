@@ -5,4 +5,5 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 
 public interface SynchronizeVersionMessage extends ProtocolMessage {
     NodeIpAddress getLocalNodeIpAddress();
+    Long getTimestamp();
 }

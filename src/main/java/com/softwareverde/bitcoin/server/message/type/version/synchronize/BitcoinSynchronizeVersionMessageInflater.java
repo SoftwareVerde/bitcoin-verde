@@ -23,7 +23,7 @@ public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMes
         final Long nodeFeatureFlags = byteArrayReader.readLong(8, Endian.LITTLE);
         synchronizeVersionMessage._nodeFeatures.setFeatureFlags(nodeFeatureFlags);
 
-        synchronizeVersionMessage._timestamp = byteArrayReader.readLong(8, Endian.LITTLE);
+        synchronizeVersionMessage._timestampInSeconds = byteArrayReader.readLong(8, Endian.LITTLE);
 
         final byte[] remoteNetworkAddressBytes = byteArrayReader.readBytes(26, Endian.BIG);
         synchronizeVersionMessage._remoteNodeIpAddress = nodeIpAddressInflater.fromBytes(remoteNetworkAddressBytes);

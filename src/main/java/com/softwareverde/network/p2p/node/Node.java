@@ -9,6 +9,7 @@ import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.*;
 
@@ -53,11 +54,14 @@ public abstract class Node {
     protected final NodeId _id;
     protected final NodeConnection _connection;
 
+    protected final SystemTime _systemTime = new SystemTime();
+
     protected NodeIpAddress _nodeIpAddress = null;
     protected Boolean _hasSentVersion = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
+    protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
 
     protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
 
@@ -141,6 +145,12 @@ public abstract class Node {
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         // TODO: Should probably not accept any node version...
 
+        { // Calculate the node's network time offset...
+            final Long currentTime = _systemTime.getCurrentTimeInSeconds();
+            final Long nodeTime = synchronizeVersionMessage.getTimestamp();
+            _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
+        }
+
         _nodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
 
         final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
@@ -208,6 +218,10 @@ public abstract class Node {
 
     public Boolean handshakeIsComplete() {
         return _handshakeIsComplete;
+    }
+
+    public Long getNetworkTimeOffset() {
+        return _networkTimeOffset;
     }
 
     public Long getLastMessageReceivedTimestamp() {

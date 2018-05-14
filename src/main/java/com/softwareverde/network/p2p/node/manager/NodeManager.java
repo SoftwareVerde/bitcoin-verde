@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
@@ -7,6 +8,7 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.type.time.Time;
 
 import java.util.*;
 
@@ -94,6 +96,7 @@ public class NodeManager<NODE extends Node> {
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
+    protected final NetworkTime _networkTime = new NetworkTime();
 
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
@@ -218,6 +221,11 @@ public class NodeManager<NODE extends Node> {
         node.setNodeHandshakeCompleteCallback(new NODE.NodeHandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
+                final Long nodeNetworkTimeOffset = node.getNetworkTimeOffset();
+                if (nodeNetworkTimeOffset != null) {
+                    _networkTime.includeOffsetInSeconds(nodeNetworkTimeOffset);
+                }
+
                 synchronized (_mutex) {
                     for (final Runnable runnable : _queuedNodeRequests) {
                         new Thread(runnable).start();
@@ -375,6 +383,10 @@ public class NodeManager<NODE extends Node> {
             _nodes.put(nodeId, node);
             _nodeHealthMap.put(nodeId, new NodeHealth(nodeId));
         }
+    }
+
+    public Time getNetworkTime() {
+        return _networkTime;
     }
 
     public void startNodeMaintenanceThread() {
