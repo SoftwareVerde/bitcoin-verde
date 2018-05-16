@@ -7,7 +7,7 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
 
 public interface TransactionOutput extends Constable<ImmutableTransactionOutput>, Jsonable {
-    static TransactionOutput createCoinbaseTransactionOutput(final Address payToAddress, final Long satoshis) {
+    static TransactionOutput createPayToAddressTransactionOutput(final Address payToAddress, final Long satoshis) {
         final LockingScript lockingScript = ScriptBuilder.payToAddress(payToAddress);
         final MutableTransactionOutput coinbaseTransactionOutput = new MutableTransactionOutput();
         coinbaseTransactionOutput.setLockingScript(lockingScript);

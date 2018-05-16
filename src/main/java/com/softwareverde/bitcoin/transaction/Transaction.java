@@ -16,14 +16,14 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     static Transaction createCoinbaseTransaction(final String coinbaseMessage, final Address address, final Long satoshis) {
         final MutableTransaction coinbaseTransaction = new MutableTransaction();
         coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(coinbaseMessage));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createCoinbaseTransactionOutput(address, satoshis));
+        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
     }
 
     static Transaction createCoinbaseTransactionWithExtraNonce(final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
         final MutableTransaction coinbaseTransaction = new MutableTransaction();
         coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(coinbaseMessage, extraNonceByteCount));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createCoinbaseTransactionOutput(address, satoshis));
+        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
     }
 

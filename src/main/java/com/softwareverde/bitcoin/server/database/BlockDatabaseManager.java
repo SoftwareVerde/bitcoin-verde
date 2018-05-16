@@ -206,7 +206,7 @@ public class BlockDatabaseManager {
     }
 
     public Sha256Hash getMostRecentBlockHash() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY timestamp DESC LIMIT 1"));
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);

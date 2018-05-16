@@ -58,15 +58,14 @@ public class TransactionDatabaseManager {
         for (final Row row : rows) {
             BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             while (true) {
-                if (i > 0) {
-                    Logger.log(Thread.currentThread().getId() + " - " + "Traversed " + (i) + " BlockChainSegments looking for " + transactionHash);
-                }
-
                 final BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
                 if (transactionBlockChainSegment == null) { break; }
 
                 final Boolean transactionMatchesBlockChainSegment = ( blockChainSegmentId.equals(transactionBlockChainSegment.getId()) );
                 if (transactionMatchesBlockChainSegment) {
+                    if (i > 0) {
+                        Logger.log(Thread.currentThread().getName() + " - " + "Traversed " + (i) + " BlockChainSegments looking for " + transactionHash + " on BlockSegmentId: " + blockChainSegmentId);
+                    }
                     return TransactionId.wrap(row.getLong("id"));
                 }
 
@@ -79,6 +78,8 @@ public class TransactionDatabaseManager {
             }
         }
 
+
+        Logger.log(Thread.currentThread().getName() + " - " + "Traversed " + (i) + " BlockChainSegments, but unable to find " + transactionHash + " on BlockSegmentId: " + blockChainSegmentId);
         return null;
     }
 
