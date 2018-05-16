@@ -51,7 +51,6 @@ CREATE TABLE transactions (
     hash varchar(64) NOT NULL,
     block_id int unsigned,
     version int NOT NULL,
-    has_witness_data tinyint(1) NOT NULL,
     lock_time bigint unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_hash_uq (hash, block_id),

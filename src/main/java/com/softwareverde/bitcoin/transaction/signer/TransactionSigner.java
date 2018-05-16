@@ -63,7 +63,6 @@ public class TransactionSigner {
 
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(transaction.getVersion());
-        mutableTransaction.setHasWitnessData(transaction.hasWitnessData());
         mutableTransaction.setLockTime(transaction.getLockTime());
 
         for (int inputIndex = 0; inputIndex < transactionInputs.getSize(); ++inputIndex) {

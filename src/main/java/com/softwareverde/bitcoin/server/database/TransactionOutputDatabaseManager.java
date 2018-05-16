@@ -43,13 +43,15 @@ public class TransactionOutputDatabaseManager {
     protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         final ByteArray lockingScript = transactionOutput.getLockingScript().getBytes();
 
-        return TransactionOutputId.wrap(_databaseConnection.executeSql(
+        final Long transactionOutputId = _databaseConnection.executeSql(
             new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
                 .setParameter(lockingScript.getBytes())
-        ));
+        );
+
+        return TransactionOutputId.wrap(transactionOutputId);
     }
 
     protected TransactionOutput _getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {

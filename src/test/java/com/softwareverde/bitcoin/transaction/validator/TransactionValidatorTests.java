@@ -83,7 +83,6 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(1);
         mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
-        mutableTransaction.setHasWitnessData(false);
 
         mutableTransaction.addTransactionInput(transactionInput);
         mutableTransaction.addTransactionOutput(transactionOutput);
@@ -112,7 +111,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
             blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
             final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
-            transactionDatabaseManager.storeTransaction(storedBlock.blockId, previousTransaction);
+            transactionDatabaseManager.storeTransaction(blockChainSegmentId, storedBlock.blockId, previousTransaction);
         }
 
         final byte[] transactionBytes = HexUtil.hexStringToByteArray("01000000010B6072B386D4A773235237F64C1126AC3B240C84B917A3909BA1C43DED5F51F4000000008C493046022100BB1AD26DF930A51CCE110CF44F7A48C3C561FD977500B1AE5D6B6FD13D0B3F4A022100C5B42951ACEDFF14ABBA2736FD574BDB465F3E6F8DA12E2C5303954ACA7F78F3014104A7135BFE824C97ECC01EC7D7E336185C81E2AA2C41AB175407C09484CE9694B44953FCB751206564A9C24DD094D42FDBFDD5AAD3E063CE6AF4CFAAEA4EA14FBBFFFFFFFF0140420F00000000001976A91439AA3D569E06A1D7926DC4BE1193C99BF2EB9EE088AC00000000");
@@ -147,7 +146,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
-        transactionDatabaseManager.storeTransaction(storedBlock.blockId, transactionToSpend);
+        transactionDatabaseManager.storeTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
@@ -189,7 +188,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
-        transactionDatabaseManager.storeTransaction(storedBlock.blockId, transactionToSpend);
+        transactionDatabaseManager.storeTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
@@ -231,7 +230,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
-        transactionDatabaseManager.storeTransaction(storedBlock.blockId, transactionToSpend);
+        transactionDatabaseManager.storeTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(

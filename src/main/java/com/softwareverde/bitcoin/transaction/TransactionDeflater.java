@@ -111,7 +111,6 @@ public class TransactionDeflater {
         final Json json = new Json();
 
         json.put("version", transaction.VERSION);
-        json.put("hasWitnessData", transaction.hasWitnessData());
 
         final Json inputsJson = new Json();
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {

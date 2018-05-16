@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -15,9 +17,26 @@ import java.util.List;
 public class TransactionInputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected TransactionOutputId _findPreviousTransactionOutputId(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+    protected TransactionOutputId _findPreviousTransactionOutputId(final BlockChainSegmentId blockChainSegmentId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
-        return transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionInput.getPreviousOutputIndex());
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+
+        final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+
+        final TransactionId previousOutputTransactionId;
+        {
+            final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
+            if (uncommittedPreviousOutputTransactionId != null) {
+                previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
+            }
+            else {
+                final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
+                previousOutputTransactionId = committedPreviousOutputTransactionId;
+            }
+        }
+        if (previousOutputTransactionId == null) { return null; }
+
+        return transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, transactionInput.getPreviousOutputIndex());
     }
 
     protected TransactionInputId _findTransactionInputId(final TransactionId transactionId, final TransactionOutputId previousTransactionOutputId) throws DatabaseException {
@@ -33,8 +52,8 @@ public class TransactionInputDatabaseManager {
         return TransactionInputId.wrap(row.getLong("id"));
     }
 
-    protected void _updateTransactionInput(final TransactionInputId transactionInputId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
+    protected void _updateTransactionInput(final TransactionInputId transactionInputId, final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
         final ByteArray unlockingScript = transactionInput.getUnlockingScript().getBytes();
 
         _databaseConnection.executeSql(
@@ -47,8 +66,8 @@ public class TransactionInputDatabaseManager {
         );
     }
 
-    protected TransactionInputId _insertTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
+    protected TransactionInputId _insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
         final ByteArray unlockingScript = transactionInput.getUnlockingScript().getBytes();
 
         return TransactionInputId.wrap(_databaseConnection.executeSql(
@@ -64,15 +83,15 @@ public class TransactionInputDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public TransactionInputId storeTransactionInput(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(transactionId, transactionInput);
+    public TransactionInputId storeTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
         final TransactionInputId transactionInputId = _findTransactionInputId(transactionId, previousTransactionOutputId);
 
         if (transactionInputId != null) {
-            _updateTransactionInput(transactionInputId, transactionId, transactionInput);
+            _updateTransactionInput(transactionInputId, blockChainSegmentId, transactionId, transactionInput);
             return transactionInputId;
         }
 
-        return _insertTransactionInput(transactionId, transactionInput);
+        return _insertTransactionInput(blockChainSegmentId, transactionId, transactionInput);
     }
 }

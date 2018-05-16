@@ -99,10 +99,10 @@ public class BlockDatabaseManager {
         return blockHeader;
     }
 
-    protected void _storeBlockTransactions(final BlockId blockId, final Block block) throws DatabaseException {
+    protected void _storeBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
         for (final Transaction transaction : block.getTransactions()) {
-            transactionDatabaseManager.storeTransaction(blockId, transaction);
+            transactionDatabaseManager.storeTransaction(blockChainSegmentId, blockId, transaction);
         }
     }
 
@@ -187,7 +187,20 @@ public class BlockDatabaseManager {
     public BlockId storeBlock(final Block block) throws DatabaseException {
         final BlockId blockId = _storeBlockHeader(block);
 
-        _storeBlockTransactions(blockId, block);
+        final BlockChainSegmentId blockChainSegmentId;
+        {
+            final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+            final BlockId previousBlockId = _getBlockIdFromHash(previousBlockHash);
+            if (previousBlockId != null) {
+                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+                blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(previousBlockId);
+            }
+            else {
+                blockChainSegmentId = null;
+            }
+        }
+
+        _storeBlockTransactions(blockChainSegmentId, blockId, block);
 
         return blockId;
     }

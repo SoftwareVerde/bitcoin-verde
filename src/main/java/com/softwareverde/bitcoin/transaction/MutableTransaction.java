@@ -15,7 +15,6 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MutableTransaction implements Transaction {
     protected Integer _version = Transaction.VERSION;
-    protected Boolean _hasWitnessData = false;
     protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
     protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
     protected LockTime _lockTime = new ImmutableLockTime();
@@ -30,7 +29,6 @@ public class MutableTransaction implements Transaction {
 
     public MutableTransaction(final Transaction transaction) {
         _version = transaction.getVersion();
-        _hasWitnessData = transaction.hasWitnessData();
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             _transactionInputs.add(transactionInput.asConst());
@@ -54,10 +52,6 @@ public class MutableTransaction implements Transaction {
     @Override
     public Integer getVersion() { return _version; }
     public void setVersion(final Integer version) { _version = version; }
-
-    @Override
-    public Boolean hasWitnessData() { return _hasWitnessData; }
-    public void setHasWitnessData(final Boolean hasWitnessData) { _hasWitnessData = hasWitnessData; }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {

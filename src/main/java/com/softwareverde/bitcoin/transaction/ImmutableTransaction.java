@@ -16,7 +16,6 @@ import com.softwareverde.json.Json;
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableSha256Hash _hash;
     protected final Integer _version;
-    protected final Boolean _hasWitnessData;
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
@@ -24,7 +23,6 @@ public class ImmutableTransaction implements Transaction, Const {
     public ImmutableTransaction(final Transaction transaction) {
         _hash = transaction.getHash().asConst();
         _version = transaction.getVersion();
-        _hasWitnessData = transaction.hasWitnessData();
         _lockTime = transaction.getLockTime().asConst();
 
         _transactionInputs = ImmutableListBuilder.newConstListOfConstItems(transaction.getTransactionInputs());
@@ -38,9 +36,6 @@ public class ImmutableTransaction implements Transaction, Const {
 
     @Override
     public Integer getVersion() { return _version; }
-
-    @Override
-    public Boolean hasWitnessData() { return _hasWitnessData; }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {

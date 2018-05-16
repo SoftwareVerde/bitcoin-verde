@@ -76,7 +76,6 @@ public class MinerModule {
 
                     coinbaseTransaction.setVersion(1);
                     coinbaseTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
-                    coinbaseTransaction.setHasWitnessData(false);
                     coinbaseTransaction.addTransactionInput(coinbaseTransactionInput);
                     coinbaseTransaction.addTransactionOutput(coinbaseTransactionOutput);
                 }

@@ -42,7 +42,6 @@ public class BlockMessageInflaterTests {
 
         final Transaction transaction = transactions.get(0);
         Assert.assertEquals(1, transaction.getVersion().intValue());
-        Assert.assertEquals(false, transaction.hasWitnessData());
         Assert.assertEquals(0L, transaction.getLockTime().getValue().longValue());
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
