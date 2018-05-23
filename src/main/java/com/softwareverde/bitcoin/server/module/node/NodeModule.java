@@ -24,8 +24,7 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.network.socket.SocketServer;
+import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 
@@ -77,7 +76,8 @@ public class NodeModule {
     protected int _totalBlockValidationMsElapsed = 0;
 
     protected final BitcoinNodeManager _nodeManager;
-    protected final SocketServer _socketServer;
+    protected final BinarySocketServer _socketServer;
+    protected final JsonSocketServer _jsonRpcSocketServer;
 
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
 
@@ -266,8 +266,8 @@ public class NodeModule {
             _nodeManager.addNode(node);
         }
 
-        _socketServer = new SocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
-        _socketServer.setSocketConnectedCallback(new SocketServer.SocketConnectedCallback() {
+        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+        _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
                 Logger.log("New Connection: " + binarySocket);
@@ -275,6 +275,21 @@ public class NodeModule {
                 node.setQueryBlocksCallback(_queryBlocksCallback);
                 node.handshake();
                 _nodeManager.addNode(node);
+            }
+        });
+
+        _jsonRpcSocketServer = new JsonSocketServer(8081);
+        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonSocketServer.SocketConnectedCallback() {
+            @Override
+            public void run(final JsonSocket socketConnection) {
+                Logger.log("New Connection: " + socketConnection);
+                socketConnection.setMessageReceivedCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        Logger.log("Message received: "+ socketConnection.popMessage().getMessage());
+                    }
+                });
+                socketConnection.beginListening();
             }
         });
     }
@@ -286,6 +301,9 @@ public class NodeModule {
 
         _blockValidatorThread.start();
         Logger.log("[Block Validator Thread Online]");
+
+        _jsonRpcSocketServer.start();
+        Logger.log("[RPC Server Online]");
 
         _socketServer.start();
         Logger.log("[Listening For Connections]");
@@ -332,5 +350,6 @@ public class NodeModule {
         _blockValidatorThread.interrupt();
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();
+        _jsonRpcSocketServer.stop();
     }
 }

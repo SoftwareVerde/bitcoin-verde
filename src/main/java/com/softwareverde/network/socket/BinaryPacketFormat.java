@@ -8,11 +8,11 @@ import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
 public class BinaryPacketFormat implements Const {
     public final ByteArray magicNumber;
     public final ProtocolMessageHeaderInflater protocolMessageHeaderInflater;
-    public final ProtocolMessageFactory _protocolMessageFactory;
+    public final ProtocolMessageFactory protocolMessageFactory;
 
     public BinaryPacketFormat(final ByteArray magicNumber, final ProtocolMessageHeaderInflater protocolMessageHeaderInflater, final ProtocolMessageFactory protocolMessageFactory) {
         this.magicNumber = magicNumber;
         this.protocolMessageHeaderInflater = protocolMessageHeaderInflater;
-        this._protocolMessageFactory = protocolMessageFactory;
+        this.protocolMessageFactory = protocolMessageFactory;
     }
 }

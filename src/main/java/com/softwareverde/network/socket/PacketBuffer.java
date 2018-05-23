@@ -107,11 +107,15 @@ public class PacketBuffer {
         _reversedMainNetMagicNumber = ByteUtil.reverseEndian(binaryPacketFormat.magicNumber.getBytes());
 
         _protocolMessageHeaderInflater = binaryPacketFormat.protocolMessageHeaderInflater;
-        _protocolMessageFactory = binaryPacketFormat._protocolMessageFactory;
+        _protocolMessageFactory = binaryPacketFormat.protocolMessageFactory;
     }
 
     public void setBufferSize(final int bufferSize) {
         _bufferSize = bufferSize;
+    }
+
+    public Integer getBufferSize() {
+        return _bufferSize;
     }
 
     /**

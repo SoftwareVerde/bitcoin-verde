@@ -5,13 +5,16 @@ import com.softwareverde.io.Logger;
 
 import java.io.IOException;
 
-public class SocketServer {
-    public interface SocketConnectedCallback {
-        void run(BinarySocket socketConnection);
+public class SocketServer<T extends Socket> {
+    public interface SocketFactory<T> {
+        T newSocket(java.net.Socket socket);
     }
 
-    public interface SocketDisconnectedCallback {
-        void run(BinarySocket socketConnection);
+    public interface SocketConnectedCallback<T> {
+        void run(T socketConnection);
+    }
+    public interface SocketDisconnectedCallback<T> {
+        void run(T socketConnection);
     }
 
     protected class ServerThread extends Thread {
@@ -25,7 +28,7 @@ public class SocketServer {
                 while (_shouldContinue) {
                     if (_socket == null) { return; }
 
-                    final BinarySocket connection = new BinarySocket(_socket.accept(), _binaryPacketFormat);
+                    final T connection = _socketFactory.newSocket(_socket.accept());
 
                     final Boolean shouldPurgeConnections = (_nextConnectionId % PURGE_EVERY_COUNT == 0L);
                     if (shouldPurgeConnections) {
@@ -47,26 +50,26 @@ public class SocketServer {
     protected static final Long PURGE_EVERY_COUNT = 20L;
 
     protected final Integer _port;
-    protected final BinaryPacketFormat _binaryPacketFormat;
+    protected final SocketFactory<T> _socketFactory;
     protected java.net.ServerSocket _socket;
 
-    protected final MutableList<BinarySocket> _connections = new MutableList<BinarySocket>();
+    protected final MutableList<T> _connections = new MutableList<T>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
     protected Thread _serverThread = null;
 
-    protected SocketConnectedCallback _socketConnectedCallback = null;
-    protected SocketDisconnectedCallback _socketDisconnectedCallback = null;
+    protected SocketConnectedCallback<T> _socketConnectedCallback = null;
+    protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
 
     protected void _purgeDisconnectedConnections() {
         final Integer socketCount = _connections.getSize();
-        final MutableList<BinarySocket> disconnectedSockets = new MutableList<BinarySocket>(socketCount);
+        final MutableList<T> disconnectedSockets = new MutableList<T>(socketCount);
 
         synchronized (_connections) {
             int socketIndex = 0;
             while (socketIndex < _connections.getSize()) {
-                final BinarySocket connection = _connections.get(socketIndex);
+                final T connection = _connections.get(socketIndex);
 
                 if (! connection.isConnected()) {
                     _connections.remove(socketIndex);
@@ -79,14 +82,14 @@ public class SocketServer {
             }
         }
 
-        for (final BinarySocket bitcoinSocket : disconnectedSockets) {
+        for (final T disconnectedSocket : disconnectedSockets) {
             Logger.log("Purging disconnected socket.");
-            _onDisconnect(bitcoinSocket);
+            _onDisconnect(disconnectedSocket);
         }
     }
 
-    protected void _onConnect(final BinarySocket socketConnection) {
-        final SocketConnectedCallback socketConnectedCallback = _socketConnectedCallback;
+    protected void _onConnect(final T socketConnection) {
+        final SocketConnectedCallback<T> socketConnectedCallback = _socketConnectedCallback;
 
         if (socketConnectedCallback != null) {
             (new Thread(new Runnable() {
@@ -98,8 +101,8 @@ public class SocketServer {
         }
     }
 
-    protected void _onDisconnect(final BinarySocket socketConnection) {
-        final SocketDisconnectedCallback socketDisconnectedCallback = _socketDisconnectedCallback;
+    protected void _onDisconnect(final T socketConnection) {
+        final SocketDisconnectedCallback<T> socketDisconnectedCallback = _socketDisconnectedCallback;
 
         if (socketDisconnectedCallback != null) {
             (new Thread(new Runnable() {
@@ -111,16 +114,16 @@ public class SocketServer {
         }
     }
 
-    public SocketServer(final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public SocketServer(final Integer port, final SocketFactory<T> socketFactory) {
         _port = port;
-        _binaryPacketFormat = binaryPacketFormat;
+        _socketFactory = socketFactory;
     }
 
-    public void setSocketConnectedCallback(final SocketConnectedCallback socketConnectedCallback) {
+    public void setSocketConnectedCallback(final SocketConnectedCallback<T> socketConnectedCallback) {
         _socketConnectedCallback = socketConnectedCallback;
     }
 
-    public void setSocketDisconnectedCallback(final SocketDisconnectedCallback socketDisconnectedCallback) {
+    public void setSocketDisconnectedCallback(final SocketDisconnectedCallback<T> socketDisconnectedCallback) {
         _socketDisconnectedCallback = socketDisconnectedCallback;
     }
 

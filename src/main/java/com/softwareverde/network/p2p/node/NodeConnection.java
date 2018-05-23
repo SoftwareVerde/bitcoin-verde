@@ -108,6 +108,7 @@ public class NodeConnection {
                 }
             }
         });
+        _binarySocket.beginListening();
 
         final Boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
