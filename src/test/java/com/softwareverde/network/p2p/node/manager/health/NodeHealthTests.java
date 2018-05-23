@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node.manager.health;
 
-import com.softwareverde.util.type.time.Time;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.type.time.Time;
 import org.junit.Assert;
 import org.junit.Test;
 

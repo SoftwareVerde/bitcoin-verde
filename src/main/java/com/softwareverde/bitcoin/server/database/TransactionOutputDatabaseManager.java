@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -90,5 +92,31 @@ public class TransactionOutputDatabaseManager {
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         return _getTransactionOutput(transactionOutputId);
+    }
+
+    public TransactionOutput fromDatabaseConnection(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        final ScriptInflater scriptInflater = new ScriptInflater();
+
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+
+        final Long amount = row.getLong("amount");
+        final Integer index = row.getInteger("index");
+
+        final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(row.getBytes("locking_script")));
+
+        transactionOutput.setAmount(amount);
+        transactionOutput.setIndex(index);
+
+        transactionOutput.setLockingScript(lockingScript);
+
+        return transactionOutput;
     }
 }

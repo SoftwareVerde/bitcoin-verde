@@ -1,19 +1,9 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -56,49 +46,5 @@ public class BlockHeaderInflater {
     public MutableBlockHeader fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
-    }
-
-    public BlockHeader fromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT * FROM blocks WHERE id = ?")
-                .setParameter(blockId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-        final Row row = rows.get(0);
-
-        final Integer version = row.getInteger("version");
-
-        final Sha256Hash previousBlockHash;
-        {
-            final java.util.List<Row> previousBlockRows = databaseConnection.query(
-                new Query("SELECT id, hash FROM blocks WHERE id = ?")
-                    .setParameter(row.getLong("previous_block_id"))
-            );
-            if (previousBlockRows.isEmpty()) {
-                previousBlockHash = new ImmutableSha256Hash();
-            }
-            else {
-                final Row previousBlockRow = previousBlockRows.get(0);
-                final String previousBlockHashString = previousBlockRow.getString("hash");
-                previousBlockHash = MutableSha256Hash.fromHexString(previousBlockHashString);
-            }
-        }
-
-        final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
-        final Long timestamp = row.getLong("timestamp");
-        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
-        final Long nonce = row.getLong("nonce");
-
-        final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader();
-
-        mutableBlockHeader._version = version;
-        mutableBlockHeader._previousBlockHash = previousBlockHash;
-        mutableBlockHeader._merkleRoot = merkleRoot;
-        mutableBlockHeader._timestamp = timestamp;
-        mutableBlockHeader._difficulty = difficulty;
-        mutableBlockHeader._nonce = nonce;
-
-        return mutableBlockHeader;
     }
 }

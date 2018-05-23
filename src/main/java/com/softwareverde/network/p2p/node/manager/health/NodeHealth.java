@@ -1,9 +1,9 @@
 package com.softwareverde.network.p2p.node.manager.health;
 
-import com.softwareverde.util.type.time.SystemTime;
-import com.softwareverde.util.type.time.Time;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.type.time.SystemTime;
+import com.softwareverde.util.type.time.Time;
 
 import java.util.Comparator;
 

@@ -2,9 +2,14 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
@@ -93,5 +98,48 @@ public class TransactionInputDatabaseManager {
         }
 
         return _insertTransactionInput(blockChainSegmentId, transactionId, transactionInput);
+    }
+
+    public TransactionInput fromDatabaseConnection(final TransactionInputId transactionInputId) throws DatabaseException {
+        final ScriptInflater scriptInflater = new ScriptInflater();
+
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM transaction_inputs WHERE id = ?")
+                .setParameter(transactionInputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+
+        final MutableTransactionInput transactionInput = new MutableTransactionInput();
+
+        final Sha256Hash previousOutputTransactionHash;
+        final Integer previousOutputIndex;
+        {
+            final List<Row> previousOutputTransactionRows = _databaseConnection.query(
+                new Query("SELECT transaction_outputs.id, transactions.hash, transaction_outputs.`index` FROM transaction_outputs INNER JOIN transactions ON (transaction_outputs.transaction_id = transactions.id) WHERE transaction_outputs.id = ?")
+                    .setParameter(row.getLong("previous_transaction_output_id"))
+            );
+            if (previousOutputTransactionRows.isEmpty()) {
+                previousOutputTransactionHash = new ImmutableSha256Hash();
+                previousOutputIndex = -1;
+            }
+            else {
+                final Row previousOutputTransactionRow = previousOutputTransactionRows.get(0);
+                previousOutputTransactionHash = MutableSha256Hash.fromHexString(previousOutputTransactionRow.getString("hash"));
+                previousOutputIndex = previousOutputTransactionRow.getInteger("index");
+            }
+        }
+
+        final UnlockingScript unlockingScript = UnlockingScript.castFrom(scriptInflater.fromBytes(row.getBytes("unlocking_script")));
+        final Long sequenceNumber = row.getLong("sequence_number");
+
+        transactionInput.setPreviousOutputTransactionHash(previousOutputTransactionHash);
+        transactionInput.setPreviousOutputIndex(previousOutputIndex);
+
+        transactionInput.setUnlockingScript(unlockingScript);
+        transactionInput.setSequenceNumber(sequenceNumber);
+
+        return transactionInput;
     }
 }

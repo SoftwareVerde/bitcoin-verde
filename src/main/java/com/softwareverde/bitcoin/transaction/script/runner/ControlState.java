@@ -4,8 +4,6 @@ import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBloc
 import com.softwareverde.bitcoin.transaction.script.opcode.controlstate.CodeBlockType;
 import com.softwareverde.util.Util;
 
-import java.util.LinkedList;
-
 public class ControlState {
     // protected final LinkedList<CodeBlock> _codeBlocks = new LinkedList<CodeBlock>();
     protected CodeBlock _codeBlock;

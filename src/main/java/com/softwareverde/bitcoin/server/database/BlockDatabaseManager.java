@@ -2,16 +2,22 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -180,6 +186,67 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
+    protected com.softwareverde.constable.list.List<Transaction> _getBlockTransactions(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Transaction transaction = transactionDatabaseManager.fromDatabaseConnection(transactionId);
+            listBuilder.add(transaction);
+        }
+        return listBuilder.build();
+    }
+
+    protected BlockHeader _blockHeaderFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT * FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+        final Row row = rows.get(0);
+
+        final Integer version = row.getInteger("version");
+
+        final Sha256Hash previousBlockHash;
+        {
+            final java.util.List<Row> previousBlockRows = databaseConnection.query(
+                new Query("SELECT id, hash FROM blocks WHERE id = ?")
+                    .setParameter(row.getLong("previous_block_id"))
+            );
+            if (previousBlockRows.isEmpty()) {
+                previousBlockHash = new ImmutableSha256Hash();
+            }
+            else {
+                final Row previousBlockRow = previousBlockRows.get(0);
+                final String previousBlockHashString = previousBlockRow.getString("hash");
+                previousBlockHash = MutableSha256Hash.fromHexString(previousBlockHashString);
+            }
+        }
+
+        final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
+        final Long timestamp = row.getLong("timestamp");
+        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
+        final Long nonce = row.getLong("nonce");
+
+        final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader();
+
+        mutableBlockHeader.setVersion(version);
+        mutableBlockHeader.setPreviousBlockHash(previousBlockHash);
+        mutableBlockHeader.setMerkleRoot(merkleRoot);
+        mutableBlockHeader.setTimestamp(timestamp);
+        mutableBlockHeader.setDifficulty(difficulty);
+        mutableBlockHeader.setNonce(nonce);
+
+        return mutableBlockHeader;
+    }
+
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
@@ -271,5 +338,18 @@ public class BlockDatabaseManager {
         }
 
         return null;
+    }
+
+    public BlockHeader blockHeaderFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        return _blockHeaderFromDatabaseConnection(blockId, databaseConnection);
+    }
+
+    public MutableBlock blockFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final BlockHeader blockHeader = _blockHeaderFromDatabaseConnection(blockId, databaseConnection);
+        if (blockHeader == null) { return null; }
+
+        final com.softwareverde.constable.list.List<Transaction> transactions = _getBlockTransactions(blockId, databaseConnection);
+
+        return new MutableBlock(blockHeader, transactions);
     }
 }

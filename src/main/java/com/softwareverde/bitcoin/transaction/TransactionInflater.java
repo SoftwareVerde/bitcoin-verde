@@ -1,18 +1,11 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInflater {
@@ -55,47 +48,5 @@ public class TransactionInflater {
     public MutableTransaction fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
-    }
-
-    public MutableTransaction fromDatabaseConnection(final TransactionId transactionId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
-        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
-
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT * FROM transactions WHERE id = ?")
-                .setParameter(transactionId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final Integer version = row.getInteger("version");
-        final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
-
-        final MutableTransaction transaction = new MutableTransaction();
-
-        transaction._version = version;
-        transaction._lockTime = lockTime;
-
-        final java.util.List<Row> transactionInputRows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ?")
-                .setParameter(transactionId)
-        );
-        for (final Row transactionInputRow : transactionInputRows) {
-            final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputRow.getLong("id"));
-            final TransactionInput transactionInput = transactionInputInflater.fromDatabaseConnection(transactionInputId, databaseConnection);
-            transaction._transactionInputs.add(transactionInput);
-        }
-
-        final java.util.List<Row> transactionOutputRows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ?")
-                .setParameter(transactionId)
-        );
-        for (final Row transactionOutputRow : transactionOutputRows) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
-            final TransactionOutput transactionOutput = transactionOutputInflater.fromDatabaseConnection(transactionOutputId, databaseConnection);
-            transaction._transactionOutputs.add(transactionOutput);
-        }
-
-        return transaction;
     }
 }
