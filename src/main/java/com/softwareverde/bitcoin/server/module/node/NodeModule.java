@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
@@ -25,7 +24,6 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
@@ -117,7 +115,7 @@ public class NodeModule {
             Sha256Hash lastKnownHash = null;
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
+                lastKnownHash = blockDatabaseManager.getHeadBlockHash();
             }
             catch (final DatabaseException e) { }
 
@@ -347,7 +345,7 @@ public class NodeModule {
             _hasGenesisBlock = false;
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                final Sha256Hash lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
+                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
                 _hasGenesisBlock = (lastKnownHash != null);
             }
             catch (final DatabaseException e) { }

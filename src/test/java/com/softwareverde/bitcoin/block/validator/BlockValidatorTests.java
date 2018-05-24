@@ -37,7 +37,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
             for (int i=0; i<blockCount; ++i) {
-                final Sha256Hash mostRecentBlockHash = blockDatabaseManager.getMostRecentBlockHash();
+                final Sha256Hash mostRecentBlockHash = blockDatabaseManager.getHeadBlockHash();
                 MutableBlock block;
 
                 if (mostRecentBlockHash == null) {
@@ -250,7 +250,7 @@ public class BlockValidatorTests extends IntegrationTest {
             // NOTE: This block is the block referenced when calculating the elapsed time since the previous update...
             final String blockData = IoUtil.getResource("/blocks/000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8");
             final MutableBlock block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            block30240.setPreviousBlockHash(blockDatabaseManager.getMostRecentBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            block30240.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
             final BlockId blockId = blockDatabaseManager.storeBlock(block30240);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block30240);
             final Difficulty blockDifficulty = block30240.getDifficulty();
@@ -265,7 +265,7 @@ public class BlockValidatorTests extends IntegrationTest {
             // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
             final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            previousBlock.setPreviousBlockHash(blockDatabaseManager.getMostRecentBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
             final BlockId blockId = blockDatabaseManager.storeBlock(previousBlock);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(previousBlock);
             final Difficulty blockDifficulty = previousBlock.getDifficulty();

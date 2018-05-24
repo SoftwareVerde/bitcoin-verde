@@ -272,7 +272,10 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
-    public Sha256Hash getMostRecentBlockHash() throws DatabaseException {
+    /**
+     * Returns the Sha256Hash of the block that has the tallest block-height.
+     */
+    public Sha256Hash getHeadBlockHash() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 

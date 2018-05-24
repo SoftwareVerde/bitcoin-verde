@@ -36,7 +36,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final Sha256Hash lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
+        final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
         final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
     }
@@ -65,7 +65,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final Long secondsBehind;
             {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                final Sha256Hash lastKnownHash = blockDatabaseManager.getMostRecentBlockHash();
+                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
                 final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
                 final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                 blockTimestampInSeconds = blockHeader.getTimestamp();
