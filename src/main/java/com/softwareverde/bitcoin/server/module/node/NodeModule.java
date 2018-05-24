@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
@@ -24,6 +25,7 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
@@ -279,19 +281,7 @@ public class NodeModule {
         });
 
         _jsonRpcSocketServer = new JsonSocketServer(8081);
-        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonSocketServer.SocketConnectedCallback() {
-            @Override
-            public void run(final JsonSocket socketConnection) {
-                Logger.log("New Connection: " + socketConnection);
-                socketConnection.setMessageReceivedCallback(new Runnable() {
-                    @Override
-                    public void run() {
-                        Logger.log("Message received: "+ socketConnection.popMessage().getMessage());
-                    }
-                });
-                socketConnection.beginListening();
-            }
-        });
+        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment));
     }
 
     public void loop() {
