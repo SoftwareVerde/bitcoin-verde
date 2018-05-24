@@ -71,11 +71,6 @@ public class NodeModule {
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
     protected final BlockValidatorThread _blockValidatorThread = new BlockValidatorThread();
 
-    protected long _startTime;
-    protected int _blockCount = 0;
-    protected int _transactionCount = 0;
-    protected int _totalBlockValidationMsElapsed = 0;
-
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
@@ -185,15 +180,10 @@ public class NodeModule {
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
             final long blockValidationEndTime = System.currentTimeMillis();
             final long blockValidationMsElapsed = (blockValidationEndTime - blockValidationStartTime);
-            _totalBlockValidationMsElapsed += blockValidationMsElapsed;
 
             if (blockIsValid) {
                 TransactionUtil.commitTransaction(databaseConnection);
-                final int blockTransactionCount = block.getTransactions().getSize();
-                _blockCount += 1;
-                _transactionCount += blockTransactionCount;
-
-                final long msElapsed = (System.currentTimeMillis() - _startTime);
+                final Integer blockTransactionCount = block.getTransactions().getSize();
 
                 final Float averageBlocksPerSecond;
                 final Float averageTransactionsPerSecond;
@@ -220,9 +210,12 @@ public class NodeModule {
                         totalTransactionCount = value;
                     }
 
-                    averageBlocksPerSecond = (validationTimeElapsed.floatValue() / blockCount.floatValue());
-                    averageTransactionsPerSecond = (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue());
+                    averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+                    averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
                 }
+
+                _averageBlocksPerSecond.value = averageBlocksPerSecond;
+                _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
                 // Logger.log("Block ("+ (blockTransactionCount) +" transactions) validated in " + (blockValidationMsElapsed) + "ms. (" + String.format("%.2f", (1.0D / blockValidationMsElapsed) * 1000) + " bps) (" + String.format("%.2f", (((double) blockTransactionCount) / blockValidationMsElapsed) * 1000) + " tps) ("+ String.format("%.2f", (((double) _transactionCount) / _totalBlockValidationMsElapsed) * 1000) +" avg tps)");
                 // Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
@@ -346,8 +339,6 @@ public class NodeModule {
         Logger.log("[Listening For Connections]");
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
-
-        _startTime = System.currentTimeMillis();
 
         { // Determine if the Genesis Block has been downloaded...
             _hasGenesisBlock = false;
