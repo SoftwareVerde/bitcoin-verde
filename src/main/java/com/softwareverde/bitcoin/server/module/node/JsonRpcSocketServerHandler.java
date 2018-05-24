@@ -18,17 +18,23 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
+    public interface ShutdownHandler {
+        void shutdown();
+    }
+
     public static class StatisticsContainer {
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
     }
 
     protected final Environment _environment;
+    protected final ShutdownHandler _shutdownHandler;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
 
-    public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
+    public JsonRpcSocketServerHandler(final Environment environment, final ShutdownHandler shutdownHandler, final StatisticsContainer statisticsContainer) {
         _environment = environment;
+        _shutdownHandler = shutdownHandler;
 
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
@@ -95,6 +101,11 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
+    protected void _shutdown(final Json response) {
+        _shutdownHandler.shutdown();
+        response.put("was_success", 1);
+    }
+
     @Override
     public void run(final JsonSocket socketConnection) {
         Logger.log("New Connection: " + socketConnection);
@@ -114,9 +125,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 switch (method.toUpperCase()) {
                     case "GET": {
-
                         switch (query.toUpperCase()) {
-
                             case "BLOCK-HEIGHT": {
                                 _queryBlockHeight(response);
                             } break;
@@ -129,7 +138,18 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                                 response.put("error_message", "Invalid command: " + method + "/" + query);
                             } break;
                         }
+                    } break;
 
+                    case "POST": {
+                        switch (query.toUpperCase()) {
+                            case "SHUTDOWN": {
+                                _shutdown(response);
+                            } break;
+
+                            default: {
+                                response.put("error_message", "Invalid command: " + method + "/" + query);
+                            } break;
+                        }
                     } break;
 
                     default: {

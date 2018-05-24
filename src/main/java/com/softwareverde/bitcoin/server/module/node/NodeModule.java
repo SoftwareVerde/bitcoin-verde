@@ -319,8 +319,16 @@ public class NodeModule {
         statisticsContainer.averageBlocksPerSecond = _averageBlocksPerSecond;
         statisticsContainer.averageTransactionsPerSecond = _averageTransactionsPerSecond;
 
+        final Thread mainThread = Thread.currentThread();
+        final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new JsonRpcSocketServerHandler.ShutdownHandler() {
+            @Override
+            public void shutdown() {
+                mainThread.interrupt();
+            }
+        };
+
         _jsonRpcSocketServer = new JsonSocketServer(8081);
-        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, statisticsContainer));
+        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, shutdownHandler, statisticsContainer));
     }
 
     public void loop() {
@@ -371,7 +379,7 @@ public class NodeModule {
             _downloadAllBlocks();
         }
 
-        while (true) {
+        while (! Thread.currentThread().isInterrupted()) {
             try { Thread.sleep(5000); } catch (final Exception e) { break; }
         }
 
@@ -380,5 +388,7 @@ public class NodeModule {
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();
         _jsonRpcSocketServer.stop();
+
+        System.exit(0);
     }
 }
