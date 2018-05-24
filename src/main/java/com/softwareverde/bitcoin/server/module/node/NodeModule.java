@@ -29,6 +29,7 @@ import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.RotatingQueue;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -80,6 +81,12 @@ public class NodeModule {
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
+
+    protected final Object _statisticsMutex = new Object();
+    protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
+    protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
+    protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
+    protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
 
@@ -189,9 +196,39 @@ public class NodeModule {
                 _transactionCount += blockTransactionCount;
 
                 final long msElapsed = (System.currentTimeMillis() - _startTime);
-                Logger.log("Block ("+ (blockTransactionCount) +" transactions) validated in " + (blockValidationMsElapsed) + "ms. (" + String.format("%.2f", (1.0D / blockValidationMsElapsed) * 1000) + " bps) (" + String.format("%.2f", (((double) blockTransactionCount) / blockValidationMsElapsed) * 1000) + " tps) ("+ String.format("%.2f", (((double) _transactionCount) / _totalBlockValidationMsElapsed) * 1000) +" avg tps)");
-                Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
-                Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
+
+                final Float averageBlocksPerSecond;
+                final Float averageTransactionsPerSecond;
+                synchronized (_statisticsMutex) {
+                    _blocksPerSecond.add(blockValidationMsElapsed);
+                    _transactionsPerBlock.add(blockTransactionCount);
+
+                    final Integer blockCount = _blocksPerSecond.size();
+                    final Long validationTimeElapsed;
+                    {
+                        long value = 0L;
+                        for (final Long elapsed : _blocksPerSecond) {
+                            value += elapsed;
+                        }
+                        validationTimeElapsed = value;
+                    }
+
+                    final Integer totalTransactionCount;
+                    {
+                        int value = 0;
+                        for (final Integer transactionCount : _transactionsPerBlock) {
+                            value += transactionCount;
+                        }
+                        totalTransactionCount = value;
+                    }
+
+                    averageBlocksPerSecond = (validationTimeElapsed.floatValue() / blockCount.floatValue());
+                    averageTransactionsPerSecond = (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue());
+                }
+
+                // Logger.log("Block ("+ (blockTransactionCount) +" transactions) validated in " + (blockValidationMsElapsed) + "ms. (" + String.format("%.2f", (1.0D / blockValidationMsElapsed) * 1000) + " bps) (" + String.format("%.2f", (((double) blockTransactionCount) / blockValidationMsElapsed) * 1000) + " tps) ("+ String.format("%.2f", (((double) _transactionCount) / _totalBlockValidationMsElapsed) * 1000) +" avg tps)");
+                // Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
+                // Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
 
                 return true;
             }
@@ -280,8 +317,12 @@ public class NodeModule {
             }
         });
 
+        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
+        statisticsContainer.averageBlocksPerSecond = _averageBlocksPerSecond;
+        statisticsContainer.averageTransactionsPerSecond = _averageTransactionsPerSecond;
+
         _jsonRpcSocketServer = new JsonSocketServer(8081);
-        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment));
+        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, statisticsContainer));
     }
 
     public void loop() {
