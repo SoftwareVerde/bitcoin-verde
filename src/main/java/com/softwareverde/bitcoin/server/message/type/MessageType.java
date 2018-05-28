@@ -6,7 +6,8 @@ public enum MessageType {
     SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
     PING("ping"), PONG("pong"),
     NODE_ADDRESSES("addr"),
-    QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), REQUEST_OBJECT("getdata"),
+    QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCK_HEADERS_RESPONSE("headers"),
+    QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), REQUEST_OBJECT("getdata"),
     ERROR("reject"),
     BLOCK("block");
 

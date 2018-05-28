@@ -17,6 +17,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -82,6 +84,7 @@ public class NodeModule {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
+    protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
 
     protected void _exitFailure() {
         Logger.shutdown();
@@ -289,9 +292,38 @@ public class NodeModule {
             }
         };
 
+        _queryBlockHeadersCallback = new BitcoinNode.QueryBlockHeadersCallback() {
+            @Override
+            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
+                 final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
+                 try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
+                     for (final Sha256Hash blockHash : blockHashes) {
+                         final BlockId blockId;
+                         {
+                             final java.util.List<Row> rows = databaseConnection.query(
+                                 new Query("SELECT id FROM blocks WHERE hash = ?")
+                                     .setParameter(blockHash)
+                             );
+                             if (rows.isEmpty()) { continue; }
+
+                             blockId = BlockId.wrap(rows.get(0).getLong("id"));
+                         }
+
+                         throw new RuntimeException("TODO");
+                         // TODO
+//                         final java.util.List<Row> rows = databaseConnection.query(
+//                             new Query("SELECT id FROM blocks")
+//                         );
+                     }
+                 }
+                 catch (final DatabaseException exception) { Logger.log(exception); }
+            }
+        };
+
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             node.setQueryBlocksCallback(_queryBlocksCallback);
+            node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
             node.handshake();
             _nodeManager.addNode(node);
         }
@@ -303,6 +335,7 @@ public class NodeModule {
                 Logger.log("New Connection: " + binarySocket);
                 final BitcoinNode node = new BitcoinNode(binarySocket);
                 node.setQueryBlocksCallback(_queryBlocksCallback);
+                node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
                 node.handshake();
                 _nodeManager.addNode(node);
             }

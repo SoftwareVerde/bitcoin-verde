@@ -8,6 +8,8 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BlockHeaderInflater {
+    public static final Integer BLOCK_HEADER_BYTE_COUNT = 80;
+
     protected MutableBlockHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
 
