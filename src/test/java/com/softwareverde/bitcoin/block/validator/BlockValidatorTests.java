@@ -45,11 +45,12 @@ public class BlockValidatorTests extends IntegrationTest {
                     block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(genesisBlockData));
                 }
                 else {
+                    final Long blockHeight = 1L;
                     final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(mostRecentBlockHash);
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
-                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    listBuilder.add(Transaction.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);

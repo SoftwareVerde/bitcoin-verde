@@ -10,10 +10,11 @@ import com.softwareverde.json.Jsonable;
 public interface TransactionInput extends Constable<ImmutableTransactionInput>, Jsonable {
     Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
 
-    static TransactionInput createCoinbaseTransactionInput(final String coinbaseMessage) {
+    static TransactionInput createCoinbaseTransactionInput(final Long blockHeight, final String coinbaseMessage) {
         final UnlockingScript unlockingScript;
         { // Initialize unlockingScript...
             final ScriptBuilder scriptBuilder = new ScriptBuilder();
+            scriptBuilder.pushInteger(blockHeight);
             scriptBuilder.pushString(coinbaseMessage);
             unlockingScript = scriptBuilder.buildUnlockingScript();
         }
@@ -23,10 +24,11 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         return coinbaseTransactionInput;
     }
 
-    static TransactionInput createCoinbaseTransactionInputWithExtraNonce(final String coinbaseMessage, final Integer extraNonceByteCount) {
+    static TransactionInput createCoinbaseTransactionInputWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount) {
         final UnlockingScript unlockingScript;
         { // Initialize unlockingScript...
             final ScriptBuilder scriptBuilder = new ScriptBuilder();
+            scriptBuilder.pushInteger(blockHeight);
             scriptBuilder.pushString(coinbaseMessage);
             scriptBuilder.pushBytes(new MutableByteArray(extraNonceByteCount)); // Pad the coinbaseTransactionInput with extraNonceByteCount bytes. (Which adds the appropriate opcode in addition to extraNonceByteCount bytes...)
             unlockingScript = scriptBuilder.buildUnlockingScript();
