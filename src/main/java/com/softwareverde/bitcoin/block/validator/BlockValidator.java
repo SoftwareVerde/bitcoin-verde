@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
+import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -8,8 +9,12 @@ import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -67,15 +72,48 @@ public class BlockValidator {
             }
         };
 
+        final BlockId blockId;
+        final Long blockHeight;
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
+            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+            return false;
+        }
+
         // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
+
+        { // Validate coinbase contains block height...
+            if (Bip34.isEnabled(blockHeight)) {
+                final Integer blockVersion = block.getVersion();
+                if (blockVersion < 2) { return false; }
+
+                final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
+                final UnlockingScript unlockingScript = coinbaseTransaction.getCoinbaseScript();
+
+                final List<Operation> operations = unlockingScript.getOperations();
+                final Operation operation = operations.get(0);
+                if (operation.getType() != Operation.Type.OP_PUSH) {
+                    return false;
+                }
+                final PushOperation pushOperation = (PushOperation) operation;
+                final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
+                if (blockHeight.equals(coinbaseBlockHeight)) {
+                    return false;
+                }
+            }
+        }
 
         { // Validate coinbase input...
             final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
             final List<TransactionInput> transactionInputs = coinbaseTransaction.getTransactionInputs();
 
-            { // Validate transaction mount...
+            { // Validate transaction amount...
                 if (transactionInputs.getSize() != 1) {
                     Logger.log("Invalid coinbase transaction inputs. Count: " + transactionInputs.getSize() + "; " + "Block: " + block.getHash());
                     return false;
@@ -160,32 +198,23 @@ public class BlockValidator {
         }
 
         { // Validate coinbase amount...
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
-                final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
-                final Long maximumCreatedCoinsAmount = ((50 * Transaction.SATOSHIS_PER_BITCOIN) >> (blockHeight / 210000));
+            final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
+            final Long maximumCreatedCoinsAmount = ((50 * Transaction.SATOSHIS_PER_BITCOIN) >> (blockHeight / 210000));
 
-                final Long maximumCoinbaseValue = (maximumCreatedCoinsAmount + totalTransactionFees);
+            final Long maximumCoinbaseValue = (maximumCreatedCoinsAmount + totalTransactionFees);
 
-                final Long coinbaseTransactionAmount;
-                {
-                    long totalAmount = 0L;
-                    for (final TransactionOutput transactionOutput : coinbaseTransaction.getTransactionOutputs()) {
-                        totalAmount += transactionOutput.getAmount();
-                    }
-                    coinbaseTransactionAmount = totalAmount;
+            final Long coinbaseTransactionAmount;
+            {
+                long totalAmount = 0L;
+                for (final TransactionOutput transactionOutput : coinbaseTransaction.getTransactionOutputs()) {
+                    totalAmount += transactionOutput.getAmount();
                 }
-
-                final Boolean coinbaseTransactionAmountIsValid = (coinbaseTransactionAmount <= maximumCoinbaseValue);
-                if (! coinbaseTransactionAmountIsValid) {
-                    Logger.log("Invalid coinbase transaction amount. Amount: " + coinbaseTransactionAmount + "; " + "Block: "+ block.getHash());
-                    return false;
-                }
+                coinbaseTransactionAmount = totalAmount;
             }
-            catch (final DatabaseException databaseException) {
-                Logger.log(databaseException);
+
+            final Boolean coinbaseTransactionAmountIsValid = (coinbaseTransactionAmount <= maximumCoinbaseValue);
+            if (! coinbaseTransactionAmountIsValid) {
+                Logger.log("Invalid coinbase transaction amount. Amount: " + coinbaseTransactionAmount + "; " + "Block: "+ block.getHash());
                 return false;
             }
         }

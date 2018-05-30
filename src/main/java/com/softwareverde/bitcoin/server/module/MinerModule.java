@@ -24,6 +24,7 @@ public class MinerModule {
     public static void execute(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
         final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
         minerModule.run();
+        Logger.shutdown();
     }
 
     protected void _exitFailure() {

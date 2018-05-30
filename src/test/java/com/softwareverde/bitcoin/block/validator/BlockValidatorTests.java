@@ -13,16 +13,26 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -45,11 +55,12 @@ public class BlockValidatorTests extends IntegrationTest {
                     block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(genesisBlockData));
                 }
                 else {
+                    final Long blockHeight = null;
                     final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(mostRecentBlockHash);
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
-                    listBuilder.add(Transaction.createCoinbaseTransaction("Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    listBuilder.add(Transaction.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);
@@ -260,9 +271,10 @@ public class BlockValidatorTests extends IntegrationTest {
 
         _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01") / 1000L) + 1);
 
+        final Sha256Hash previousBlockHash;
         // Timestamp: 23EC3A4B
         { // Store the previous block so the firstBlockWithDifficultyAdjustment has the correct hash...
-            // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
+            // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B -> AFB816727FE415551ADBE28BCAF2E3D8ECEE4799B4B07735613B40ED8EAD01BA
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
             final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
@@ -271,13 +283,41 @@ public class BlockValidatorTests extends IntegrationTest {
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
             Assert.assertEquals((blockHeight - 1), blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+
+            previousBlockHash = previousBlock.getHash();
         }
 
         final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
         final float expectedDifficultyRatio = 1.18F;
-        // Block with the first difficulty adjustment: 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 (Block Height: 32256)
-        final String blockData = "01000000D7075C72A90B32E0B100CE861B53BE1C972B661A556C80A779312D066647B4F6115F37ACB5A2F42F0015BCCA3164F6C0BBAE94F3DD60522F3C7D3879847B688423EC3A4B6AD8001D24AD7F290101000000010000000000000000000000000000000000000000000000000000000000000000000000000F07046AEFBFBD0018BFFD7AA0000000FFFFFFFF0100F2052A0100000043410428F88CA471C9718C4E52DF12B756BABEDF6A970082C3CC2BDC9F7E0C53479B7F0D9201FD4B0C3EB3E82C48EF6C011B51994EBC18177C85B20FFE8FC844ECA755AC00000000"; // Modified version of 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 with the previousBlockHash set to (the modified version of) 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
-        final Block firstBlockWithDifficultyIncrease = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+        // Original Block with the first difficulty adjustment: 000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967 (Block Height: 32256)
+        //  blockData is a modified version of this block, so that its previous block hash fits the modified block above.
+        final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
+
+        final Block firstBlockWithDifficultyIncrease;
+        { // Modify the real block to set the the previousBlockHash to our custom block...
+            // This block's is intended to only have its previousBlockHash rewritten while still having a suitable Block Hash.
+            //  To accomplish this, this block was re-mined with a nonce and extra-nonce.  Instead of using the bytes directly, the
+            //  modified fields are set programmatically to more easily determine what exactly was/wasn't modified.
+            final MutableBlock mutableBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            mutableBlock.setPreviousBlockHash(previousBlockHash);
+
+            mutableBlock.setNonce(1978210639L);
+
+            { // Append extra nonce to coinbase transaction...
+                final CoinbaseTransaction coinbaseTransaction = mutableBlock.getCoinbaseTransaction();
+                final MutableCoinbaseTransaction modifiedCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
+                final MutableUnlockingScript mutableCoinbaseScript = new MutableUnlockingScript(modifiedCoinbaseTransaction.getCoinbaseScript());
+                final OperationInflater operationInflater = new OperationInflater();
+                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("053333313134")));
+                mutableCoinbaseScript.addOperation(operation);
+                modifiedCoinbaseTransaction.setCoinbaseScript(mutableCoinbaseScript);
+                mutableBlock.replaceTransaction(0, modifiedCoinbaseTransaction);
+            }
+
+            firstBlockWithDifficultyIncrease = mutableBlock;
+        }
+
         final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);

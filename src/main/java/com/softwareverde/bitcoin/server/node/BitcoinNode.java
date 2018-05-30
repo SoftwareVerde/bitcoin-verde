@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
+import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
@@ -44,6 +45,10 @@ public class BitcoinNode extends Node {
         void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
     }
 
+    public interface QueryBlockHeadersCallback {
+        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
+    }
+
     protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
         public QueryCallback callback;
@@ -69,6 +74,7 @@ public class BitcoinNode extends Node {
     }
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
+    protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
@@ -159,6 +165,10 @@ public class BitcoinNode extends Node {
 
                     case QUERY_BLOCKS: {
                         _onQueryBlocksMessageReceived((QueryBlocksMessage) message);
+                    } break;
+
+                    case QUERY_BLOCK_HEADERS: {
+                        _onQueryBlockHeadersReceived((QueryBlockHeadersMessage) message);
                     } break;
 
                     default: {
@@ -265,6 +275,17 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected void _onQueryBlockHeadersReceived(final QueryBlockHeadersMessage queryBlockHeadersMessage) {
+        if (_queryBlockHeadersCallback != null) {
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlockHeadersMessage.getBlockHeaderHashes());
+            final Sha256Hash desiredBlockHeaderHash = queryBlockHeadersMessage.getDesiredBlockHeaderHash();
+            _queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash);
+        }
+        else {
+            Logger.log("NOTICE: No handler set for QueryBlockHeaders message.");
+        }
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         queryBlocksMessage.addBlockHeaderHash(blockHash);
@@ -289,6 +310,10 @@ public class BitcoinNode extends Node {
 
     public void setQueryBlocksCallback(final QueryBlocksCallback queryBlocksCallback) {
         _queryBlocksCallback = queryBlocksCallback;
+    }
+
+    public void setQueryBlockHeadersCallback(final QueryBlockHeadersCallback queryBlockHeadersCallback) {
+        _queryBlockHeadersCallback = queryBlockHeadersCallback;
     }
 
     @Override

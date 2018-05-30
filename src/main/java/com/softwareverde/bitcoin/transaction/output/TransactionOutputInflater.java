@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputInflater {
-    protected TransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
+    protected MutableTransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
 
         transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
@@ -19,11 +19,11 @@ public class TransactionOutputInflater {
         return transactionOutput;
     }
 
-    public TransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {
+    public MutableTransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(index, byteArrayReader);
     }
 
-    public TransactionOutput fromBytes(final Integer index, final byte[] bytes) {
+    public MutableTransactionOutput fromBytes(final Integer index, final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(index, byteArrayReader);
     }

@@ -21,11 +21,11 @@ public class TransactionInputInflater {
         return transactionInput;
     }
 
-    public TransactionInput fromBytes(final ByteArrayReader byteArrayReader) {
+    public MutableTransactionInput fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public TransactionInput fromBytes(final byte[] bytes) {
+    public MutableTransactionInput fromBytes(final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }
