@@ -8,6 +8,11 @@ import com.softwareverde.util.HexUtil;
 public class MutableSha256Hash extends MutableHash implements Sha256Hash {
     public static MutableSha256Hash fromHexString(final String hexString) {
         final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
+        if (hashBytes == null) {
+            Logger.log("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
+            return null;
+        }
+
         return new MutableSha256Hash(hashBytes);
     }
 
