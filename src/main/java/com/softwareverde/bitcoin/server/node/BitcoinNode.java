@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.message.type.version.acknowledge.Bitcoin
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ipv4;
@@ -33,23 +34,22 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public interface QueryCallback extends Callback<List<Sha256Hash>> { }
+    public interface QueryCallback extends Callback<java.util.List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
 
     public interface QueryBlocksCallback {
-        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
+        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
 
     public interface QueryBlockHeadersCallback {
-        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash);
+        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
 
-    protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
+    protected static class BlockHashQueryCallback implements Callback<java.util.List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
         public QueryCallback callback;
 
@@ -59,7 +59,7 @@ public class BitcoinNode extends Node {
         }
 
         @Override
-        public void onResult(final List<Sha256Hash> result) {
+        public void onResult(final java.util.List<Sha256Hash> result) {
             this.callback.onResult(result);
         }
     }
@@ -164,11 +164,11 @@ public class BitcoinNode extends Node {
                     } break;
 
                     case QUERY_BLOCKS: {
-                        _onQueryBlocksMessageReceived((QueryBlocksMessage) message);
+                        _onQueryBlocksMessageReceived((QueryBlocksMessage) message, _connection);
                     } break;
 
                     case QUERY_BLOCK_HEADERS: {
-                        _onQueryBlockHeadersReceived((QueryBlockHeadersMessage) message);
+                        _onQueryBlockHeadersReceived((QueryBlockHeadersMessage) message, _connection);
                     } break;
 
                     default: {
@@ -212,7 +212,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
-        final Map<DataHashType, List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, List<Sha256Hash>>();
+        final Map<DataHashType, java.util.List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, java.util.List<Sha256Hash>>();
 
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
         for (final DataHash dataHash : dataHashes) {
@@ -222,7 +222,7 @@ public class BitcoinNode extends Node {
         }
 
         for (final DataHashType dataHashType : dataHashesMap.keySet()) {
-            final List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
+            final java.util.List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
             if (objectHashes.isEmpty()) { continue; }
 
             {   // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
@@ -264,22 +264,22 @@ public class BitcoinNode extends Node {
         _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
     }
 
-    protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage) {
+    protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage, final NodeConnection nodeConnection) {
         if (_queryBlocksCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getDesiredBlockHeaderHash();
-            _queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash);
+            _queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlocks message.");
         }
     }
 
-    protected void _onQueryBlockHeadersReceived(final QueryBlockHeadersMessage queryBlockHeadersMessage) {
+    protected void _onQueryBlockHeadersReceived(final QueryBlockHeadersMessage queryBlockHeadersMessage, final NodeConnection nodeConnection) {
         if (_queryBlockHeadersCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlockHeadersMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlockHeadersMessage.getDesiredBlockHeaderHash();
-            _queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash);
+            _queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlockHeaders message.");

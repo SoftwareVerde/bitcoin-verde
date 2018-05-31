@@ -446,4 +446,8 @@ public class BlockDatabaseManager {
         return _isBlockConnectedToChain(blockId, blockChainSegmentId);
     }
 
+    public Sha256Hash getBlockHashFromId(final BlockId blockId) throws DatabaseException {
+        return _getBlockHashFromId(blockId);
+    }
+
 }

@@ -26,6 +26,7 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
@@ -282,7 +283,7 @@ public class NodeModule {
 
         _queryBlocksCallback = new BitcoinNode.QueryBlocksCallback() {
             @Override
-            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
+            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
                 Logger.log("NOTICE: QueryBlocks unimplemented.");
                 // final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
                 // try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
@@ -292,37 +293,7 @@ public class NodeModule {
             }
         };
 
-        _queryBlockHeadersCallback = new BitcoinNode.QueryBlockHeadersCallback() {
-            @Override
-            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
-                 final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
-                 try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
-                     final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-                     final BlockId desiredBlockId = blockDatabaseManager.getBlockIdFromHash(desiredBlockHash);
-                     final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(desiredBlockId);
-
-                     for (final Sha256Hash blockHash : blockHashes) {
-                         final BlockId blockId;
-                         {
-                             final java.util.List<Row> rows = databaseConnection.query(
-                                 new Query("SELECT id FROM blocks WHERE hash = ?")
-                                     .setParameter(blockHash)
-                             );
-                             if (rows.isEmpty()) { continue; }
-
-                             blockId = BlockId.wrap(rows.get(0).getLong("id"));
-                         }
-
-                         final BlockId childBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, blockId);
-                         // TODO:
-                         throw new RuntimeException();
-                     }
-                 }
-                 catch (final DatabaseException exception) { Logger.log(exception); }
-            }
-        };
+        _queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory);
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
