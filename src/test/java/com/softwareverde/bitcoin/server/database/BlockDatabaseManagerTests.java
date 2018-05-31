@@ -16,10 +16,30 @@ import org.junit.Test;
 
 public class BlockDatabaseManagerTests extends IntegrationTest {
 
+    public static class ScenarioData {
+        public final BlockId A;
+        public final BlockId B;
+        public final BlockId C;
+        public final BlockId D;
+        public final BlockId E;
+        public final BlockId C2;
+        public final BlockId E2;
+
+        public ScenarioData(final BlockId[] blocks) {
+            this.A  = blocks[0];
+            this.B  = blocks[1];
+            this.C  = blocks[2];
+            this.C2 = blocks[3];
+            this.D  = blocks[4];
+            this.E  = blocks[5];
+            this.E2 = blocks[6];
+        }
+    }
+
     /**
      * Creates the following scenario...
      *
-     *     E         E'
+     *     E         E'             Height: 4
      *     |         |
      *  #4 +----D----+ #5           Height: 3
      *          |
@@ -30,7 +50,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
      *               A #1           Height: 0
      *
      */
-    protected BlockId[] _setupScenario(final MysqlDatabaseConnection databaseConnection) throws Exception {
+    protected ScenarioData _setupScenario(final MysqlDatabaseConnection databaseConnection) throws Exception {
         final BlockInflater blockInflater = new BlockInflater();
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
@@ -64,7 +84,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
         { // Store blocks...
             int i = 0;
-            final Block[] blocks = new Block[]{block_A, block_B, block_C, block_C2, block_D, block_E, block_E2};
+            final Block[] blocks = new Block[]{ block_A, block_B, block_C, block_C2, block_D, block_E, block_E2 };
             for (final Block block : blocks) {
                 blockIds[i] = blockDatabaseManager.storeBlock(block);
                 blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
@@ -82,7 +102,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(5, blockChainDatabaseManager.getBlockChainSegmentId(blockIds[6]).longValue()); // Block E'
         }
 
-        return blockIds;
+        return new ScenarioData(blockIds);
     }
 
     @Before
@@ -129,9 +149,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-        final BlockId[] blockIds = _setupScenario(databaseConnection);
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
-        final BlockId blockId = blockIds[2]; // Block C
+        final BlockId blockId = scenarioData.C;
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
 
         // Action
@@ -147,9 +167,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-        final BlockId[] blockIds = _setupScenario(databaseConnection);
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
-        final BlockId blockId = blockIds[3]; // Block C''
+        final BlockId blockId = scenarioData.C2;
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
 
         // Action
@@ -165,9 +185,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-        final BlockId[] blockIds = _setupScenario(databaseConnection);
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
-        final BlockId blockId = blockIds[5]; // Block E
+        final BlockId blockId = scenarioData.E;
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(2L);
 
         // Action
@@ -175,5 +195,131 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
         // Assert
         Assert.assertTrue(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_connected_block_for_child_2() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.E;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertTrue(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_connected_block_for_child_3() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.E2;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertTrue(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_connected_block_for_child_4() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.C2;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertTrue(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_not_connected_block_2() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.C2;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(5L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertFalse(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_not_connected_block_3() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.E2;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertFalse(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_not_connected_block_4() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.E;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertFalse(isBlockConnected);
+    }
+
+    @Test
+    public void should_detect_not_connected_block_5() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final ScenarioData scenarioData = _setupScenario(databaseConnection);
+
+        final BlockId blockId = scenarioData.C2;
+        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
+
+        // Action
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+
+        // Assert
+        Assert.assertFalse(isBlockConnected);
     }
 }

@@ -242,10 +242,43 @@ public class BlockDatabaseManager {
         return mutableBlockHeader;
     }
 
+    protected BlockId _getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
+                .setParameter(previousBlockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        if (rows.size() == 1) {
+            final Row row = rows.get(0);
+            return BlockId.wrap(row.getLong("id"));
+        }
+
+        // At this point, previousBlockId has multiple children.
+        // If blockChainSegmentId is not provided, then just return the first-seen block.
+        if (blockChainSegmentId == null) {
+            final Row row = rows.get(0);
+            return BlockId.wrap(row.getLong("id"));
+        }
+
+        // Since blockChainSegmentId is provided, the child along its chain is the blockId that shall be preferred...
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+            if (_isBlockConnectedToChain(blockId, blockChainSegmentId)) {
+                return blockId;
+            }
+        }
+
+        // None of the children blocks match the blockChainSegmentId, so null is returned.
+        return null;
+    }
+
     protected Boolean _isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
 
         final Long blockHeight = _getBlockHeightForBlockId(blockId);
+        final BlockChainSegmentId blockIdBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
         BlockChainSegmentId queriedBlockChainSegmentId = blockChainSegmentId;
         while (true) {
@@ -265,7 +298,9 @@ public class BlockDatabaseManager {
                     nextBlockId = blockChainSegment.getTailBlockId();
                 }
                 else {
-                    nextBlockId = blockChainSegment.getHeadBlockId();
+                    final BlockId headBlockId = blockChainSegment.getHeadBlockId();
+                    nextBlockId = _getChildBlockId(blockIdBlockChainSegmentId, headBlockId);
+                    if (nextBlockId == null) { break; }
                 }
             }
 
@@ -389,35 +424,7 @@ public class BlockDatabaseManager {
     }
 
     public BlockId getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
-                .setParameter(previousBlockId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        if (rows.size() == 1) {
-            final Row row = rows.get(0);
-            return BlockId.wrap(row.getLong("id"));
-        }
-
-        // At this point, previousBlockId has multiple children.
-        // If blockChainSegmentId is not provided, then just return the first-seen block.
-        if (blockChainSegmentId == null) {
-            final Row row = rows.get(0);
-            return BlockId.wrap(row.getLong("id"));
-        }
-
-        // Since blockChainSegmentId is provided, the child along its chain is the blockId that shall be preferred...
-        for (final Row row : rows) {
-            final BlockId blockId = BlockId.wrap(row.getLong("id"));
-            if (_isBlockConnectedToChain(blockId, blockChainSegmentId)) {
-                return blockId;
-            }
-        }
-
-        // None of the children blocks match the blockChainSegmentId, so null is returned.
-        return null;
+        return _getChildBlockId(blockChainSegmentId, previousBlockId);
     }
 
     /**
