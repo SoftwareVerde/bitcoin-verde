@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
@@ -57,6 +56,24 @@ public class BlockDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
+    protected Sha256Hash _getBlockHashFromId(final BlockId blockId) throws DatabaseException {
+        if (blockId == null) { return new MutableSha256Hash(); }
+
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) {
+            return new MutableSha256Hash();
+        }
+        else {
+            final Row previousBlockRow = rows.get(0);
+            final String hashString = previousBlockRow.getString("hash");
+            return MutableSha256Hash.fromHexString(hashString);
+        }
+    }
+
     protected BlockHeader _inflateBlockHeader(final BlockId blockId) throws DatabaseException {
         final Row row;
         {
@@ -71,19 +88,8 @@ public class BlockDatabaseManager {
 
         final Sha256Hash previousBlockHash;
         {
-            final Long previousBlockId = row.getLong("previous_block_id");
-            final List<Row> rows = _databaseConnection.query(
-                new Query("SELECT * FROM blocks WHERE id = ?")
-                    .setParameter(previousBlockId)
-            );
-
-            if (rows.isEmpty()) {
-                previousBlockHash = new MutableSha256Hash();
-            }
-            else {
-                final Row previousBlockRow = rows.get(0);
-                previousBlockHash = MutableSha256Hash.fromHexString(previousBlockRow.getString("hash"));
-            }
+            final BlockId previousBlockId = BlockId.wrap(row.getLong("previous_block_id"));
+            previousBlockHash = _getBlockHashFromId(previousBlockId);
         }
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
@@ -172,7 +178,7 @@ public class BlockDatabaseManager {
         );
     }
 
-    protected BlockHeader _getBlockAtBlockHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
+    protected BlockId _getBlockIdAtBlockHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE block_chain_segment_id = ? AND block_height = ?")
                 .setParameter(blockChainSegmentId)
@@ -182,8 +188,7 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final BlockId blockId = BlockId.wrap(row.getLong("id"));
-        return _inflateBlockHeader(blockId);
+        return BlockId.wrap(row.getLong("id"));
     }
 
     protected com.softwareverde.constable.list.List<Transaction> _getBlockTransactions(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
@@ -216,18 +221,8 @@ public class BlockDatabaseManager {
 
         final Sha256Hash previousBlockHash;
         {
-            final java.util.List<Row> previousBlockRows = databaseConnection.query(
-                new Query("SELECT id, hash FROM blocks WHERE id = ?")
-                    .setParameter(row.getLong("previous_block_id"))
-            );
-            if (previousBlockRows.isEmpty()) {
-                previousBlockHash = new ImmutableSha256Hash();
-            }
-            else {
-                final Row previousBlockRow = previousBlockRows.get(0);
-                final String previousBlockHashString = previousBlockRow.getString("hash");
-                previousBlockHash = MutableSha256Hash.fromHexString(previousBlockHashString);
-            }
+            final BlockId previousBlockId = BlockId.wrap(row.getLong("previous_block_id"));
+            previousBlockHash = _getBlockHashFromId(previousBlockId);
         }
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
@@ -245,6 +240,42 @@ public class BlockDatabaseManager {
         mutableBlockHeader.setNonce(nonce);
 
         return mutableBlockHeader;
+    }
+
+    protected Boolean _isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+
+        final Long blockHeight = _getBlockHeightForBlockId(blockId);
+
+        BlockChainSegmentId queriedBlockChainSegmentId = blockChainSegmentId;
+        while (true) {
+            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(queriedBlockChainSegmentId);
+            if (blockChainSegment == null) { break; }
+
+            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
+            final long upperBound = (blockChainSegment.getBlockHeight());
+            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
+                final BlockId blockIdAtChainSegmentAndHeight = _getBlockIdAtBlockHeight(queriedBlockChainSegmentId, blockHeight);
+                return (blockId.longValue() == blockIdAtChainSegmentAndHeight.longValue());
+            }
+
+            final BlockId nextBlockId;
+            {
+                if (blockHeight < lowerBound) {
+                    nextBlockId = blockChainSegment.getTailBlockId();
+                }
+                else {
+                    nextBlockId = blockChainSegment.getHeadBlockId();
+                }
+            }
+
+            final BlockChainSegmentId nextBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(nextBlockId);
+            if (queriedBlockChainSegmentId.equals(nextBlockChainSegmentId)) { break; }
+
+            queriedBlockChainSegmentId = nextBlockChainSegmentId;
+        }
+
+        return false;
     }
 
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
@@ -276,7 +307,7 @@ public class BlockDatabaseManager {
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
@@ -330,7 +361,8 @@ public class BlockDatabaseManager {
             final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
             final long upperBound = (blockChainSegment.getBlockHeight());
             if (lowerBound <= blockHeight && blockHeight <= upperBound) {
-                return _getBlockAtBlockHeight(blockChainSegmentId, blockHeight);
+                final BlockId blockId = _getBlockIdAtBlockHeight(blockChainSegmentId, blockHeight);
+                return _inflateBlockHeader(blockId);
             }
 
             final BlockId nextBlockId = blockChainSegment.getTailBlockId();
@@ -355,4 +387,56 @@ public class BlockDatabaseManager {
 
         return new MutableBlock(blockHeader, transactions);
     }
+
+    public BlockId getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
+                .setParameter(previousBlockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        if (rows.size() == 1) {
+            final Row row = rows.get(0);
+            return BlockId.wrap(row.getLong("id"));
+        }
+
+        // At this point, previousBlockId has multiple children.
+        // If blockChainSegmentId is not provided, then just return the first-seen block.
+        if (blockChainSegmentId == null) {
+            final Row row = rows.get(0);
+            return BlockId.wrap(row.getLong("id"));
+        }
+
+        // Since blockChainSegmentId is provided, the child along its chain is the blockId that shall be preferred...
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+            if (_isBlockConnectedToChain(blockId, blockChainSegmentId)) {
+                return blockId;
+            }
+        }
+
+        // None of the children blocks match the blockChainSegmentId, so null is returned.
+        return null;
+    }
+
+    /**
+     *
+     *     E         E'
+     *     |         |
+     *  #4 +----D----+ #5           Height: 3
+     *          |
+     *          C         C''       Height: 2
+     *          |         |
+     *       #2 +----B----+ #3      Height: 1
+     *               |
+     *               A #1           Height: 0
+     *
+     * Block C is a member of Chain #4.
+     *
+     */
+    public Boolean isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        return _isBlockConnectedToChain(blockId, blockChainSegmentId);
+    }
+
 }

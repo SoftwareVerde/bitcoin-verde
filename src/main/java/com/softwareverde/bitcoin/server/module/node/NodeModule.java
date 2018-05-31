@@ -297,6 +297,12 @@ public class NodeModule {
             public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
                  final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
                  try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
+                     final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+                     final BlockId desiredBlockId = blockDatabaseManager.getBlockIdFromHash(desiredBlockHash);
+                     final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(desiredBlockId);
+
                      for (final Sha256Hash blockHash : blockHashes) {
                          final BlockId blockId;
                          {
@@ -309,11 +315,9 @@ public class NodeModule {
                              blockId = BlockId.wrap(rows.get(0).getLong("id"));
                          }
 
-                         throw new RuntimeException("TODO");
-                         // TODO
-//                         final java.util.List<Row> rows = databaseConnection.query(
-//                             new Query("SELECT id FROM blocks")
-//                         );
+                         final BlockId childBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, blockId);
+                         // TODO:
+                         throw new RuntimeException();
                      }
                  }
                  catch (final DatabaseException exception) { Logger.log(exception); }
