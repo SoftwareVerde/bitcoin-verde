@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
@@ -78,7 +79,6 @@ public class ScriptBuilder {
     protected final ByteArrayBuilder _byteArrayBuilder = new ByteArrayBuilder();
 
     public ScriptBuilder pushString(final String stringData) {
-
         final Integer stringDataByteCount = stringData.length();
 
         if (stringDataByteCount == 0) {
@@ -104,6 +104,16 @@ public class ScriptBuilder {
             _byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(stringDataByteCount), Endian.LITTLE);
             _byteArrayBuilder.appendBytes(StringUtil.stringToBytes(stringData), Endian.BIG);
         }
+
+        return this;
+    }
+
+    /**
+     * Pushes the provided value on the stack as a number.  The number is encoded as the shortest possible encoding.
+     */
+    public ScriptBuilder pushInteger(final Long longValue) {
+        final Value value = Value.fromInteger(longValue);
+        _pushBytes(MutableByteArray.wrap(value.getBytes()));
 
         return this;
     }

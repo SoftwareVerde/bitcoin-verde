@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayReader;
@@ -31,5 +32,9 @@ public class OperationInflater {
 
         Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
         return null;
+    }
+
+    public Operation fromBytes(final ByteArray byteArray) {
+        return fromBytes(new ByteArrayReader(byteArray));
     }
 }

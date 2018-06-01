@@ -6,23 +6,21 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHas
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class QueryResponseMessage extends BitcoinProtocolMessage {
 
-    private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
+    private final MutableList<DataHash> _dataHashes = new MutableList<DataHash>();
 
     public QueryResponseMessage() {
         super(MessageType.QUERY_RESPONSE);
     }
 
     public List<DataHash> getDataHashes() {
-        return Util.copyList(_dataHashes);
+        return _dataHashes;
     }
 
     public void addInventoryItem(final DataHash dataHash) {
@@ -36,7 +34,7 @@ public class QueryResponseMessage extends BitcoinProtocolMessage {
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.size()), Endian.BIG);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.getSize()), Endian.BIG);
         for (final DataHash dataHash : _dataHashes) {
             byteArrayBuilder.appendBytes(dataHash.getBytes(), Endian.BIG);
         }

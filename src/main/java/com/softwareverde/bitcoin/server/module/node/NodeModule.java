@@ -17,6 +17,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -24,6 +26,7 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.socket.*;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
@@ -82,6 +85,7 @@ public class NodeModule {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
+    protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
 
     protected void _exitFailure() {
         Logger.shutdown();
@@ -279,7 +283,7 @@ public class NodeModule {
 
         _queryBlocksCallback = new BitcoinNode.QueryBlocksCallback() {
             @Override
-            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash) {
+            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
                 Logger.log("NOTICE: QueryBlocks unimplemented.");
                 // final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
                 // try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
@@ -289,9 +293,12 @@ public class NodeModule {
             }
         };
 
+        _queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory);
+
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             node.setQueryBlocksCallback(_queryBlocksCallback);
+            node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
             node.handshake();
             _nodeManager.addNode(node);
         }
@@ -303,6 +310,7 @@ public class NodeModule {
                 Logger.log("New Connection: " + binarySocket);
                 final BitcoinNode node = new BitcoinNode(binarySocket);
                 node.setQueryBlocksCallback(_queryBlocksCallback);
+                node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
                 node.handshake();
                 _nodeManager.addNode(node);
             }

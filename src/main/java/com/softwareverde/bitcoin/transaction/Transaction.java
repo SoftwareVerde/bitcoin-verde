@@ -13,16 +13,16 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     Integer VERSION = 0x01;
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
-    static Transaction createCoinbaseTransaction(final String coinbaseMessage, final Address address, final Long satoshis) {
+    static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {
         final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(coinbaseMessage));
+        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(blockHeight, coinbaseMessage));
         coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
     }
 
-    static Transaction createCoinbaseTransactionWithExtraNonce(final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
+    static Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
         final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(coinbaseMessage, extraNonceByteCount));
+        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
         coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
     }

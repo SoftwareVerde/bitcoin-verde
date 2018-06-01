@@ -182,8 +182,15 @@ public class PacketBuffer {
 
         if (_byteCount < payloadByteCount) { return null; }
 
-        final int fullPacketLength = (headerByteCount + payloadByteCount);
-        final byte[] fullPacket = _consumeContiguousBytes(fullPacketLength);
+        final int fullPacketByteCount = (headerByteCount + payloadByteCount);
+
+        final byte[] fullPacket = _consumeContiguousBytes(fullPacketByteCount);
+
+        if (fullPacketByteCount > _protocolMessageHeaderInflater.getMaxPacketByteCount()) {
+            Logger.log("IO: Dropping packet. Packet exceeded max byte count: " + fullPacketByteCount);
+            return null;
+        }
+
         return _protocolMessageFactory.fromBytes(fullPacket);
     }
 }

@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
@@ -116,9 +118,11 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public Transaction getCoinbaseTransaction() {
+    public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
-        return _transactions.get(0);
+
+        final Transaction transaction = _transactions.get(0);
+        return new MutableCoinbaseTransaction(transaction);
     }
 
     @Override
