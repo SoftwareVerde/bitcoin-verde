@@ -80,6 +80,8 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
+    protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
+
     @Override
     protected BitcoinPingMessage _createPingMessage() {
         return new BitcoinPingMessage();
@@ -169,6 +171,10 @@ public class BitcoinNode extends Node {
 
                     case QUERY_BLOCK_HEADERS: {
                         _onQueryBlockHeadersReceived((QueryBlockHeadersMessage) message, _connection);
+                    } break;
+
+                    case ENABLE_NEW_BLOCKS_VIA_HEADERS: {
+                        _announceNewBlocksViaHeadersIsEnabled = true;
                     } break;
 
                     default: {
@@ -314,6 +320,10 @@ public class BitcoinNode extends Node {
 
     public void setQueryBlockHeadersCallback(final QueryBlockHeadersCallback queryBlockHeadersCallback) {
         _queryBlockHeadersCallback = queryBlockHeadersCallback;
+    }
+
+    public Boolean newBlocksViaHeadersIsEnabled() {
+        return _announceNewBlocksViaHeadersIsEnabled;
     }
 
     @Override

@@ -7,6 +7,7 @@ public enum MessageType {
     PING("ping"), PONG("pong"),
     NODE_ADDRESSES("addr"),
     QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCK_HEADERS_RESPONSE("headers"),
+    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
     QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), REQUEST_OBJECT("getdata"),
     ERROR("reject"),
     BLOCK("block");
