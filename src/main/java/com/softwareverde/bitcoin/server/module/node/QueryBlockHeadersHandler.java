@@ -83,6 +83,17 @@ public class QueryBlockHeadersHandler implements BitcoinNode.QueryBlockHeadersCa
             for (final Sha256Hash blockHash : returnedBlockHashes) {
                 queryResponseMessage.addInventoryItem(new DataHash(DataHashType.BLOCK, blockHash));
             }
+
+            { // Debug Logging...
+                final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+                final String hashesString;
+                if (dataHashes.getSize() > 0) {
+                    hashesString = dataHashes.get(0).getObjectHash() + " - " + dataHashes.get(dataHashes.getSize() - 1).getObjectHash();
+                }
+                else { hashesString = ""; }
+                Logger.log("Sent " + dataHashes.getSize() + " headers. " + hashesString);
+            }
+
             nodeConnection.queueMessage(queryResponseMessage);
         }
         catch (final DatabaseException exception) { Logger.log(exception); }

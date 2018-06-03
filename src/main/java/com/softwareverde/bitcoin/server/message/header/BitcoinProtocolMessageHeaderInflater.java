@@ -8,7 +8,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
-import sun.rmi.runtime.Log;
 
 public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHeaderInflater {
     public static final Integer MAX_PACKET_SIZE = 33554432; // 0x02000000

@@ -3,7 +3,6 @@ package com.softwareverde.network.socket;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.util.HexUtil;
 
 import java.io.IOException;
 import java.io.InputStream;

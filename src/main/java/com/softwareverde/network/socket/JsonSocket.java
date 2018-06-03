@@ -1,6 +1,5 @@
 package com.softwareverde.network.socket;
 
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 
 import java.io.BufferedReader;
