@@ -10,4 +10,9 @@ public class ImmutableSequenceNumber extends ImmutableLockTime implements Sequen
     public ImmutableSequenceNumber(final LockTime lockTime) {
         super(lockTime);
     }
+
+    @Override
+    public ImmutableSequenceNumber asConst() {
+        return this;
+    }
 }

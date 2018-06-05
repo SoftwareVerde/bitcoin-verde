@@ -8,9 +8,9 @@ import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.type.address.Address;
@@ -68,7 +68,7 @@ public class MinerModule {
                 {
                     coinbaseTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
                     coinbaseTransactionInput.setPreviousOutputIndex(0);
-                    coinbaseTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+                    coinbaseTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
                     coinbaseTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
 
                     coinbaseTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);

@@ -18,6 +18,7 @@ public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
 
     Type getType();
     Long getValue();
+    Long getMaskedValue(); // Returns the last 2 bytes of the value, as per Bip68... (https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki)
     Boolean isDisabled();
     byte[] getBytes();
 

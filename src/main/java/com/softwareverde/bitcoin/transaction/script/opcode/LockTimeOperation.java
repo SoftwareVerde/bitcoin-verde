@@ -48,7 +48,7 @@ public class LockTimeOperation extends SubTypedOperation {
 
                 final TransactionInput transactionInput = context.getTransactionInput();
                 final SequenceNumber transactionInputSequenceNumber = transactionInput.getSequenceNumber();
-                if (TransactionInput.MAX_SEQUENCE_NUMBER.equals(transactionInputSequenceNumber.getValue())) {
+                if (SequenceNumber.MAX_SEQUENCE_NUMBER.equals(transactionInputSequenceNumber)) {
                     return false;
                 }
 
@@ -114,7 +114,7 @@ public class LockTimeOperation extends SubTypedOperation {
                         return false;
                     }
 
-                    if (stackSequenceNumber.getValue() > transactionInputSequenceNumber.getValue()) {
+                    if (stackSequenceNumber.getMaskedValue() > transactionLockTime.getMaskedValue()) {
                         return false;
                     }
                 }

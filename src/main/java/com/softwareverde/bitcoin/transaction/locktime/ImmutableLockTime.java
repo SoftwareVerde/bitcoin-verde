@@ -6,7 +6,6 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
 
 public class ImmutableLockTime implements LockTime, Const {
-    private final Type _type;
     private final Long _value;
 
     protected static Type _getType(final Long lockTime) {
@@ -15,28 +14,30 @@ public class ImmutableLockTime implements LockTime, Const {
 
     public ImmutableLockTime() {
         _value = MIN_TIMESTAMP_VALUE;
-        _type = _getType(MIN_TIMESTAMP_VALUE);
     }
 
     public ImmutableLockTime(final Long value) {
         _value = value;
-        _type = _getType(value);
     }
 
     public ImmutableLockTime(final LockTime lockTime) {
         final Long value = lockTime.getValue();
         _value = value;
-        _type = _getType(value);
     }
 
     @Override
     public Type getType() {
-        return _type;
+        return _getType(_value);
     }
 
     @Override
     public Long getValue() {
         return _value;
+    }
+
+    @Override
+    public Long getMaskedValue() {
+        return (_value & 0x0000FFFF);
     }
 
     @Override
@@ -56,10 +57,30 @@ public class ImmutableLockTime implements LockTime, Const {
 
     @Override
     public Json toJson() {
+        final Type type = _getType(_value);
         final Json json = new Json();
-        json.put("type", _type);
+        json.put("type", type);
         json.put("value", _value);
-        json.put("date", (_type == Type.TIMESTAMP ? DateUtil.Utc.timestampToDatetimeString(_value * 1000L) : null));
+        json.put("date", (type == Type.TIMESTAMP ? DateUtil.Utc.timestampToDatetimeString(_value * 1000L) : null));
         return json;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof LockTime)) { return false; }
+
+        final LockTime lockTime = (LockTime) object;
+        return _value.equals(lockTime.getValue());
+    }
+
+    @Override
+    public int hashCode() {
+        return _value.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return _value.toString();
     }
 }

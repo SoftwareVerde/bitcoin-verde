@@ -50,7 +50,7 @@ public class BlockMessageInflaterTests {
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), transactionInput.getPreviousOutputTransactionHash().getBytes());
         Assert.assertEquals(0xFFFFFFFF, transactionInput.getPreviousOutputIndex().intValue());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("04FFFF001D0104455468652054696D65732030332F4A616E2F32303039204368616E63656C6C6F72206F6E206272696E6B206F66207365636F6E64206261696C6F757420666F722062616E6B73"), transactionInput.getUnlockingScript().getBytes().getBytes());
-        Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().intValue());
+        Assert.assertEquals(0xFFFFFFFF, transactionInput.getSequenceNumber().getValue().intValue());
 
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
         Assert.assertEquals(1, transactionOutputs.getSize());

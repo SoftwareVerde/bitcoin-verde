@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -132,7 +134,7 @@ public class TransactionInputDatabaseManager {
         }
 
         final UnlockingScript unlockingScript = UnlockingScript.castFrom(scriptInflater.fromBytes(row.getBytes("unlocking_script")));
-        final Long sequenceNumber = row.getLong("sequence_number");
+        final SequenceNumber sequenceNumber = new ImmutableSequenceNumber(row.getLong("sequence_number"));
 
         transactionInput.setPreviousOutputTransactionHash(previousOutputTransactionHash);
         transactionInput.setPreviousOutputIndex(previousOutputIndex);

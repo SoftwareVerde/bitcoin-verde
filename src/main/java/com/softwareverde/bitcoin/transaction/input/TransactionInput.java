@@ -9,8 +9,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Jsonable;
 
 public interface TransactionInput extends Constable<ImmutableTransactionInput>, Jsonable {
-    Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
-
     /**
      * Creates a coinbase transaction with the provided blockHeight and coinbaseMessage as the contents of the TransactionInput's UnlockingScript.
      *  The blockHeight and coinbaseMessage are transformed into PushOperations for the UnlockingScript.

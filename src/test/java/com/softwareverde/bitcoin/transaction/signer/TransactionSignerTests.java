@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
@@ -43,7 +44,7 @@ public class TransactionSignerTests {
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
         transactionInput.setPreviousOutputTransactionHash(MutableSha256Hash.wrap(HexUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
         transactionInput.setPreviousOutputIndex(1);
-        transactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
         final MutableTransaction transaction = new MutableTransaction();
         transaction.setVersion(1);
