@@ -33,6 +33,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.TimeZone;
+
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.parseFromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
 
@@ -235,9 +237,10 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void difficulty_should_be_recalculated_every_2016th_block() throws Exception {
         // Setup
+        final TimeZone timeZone = TimeZone.getTimeZone("GMT+1:00"); // Rome, Italy; DST
         final long blockHeight = 2016 * 2; // 32256L;
 
-        final Long genesisBlockTimestamp = (DateUtil.datetimeToTimestamp("2009-01-03 18:15:05") / 1000L);
+        final Long genesisBlockTimestamp = (DateUtil.datetimeToTimestamp("2009-01-03 18:15:05", timeZone) / 1000L);
 
         final BlockInflater blockInflater = new BlockInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
@@ -265,7 +268,7 @@ public class BlockValidatorTests extends IntegrationTest {
             Assert.assertEquals(2016, blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
         }
 
-        _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01") / 1000L) + 1);
+        _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
 
         final Sha256Hash previousBlockHash;
         // Timestamp: 23EC3A4B
@@ -312,6 +315,7 @@ public class BlockValidatorTests extends IntegrationTest {
             }
 
             firstBlockWithDifficultyIncrease = mutableBlock;
+            System.out.println(firstBlockWithDifficultyIncrease.getHash());
         }
 
         final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();

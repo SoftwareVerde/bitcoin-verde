@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -8,8 +9,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Jsonable;
 
 public interface TransactionInput extends Constable<ImmutableTransactionInput>, Jsonable {
-    Long MAX_SEQUENCE_NUMBER = 0xFFFFFFFFL;
-
     /**
      * Creates a coinbase transaction with the provided blockHeight and coinbaseMessage as the contents of the TransactionInput's UnlockingScript.
      *  The blockHeight and coinbaseMessage are transformed into PushOperations for the UnlockingScript.
@@ -56,7 +55,7 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
     Sha256Hash getPreviousOutputTransactionHash();
     Integer getPreviousOutputIndex();
     UnlockingScript getUnlockingScript();
-    Long getSequenceNumber();
+    SequenceNumber getSequenceNumber();
 
     @Override
     ImmutableTransactionInput asConst();

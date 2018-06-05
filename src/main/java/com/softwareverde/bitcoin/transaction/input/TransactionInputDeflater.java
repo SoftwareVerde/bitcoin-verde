@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -12,7 +13,8 @@ import com.softwareverde.util.bytearray.Endian;
 public class TransactionInputDeflater {
     protected void _toFragmentedBytes(final TransactionInput transactionInput, final ByteArrayBuilder headBytes, final ByteArrayBuilder tailBytes) {
         final byte[] sequenceBytes = new byte[4];
-        ByteUtil.setBytes(sequenceBytes, ByteUtil.integerToBytes(transactionInput.getSequenceNumber()));
+        final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+        ByteUtil.setBytes(sequenceBytes, ByteUtil.integerToBytes(sequenceNumber.getValue()));
 
         final byte[] indexBytes = new byte[4];
         ByteUtil.setBytes(indexBytes, ByteUtil.integerToBytes(transactionInput.getPreviousOutputIndex()));

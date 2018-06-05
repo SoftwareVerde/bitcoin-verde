@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
@@ -114,7 +115,7 @@ public class TransactionSigner {
                     mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
                 }
                 else {
-                    mutableTransactionInput.setSequenceNumber(0L);
+                    mutableTransactionInput.setSequenceNumber(SequenceNumber.EMPTY_SEQUENCE_NUMBER);
                 }
             }
 

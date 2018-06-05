@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.constable.Const;
@@ -10,7 +11,7 @@ public class ImmutableTransactionInput implements TransactionInput, Const {
     protected final ImmutableSha256Hash _previousOutputTransactionHash;
     protected final Integer _previousOutputIndex;
     protected final UnlockingScript _unlockingScript;
-    protected final Long _sequenceNumber;
+    protected final SequenceNumber _sequenceNumber;
 
     public ImmutableTransactionInput(final TransactionInput transactionInput) {
         _previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash().asConst();
@@ -35,7 +36,7 @@ public class ImmutableTransactionInput implements TransactionInput, Const {
     }
 
     @Override
-    public Long getSequenceNumber() {
+    public SequenceNumber getSequenceNumber() {
         return _sequenceNumber;
     }
 

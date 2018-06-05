@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -65,7 +66,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
         mutableTransactionInput.setPreviousOutputIndex(0);
-        mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
         return mutableTransactionInput;
     }
@@ -74,7 +75,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
         mutableTransactionInput.setPreviousOutputIndex(0);
-        mutableTransactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
         return mutableTransactionInput;
     }
