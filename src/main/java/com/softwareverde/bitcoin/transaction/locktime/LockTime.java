@@ -18,6 +18,7 @@ public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
 
     Type getType();
     Long getValue();
+    Boolean isDisabled();
     byte[] getBytes();
 
     @Override

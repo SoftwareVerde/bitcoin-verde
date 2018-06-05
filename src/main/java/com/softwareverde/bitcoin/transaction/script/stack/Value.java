@@ -1,5 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -110,6 +114,14 @@ public class Value extends ImmutableByteArray implements Const {
             if (_bytes[i] != 0x00) { return true; }
         }
         return false;
+    }
+
+    public LockTime asLockTime() {
+        return new ImmutableLockTime(ByteUtil.bytesToLong(_bytes));
+    }
+
+    public SequenceNumber asSequenceNumber() {
+        return new ImmutableSequenceNumber(ByteUtil.bytesToLong(_bytes));
     }
 
     public ScriptSignature asScriptSignature() {

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -56,7 +57,7 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
     Sha256Hash getPreviousOutputTransactionHash();
     Integer getPreviousOutputIndex();
     UnlockingScript getUnlockingScript();
-    Long getSequenceNumber();
+    SequenceNumber getSequenceNumber();
 
     @Override
     ImmutableTransactionInput asConst();
