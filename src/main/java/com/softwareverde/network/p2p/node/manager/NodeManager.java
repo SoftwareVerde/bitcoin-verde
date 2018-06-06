@@ -347,9 +347,16 @@ public class NodeManager<NODE extends Node> {
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Idle Node Count: " + idleNodes.size() + " / " + _nodes.size());
         }
+
         for (final NODE idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
             // _nodeHealthMap.get(nodeId).onMessageSent();
+
+            if (! idleNode.handshakeIsComplete()) { return; }
+
+            if (LOGGING_ENABLED) {
+                Logger.log("P2P: Pinging Idle Node: " + idleNode.getConnectionString());
+            }
 
             idleNode.ping(new NODE.PingCallback() {
                 @Override
@@ -359,10 +366,6 @@ public class NodeManager<NODE extends Node> {
                     }
                 }
             });
-
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: Pinging Idle Node: " + idleNode.getConnectionString());
-            }
         }
     }
 

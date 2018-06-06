@@ -79,6 +79,11 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_BYTE: {
                 final Integer valueByteCountLength = 1;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength);
+                if (byteCount < 0) { return null; }
+                if (byteCount > VALUE_MAX_BYTE_COUNT) {
+                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
+                }
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
                 if (value == null) { return null; }
                 payload = new Payload(true, valueByteCountLength, value);
@@ -88,6 +93,7 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_SHORT: {
                 final Integer valueByteCountLength = 2;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
+                if (byteCount < 0) { return null; }
                 if (byteCount > VALUE_MAX_BYTE_COUNT) {
                     Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
                     return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
@@ -102,6 +108,7 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA_INTEGER: {
                 final Integer valueByteCountLength = 4;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
+                if (byteCount < 0) { return null; }
                 if (byteCount > VALUE_MAX_BYTE_COUNT) {
                     Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
                     return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
