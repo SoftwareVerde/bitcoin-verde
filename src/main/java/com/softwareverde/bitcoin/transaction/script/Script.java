@@ -10,6 +10,7 @@ import com.softwareverde.json.Jsonable;
 public interface Script extends Constable<ImmutableScript>, Jsonable {
     Script EMPTY_SCRIPT = new ImmutableScript();
 
+    Boolean isValid();
     Ripemd160Hash getHash();
     List<Operation> getOperations();
     int getByteCount();

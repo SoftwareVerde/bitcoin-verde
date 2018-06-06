@@ -19,7 +19,7 @@ public class ImmutableScript implements Script, Const {
     protected void _requireCachedOperations() {
         if (_cachedOperations == null) {
             final ScriptInflater scriptInflater = new ScriptInflater();
-            _cachedOperations = scriptInflater._getOperationList(_bytes);
+            _cachedOperations = scriptInflater.getOperationList(_bytes);
         }
     }
 
@@ -33,6 +33,19 @@ public class ImmutableScript implements Script, Const {
 
     public ImmutableScript(final Script script) {
         _bytes = script.getBytes().asConst();
+    }
+
+    @Override
+    public Boolean isValid() {
+        _requireCachedOperations();
+
+        for (final Operation operation : _cachedOperations) {
+            if (operation.getType() == Operation.Type.OP_INVALID) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

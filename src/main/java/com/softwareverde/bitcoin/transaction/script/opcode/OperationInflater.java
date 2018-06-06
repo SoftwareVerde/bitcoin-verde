@@ -16,22 +16,34 @@ public class OperationInflater {
             return null;
         }
 
+        final Integer originalPosition = byteArrayReader.getPosition();
+
+        final Operation operation;
         switch (type) {
-            case OP_PUSH:           { return PushOperation.fromBytes(byteArrayReader); }
-            case OP_DYNAMIC_VALUE:  { return DynamicValueOperation.fromBytes(byteArrayReader); }
-            case OP_CONTROL:        { return ControlOperation.fromBytes(byteArrayReader); }
-            case OP_STACK:          { return StackOperation.fromBytes(byteArrayReader); }
-            case OP_STRING:         { return StringOperation.fromBytes(byteArrayReader); }
-            case OP_BITWISE:        { break; } // TODO
-            case OP_COMPARISON:     { return ComparisonOperation.fromBytes(byteArrayReader); }
-            case OP_ARITHMETIC:     { return ArithmeticOperation.fromBytes(byteArrayReader); }
-            case OP_CRYPTOGRAPHIC:  { return CryptographicOperation.fromBytes(byteArrayReader); }
-            case OP_LOCK_TIME:      { return LockTimeOperation.fromBytes(byteArrayReader); }
-            case OP_NOTHING:        { return NothingOperation.fromBytes(byteArrayReader); }
+            case OP_PUSH:           { operation = PushOperation.fromBytes(byteArrayReader); }           break;
+            case OP_DYNAMIC_VALUE:  { operation = DynamicValueOperation.fromBytes(byteArrayReader); }   break;
+            case OP_CONTROL:        { operation = ControlOperation.fromBytes(byteArrayReader); }        break;
+            case OP_STACK:          { operation = StackOperation.fromBytes(byteArrayReader); }          break;
+            case OP_STRING:         { operation = StringOperation.fromBytes(byteArrayReader); }         break;
+            case OP_COMPARISON:     { operation = ComparisonOperation.fromBytes(byteArrayReader); }     break;
+            case OP_ARITHMETIC:     { operation = ArithmeticOperation.fromBytes(byteArrayReader); }     break;
+            case OP_CRYPTOGRAPHIC:  { operation = CryptographicOperation.fromBytes(byteArrayReader); }  break;
+            case OP_LOCK_TIME:      { operation = LockTimeOperation.fromBytes(byteArrayReader); }       break;
+            case OP_NOTHING:        { operation = NothingOperation.fromBytes(byteArrayReader); }        break;
+            case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader); }        break;
+            case OP_BITWISE: { } // TODO
+            default: {
+                Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
+                return null;
+            }
         }
 
-        Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
-        return null;
+        if (operation != null) {
+            return operation;
+        }
+
+        byteArrayReader.setPosition(originalPosition);
+        return InvalidOperation.fromBytes(byteArrayReader);
     }
 
     public Operation fromBytes(final ByteArray byteArray) {

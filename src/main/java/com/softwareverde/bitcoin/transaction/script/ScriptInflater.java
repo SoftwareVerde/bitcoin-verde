@@ -15,7 +15,7 @@ public class ScriptInflater {
         final OperationInflater operationInflater = new OperationInflater();
         final MutableList<Operation> mutableList = new MutableList<Operation>();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
-        while (byteArrayReader.remainingByteCount() > 0) {
+        while (byteArrayReader.hasBytes()) {
             final int scriptPosition = byteArrayReader.getPosition();
             final Operation opcode = operationInflater.fromBytes(byteArrayReader);
             if (opcode == null) {
@@ -37,6 +37,10 @@ public class ScriptInflater {
         mutableScript._operations.addAll(operations);
         mutableScript._cachedByteCount = byteArray.getByteCount();
         return mutableScript;
+    }
+
+    public MutableList<Operation> getOperationList(final ByteArray byteArray) {
+        return _getOperationList(byteArray);
     }
 
     public Script fromBytes(final byte[] bytes) {

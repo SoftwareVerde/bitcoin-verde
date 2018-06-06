@@ -28,7 +28,8 @@ public abstract class Operation implements Const {
         OP_ARITHMETIC   (ADD_ONE, SUBTRACT_ONE, MULTIPLY_BY_TWO, DIVIDE_BY_TWO, NEGATE, ABSOLUTE_VALUE, NOT, ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULUS, MIN, MAX),
         OP_CRYPTOGRAPHIC(RIPEMD_160, SHA_1, SHA_256, SHA_256_THEN_RIPEMD_160, DOUBLE_SHA_256, CODE_SEPARATOR, CHECK_SIGNATURE, CHECK_SIGNATURE_THEN_VERIFY, CHECK_MULTISIGNATURE, CHECK_MULTISIGNATURE_THEN_VERIFY),
         OP_LOCK_TIME    (CHECK_LOCK_TIME_THEN_VERIFY, CHECK_SEQUENCE_NUMBER_THEN_VERIFY),
-        OP_NOTHING      (NO_OPERATION, NO_OPERATION_1, NO_OPERATION_2, RESERVED, RESERVED_1)
+        OP_NOTHING      (NO_OPERATION, NO_OPERATION_1, NO_OPERATION_2, RESERVED, RESERVED_1),
+        OP_INVALID      ()
         ; // END ENUMS
 
         public static Type getType(final byte typeByte) {
@@ -37,7 +38,8 @@ public abstract class Operation implements Const {
                     if (opcode.matchesByte(typeByte)) { return type; }
                 }
             }
-            return null;
+
+            return OP_INVALID;
         }
 
         private final Opcode[] _opcodes;

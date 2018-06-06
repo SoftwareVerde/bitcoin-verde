@@ -22,8 +22,11 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingSc
 import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
+import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.util.DateUtil;
@@ -333,5 +336,19 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertTrue(blockIsValid);
+    }
+
+    public static class BlockWithFakeMerkleRoot extends MutableBlock {
+        private final MerkleRoot _merkleRoot;
+
+        public BlockWithFakeMerkleRoot(final Block block, final MerkleRoot merkleRoot) {
+            super(block);
+            _merkleRoot = merkleRoot;
+        }
+
+        @Override
+        public MerkleRoot getMerkleRoot() {
+            return _merkleRoot;
+        }
     }
 }

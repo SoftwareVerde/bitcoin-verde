@@ -36,7 +36,10 @@ public class BlockValidator {
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
-        if (! block.isValid()) { return false; }
+        if (! block.isValid()) {
+            Logger.log("Block header is invalid.");
+            return false;
+        }
 
         final long startTime = System.currentTimeMillis();
 
@@ -91,7 +94,10 @@ public class BlockValidator {
         { // Validate coinbase contains block height...
             if (Bip34.isEnabled(blockHeight)) {
                 final Integer blockVersion = block.getVersion();
-                if (blockVersion < 2) { return false; }
+                if (blockVersion < 2) {
+                    Logger.log("Invalid block version.");
+                    return false;
+                }
 
                 final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
                 final UnlockingScript unlockingScript = coinbaseTransaction.getCoinbaseScript();
@@ -99,11 +105,13 @@ public class BlockValidator {
                 final List<Operation> operations = unlockingScript.getOperations();
                 final Operation operation = operations.get(0);
                 if (operation.getType() != Operation.Type.OP_PUSH) {
+                    Logger.log("Block coinbase does not contain block height.");
                     return false;
                 }
                 final PushOperation pushOperation = (PushOperation) operation;
                 final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
-                if (blockHeight.equals(coinbaseBlockHeight)) {
+                if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {
+                    Logger.log("Invalid block height within coinbase.");
                     return false;
                 }
             }

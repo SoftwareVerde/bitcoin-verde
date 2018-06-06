@@ -28,7 +28,7 @@ public class MutableScript implements Script {
 
     public MutableScript(final byte[] bytes) {
         final ScriptInflater scriptInflater = new ScriptInflater();
-        _operations = scriptInflater._getOperationList(MutableByteArray.wrap(bytes));
+        _operations = scriptInflater.getOperationList(MutableByteArray.wrap(bytes));
     }
 
     public MutableScript(final Script script) {
@@ -98,6 +98,17 @@ public class MutableScript implements Script {
                 i += 1;
             }
         }
+    }
+
+    @Override
+    public Boolean isValid() {
+        for (final Operation operation : _operations) {
+            if (operation.getType() == Operation.Type.OP_INVALID) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

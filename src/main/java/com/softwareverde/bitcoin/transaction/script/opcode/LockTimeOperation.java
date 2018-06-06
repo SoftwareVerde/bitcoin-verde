@@ -78,10 +78,9 @@ public class LockTimeOperation extends SubTypedOperation {
                 final Transaction transaction = context.getTransaction();
                 final TransactionInput transactionInput = context.getTransactionInput();
 
-                final Boolean operationIsEnabled = Bip68.isEnabled(transaction);
-                if (! operationIsEnabled) {
-                    // Before Bip68, CHECK_SEQUENCE_NUMBER_THEN_VERIFY performed as a no-operation.
-                    return true;
+                final Boolean operationIsActivated = ( (Bip68.isEnabled(context.getBlockHeight())) && (transaction.getVersion() > 2) );
+                if (! operationIsActivated) {
+                    return true; // If not activated, the operation is considered a NOP...
                 }
 
                 // CheckSequenceVerify fails if...
