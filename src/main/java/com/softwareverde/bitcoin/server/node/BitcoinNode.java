@@ -191,6 +191,13 @@ public class BitcoinNode extends Node {
             }
         });
 
+        _connection.setOnConnectFailureCallback(new Runnable() {
+            @Override
+            public void run() {
+                _onDisconnect();
+            }
+        });
+
         _connection.setOnDisconnectCallback(new Runnable() {
             @Override
             public void run() {
@@ -203,7 +210,6 @@ public class BitcoinNode extends Node {
         super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
 
         _initConnection();
-        _connection.startConnectionThread();
     }
 
     public BitcoinNode(final BinarySocket binarySocket) {

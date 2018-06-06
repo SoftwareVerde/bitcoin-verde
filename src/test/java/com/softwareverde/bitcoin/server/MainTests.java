@@ -19,6 +19,7 @@ public class MainTests {
         final Integer port = 8333;
 
         final BitcoinNode node = new BitcoinNode(host, port);
+        node.connect();
 
         node.requestBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new BitcoinNode.QueryCallback() {
             @Override

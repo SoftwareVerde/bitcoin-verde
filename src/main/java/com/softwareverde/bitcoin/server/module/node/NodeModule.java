@@ -299,6 +299,7 @@ public class NodeModule {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             node.setQueryBlocksCallback(_queryBlocksCallback);
             node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
+            node.connect();
             node.handshake();
             _nodeManager.addNode(node);
         }
@@ -311,6 +312,7 @@ public class NodeModule {
                 final BitcoinNode node = new BitcoinNode(binarySocket);
                 node.setQueryBlocksCallback(_queryBlocksCallback);
                 node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
+                node.connect();
                 node.handshake();
                 _nodeManager.addNode(node);
             }

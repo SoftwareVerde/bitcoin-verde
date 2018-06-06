@@ -18,7 +18,7 @@ public class NodeConnection {
         void onMessageReceived(ProtocolMessage message);
     }
 
-    protected static final Integer MAX_CONNECTION_ATTEMPTS = 1024; // Sanity check for connection attempts...
+    protected static final Integer MAX_CONNECTION_ATTEMPTS = 10; // Sanity check for connection attempts...
 
     protected class ConnectionThread extends Thread {
         @Override
@@ -56,8 +56,8 @@ public class NodeConnection {
                 catch (final IOException e) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 1000ms...");
-                    try { Thread.sleep(1000); } catch (final Exception exception) { break; }
+                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms...");
+                    try { Thread.sleep(3000); } catch (final Exception exception) { break; }
                 }
             }
 
@@ -73,6 +73,11 @@ public class NodeConnection {
 
                 _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
                 _onSocketConnected();
+            }
+            else {
+                if (_onConnectFailureCallback != null) {
+                    _onConnectFailureCallback.run();
+                }
             }
         }
     }
@@ -94,6 +99,7 @@ public class NodeConnection {
     protected Runnable _onDisconnectCallback;
     protected Runnable _onReconnectCallback;
     protected Runnable _onConnectCallback;
+    protected Runnable _onConnectFailureCallback;
 
     protected Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
@@ -174,6 +180,8 @@ public class NodeConnection {
     }
 
     public void startConnectionThread() {
+        if (_connectionThread.isAlive()) { return; }
+
         _connectionThread.start();
     }
 
@@ -191,6 +199,10 @@ public class NodeConnection {
 
     public void setOnConnectCallback(final Runnable callback) {
         _onConnectCallback = callback;
+    }
+
+    public void setOnConnectFailureCallback(final Runnable callback) {
+        _onConnectFailureCallback = callback;
     }
 
     public Boolean isConnected() {

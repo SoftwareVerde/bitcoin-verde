@@ -293,6 +293,10 @@ public abstract class Node {
         _queueMessage(nodeIpAddressMessage);
     }
 
+    public void connect() {
+        _connection.startConnectionThread();
+    }
+
     public void disconnect() {
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;

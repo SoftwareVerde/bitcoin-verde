@@ -10,6 +10,7 @@ import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.type.time.Time;
 
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
@@ -165,6 +166,38 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _initNode(final NODE node) {
+        final Container<Boolean> nodeConnected = new Container<Boolean>(null);
+        final Thread timeoutThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(10000);
+
+                    synchronized (nodeConnected) {
+                        if (nodeConnected.value == null) {
+                            nodeConnected.value = false;
+
+                            if (LOGGING_ENABLED) {
+                                Logger.log("P2P: Node failed to connect. Purging node.");
+                            }
+
+                            synchronized (_mutex) {
+                                _nodes.remove(node.getId());
+                            }
+
+                            node.disconnect();
+
+                            if (LOGGING_ENABLED) {
+                                Logger.log("P2P: Node purged.");
+                            }
+                        }
+                    }
+                }
+                catch (final Exception exception) { }
+            }
+        });
+        final WeakReference<Thread> timeoutThreadReference = new WeakReference<Thread>(timeoutThread);
+
         node.setNodeAddressesReceivedCallback(new NODE.NodeAddressesReceivedCallback() {
             @Override
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
@@ -191,6 +224,7 @@ public class NodeManager<NODE extends Node> {
                     }
 
                     final NODE newNode = _nodeFactory.newNode(address, port);
+
                     _initNode(newNode);
 
                     _broadcastExistingNodesToNewNode(newNode);
@@ -207,6 +241,21 @@ public class NodeManager<NODE extends Node> {
         node.setNodeConnectedCallback(new NODE.NodeConnectedCallback() {
             @Override
             public void onNodeConnected() {
+                { // Handle connection timeout...
+                    if (nodeConnected.value == null) {
+                        synchronized (nodeConnected) {
+                            if (nodeConnected.value == null) {
+                                nodeConnected.value = true;
+                            }
+                        }
+
+                        final Thread timeoutThread = timeoutThreadReference.get();
+                        if (timeoutThread != null) {
+                            timeoutThread.interrupt();
+                        }
+                    }
+                }
+
                 if (! node.hasActiveConnection()) { return; }
 
                 synchronized (_mutex) {
@@ -249,6 +298,9 @@ public class NodeManager<NODE extends Node> {
                 }
             }
         });
+
+        node.connect();
+        timeoutThread.start();
     }
 
     // NOTE: Requires Mutex Lock...
