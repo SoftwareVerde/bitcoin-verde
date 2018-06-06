@@ -31,7 +31,7 @@ public class OperationInflater {
             case OP_LOCK_TIME:      { operation = LockTimeOperation.fromBytes(byteArrayReader); }       break;
             case OP_NOTHING:        { operation = NothingOperation.fromBytes(byteArrayReader); }        break;
             case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader); }        break;
-            case OP_BITWISE: { } // TODO
+            case OP_BITWISE:        { operation = BitwiseOperation.fromBytes(byteArrayReader); }        break;
             default: {
                 Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
                 return null;
