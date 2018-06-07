@@ -56,8 +56,9 @@ public abstract class Node {
 
     protected final SystemTime _systemTime = new SystemTime();
 
+    protected Long _synchronizationNonce = null;
     protected NodeIpAddress _nodeIpAddress = null;
-    protected Boolean _hasSentVersion = false;
+    protected Boolean _handshakeHasBeenInvoked = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
@@ -69,6 +70,8 @@ public abstract class Node {
     protected NodeConnectedCallback _nodeConnectedCallback = null;
     protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
     protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
+
+    protected final LinkedList<Runnable> _postConnectQueue = new LinkedList<Runnable>();
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -85,16 +88,58 @@ public abstract class Node {
         }
     }
 
+    protected void _disconnect() {
+        _nodeAddressesReceivedCallback = null;
+        _nodeConnectedCallback = null;
+        _nodeHandshakeCompleteCallback = null;
+        _nodeDisconnectedCallback = null;
+
+        _connection.disconnect();
+
+        _handshakeIsComplete = false;
+        _postHandshakeMessageQueue.clear();
+
+        _pingRequests.clear();
+    }
+
+    /**
+     * Creates a SynchronizeVersion message and enqueues it to the connection.
+     *  NOTE: If the connection is not currently alive, this function will not be executed until it has been successfully
+     *  connected, otherwise _createSynchronizeVersionMessage() cannot determine the correct remote address.
+     */
     protected void _handshake() {
-        if (! _hasSentVersion) {
-            final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
-            _connection.queueMessage(synchronizeVersionMessage);
-            _hasSentVersion = true;
+        if (! _handshakeHasBeenInvoked) {
+            final Runnable createAndQueueHandshake = new Runnable() {
+                @Override
+                public void run() {
+                    final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
+                    _synchronizationNonce = synchronizeVersionMessage.getNonce();
+                    _connection.queueMessage(synchronizeVersionMessage);
+                }
+            };
+
+            synchronized (_postConnectQueue) {
+                if (_connection.isConnected()) {
+                    createAndQueueHandshake.run();
+                }
+                else {
+                    _postConnectQueue.addLast(createAndQueueHandshake);
+                }
+            }
+
+            _handshakeHasBeenInvoked = true;
         }
     }
 
     protected void _onConnect() {
         _handshake();
+
+        synchronized (_postConnectQueue) {
+            while (! _postConnectQueue.isEmpty()) {
+                final Runnable postConnectRunnable = _postConnectQueue.removeLast();
+                postConnectRunnable.run();
+            }
+        }
 
         if (_nodeConnectedCallback != null) {
             (new Thread(new Runnable() {
@@ -144,6 +189,15 @@ public abstract class Node {
 
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
         // TODO: Should probably not accept any node version...
+
+        { // Detect if the connection is to itself...
+            final Long remoteNonce = synchronizeVersionMessage.getNonce();
+            if (Util.areEqual(_synchronizationNonce, remoteNonce)) {
+                Logger.log("Detected connection to self. Disconnecting.");
+                _disconnect();
+                return;
+            }
+        }
 
         { // Calculate the node's network time offset...
             final Long currentTime = _systemTime.getCurrentTimeInSeconds();
@@ -298,17 +352,7 @@ public abstract class Node {
     }
 
     public void disconnect() {
-        _nodeAddressesReceivedCallback = null;
-        _nodeConnectedCallback = null;
-        _nodeHandshakeCompleteCallback = null;
-        _nodeDisconnectedCallback = null;
-
-        _connection.disconnect();
-
-        _handshakeIsComplete = false;
-        _postHandshakeMessageQueue.clear();
-
-        _pingRequests.clear();
+        _disconnect();
     }
 
     @Override

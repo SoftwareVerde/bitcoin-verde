@@ -97,6 +97,7 @@ public class BitcoinNode extends Node {
     @Override
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
+
         { // Set Remote NodeIpAddress...
             final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
             remoteNodeIpAddress.setIp(Ipv4.parse(_connection.getRemoteIp()));
@@ -104,6 +105,11 @@ public class BitcoinNode extends Node {
             remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
         }
+
+        { // Set Local NodeIpAddress...
+            // TODO
+        }
+
         return synchronizeVersionMessage;
     }
 

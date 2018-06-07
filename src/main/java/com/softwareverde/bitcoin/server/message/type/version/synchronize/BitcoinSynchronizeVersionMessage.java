@@ -43,7 +43,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     public Integer getVersion() { return _version; }
     public String getUserAgent() { return _userAgent; }
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
-    public Long getNonce() { return _nonce; }
+
     public Boolean relayIsEnabled() { return _relayIsEnabled; }
     public Integer getCurrentBlockHeight() { return _currentBlockHeight; }
 
@@ -54,6 +54,9 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     public void setLocalAddress(final BitcoinNodeIpAddress nodeIpAddress) {
         _localNodeIpAddress = nodeIpAddress.copy();
     }
+
+    @Override
+    public Long getNonce() { return _nonce; }
 
     @Override
     public Long getTimestamp() { return _timestampInSeconds; }

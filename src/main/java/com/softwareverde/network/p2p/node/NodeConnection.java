@@ -7,6 +7,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
@@ -62,8 +63,8 @@ public class NodeConnection {
             }
 
             if ( (socket != null) && (socket.isConnected()) ) {
-                final SocketAddress socketAddress = socket.getRemoteSocketAddress();
                 {
+                    final SocketAddress socketAddress = socket.getRemoteSocketAddress();
                     final String socketIpString = socketAddress.toString();
                     final List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
                     // final String domainName = urlParts.get(0);

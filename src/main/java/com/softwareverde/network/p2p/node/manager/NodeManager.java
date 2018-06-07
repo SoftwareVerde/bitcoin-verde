@@ -289,11 +289,11 @@ public class NodeManager<NODE extends Node> {
             public void onNodeDisconnected() {
                 synchronized (_mutex) {
                     final NodeId nodeId = node.getId();
-                    final NODE disconnectedNode = _nodes.remove(nodeId);
+                    _nodes.remove(nodeId);
                     _nodeHealthMap.remove(nodeId);
 
                     if (LOGGING_ENABLED) {
-                        Logger.log("P2P: Node Disconnected: " + disconnectedNode.getConnectionString());
+                        Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
                     }
                 }
             }
