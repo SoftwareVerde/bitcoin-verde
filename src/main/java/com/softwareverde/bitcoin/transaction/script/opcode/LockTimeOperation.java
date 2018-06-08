@@ -96,7 +96,7 @@ public class LockTimeOperation extends SubTypedOperation {
                 final Value stackSequenceNumberValue = stack.pop();
                 final LockTime stackSequenceNumber = stackSequenceNumberValue.asLockTime();
 
-                // if (stackSequenceNumber.getValue() < 0L) { return false; } // This check doesn't make the most sense, since the disabled-flag is what will render the value negative... It's possible that Bitcoin Core allows values that are minimum-length encoded.
+                if (stackSequenceNumber.getMaskedValue() < 0L) { return false; } // Pretty sure this is impossible...
 
                 if (! stackSequenceNumber.isDisabled()) {
                     if (transaction.getVersion() < 2) {

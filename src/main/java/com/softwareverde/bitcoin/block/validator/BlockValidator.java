@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -29,10 +30,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
+    protected final NetworkTime _networkTime;
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
 
-    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory) {
+    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final NetworkTime networkTime) {
         _databaseConnectionFactory = threadedConnectionsFactory;
+        _networkTime = networkTime;
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
@@ -71,7 +74,7 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, Boolean> unlockedInputsTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
             @Override
             public TaskHandler<Transaction, Boolean> newInstance() {
-                return new UnlockedInputsTaskHandler(blockChainSegmentId);
+                return new UnlockedInputsTaskHandler(blockChainSegmentId, _networkTime);
             }
         };
 

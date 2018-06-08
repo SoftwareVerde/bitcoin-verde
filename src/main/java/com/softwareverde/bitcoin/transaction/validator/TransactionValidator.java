@@ -5,11 +5,13 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -28,6 +30,7 @@ public class TransactionValidator {
     protected final BlockChainDatabaseManager _blockChainDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
+    protected final NetworkTime _networkTime;
 
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
@@ -46,10 +49,11 @@ public class TransactionValidator {
         }
     }
 
-    public TransactionValidator(final MysqlDatabaseConnection databaseConnection) {
+    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime) {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        _networkTime = networkTime;
     }
 
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) {
@@ -57,10 +61,11 @@ public class TransactionValidator {
 
         final MutableContext context = new MutableContext();
 
+        final Long blockHeight;
         { // Set the block height for this transaction...
             try {
                 final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-                final Long blockHeight = blockChainSegment.getBlockHeight(); // TODO: This may be insufficient when re-validating previously validated transactions, and may be incorrect due to when reading uncommitted values from the database...
+                blockHeight = blockChainSegment.getBlockHeight(); // TODO: This may be insufficient when re-validating previously validated transactions, and may be incorrect due to when reading uncommitted values from the database...
                 context.setBlockHeight(blockHeight);
             }
             catch (final DatabaseException exception) {
@@ -70,6 +75,17 @@ public class TransactionValidator {
         }
 
         context.setTransaction(transaction);
+
+        { // Validate nLockTime...
+            final LockTime lockTime = transaction.getLockTime();
+            if (lockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
+                if (blockHeight < lockTime.getMaskedValue()) { return false; }
+            }
+            else {
+                final Long networkTime = _networkTime.getCurrentTimeInSeconds();
+                if (networkTime < lockTime.getMaskedValue()) { return false; }
+            }
+        }
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {

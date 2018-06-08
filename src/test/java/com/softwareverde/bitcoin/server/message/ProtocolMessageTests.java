@@ -32,7 +32,7 @@ public class ProtocolMessageTests {
             "0100 0000 0000 0000 0000 0000 0000 0000 0000 FFFF C0A8 0101 208D"+ // Recipient's NodeIpAddress
             "0000 0000 0000 0000 0000 0000 0000 0000 0000 FFFF 0000 0000 0000"+ // Sender's NodeIpAddress
             "XXXX XXXX XXXX XXXX"+              // Nonce (NOTICE: BTC calls this "Node-DatabaseId")
-            "152F 5665 7264 652D 4269 7463 6F69 6E3A XX2E XX2E XX2F"+           // Sub-Version (Length (Variable-Size-Integer) + "/Verde-Bitcoin:0.0.0/")
+            "152F 4269 7463 6F69 6E2D 5665 7264 653A XX2E XX2E XX2F"+           // Sub-Version (Length (Variable-Size-Integer) + "/Bitcoin-Verde:0.0.0/")
             "0000 0000"+                        // Block Height
             "00"                                // Relay Enabled
         ;

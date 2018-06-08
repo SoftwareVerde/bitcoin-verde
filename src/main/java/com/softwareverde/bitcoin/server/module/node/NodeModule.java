@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -65,7 +64,6 @@ public class NodeModule {
 
     protected final Configuration _configuration;
     protected final Environment _environment;
-    protected final NetworkTime _networkTime;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
     protected Boolean _hasGenesisBlock = false;
@@ -179,7 +177,7 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool);
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, _nodeManager.getNetworkTime());
             final long blockValidationStartTime = System.currentTimeMillis();
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
             final long blockValidationEndTime = System.currentTimeMillis();
@@ -273,7 +271,6 @@ public class NodeModule {
         _maxQueueSize = serverProperties.getMaxBlockQueueSize();
 
         _environment = new Environment(database);
-        _networkTime = new NetworkTime();
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);

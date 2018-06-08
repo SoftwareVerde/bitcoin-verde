@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.network.ImmutableNetworkTime;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -101,7 +102,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE));
 
         final BlockChainSegmentId blockChainSegmentId;
 
@@ -132,7 +133,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -174,7 +175,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -216,7 +217,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.

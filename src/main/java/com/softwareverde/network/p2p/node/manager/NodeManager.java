@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.bitcoin.server.network.MutableNetworkTime;
 import com.softwareverde.bitcoin.server.network.NetworkTime;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
@@ -8,7 +9,6 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.type.time.Time;
 
 import java.lang.ref.WeakReference;
 import java.util.*;
@@ -97,7 +97,7 @@ public class NodeManager<NODE extends Node> {
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
-    protected final NetworkTime _networkTime = new NetworkTime();
+    protected final MutableNetworkTime _networkTime = new MutableNetworkTime();
 
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
@@ -440,7 +440,7 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    public Time getNetworkTime() {
+    public NetworkTime getNetworkTime() {
         return _networkTime;
     }
 
