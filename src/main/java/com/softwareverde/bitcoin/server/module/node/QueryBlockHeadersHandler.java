@@ -72,11 +72,13 @@ public class QueryBlockHeadersHandler implements BitcoinNode.QueryBlockHeadersCa
 
             if (returnedBlockHashes.isEmpty()) {
                 final Sha256Hash headBlockHash = blockDatabaseManager.getHeadBlockHash();
-                final BlockId headBlockHashId = blockDatabaseManager.getBlockIdFromHash(headBlockHash);
-                final BlockChainSegmentId bestBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockHashId);
+                if (headBlockHash != null) {
+                    final BlockId headBlockHashId = blockDatabaseManager.getBlockIdFromHash(headBlockHash);
+                    final BlockChainSegmentId bestBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockHashId);
 
-                final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(Block.GENESIS_BLOCK_HEADER_HASH);
-                _addChildrenBlocks(blockId, bestBlockChainSegmentId, blockDatabaseManager, returnedBlockHashes);
+                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(Block.GENESIS_BLOCK_HASH);
+                    _addChildrenBlocks(blockId, bestBlockChainSegmentId, blockDatabaseManager, returnedBlockHashes);
+                }
             }
 
             final QueryResponseMessage queryResponseMessage = new QueryResponseMessage();

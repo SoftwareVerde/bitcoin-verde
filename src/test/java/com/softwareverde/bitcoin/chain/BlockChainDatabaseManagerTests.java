@@ -221,8 +221,8 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1.isValid());
         Assert.assertTrue(block1Prime.isValid());
 
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -312,9 +312,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block2.isValid());
         Assert.assertTrue(block1Prime.isValid());
 
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
         Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -422,17 +422,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1DoublePrime.isValid());
 
         // Chain 2
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
         Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
         Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
         // Chain 3
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         // Chain 4
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
@@ -584,17 +584,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1DoublePrime.isValid());
 
         // Chain 2
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
         Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
         Assert.assertEquals(block2.getHash(), block3.getPreviousBlockHash());
 
         // Chain 3
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         // Chain 4
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Action
@@ -748,7 +748,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1DoublePrime.isValid());
 
         // Original Chain 1
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1.getPreviousBlockHash());
 
         // Original Chain 2
         Assert.assertEquals(block1.getHash(), block2.getPreviousBlockHash());
@@ -762,7 +762,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block3.getHash(), block3Prime.getHash());
 
         // New Chain 4
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Establish Original Blocks/Chains...
@@ -912,9 +912,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1DoublePrime.isValid());
         Assert.assertTrue(block2Prime.isValid());
 
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
-        Assert.assertEquals(Block.GENESIS_BLOCK_HEADER_HASH, block1DoublePrime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1Prime.getHash(), block1DoublePrime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);

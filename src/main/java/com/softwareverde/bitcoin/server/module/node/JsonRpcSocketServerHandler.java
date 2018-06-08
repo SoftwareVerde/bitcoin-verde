@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -43,6 +44,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
+        if (lastKnownHash == null) { return 0L; }
+
         final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
     }
@@ -68,16 +71,20 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
 
             final Long blockTimestampInSeconds;
-            final Long secondsBehind;
             {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
                 final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
-                final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
-                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-                blockTimestampInSeconds = blockHeader.getTimestamp();
-
-                secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
+                if (lastKnownHash == null) {
+                    blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+                }
+                else {
+                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    blockTimestampInSeconds = blockHeader.getTimestamp();
+                }
             }
+
+            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
 
             final Integer secondsInAnHour = (60 * 60);
             final Boolean isSyncing = (secondsBehind > secondsInAnHour);

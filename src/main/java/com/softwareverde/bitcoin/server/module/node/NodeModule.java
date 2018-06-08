@@ -34,6 +34,7 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.Util;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -121,7 +122,7 @@ public class NodeModule {
             }
             catch (final DatabaseException e) { }
 
-            resumeAfterHash = ((lastKnownHash == null) ? Block.GENESIS_BLOCK_HEADER_HASH : lastKnownHash);
+            resumeAfterHash = Util.coalesce(lastKnownHash, Block.GENESIS_BLOCK_HASH);
         }
 
         final Container<Sha256Hash> lastBlockHash = new Container<Sha256Hash>(resumeAfterHash);
@@ -286,7 +287,7 @@ public class NodeModule {
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-                Sha256Hash blockHash = blockDatabaseManager.getHeadBlockHash();
+                Sha256Hash blockHash = Util.coalesce(blockDatabaseManager.getHeadBlockHash(), Block.GENESIS_BLOCK_HASH);
                 for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
                     final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
                     if (blockId == null) { break; }
@@ -382,7 +383,7 @@ public class NodeModule {
         }
 
         if (! _hasGenesisBlock) {
-            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new BitcoinNode.DownloadBlockCallback() {
+            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
                     if (_hasGenesisBlock) {

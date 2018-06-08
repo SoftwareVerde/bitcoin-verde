@@ -70,7 +70,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 MutableBlock block;
 
                 if (mostRecentBlockHash == null) {
-                    final String genesisBlockData = IoUtil.getResource("/blocks/" + HexUtil.toHexString(BlockHeader.GENESIS_BLOCK_HEADER_HASH.getBytes()));
+                    final String genesisBlockData = IoUtil.getResource("/blocks/" + HexUtil.toHexString(BlockHeader.GENESIS_BLOCK_HASH.getBytes()));
                     block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(genesisBlockData));
                 }
                 else {

@@ -21,12 +21,12 @@ public class MainTests {
         final BitcoinNode node = new BitcoinNode(host, port);
         node.connect();
 
-        node.requestBlockHashesAfter(Block.GENESIS_BLOCK_HEADER_HASH, new BitcoinNode.QueryCallback() {
+        node.requestBlockHashesAfter(Block.GENESIS_BLOCK_HASH, new BitcoinNode.QueryCallback() {
             @Override
             public void onResult(final java.util.List<Sha256Hash> blockHashes) {
                 Logger.log(blockHashes.size());
 
-                node.requestBlock(Block.GENESIS_BLOCK_HEADER_HASH, new BitcoinNode.DownloadBlockCallback() {
+                node.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
                     @Override
                     public void onResult(final Block block) {
                         Logger.log("BLOCK: " + HexUtil.toHexString(block.getHash().getBytes()));
