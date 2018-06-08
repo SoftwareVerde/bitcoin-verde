@@ -2,14 +2,18 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.network.time.NetworkTime;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -72,6 +76,7 @@ public class NodeModule {
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
     protected final BlockValidatorThread _blockValidatorThread = new BlockValidatorThread();
 
+    protected final MutableMedianBlockTime _medianBlockTime;
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
@@ -166,6 +171,7 @@ public class NodeModule {
 
     protected Boolean _processBlock(final Block block) {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final NetworkTime networkTime = _nodeManager.getNetworkTime();
 
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
             TransactionUtil.startTransaction(databaseConnection);
@@ -177,14 +183,16 @@ public class NodeModule {
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, _nodeManager.getNetworkTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
             final long blockValidationStartTime = System.currentTimeMillis();
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
             final long blockValidationEndTime = System.currentTimeMillis();
             final long blockValidationMsElapsed = (blockValidationEndTime - blockValidationStartTime);
 
             if (blockIsValid) {
+                _medianBlockTime.addBlock(block);
                 TransactionUtil.commitTransaction(databaseConnection);
+
                 final Integer blockTransactionCount = block.getTransactions().getSize();
 
                 final Float averageBlocksPerSecond;
@@ -218,10 +226,6 @@ public class NodeModule {
 
                 _averageBlocksPerSecond.value = averageBlocksPerSecond;
                 _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
-
-                // Logger.log("Block ("+ (blockTransactionCount) +" transactions) validated in " + (blockValidationMsElapsed) + "ms. (" + String.format("%.2f", (1.0D / blockValidationMsElapsed) * 1000) + " bps) (" + String.format("%.2f", (((double) blockTransactionCount) / blockValidationMsElapsed) * 1000) + " tps) ("+ String.format("%.2f", (((double) _transactionCount) / _totalBlockValidationMsElapsed) * 1000) +" avg tps)");
-                // Logger.log("Processed "+ _transactionCount + " transactions in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _transactionCount) / msElapsed) * 1000)) + " tps)");
-                // Logger.log("Processed "+ _blockCount + " blocks in " + msElapsed +" ms. (" + String.format("%.2f", ((((double) _blockCount) / msElapsed) * 1000)) + " bps)");
 
                 return true;
             }
@@ -264,7 +268,6 @@ public class NodeModule {
             }
             else {
                 _exitFailure();
-                // return;
             }
         }
 
@@ -277,6 +280,27 @@ public class NodeModule {
 
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
         _nodeManager = new BitcoinNodeManager(maxPeerCount);
+
+        _medianBlockTime = new MutableMedianBlockTime();
+        { // Initialize _medianBlockTime with the N most recent blocks...
+            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+                Sha256Hash blockHash = blockDatabaseManager.getHeadBlockHash();
+                for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+                    if (blockId == null) { break; }
+
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    _medianBlockTime.addBlock(blockHeader);
+                    blockHash = blockHeader.getPreviousBlockHash();
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                _exitFailure();
+            }
+        }
 
         _queryBlocksCallback = new BitcoinNode.QueryBlocksCallback() {
             @Override

@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
+import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
-import com.softwareverde.bitcoin.server.network.NetworkTime;
+import com.softwareverde.bitcoin.server.network.time.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -31,6 +33,7 @@ public class TransactionValidator {
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected final NetworkTime _networkTime;
+    protected final MedianBlockTime _medianBlockTime;
 
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         try {
@@ -49,11 +52,12 @@ public class TransactionValidator {
         }
     }
 
-    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime) {
+    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
         _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
     }
 
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) {
@@ -82,7 +86,16 @@ public class TransactionValidator {
                 if (blockHeight < lockTime.getMaskedValue()) { return false; }
             }
             else {
-                final Long networkTime = _networkTime.getCurrentTimeInSeconds();
+                final Long networkTime;
+                {
+                    if (Bip113.isEnabled(blockHeight)) {
+                        networkTime = _medianBlockTime.getCurrentTimeInSeconds();
+                    }
+                    else {
+                        networkTime = _networkTime.getCurrentTimeInSeconds();
+                    }
+                }
+
                 if (networkTime < lockTime.getMaskedValue()) { return false; }
             }
         }

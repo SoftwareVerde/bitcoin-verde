@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.network.NetworkTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.network.time.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -10,17 +11,19 @@ import com.softwareverde.io.Logger;
 public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boolean> {
     private final BlockChainSegmentId _blockChainSegmentId;
     private final NetworkTime _networkTime;
+    private final MedianBlockTime _medianBlockTime;
     private TransactionValidator _transactionValidator;
     private boolean _allInputsAreUnlocked = true;
 
-    public UnlockedInputsTaskHandler(final BlockChainSegmentId blockChainSegmentId, final NetworkTime networkTime) {
+    public UnlockedInputsTaskHandler(final BlockChainSegmentId blockChainSegmentId, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainSegmentId = blockChainSegmentId;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
+        _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
     }
 
     @Override
     public void init(final MysqlDatabaseConnection databaseConnection) {
-        _transactionValidator = new TransactionValidator(databaseConnection, _networkTime);
+        _transactionValidator = new TransactionValidator(databaseConnection, _networkTime, _medianBlockTime);
     }
 
     @Override

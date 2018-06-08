@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
-import com.softwareverde.bitcoin.server.network.MutableNetworkTime;
-import com.softwareverde.bitcoin.server.network.NetworkTime;
+import com.softwareverde.bitcoin.server.network.time.MutableNetworkTime;
+import com.softwareverde.bitcoin.server.network.time.NetworkTime;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
