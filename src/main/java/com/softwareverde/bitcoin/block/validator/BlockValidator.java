@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.validator;
 
+import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -26,6 +27,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +35,7 @@ import java.util.Map;
 public class BlockValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
 
     public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
@@ -93,7 +96,25 @@ public class BlockValidator {
             return false;
         }
 
-        // TODO: Validate block timestamp... (https://en.bitcoin.it/wiki/Block_timestamp)
+        { // Validate Block Timestamp...
+            final Long blockTime = block.getTimestamp();
+            final Long minimumTimeInSeconds;
+            {
+                if (Bip113.isEnabled(blockHeight)) {
+                    minimumTimeInSeconds = _medianBlockTime.getCurrentTimeInSeconds();
+                }
+                else {
+                    minimumTimeInSeconds = 0L;
+                }
+            }
+            final Long networkTime = _networkTime.getCurrentTimeInSeconds();
+            final Long secondsInTwoHours = 7200L;
+            final Long maximumNetworkTime = networkTime + secondsInTwoHours;
+
+            if (blockTime < minimumTimeInSeconds) { return false; }
+            if (blockTime > maximumNetworkTime) { return false; }
+        }
+
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
 
