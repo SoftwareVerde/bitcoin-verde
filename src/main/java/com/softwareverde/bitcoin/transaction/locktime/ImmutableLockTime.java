@@ -9,7 +9,7 @@ public class ImmutableLockTime implements LockTime, Const {
     private final Long _value;
 
     protected static Type _getType(final Long lockTime) {
-        return ((lockTime < MAX_BLOCK_HEIGHT_VALUE) ? Type.TIMESTAMP : Type.BLOCK_HEIGHT);
+        return ((lockTime < MAX_BLOCK_HEIGHT_VALUE) ? Type.BLOCK_HEIGHT: Type.TIMESTAMP);
     }
 
     public ImmutableLockTime() {

@@ -117,11 +117,11 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public LockTime asLockTime() {
-        return new ImmutableLockTime(ByteUtil.bytesToLong(_bytes));
+        return new ImmutableLockTime(ByteUtil.bytesToLong(ByteUtil.reverseEndian(_bytes)));
     }
 
     public SequenceNumber asSequenceNumber() {
-        return new ImmutableSequenceNumber(ByteUtil.bytesToLong(_bytes));
+        return new ImmutableSequenceNumber(ByteUtil.bytesToLong(ByteUtil.reverseEndian(_bytes)));
     }
 
     public ScriptSignature asScriptSignature() {
