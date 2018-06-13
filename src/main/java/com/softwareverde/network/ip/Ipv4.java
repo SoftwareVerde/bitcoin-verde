@@ -1,6 +1,6 @@
 package com.softwareverde.network.ip;
 
-import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 

@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.server.network.time.NetworkTime;
+import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;

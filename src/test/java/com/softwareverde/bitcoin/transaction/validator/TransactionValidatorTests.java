@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.network.time.ImmutableNetworkTime;
+import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;

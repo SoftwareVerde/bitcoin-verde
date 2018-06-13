@@ -186,7 +186,7 @@ public class PacketBuffer {
 
         final byte[] fullPacket = _consumeContiguousBytes(fullPacketByteCount);
 
-        if (fullPacketByteCount > _protocolMessageHeaderInflater.getMaxPacketByteCount()) {
+        if (fullPacketByteCount > Util.coalesce(_protocolMessageHeaderInflater.getMaxPacketByteCount(), Integer.MAX_VALUE)) {
             Logger.log("IO: Dropping packet. Packet exceeded max byte count: " + fullPacketByteCount);
             return null;
         }

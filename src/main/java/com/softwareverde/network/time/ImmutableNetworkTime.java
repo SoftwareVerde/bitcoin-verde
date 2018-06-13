@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.network.time;
+package com.softwareverde.network.time;
 
 import com.softwareverde.constable.Const;
 

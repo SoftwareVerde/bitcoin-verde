@@ -7,7 +7,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
 
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
@@ -140,6 +139,15 @@ public class NodeConnection {
         _connectionCount += 1;
     }
 
+    /**
+     * _onMessagesProcessed is executed whenever the outboundMessageQueue has been processed.
+     *  This method is intended to serve as a callback for subclasses.
+     *  Invocation of this callback does not necessarily guarantee that the queue is empty, although it is likely.
+     */
+    protected void _onMessagesProcessed() {
+        // Nothing.
+    }
+
     protected void _processOutboundMessageQueue() {
         synchronized (_outboundMessageQueue) {
             while (! _outboundMessageQueue.isEmpty()) {
@@ -149,18 +157,29 @@ public class NodeConnection {
                 _binarySocket.write(message);
             }
         }
+
+        _onMessagesProcessed();
     }
 
     protected void _writeOrQueueMessage(final ProtocolMessage message) {
+        final Boolean messageWasQueued;
+
         synchronized (_outboundMessageQueue) {
             if (_socketIsConnected()) {
                 _binarySocket.write(message);
+                messageWasQueued = false;
             }
             else {
                 _outboundMessageQueue.addLast(message);
+                messageWasQueued = true;
             }
         }
+
+        if (! messageWasQueued) {
+            _onMessagesProcessed();
+        }
     }
+
 
     public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
         _host = host;

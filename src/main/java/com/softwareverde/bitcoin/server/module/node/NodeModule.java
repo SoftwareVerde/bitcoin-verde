@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.network.time.NetworkTime;
+import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
