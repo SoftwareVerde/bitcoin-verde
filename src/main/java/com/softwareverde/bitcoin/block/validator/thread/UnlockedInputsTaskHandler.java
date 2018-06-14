@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.time.NetworkTime;
 
 public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boolean> {
     private final BlockChainSegmentId _blockChainSegmentId;

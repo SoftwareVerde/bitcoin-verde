@@ -1,13 +1,13 @@
 package com.softwareverde.network.p2p.node.manager;
 
-import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
+import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 
 import java.lang.ref.WeakReference;

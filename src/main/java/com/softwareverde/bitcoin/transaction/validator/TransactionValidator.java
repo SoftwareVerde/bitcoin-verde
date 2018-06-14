@@ -7,13 +7,13 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
-import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -26,6 +26,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
 
 public class TransactionValidator {
@@ -83,7 +84,7 @@ public class TransactionValidator {
         { // Validate nLockTime...
             final LockTime lockTime = transaction.getLockTime();
             if (lockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
-                if (blockHeight < lockTime.getMaskedValue()) { return false; }
+                if (blockHeight < lockTime.getValue()) { return false; }
             }
             else {
                 final Long networkTime;
@@ -96,7 +97,14 @@ public class TransactionValidator {
                     }
                 }
 
-                if (networkTime < lockTime.getMaskedValue()) { return false; }
+                if (networkTime < lockTime.getValue()) { return false; }
+            }
+        }
+
+        { // Validation SequenceNumber
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+                // TODO
             }
         }
 

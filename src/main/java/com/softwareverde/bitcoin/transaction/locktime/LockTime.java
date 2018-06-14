@@ -4,7 +4,7 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
 
 public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
-    Long MAX_BLOCK_HEIGHT_VALUE = 500_000_000L; // NOTE: This valus is exclusive; therefore 500000000 is a timestamp value.
+    Long MAX_BLOCK_HEIGHT_VALUE = 500_000_000L; // NOTE: This value is exclusive; therefore 500000000 is a timestamp value.
     Long MAX_TIMESTAMP_VALUE = 0xFFFFFFFFL;
     Long MIN_TIMESTAMP_VALUE = 0x00000000L;
 
@@ -18,8 +18,6 @@ public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
 
     Type getType();
     Long getValue();
-    Long getMaskedValue(); // Returns the last 2 bytes of the value, as per Bip68... (https://github.com/bitcoin/bips/blob/master/bip-0068.mediawiki)
-    Boolean isDisabled();
     byte[] getBytes();
 
     @Override

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.chain.time;
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.RotatingQueue;
 
 import java.util.ArrayList;

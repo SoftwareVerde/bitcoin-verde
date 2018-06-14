@@ -1,10 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.Bip112;
 import com.softwareverde.bitcoin.bip.Bip65;
-import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
@@ -70,20 +69,12 @@ public class LockTimeOperation extends SubTypedOperation {
             }
 
             case CHECK_SEQUENCE_NUMBER_THEN_VERIFY: {
-                final Boolean operationIsEnabled = (Bip68.isEnabled(context.getBlockHeight()));
+                final Boolean operationIsEnabled = (Bip112.isEnabled(context.getBlockHeight()));
                 if (! operationIsEnabled) {
-                    return true; // NOTE: Before Bip68, the operation is considered a NOP...
+                    return true; // NOTE: Before Bip112, the operation is considered a NOP...
                 }
 
                 if (true) { return false; } // TODO
-
-                final Transaction transaction = context.getTransaction();
-                final TransactionInput transactionInput = context.getTransactionInput();
-
-                final Boolean transactionIsAtLeastVersionTwo = (transaction.getVersion() >= 2);
-                if (! transactionIsAtLeastVersionTwo) {
-                    return true; // NOTE: SequenceNumbers require the Transaction's version be at least 2...
-                }
 
                 // CheckSequenceVerify fails if...
                 // the stack is empty; or
@@ -95,10 +86,11 @@ public class LockTimeOperation extends SubTypedOperation {
                 //  the top stack item is greater than the transaction sequence (when masked according to the BIP68);
                 // }
 
-                // TODO/NOTE: Now certain that MTP is actually factored in CSV...
+                final Transaction transaction = context.getTransaction();
+                final TransactionInput transactionInput = context.getTransactionInput();
 
                 final Value stackSequenceNumberValue = stack.peak();
-                if (stackSequenceNumberValue.asLong() < 0L) { return false; } // NOTE: This is possible since 5-bytes are permitted when parsing Lock/SequenceNumbers...
+                if (stackSequenceNumberValue.asLong() < 0L) { return false; } // NOTE: This is possible due to the value's weird encoding rules and/or also possible since 5-bytes are permitted when parsing SequenceNumbers...
 
                 final SequenceNumber stackSequenceNumber = stackSequenceNumberValue.asSequenceNumber();
 
@@ -112,12 +104,11 @@ public class LockTimeOperation extends SubTypedOperation {
                         return false;
                     }
 
-                    final LockTime transactionLockTime = transaction.getLockTime();
-                    if (transactionLockTime.getType() != transactionInputSequenceNumber.getType()) {
+                    if (stackSequenceNumber.getType() != transactionInputSequenceNumber.getType()) {
                         return false;
                     }
 
-                    if (stackSequenceNumber.getMaskedValue() > transactionLockTime.getMaskedValue()) {
+                    if (stackSequenceNumber.getMaskedValue() > transactionInputSequenceNumber.getMaskedValue()) {
                         return false;
                     }
                 }

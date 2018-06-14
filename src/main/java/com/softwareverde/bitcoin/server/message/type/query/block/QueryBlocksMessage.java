@@ -48,7 +48,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     }
 
     public void setDesiredBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        _desiredBlockHeaderHash = blockHeaderHash;
+        _desiredBlockHeaderHash = blockHeaderHash.asConst();
     }
 
     @Override
