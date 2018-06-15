@@ -1,10 +1,14 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.bip.Bip113;
+import com.softwareverde.bitcoin.bip.Bip68;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,6 +35,7 @@ import com.softwareverde.util.HexUtil;
 
 public class TransactionValidator {
     protected final BlockChainDatabaseManager _blockChainDatabaseManager;
+    protected final BlockDatabaseManager _blockDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected final NetworkTime _networkTime;
@@ -55,6 +60,7 @@ public class TransactionValidator {
 
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
         _networkTime = networkTime;
@@ -101,10 +107,56 @@ public class TransactionValidator {
             }
         }
 
-        { // Validation SequenceNumber
+        if (Bip68.isEnabled(blockHeight)) { // Validation SequenceNumber
+            if (true) { return false; } // TODO
+
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-                // TODO
+                if (! sequenceNumber.isDisabled()) {
+
+                    final BlockId blockIdContainingOutputBeingSpent;
+                    {
+                        try {
+                            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
+                            blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
+                        }
+                        catch (final DatabaseException exception) {
+                            return false;
+                        }
+                    }
+
+                    if (sequenceNumber.getType() == LockTime.Type.TIMESTAMP) {
+                        final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
+
+                        final MedianBlockTime medianBlockTimeOfOutputBeingSpent;
+                        {
+                            try {
+                                medianBlockTimeOfOutputBeingSpent = _blockDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);
+                            }
+                            catch (final DatabaseException databaseException) {
+                                return false;
+                            }
+                        }
+
+                        final Long secondsElapsed = (_medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
+
+                        return (secondsElapsed >= requiredSecondsElapsed);
+                    }
+                    else {
+                        final Long blockHeightContainingOutputBeingSpent;
+                        try {
+                            blockHeightContainingOutputBeingSpent = _blockDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
+                        }
+                        catch (final DatabaseException databaseException) {
+                            return false;
+                        }
+
+                        final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
+                        final Long requiredBlockCount = sequenceNumber.asBlockCount();
+
+                        return (blockCount >= requiredBlockCount);
+                    }
+                }
             }
         }
 

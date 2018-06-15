@@ -235,4 +235,15 @@ public class TransactionDatabaseManager {
 
         return transaction;
     }
+
+    public BlockId getBlockId(final TransactionId transactionId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, block_id FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("block_id"));
+    }
 }

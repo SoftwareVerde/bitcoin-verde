@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
@@ -448,6 +450,28 @@ public class BlockDatabaseManager {
 
     public Sha256Hash getBlockHashFromId(final BlockId blockId) throws DatabaseException {
         return _getBlockHashFromId(blockId);
+    }
+
+    /**
+     * Calculates the MedianBlockTime of the provided startingBlockId.
+     * NOTE: startingBlockId is exclusive. The MedianBlockTime does NOT include the provided startingBlockId; instead,
+     *  it includes the MedianBlockTime.BLOCK_COUNT (11) number of blocks before the startingBlockId.
+     */
+    public MedianBlockTime calculateMedianBlockTime(final BlockId startingBlockId) throws DatabaseException {
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        final BlockHeader startingBlock = _inflateBlockHeader(startingBlockId);
+
+        Sha256Hash blockHash = startingBlock.getHash();
+        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+            final BlockId blockId = _getBlockIdFromHash(blockHash);
+            if (blockId == null) { break; }
+
+            final BlockHeader blockHeader = _inflateBlockHeader(blockId);
+            medianBlockTime.addBlock(blockHeader);
+            blockHash = blockHeader.getPreviousBlockHash();
+        }
+
+        return medianBlockTime;
     }
 
 }

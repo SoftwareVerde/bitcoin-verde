@@ -144,4 +144,8 @@ public class TransactionInputDatabaseManager {
 
         return transactionInput;
     }
+
+    public TransactionOutputId findPreviousTransactionOutputId(final BlockChainSegmentId blockChainSegmentId, final TransactionInput transactionInput) throws DatabaseException {
+        return _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+    }
 }
