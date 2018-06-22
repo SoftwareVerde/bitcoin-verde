@@ -41,6 +41,46 @@ public class TransactionValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
+    protected void _logInvalidTransaction(final Transaction transaction, final Context context) {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+
+        final TransactionOutput outputToSpend = context.getTransactionOutput();
+        final TransactionInput transactionInput = context.getTransactionInput();
+
+        final LockingScript lockingScript = (outputToSpend != null ? outputToSpend.getLockingScript() : null);
+        final UnlockingScript unlockingScript = (transactionInput != null ? transactionInput.getUnlockingScript() : null);
+
+        final Integer transactionInputIndex = context.getTransactionInputIndex();
+
+        Logger.log("\n------------");
+        Logger.log("Tx Hash:\t\t"           + transaction.getHash() + ( (transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("") ));
+        Logger.log("Tx Bytes:\t\t"          + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
+        Logger.log("Tx Input:\t\t"          + (transactionInput != null ? HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)) : null));
+        Logger.log("Tx Output:\t\t"         + ( (outputToSpend != null) ? (outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend))) : (null) ));
+        Logger.log("Block Height:\t\t"      + context.getBlockHeight());
+        Logger.log("Tx Input Index\t\t"     + transactionInputIndex);
+        Logger.log("Locking Script:\t\t"    + lockingScript);
+        Logger.log("Unlocking Script:\t"    + unlockingScript);
+        Logger.log("Median Block Time:\t"   + _medianBlockTime.getCurrentTimeInSeconds());
+        Logger.log("Network Time:\t\t"      + _networkTime.getCurrentTimeInSeconds());
+        Logger.log("\n------------\n");
+    }
+
+    protected Boolean _shouldValidateLockTime(final Transaction transaction) {
+        // If all TransactionInputs' SequenceNumbers are all final (0xFFFFFFFF) then lockTime is disregarded...
+
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+            if (! sequenceNumber.isDisabled()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
         final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
@@ -141,6 +181,7 @@ public class TransactionValidator {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
+                _logInvalidTransaction(transaction, context);
                 return false;
             }
         }
@@ -148,9 +189,14 @@ public class TransactionValidator {
         context.setTransaction(transaction);
 
         { // Validate nLockTime...
-            final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
-            if (! lockTimeIsValid) {
-                return false;
+            final Boolean shouldValidateLockTime = _shouldValidateLockTime(transaction);
+            if (shouldValidateLockTime) {
+                final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
+                if (!lockTimeIsValid) {
+                    Logger.log("Invalid LockTime for Tx.");
+                    _logInvalidTransaction(transaction, context);
+                    return false;
+                }
             }
         }
 
@@ -160,12 +206,13 @@ public class TransactionValidator {
                     final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockChainSegmentId, transaction, blockHeight);
                     if (! sequenceNumbersAreValid) {
                         Logger.log("Transaction SequenceNumber validation failed.");
-                        Logger.log("Tx: " + transaction.getHash());
+                        _logInvalidTransaction(transaction, context);
                         return false;
                     }
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
+                    _logInvalidTransaction(transaction, context);
                     return false;
                 }
             }
@@ -182,10 +229,15 @@ public class TransactionValidator {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
+                _logInvalidTransaction(transaction, context);
                 return false;
             }
 
-            if (outputToSpend == null) { return false; }
+            if (outputToSpend == null) {
+                Logger.log("Transaction references non-existent output.");
+                _logInvalidTransaction(transaction, context);
+                return false;
+            }
 
             final LockingScript lockingScript = outputToSpend.getLockingScript();
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -196,21 +248,8 @@ public class TransactionValidator {
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
-                final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
-
-                Logger.log("\n------------");
                 Logger.log("Transaction failed to verify.");
-                Logger.log("Tx Hash:\t\t" + transaction.getHash() + "_" + context.getTransactionInputIndex());
-                Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
-                Logger.log("Tx Input:\t\t" + HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)));
-                Logger.log("Tx Output:\t\t" + outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend)));
-                Logger.log("Block Height:\t\t" + context.getBlockHeight());
-                Logger.log("Tx Input Index\t\t" + context.getTransactionInputIndex());
-                Logger.log("Locking Script:\t\t" + lockingScript);
-                Logger.log("Unlocking Script:\t" + unlockingScript);
-                Logger.log("\n------------\n");
+                _logInvalidTransaction(transaction, context);
                 return false;
             }
         }
