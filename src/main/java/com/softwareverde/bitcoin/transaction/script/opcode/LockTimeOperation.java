@@ -74,8 +74,6 @@ public class LockTimeOperation extends SubTypedOperation {
                     return true; // NOTE: Before Bip112, the operation is considered a NOP...
                 }
 
-                if (true) { return false; } // TODO
-
                 // CheckSequenceVerify fails if...
                 // the stack is empty; or
                 // the top item on the stack is less than 0; or

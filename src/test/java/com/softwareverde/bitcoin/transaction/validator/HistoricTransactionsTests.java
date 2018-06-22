@@ -544,4 +544,21 @@ public class HistoricTransactionsTests {
 
         validateTransaction(testConfig);
     }
+
+    @Test
+    public void should_verify_transaction_892F44A49DE6F5B212CDBEA514D09E692D9FED5D897F37BCEF14BD0EEDEBF193_0() {
+        // NOTE: This transaction is the first enabled CHECK_SEQUENCE_NUMBER_THEN_VERIFY transaction.
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0200000001DEB98691723FA71260FFCA6EA0A7BC0A63B0A8A366E1B585CAAD47FB269A2CE401000000030251B201000000010000000000000000016A00000000";
+        testConfig.transactionInputBytes = "DEB98691723FA71260FFCA6EA0A7BC0A63B0A8A366E1B585CAAD47FB269A2CE401000000030251B201000000";
+        testConfig.transactionOutputIndex = 1;
+        testConfig.transactionOutputBytes = "A08601000000000017A9147C17AFF532F22BEB54069942F9BF567A66133EAF87";
+        testConfig.blockHeight = 419462L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A9147C17AFF532F22BEB54069942F9BF567A66133EAF87";
+        testConfig.unlockingScriptBytes = "0251B2";
+
+        validateTransaction(testConfig);
+    }
 }
