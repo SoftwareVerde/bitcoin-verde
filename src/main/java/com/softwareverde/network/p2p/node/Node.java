@@ -8,6 +8,7 @@ import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
+import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -29,6 +30,8 @@ public abstract class Node {
             this.timestamp = System.currentTimeMillis();
         }
     }
+
+    protected static final RotatingQueue<Long> LOCAL_SYNCHRONIZATION_NONCES = new RotatingQueue<Long>(32);
 
     private static final Object NODE_ID_MUTEX = new Object();
     private static Long _nextId = 0L;
@@ -56,7 +59,6 @@ public abstract class Node {
 
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected Long _synchronizationNonce = null;
     protected NodeIpAddress _nodeIpAddress = null;
     protected Boolean _handshakeHasBeenInvoked = false;
     protected Boolean _handshakeIsComplete = false;
@@ -113,7 +115,12 @@ public abstract class Node {
                 @Override
                 public void run() {
                     final SynchronizeVersionMessage synchronizeVersionMessage = _createSynchronizeVersionMessage();
-                    _synchronizationNonce = synchronizeVersionMessage.getNonce();
+
+                    final Long synchronizationNonce = synchronizeVersionMessage.getNonce();
+                    synchronized (LOCAL_SYNCHRONIZATION_NONCES) {
+                        LOCAL_SYNCHRONIZATION_NONCES.add(synchronizationNonce);
+                    }
+
                     _connection.queueMessage(synchronizeVersionMessage);
                 }
             };
@@ -192,10 +199,14 @@ public abstract class Node {
 
         { // Detect if the connection is to itself...
             final Long remoteNonce = synchronizeVersionMessage.getNonce();
-            if (Util.areEqual(_synchronizationNonce, remoteNonce)) {
-                Logger.log("Detected connection to self. Disconnecting.");
-                _disconnect();
-                return;
+            synchronized (LOCAL_SYNCHRONIZATION_NONCES) {
+                for (final Long pastNonce : LOCAL_SYNCHRONIZATION_NONCES) {
+                    if (Util.areEqual(pastNonce, remoteNonce)) {
+                        Logger.log("Detected connection to self. Disconnecting.");
+                        _disconnect();
+                        return;
+                    }
+                }
             }
         }
 

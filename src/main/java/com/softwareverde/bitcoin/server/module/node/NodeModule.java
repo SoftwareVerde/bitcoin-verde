@@ -359,8 +359,14 @@ public class NodeModule {
             }
         };
 
-        _jsonRpcSocketServer = new JsonSocketServer(8081);
-        _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, shutdownHandler, statisticsContainer));
+        final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
+        if (rpcPort > 0) {
+            _jsonRpcSocketServer = new JsonSocketServer(rpcPort);
+            _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, shutdownHandler, statisticsContainer));
+        }
+        else {
+            _jsonRpcSocketServer = null;
+        }
     }
 
     public void loop() {
@@ -371,8 +377,13 @@ public class NodeModule {
         _blockValidatorThread.start();
         Logger.log("[Block Validator Thread Online]");
 
-        _jsonRpcSocketServer.start();
-        Logger.log("[RPC Server Online]");
+        if (_jsonRpcSocketServer != null) {
+            _jsonRpcSocketServer.start();
+            Logger.log("[RPC Server Online]");
+        }
+        else {
+            Logger.log("NOTICE: Bitcoin RPC Server not started.");
+        }
 
         _socketServer.start();
         Logger.log("[Listening For Connections]");
@@ -417,7 +428,10 @@ public class NodeModule {
         _blockValidatorThread.interrupt();
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();
-        _jsonRpcSocketServer.stop();
+
+        if (_jsonRpcSocketServer != null) {
+            _jsonRpcSocketServer.stop();
+        }
 
         System.exit(0);
     }

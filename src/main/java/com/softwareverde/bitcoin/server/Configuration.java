@@ -11,6 +11,7 @@ import java.util.Properties;
 
 public class Configuration {
     public static final Integer BITCOIN_PORT = 8333;
+    public static final Integer BITCOIN_RPC_PORT = 8334;
     public static final Integer STRATUM_PORT = 3333;
 
     public static class SeedNodeProperties {
@@ -29,11 +30,13 @@ public class Configuration {
     public static class ServerProperties {
         private Integer _bitcoinPort;
         private Integer _stratumPort;
+        private Integer _bitcoinRpcPort;
         private SeedNodeProperties[] _seedNodeProperties;
         private Integer _maxPeerCount;
         private Integer _maxBlockQueueSize;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
+        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
         public Integer getStratumPort() { return _stratumPort; }
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
         public Integer getMaxPeerCount() { return _maxPeerCount; }
@@ -67,6 +70,7 @@ public class Configuration {
     private void _loadServerProperties() {
         _serverProperties = new ServerProperties();
         _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BITCOIN_PORT.toString()));
+        _serverProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BITCOIN_RPC_PORT.toString()));
         _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", STRATUM_PORT.toString()));
 
         final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]"));

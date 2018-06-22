@@ -56,7 +56,7 @@ public class NodeConnection {
                 catch (final IOException e) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms...");
+                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + (_host + ":" + _port) + ")");
                     try { Thread.sleep(3000); } catch (final Exception exception) { break; }
                 }
             }
@@ -89,6 +89,7 @@ public class NodeConnection {
 
     protected final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
 
+    protected final Object _connectionThreadMutex = new Object();
     protected BinarySocket _binarySocket;
     protected Thread _connectionThread;
     protected MessageReceivedCallback _messageReceivedCallback;
@@ -103,6 +104,11 @@ public class NodeConnection {
 
     protected Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
+    }
+
+    protected void _shutdownConnectionThread() {
+        _connectionThread.interrupt();
+        _connectionThread = null;
     }
 
     protected void _onSocketConnected() {
@@ -185,7 +191,6 @@ public class NodeConnection {
         _host = host;
         _port = port;
 
-        _connectionThread = new ConnectionThread();
         _binaryPacketFormat = binaryPacketFormat;
     }
 
@@ -193,20 +198,32 @@ public class NodeConnection {
         _host = binarySocket.getHost();
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
-        _connectionThread = new ConnectionThread();
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
 
         _onSocketConnected();
     }
 
     public void startConnectionThread() {
-        if (_connectionThread.isAlive()) { return; }
+        synchronized (_connectionThreadMutex) {
+            if (_connectionThread != null) {
+                if (! _connectionThread.isAlive()) {
+                    _shutdownConnectionThread();
+                }
+            }
 
-        _connectionThread.start();
+            if (_connectionThread == null) {
+                _connectionThread = new ConnectionThread();
+                _connectionThread.start();
+            }
+        }
     }
 
     public void stopConnectionThread() {
-        _connectionThread.interrupt();
+        synchronized (_connectionThreadMutex) {
+            if (_connectionThread != null) {
+                _shutdownConnectionThread();
+            }
+        }
     }
 
     public void setOnDisconnectCallback(final Runnable callback) {
@@ -230,7 +247,11 @@ public class NodeConnection {
     }
 
     public void disconnect() {
-        _connectionThread.interrupt();
+        synchronized (_connectionThreadMutex) {
+            if (_connectionThread != null) {
+                _shutdownConnectionThread();
+            }
+        }
 
         if (_binarySocket != null) {
             _binarySocket.close();
