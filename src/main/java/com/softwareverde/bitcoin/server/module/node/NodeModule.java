@@ -178,7 +178,7 @@ public class NodeModule {
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            final BlockId blockId = blockDatabaseManager.storeBlock(block);
+            final BlockId blockId = blockDatabaseManager.insertBlock(block);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 

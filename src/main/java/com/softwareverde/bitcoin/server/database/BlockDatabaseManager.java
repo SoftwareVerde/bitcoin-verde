@@ -114,10 +114,10 @@ public class BlockDatabaseManager {
         return blockHeader;
     }
 
-    protected void _storeBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Block block) throws DatabaseException {
+    protected void _insertBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
         for (final Transaction transaction : block.getTransactions()) {
-            transactionDatabaseManager.storeTransaction(blockChainSegmentId, blockId, transaction);
+            transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
         }
     }
 
@@ -316,12 +316,20 @@ public class BlockDatabaseManager {
         return false;
     }
 
+    public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        return _insertBlockHeader(blockHeader);
+    }
+
+    public void updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
+        _updateBlockHeader(blockId, blockHeader);
+    }
+
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _storeBlockHeader(blockHeader);
     }
 
-    public BlockId storeBlock(final Block block) throws DatabaseException { // TODO: Evaluate performance...
-        final BlockId blockId = _storeBlockHeader(block);
+    public BlockId insertBlock(final Block block) throws DatabaseException {
+        final BlockId blockId = _insertBlockHeader(block);
 
         final BlockChainSegmentId blockChainSegmentId;
         {
@@ -336,8 +344,7 @@ public class BlockDatabaseManager {
             }
         }
 
-        _storeBlockTransactions(blockChainSegmentId, blockId, block);
-
+        _insertBlockTransactions(blockChainSegmentId, blockId, block);
         return blockId;
     }
 

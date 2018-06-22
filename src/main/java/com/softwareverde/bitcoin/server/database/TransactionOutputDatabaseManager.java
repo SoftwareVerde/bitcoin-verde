@@ -76,6 +76,14 @@ public class TransactionOutputDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
+    public TransactionOutputId insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        return _insertTransactionOutput(transactionId, transactionOutput);
+    }
+
+    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        _updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
+    }
+
     public TransactionOutputId storeTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
         final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutput.getIndex());
         if (transactionOutputId != null) {

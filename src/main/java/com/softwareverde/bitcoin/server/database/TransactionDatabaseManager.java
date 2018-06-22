@@ -26,19 +26,19 @@ import java.util.List;
 public class TransactionDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected void _storeTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
+    protected void _insertTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            transactionInputDatabaseManager.storeTransactionInput(blockChainSegmentId, transactionId, transactionInput);
+            transactionInputDatabaseManager.insertTransactionInput(blockChainSegmentId, transactionId, transactionInput);
         }
     }
 
-    protected void _storeTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
+    protected void _insertTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
 
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            transactionOutputDatabaseManager.storeTransactionOutput(transactionId, transactionOutput);
+            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
         }
     }
 
@@ -152,7 +152,7 @@ public class TransactionDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public TransactionId storeTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
+    public TransactionId insertTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
         final TransactionId transactionId;
         {
             final TransactionId existingTransactionId = _getTransactionIdFromHash(blockId, transaction.getHash());
@@ -166,8 +166,9 @@ public class TransactionDatabaseManager {
             }
         }
 
-        _storeTransactionInputs(blockChainSegmentId, transactionId, transaction);
-        _storeTransactionOutputs(transactionId, transaction);
+        _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
+        _insertTransactionOutputs(transactionId, transaction);
+
         return transactionId;
     }
 

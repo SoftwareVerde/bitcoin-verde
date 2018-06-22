@@ -97,7 +97,7 @@ public class TransactionValidator {
 
                     final Boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
                     if (! sequenceNumberIsValid) {
-                        Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " >= " + requiredSecondsElapsed);
+                        Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
                         return false;
                     }
                 }

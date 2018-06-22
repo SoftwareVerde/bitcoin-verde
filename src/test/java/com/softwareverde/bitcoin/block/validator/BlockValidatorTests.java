@@ -87,7 +87,7 @@ public class BlockValidatorTests extends IntegrationTest {
                     block.setTimestamp(timestamp + i);
                 }
 
-                blockDatabaseManager.storeBlock(block);
+                blockDatabaseManager.insertBlock(block);
                 blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             }
         }
@@ -112,11 +112,11 @@ public class BlockValidatorTests extends IntegrationTest {
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
             final Block previousPrerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000009E36757D22BD738DCBA6F6FC47215839FE149B8B849049DBF305B90900000000E398331A75C87C42E14D571DFA7EF036CF4C06F85D05FEE2D366BB2ACC1B1FD4A5C96E49FFFF001D02B465C10101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027705FFFFFFFF0100F2052A01000000434104BA8220A0CDE503EE7F923AB223B07C22E705FB5215E1A3F5E6DFB37CF8A714D0D6D9F2A7A00A61675CF20ABA71233973D1DEA913C130F0AF380ED4A9C2116045AC00000000"));
-            blockDatabaseManager.storeBlock(previousPrerequisiteBlock); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
+            blockDatabaseManager.insertBlock(previousPrerequisiteBlock); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
 
             // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
             final Block prerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000F5790162A682DDD5086265D254F7F59023D35D07DF7C95DC9779942D00000000193028D8B78007269D52B2A1068E32EDD21D0772C2C157954F7174761B78A51A30CE6E49FFFF001D3A2E34480201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027C05FFFFFFFF0100F2052A01000000434104B43BB206B71F34E2FAB9359B156FF683BED889021A06C315722A7C936B9743AD88A8882DC13EECAFCDAD4F082D2D0CC54AA177204F79DC7305F1F4857B7B8802AC00000000010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
-            final BlockId prerequisiteBlockId = blockDatabaseManager.storeBlock(prerequisiteBlock);
+            final BlockId prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(prerequisiteBlock);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(prerequisiteBlockId);
             final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(blockChainSegmentId, prerequisiteBlock);
@@ -125,7 +125,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Block Hash: 000000005A4DED781E667E06CEEFAFB71410B511FE0D5ADC3E5A27ECBEC34AE6
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray("0100000075616236CC2126035FADB38DEB65B9102CC2C41C09CDF29FC051906800000000FE7D5E12EF0FF901F6050211249919B1C0653771832B3A80C66CEA42847F0AE1D4D26E49FFFF001D00F0A4410401000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D029105FFFFFFFF0100F2052A010000004341046D8709A041D34357697DFCB30A9D05900A6294078012BF3BB09C6F9B525F1D16D5503D7905DB1ADA9501446EA00728668FC5719AA80BE2FDFC8A858A4DBDD4FBAC00000000010000000255605DC6F5C3DC148B6DA58442B0B2CD422BE385EAB2EBEA4119EE9C268D28350000000049483045022100AA46504BAA86DF8A33B1192B1B9367B4D729DC41E389F2C04F3E5C7F0559AAE702205E82253A54BF5C4F65B7428551554B2045167D6D206DFE6A2E198127D3F7DF1501FFFFFFFF55605DC6F5C3DC148B6DA58442B0B2CD422BE385EAB2EBEA4119EE9C268D2835010000004847304402202329484C35FA9D6BB32A55A70C0982F606CE0E3634B69006138683BCD12CBB6602200C28FEB1E2555C3210F1DDDB299738B4FF8BBE9667B68CB8764B5AC17B7ADF0001FFFFFFFF0200E1F505000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00180D8F000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC0000000001000000025F9A06D3ACDCEB56BE1BFEAA3E8A25E62D182FA24FEFE899D1C17F1DAD4C2028000000004847304402205D6058484157235B06028C30736C15613A28BDB768EE628094CA8B0030D4D6EB0220328789C9A2EC27DDAEC0AD5EF58EFDED42E6EA17C2E1CE838F3D6913F5E95DB601FFFFFFFF5F9A06D3ACDCEB56BE1BFEAA3E8A25E62D182FA24FEFE899D1C17F1DAD4C2028010000004A493046022100C45AF050D3CEA806CEDD0AB22520C53EBE63B987B8954146CDCA42487B84BDD6022100B9B027716A6B59E640DA50A864D6DD8A0EF24C76CE62391FA3EABAF4D2886D2D01FFFFFFFF0200E1F505000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00180D8F000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC000000000100000002E2274E5FEA1BF29D963914BD301AA63B64DAAF8A3E88F119B5046CA5738A0F6B0000000048473044022016E7A727A061EA2254A6C358376AAA617AC537EB836C77D646EBDA4C748AAC8B0220192CE28BF9F2C06A6467E6531E27648D2B3E2E2BAE85159C9242939840295BA501FFFFFFFFE2274E5FEA1BF29D963914BD301AA63B64DAAF8A3E88F119B5046CA5738A0F6B010000004A493046022100B7A1A755588D4190118936E15CD217D133B0E4A53C3C15924010D5648D8925C9022100AAEF031874DB2114F2D869AC2DE4AE53908FBFEA5B2B1862E181626BB9005C9F01FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00000000"));
-        final BlockId blockId = blockDatabaseManager.storeBlock(block);
+        final BlockId blockId = blockDatabaseManager.insertBlock(block);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
@@ -150,11 +150,11 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
-        final BlockId blockId = blockDatabaseManager.storeBlock(block);
+        final BlockId blockId = blockDatabaseManager.insertBlock(block);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
@@ -203,21 +203,21 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
         {
-            final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
             final BlockChainSegmentId genesisBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(genesisBlockId);
             Assert.assertTrue(blockValidator.validateBlock(genesisBlockChainSegmentId, genesisBlock));
         }
 
         {
-            final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+            final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
             final BlockChainSegmentId block1PrimeBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(block1PrimeId);
             Assert.assertTrue(blockValidator.validateBlock(block1PrimeBlockChainSegmentId, block1Prime));
         }
 
         {
-            final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+            final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
             final BlockChainSegmentId block1DoublePrimeBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId);
             Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeBlockChainSegmentId, block1DoublePrime));
@@ -225,7 +225,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockChainSegmentId block2PrimeBlockChainSegmentId;
         {
-            final BlockId block2Id = blockDatabaseManager.storeBlock(block2Prime); // Should be an invalid block...
+            final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime); // Should be an invalid block...
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
             block2PrimeBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(block2Id);
         }
@@ -264,7 +264,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final String blockData = IoUtil.getResource("/blocks/000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8");
             final MutableBlock block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             block30240.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
-            final BlockId blockId = blockDatabaseManager.storeBlock(block30240);
+            final BlockId blockId = blockDatabaseManager.insertBlock(block30240);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block30240);
             final Difficulty blockDifficulty = block30240.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
@@ -280,7 +280,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
             final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
-            final BlockId blockId = blockDatabaseManager.storeBlock(previousBlock);
+            final BlockId blockId = blockDatabaseManager.insertBlock(previousBlock);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(previousBlock);
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
@@ -325,7 +325,7 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
 
-        final BlockId blockId = blockDatabaseManager.storeBlock(firstBlockWithDifficultyIncrease);
+        final BlockId blockId = blockDatabaseManager.insertBlock(firstBlockWithDifficultyIncrease);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(firstBlockWithDifficultyIncrease);
         Assert.assertEquals(blockHeight, blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
 

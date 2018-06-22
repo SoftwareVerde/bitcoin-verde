@@ -49,7 +49,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(genesisBlock.isValid());
 
         // Action
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         // Assert
@@ -98,11 +98,11 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         // Action
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Assert
@@ -157,14 +157,14 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1.isValid());
         Assert.assertTrue(block2.isValid());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Action
-        final BlockId block2Id = blockDatabaseManager.storeBlock(block2);
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
         // Assert
@@ -225,14 +225,14 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Action
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         // Assert
@@ -317,17 +317,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
-        final BlockId block2Id = blockDatabaseManager.storeBlock(block2);
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
         // Action
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         // Assert
@@ -435,26 +435,26 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
-        final BlockId block2Id = blockDatabaseManager.storeBlock(block2);
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
-        final BlockId block3Id = blockDatabaseManager.storeBlock(block3);
+        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
 
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
-        final BlockId block2PrimeId = blockDatabaseManager.storeBlock(block2Prime);
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
         // Action
-        final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
         // Assert
@@ -598,25 +598,25 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Action
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
-        final BlockId block2PrimeId = blockDatabaseManager.storeBlock(block2Prime);
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
-        final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
-        final BlockId block2Id = blockDatabaseManager.storeBlock(block2);
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
-        final BlockId block3Id = blockDatabaseManager.storeBlock(block3);
+        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
 
         // Assert
@@ -766,29 +766,29 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Establish Original Blocks/Chains...
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1Id = blockDatabaseManager.storeBlock(block1);
+        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
-        final BlockId block2Id = blockDatabaseManager.storeBlock(block2);
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
-        final BlockId block3Id = blockDatabaseManager.storeBlock(block3);
+        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
 
-        final BlockId block4Id = blockDatabaseManager.storeBlock(block4);
+        final BlockId block4Id = blockDatabaseManager.insertBlock(block4);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block4);
 
-        final BlockId block2PrimeId = blockDatabaseManager.storeBlock(block2Prime);
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
-        final BlockId block3PrimeId = blockDatabaseManager.storeBlock(block3Prime);
+        final BlockId block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block3Prime);
 
         // Action
-        final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
         // Assert
@@ -917,17 +917,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1Prime.getHash(), block1DoublePrime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
-        final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
         // Action
-        final BlockId block2PrimeId = blockDatabaseManager.storeBlock(block2Prime);
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
         // Assert
@@ -1009,17 +1009,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000001ADC819E4F74B03FF2F5190AB235361CDCC09E6B37E59918857965CC2F5F5B515956FC5AFFFF001D706CA7DC0101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944F0C010000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
         final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000737D4C7036345CF70FC4939FFC994A75F4EDE84F3E206F9EF83BEA000000000091D4741CA6F8AC523E21D5E95E492A05A55C94E4419116B986EB5DD7020440349980FC5AFFFF001D846E62900201000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E307388291D1B000000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC0000000001000000014617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED20000000000FFFFFFFF0100111024010000001976A9140010C980A8F5B8E072AE8175376788AB56E5858688AC00000000")); // NOTE: The transaction in this block does not properly unlock the transactionOutput...
 
-        final BlockId genesisBlockId = blockDatabaseManager.storeBlock(genesisBlock);
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
-        final BlockId block1DoublePrimeId = blockDatabaseManager.storeBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
-        final BlockId block1PrimeId = blockDatabaseManager.storeBlock(block1Prime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         // Action
-        final BlockId block2PrimeId = blockDatabaseManager.storeBlock(block2Prime);
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
         // Assert

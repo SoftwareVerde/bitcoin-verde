@@ -90,15 +90,16 @@ public class TransactionInputDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public TransactionInputId storeTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+    public TransactionInputId findTransactionInputId(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
-        final TransactionInputId transactionInputId = _findTransactionInputId(transactionId, previousTransactionOutputId);
+        return _findTransactionInputId(transactionId, previousTransactionOutputId);
+    }
 
-        if (transactionInputId != null) {
-            _updateTransactionInput(transactionInputId, blockChainSegmentId, transactionId, transactionInput);
-            return transactionInputId;
-        }
+    public void updateTransactionInput(final TransactionInputId transactionInputId, final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+        _updateTransactionInput(transactionInputId, blockChainSegmentId, transactionId, transactionInput);
+    }
 
+    public TransactionInputId insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
         return _insertTransactionInput(blockChainSegmentId, transactionId, transactionInput);
     }
 
