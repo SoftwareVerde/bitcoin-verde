@@ -47,7 +47,7 @@ public class TransactionSignerTests {
         transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
         final MutableTransaction transaction = new MutableTransaction();
-        transaction.setVersion(1);
+        transaction.setVersion(1L);
         transaction.addTransactionInput(transactionInput);
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setLockingScript(newOutputLockingScript);

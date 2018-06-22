@@ -13,7 +13,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MutableBlock implements Block {
-    protected Integer _version;
+    protected Long _version;
     protected Sha256Hash _previousBlockHash = new ImmutableSha256Hash();
     protected Long _timestamp;
     protected Difficulty _difficulty;
@@ -40,8 +40,8 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public Integer getVersion() { return _version; }
-    public void setVersion(final Integer version) { _version = version; }
+    public Long getVersion() { return _version; }
+    public void setVersion(final Long version) { _version = version; }
 
     @Override
     public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }

@@ -10,7 +10,7 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     protected final Sha256Hash _hash;
     protected final Sha256Hash _previousBlockHash;
     protected final MerkleRoot _merkleRoot;
-    protected final Integer _version;
+    protected final Long _version;
     protected final Long _timestamp;
     protected final Difficulty _difficulty;
     protected final Long _nonce;
@@ -26,7 +26,7 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     }
 
     @Override
-    public Integer getVersion() {
+    public Long getVersion() {
         return _version;
     }
 

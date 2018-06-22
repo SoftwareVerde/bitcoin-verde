@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 
 public class MutableBlockHeader implements BlockHeader {
-    protected Integer _version;
+    protected Long _version;
     protected Sha256Hash _previousBlockHash = new MutableSha256Hash();
     protected MerkleRoot _merkleRoot = new MutableMerkleRoot();
     protected Long _timestamp;
@@ -29,8 +29,8 @@ public class MutableBlockHeader implements BlockHeader {
     }
 
     @Override
-    public Integer getVersion() { return _version; }
-    public void setVersion(final Integer version) { _version = version; }
+    public Long getVersion() { return _version; }
+    public void setVersion(final Long version) { _version = version; }
 
     @Override
     public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }

@@ -75,13 +75,13 @@ public class MinerModule {
                     coinbaseTransactionOutput.setIndex(0);
                     coinbaseTransactionOutput.setLockingScript((ScriptBuilder.payToAddress(address)));
 
-                    coinbaseTransaction.setVersion(1);
+                    coinbaseTransaction.setVersion(1L);
                     coinbaseTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
                     coinbaseTransaction.addTransactionInput(coinbaseTransactionInput);
                     coinbaseTransaction.addTransactionOutput(coinbaseTransactionOutput);
                 }
 
-                prototypeBlock.setVersion(1);
+                prototypeBlock.setVersion(1L);
                 prototypeBlock.setPreviousBlockHash(previousBlockHash);
                 prototypeBlock.setTimestamp(System.currentTimeMillis() / 1000L);
                 prototypeBlock.setNonce(0L);

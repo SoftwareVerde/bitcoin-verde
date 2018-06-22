@@ -96,7 +96,7 @@ public class BlockDatabaseManager {
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
         blockHeader.setPreviousBlockHash(previousBlockHash);
-        blockHeader.setVersion(row.getInteger("version"));
+        blockHeader.setVersion(row.getLong("version"));
         blockHeader.setMerkleRoot(MutableMerkleRoot.wrap(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
         blockHeader.setTimestamp(row.getLong("timestamp"));
         blockHeader.setDifficulty(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty"))));
@@ -219,7 +219,7 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
         final Row row = rows.get(0);
 
-        final Integer version = row.getInteger("version");
+        final Long version = row.getLong("version");
 
         final Sha256Hash previousBlockHash;
         {
@@ -319,7 +319,7 @@ public class BlockDatabaseManager {
         return _storeBlockHeader(blockHeader);
     }
 
-    public BlockId storeBlock(final Block block) throws DatabaseException {
+    public BlockId storeBlock(final Block block) throws DatabaseException { // TODO: Evaluate performance...
         final BlockId blockId = _storeBlockHeader(block);
 
         final BlockChainSegmentId blockChainSegmentId;

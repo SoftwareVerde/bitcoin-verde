@@ -20,6 +20,7 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
@@ -31,10 +32,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.Container;
-import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.RotatingQueue;
-import com.softwareverde.util.Util;
+import com.softwareverde.util.*;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -257,7 +255,16 @@ public class NodeModule {
                     public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
                 });
 
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer);
+                final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
+                {
+                    commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
+                    commandLineArguments.setInnoDbBufferPoolByteCount(1L * ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbBufferPoolInstanceCount(2);
+                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+                }
+
+                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);

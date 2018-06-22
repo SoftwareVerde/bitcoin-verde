@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
@@ -24,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
@@ -41,21 +41,82 @@ public class TransactionValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
-    protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
-        try {
-            final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
-            if (transactionId == null) { return null; }
+    protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+        final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
+        if (transactionId == null) { return null; }
 
-            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
-            if (transactionOutputId == null) { return null; }
+        final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
+        if (transactionOutputId == null) { return null; }
 
-            return _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+        return _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+    }
+
+    protected Boolean _validateTransactionLockTime(final Context context) {
+        final Transaction transaction = context.getTransaction();
+        final Long blockHeight = context.getBlockHeight();
+
+        final LockTime lockTime = transaction.getLockTime();
+        if (lockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
+            if (blockHeight < lockTime.getValue()) { return false; }
         }
-        catch (final DatabaseException exception) {
-            Logger.log(exception);
-            return null;
+        else {
+            final Long networkTime;
+            {
+                if (Bip113.isEnabled(blockHeight)) {
+                    networkTime = _medianBlockTime.getCurrentTimeInSeconds();
+                }
+                else {
+                    networkTime = _networkTime.getCurrentTimeInSeconds();
+                }
+            }
+
+            if (networkTime < lockTime.getValue()) { return false; }
         }
+
+        return true;
+    }
+
+    protected Boolean _validateSequenceNumbers(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final Long blockHeight) throws DatabaseException {
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+
+            final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
+            if (! sequenceNumber.isDisabled()) {
+
+                final BlockId blockIdContainingOutputBeingSpent;
+                {
+                    final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
+                    blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
+                }
+
+                if (sequenceNumber.getType() == LockTime.Type.TIMESTAMP) {
+                    final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
+
+                    final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _blockDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);
+                    final Long secondsElapsed = (_medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
+
+                    final Boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
+                    if (! sequenceNumberIsValid) {
+                        Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " >= " + requiredSecondsElapsed);
+                        return false;
+                    }
+                }
+                else {
+                    final Long blockHeightContainingOutputBeingSpent = _blockDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
+                    Logger.log("Block: "+ _blockDatabaseManager.getBlockHashFromId(blockIdContainingOutputBeingSpent) + " Height: " + blockHeightContainingOutputBeingSpent);
+                    final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
+                    final Long requiredBlockCount = sequenceNumber.asBlockCount();
+
+                    final Boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
+                    if (! sequenceNumberIsValid) {
+                        Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " < " + requiredBlockCount);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
     }
 
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
@@ -88,74 +149,25 @@ public class TransactionValidator {
         context.setTransaction(transaction);
 
         { // Validate nLockTime...
-            final LockTime lockTime = transaction.getLockTime();
-            if (lockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
-                if (blockHeight < lockTime.getValue()) { return false; }
-            }
-            else {
-                final Long networkTime;
-                {
-                    if (Bip113.isEnabled(blockHeight)) {
-                        networkTime = _medianBlockTime.getCurrentTimeInSeconds();
-                    }
-                    else {
-                        networkTime = _networkTime.getCurrentTimeInSeconds();
-                    }
-                }
-
-                if (networkTime < lockTime.getValue()) { return false; }
+            final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
+            if (! lockTimeIsValid) {
+                return false;
             }
         }
 
-        if (Bip68.isEnabled(blockHeight)) { // Validation SequenceNumber
-            if (true) { return false; } // TODO
-
-            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
-                if (! sequenceNumber.isDisabled()) {
-
-                    final BlockId blockIdContainingOutputBeingSpent;
-                    {
-                        try {
-                            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
-                            blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
-                        }
-                        catch (final DatabaseException exception) {
-                            return false;
-                        }
+        if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
+            if (transaction.getVersion() >= 2L) {
+                try {
+                    final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockChainSegmentId, transaction, blockHeight);
+                    if (! sequenceNumbersAreValid) {
+                        Logger.log("Transaction SequenceNumber validation failed.");
+                        Logger.log("Tx: " + transaction.getHash());
+                        return false;
                     }
-
-                    if (sequenceNumber.getType() == LockTime.Type.TIMESTAMP) {
-                        final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
-
-                        final MedianBlockTime medianBlockTimeOfOutputBeingSpent;
-                        {
-                            try {
-                                medianBlockTimeOfOutputBeingSpent = _blockDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);
-                            }
-                            catch (final DatabaseException databaseException) {
-                                return false;
-                            }
-                        }
-
-                        final Long secondsElapsed = (_medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
-
-                        return (secondsElapsed >= requiredSecondsElapsed);
-                    }
-                    else {
-                        final Long blockHeightContainingOutputBeingSpent;
-                        try {
-                            blockHeightContainingOutputBeingSpent = _blockDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
-                        }
-                        catch (final DatabaseException databaseException) {
-                            return false;
-                        }
-
-                        final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
-                        final Long requiredBlockCount = sequenceNumber.asBlockCount();
-
-                        return (blockCount >= requiredBlockCount);
-                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    return false;
                 }
             }
         }
@@ -164,7 +176,16 @@ public class TransactionValidator {
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
             final TransactionOutputIdentifier unspentOutputToSpendIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-            final TransactionOutput outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
+
+            final TransactionOutput outputToSpend;
+            try {
+                outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                return false;
+            }
+
             if (outputToSpend == null) { return false; }
 
             final LockingScript lockingScript = outputToSpend.getLockingScript();
@@ -179,13 +200,13 @@ public class TransactionValidator {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
                 final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+
                 Logger.log("\n------------");
                 Logger.log("Transaction failed to verify.");
-                Logger.log("Tx Hash:\t\t\t" + transaction.getHash() + "_" + context.getTransactionInputIndex());
+                Logger.log("Tx Hash:\t\t" + transaction.getHash() + "_" + context.getTransactionInputIndex());
                 Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
                 Logger.log("Tx Input:\t\t" + HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)));
-                final TransactionOutput transactionOutput = context.getTransactionOutput();
-                Logger.log("Tx Output:\t\t" + transactionOutput.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(transactionOutput)));
+                Logger.log("Tx Output:\t\t" + outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend)));
                 Logger.log("Block Height:\t\t" + context.getBlockHeight());
                 Logger.log("Tx Input Index\t\t" + context.getTransactionInputIndex());
                 Logger.log("Locking Script:\t\t" + lockingScript);

@@ -84,7 +84,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected Transaction _createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
         final MutableTransaction mutableTransaction = new MutableTransaction();
-        mutableTransaction.setVersion(1);
+        mutableTransaction.setVersion(1L);
         mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         mutableTransaction.addTransactionInput(transactionInput);

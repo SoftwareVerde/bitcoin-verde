@@ -17,7 +17,7 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MutableTransaction implements Transaction {
-    protected Integer _version = Transaction.VERSION;
+    protected Long _version = Transaction.VERSION;
     protected final MutableList<MutableTransactionInput> _transactionInputs = new MutableList<MutableTransactionInput>();
     protected final MutableList<MutableTransactionOutput> _transactionOutputs = new MutableList<MutableTransactionOutput>();
     protected LockTime _lockTime = new ImmutableLockTime();
@@ -53,8 +53,8 @@ public class MutableTransaction implements Transaction {
     }
 
     @Override
-    public Integer getVersion() { return _version; }
-    public void setVersion(final Integer version) { _version = version; }
+    public Long getVersion() { return _version; }
+    public void setVersion(final Long version) { _version = version; }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {

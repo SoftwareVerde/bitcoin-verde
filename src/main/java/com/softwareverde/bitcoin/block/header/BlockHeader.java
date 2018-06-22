@@ -9,13 +9,13 @@ import com.softwareverde.constable.Constable;
 import com.softwareverde.util.HexUtil;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader> {
-    Integer VERSION = 0x04;
+    Long VERSION = 0x04L;
     ImmutableSha256Hash GENESIS_BLOCK_HASH = ImmutableSha256Hash.copyOf(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"));
 
     Sha256Hash getPreviousBlockHash();
     MerkleRoot getMerkleRoot();
     Difficulty getDifficulty();
-    Integer getVersion();
+    Long getVersion();
     Long getTimestamp();
     Long getNonce();
 

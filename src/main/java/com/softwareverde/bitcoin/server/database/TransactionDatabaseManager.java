@@ -205,7 +205,7 @@ public class TransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Integer version = row.getInteger("version");
+        final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
 
         final MutableTransaction transaction = new MutableTransaction();

@@ -172,11 +172,11 @@ public class StratumMineBlockTask {
     }
 
     public void setBlockVersion(final String stratumBlockVersion) {
-        final Integer blockVersion = ByteUtil.bytesToInteger(HexUtil.hexStringToByteArray(stratumBlockVersion));
+        final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
         _prototypeBlock.setVersion(blockVersion);
     }
 
-    public void setBlockVersion(final Integer blockVersion) {
+    public void setBlockVersion(final Long blockVersion) {
         _prototypeBlock.setVersion(blockVersion);
     }
 

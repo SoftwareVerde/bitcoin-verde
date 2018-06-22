@@ -15,7 +15,7 @@ import com.softwareverde.json.Json;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableSha256Hash _hash;
-    protected final Integer _version;
+    protected final Long _version;
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
@@ -35,7 +35,7 @@ public class ImmutableTransaction implements Transaction, Const {
     }
 
     @Override
-    public Integer getVersion() { return _version; }
+    public Long getVersion() { return _version; }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {

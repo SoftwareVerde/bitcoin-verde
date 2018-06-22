@@ -120,8 +120,8 @@ public class BlockValidator {
 
         { // Validate coinbase contains block height...
             if (Bip34.isEnabled(blockHeight)) {
-                final Integer blockVersion = block.getVersion();
-                if (blockVersion < 2) {
+                final Long blockVersion = block.getVersion();
+                if (blockVersion < 2L) {
                     Logger.log("Invalid block version.");
                     return false;
                 }

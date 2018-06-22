@@ -11,7 +11,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class TransactionInflater {
     protected MutableTransaction _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransaction transaction = new MutableTransaction();
-        transaction._version = byteArrayReader.readInteger(4, Endian.LITTLE);
+        transaction._version = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
         final Integer transactionInputCount = byteArrayReader.readVariableSizedInteger().intValue();
