@@ -27,7 +27,7 @@ public class MutableMedianBlockTime implements MedianBlockTime {
         }
         Collections.sort(blockTimestamps);
 
-        final int index = ((blockCount / 2) + 1);
+        final int index = (blockCount / 2); // Typically the 6th block (index 5) of 11...
         return (blockTimestamps.get(index) * 1000L);
     }
 

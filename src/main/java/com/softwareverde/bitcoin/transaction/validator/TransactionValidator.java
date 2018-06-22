@@ -103,7 +103,6 @@ public class TransactionValidator {
                 }
                 else {
                     final Long blockHeightContainingOutputBeingSpent = _blockDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
-                    Logger.log("Block: "+ _blockDatabaseManager.getBlockHashFromId(blockIdContainingOutputBeingSpent) + " Height: " + blockHeightContainingOutputBeingSpent);
                     final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
                     final Long requiredBlockCount = sequenceNumber.asBlockCount();
 

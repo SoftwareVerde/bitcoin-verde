@@ -23,6 +23,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
 import java.util.List;
@@ -461,7 +462,7 @@ public class BlockDatabaseManager {
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         final BlockHeader startingBlock = _inflateBlockHeader(startingBlockId);
 
-        Sha256Hash blockHash = startingBlock.getHash();
+        Sha256Hash blockHash = startingBlock.getPreviousBlockHash();
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
             final BlockId blockId = _getBlockIdFromHash(blockHash);
             if (blockId == null) { break; }
