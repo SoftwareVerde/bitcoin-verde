@@ -210,6 +210,15 @@ public class BlockChainDatabaseManager {
         }
     }
 
+    public Boolean blockChainSegmentExists(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM block_chain_segments WHERE id = ?")
+                .setParameter(blockChainSegmentId)
+        );
+
+        return (! rows.isEmpty());
+    }
+
     public BlockChainSegment getBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);
     }

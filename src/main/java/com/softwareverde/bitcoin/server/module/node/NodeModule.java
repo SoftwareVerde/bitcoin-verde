@@ -262,6 +262,7 @@ public class NodeModule {
                     commandLineArguments.setInnoDbBufferPoolInstanceCount(2);
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.addArgument("--performance_schema");
                 }
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

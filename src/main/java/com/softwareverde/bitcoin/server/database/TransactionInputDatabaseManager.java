@@ -32,18 +32,31 @@ public class TransactionInputDatabaseManager {
 
         final TransactionId previousOutputTransactionId;
         {
+            final Long aStart = System.nanoTime();
             final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
+            final Long aEnd = System.nanoTime();
+            _aCount += 1;
+            _aDuration += (aEnd - aStart);
             if (uncommittedPreviousOutputTransactionId != null) {
                 previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
             }
             else {
+                final Long bStart = System.nanoTime();
                 final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
                 previousOutputTransactionId = committedPreviousOutputTransactionId;
+                final Long bEnd = System.nanoTime();
+                _bCount += 1;
+                _bDuration += (bEnd - bStart);
             }
         }
         if (previousOutputTransactionId == null) { return null; }
 
-        return transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, transactionInput.getPreviousOutputIndex());
+        final Long cStart = System.nanoTime();
+        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, transactionInput.getPreviousOutputIndex());
+        final Long cEnd = System.nanoTime();
+        _cCount += 1;
+        _cDuration += (cEnd - cStart);
+        return transactionOutputId;
     }
 
     protected TransactionInputId _findTransactionInputId(final TransactionId transactionId, final TransactionOutputId previousTransactionOutputId) throws DatabaseException {
@@ -73,17 +86,29 @@ public class TransactionInputDatabaseManager {
         );
     }
 
+    public static long _aCount = 0L;
+    public static long _aDuration = 0L;
+
+    public static long _bCount = 0L;
+    public static long _bDuration = 0L;
+
+    public static long _cCount = 0L;
+    public static long _cDuration = 0L;
+
     protected TransactionInputId _insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+
         final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
         final ByteArray unlockingScript = transactionInput.getUnlockingScript().getBytes();
 
-        return TransactionInputId.wrap(_databaseConnection.executeSql(
+        final Long transactionInputId = _databaseConnection.executeSql(
             new Query("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, unlocking_script, sequence_number) VALUES (?, ?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(previousTransactionOutputId)
                 .setParameter(unlockingScript.getBytes())
                 .setParameter(transactionInput.getSequenceNumber())
-        ));
+        );
+
+        return TransactionInputId.wrap(transactionInputId);
     }
 
     public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {

@@ -49,8 +49,8 @@ public class TransactionDatabaseManager {
     protected TransactionId _getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
 
-        final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-        if (blockChainSegment == null) { return null; }
+        final Boolean blockChainSegmentExists = blockChainDatabaseManager.blockChainSegmentExists(blockChainSegmentId);
+        if (! blockChainSegmentExists) { return null; }
 
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
@@ -82,10 +82,18 @@ public class TransactionDatabaseManager {
             }
         }
 
-
-        Logger.log(Thread.currentThread().getName() + " - " + "Traversed " + (i) + " BlockChainSegments, but unable to find " + transactionHash + " on BlockSegmentId: " + blockChainSegmentId);
+        // Logger.log(Thread.currentThread().getName() + " - " + "Traversed " + (i) + " BlockChainSegments, but unable to find " + transactionHash + " on BlockSegmentId: " + blockChainSegmentId);
         return null;
     }
+
+    public static long _aCount = 0L;
+    public static long _aDuration = 0L;
+
+    public static long _bCount = 0L;
+    public static long _bDuration = 0L;
+
+    public static long _cCount = 0L;
+    public static long _cDuration = 0L;
 
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
@@ -94,19 +102,30 @@ public class TransactionDatabaseManager {
     protected TransactionId _getUncommittedTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
 
+final Long aStart = System.nanoTime();
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
                 .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
         if (rows.isEmpty()) { return null; }
+final Long aEnd = System.nanoTime();
+_aCount += 1;
+_aDuration += (aEnd - aStart);
 
+final Long bStart = System.nanoTime();
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-            final BlockChainSegment transactionBlockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockId);
-            if (transactionBlockChainSegment == null) {
+            final BlockChainSegmentId transactionBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+            if (transactionBlockChainSegmentId == null) {
+final Long bEnd = System.nanoTime();
+_bCount += 1;
+_bDuration += (bEnd - bStart);
                 return TransactionId.wrap(row.getLong("id"));
             }
         }
+final Long bEnd = System.nanoTime();
+_bCount += 1;
+_bDuration += (bEnd - bStart);
 
         return null;
     }
@@ -152,22 +171,27 @@ public class TransactionDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public TransactionId insertTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
-        final TransactionId transactionId;
-        {
-            final TransactionId existingTransactionId = _getTransactionIdFromHash(blockId, transaction.getHash());
-            if (existingTransactionId != null) {
-                _updateTransaction(existingTransactionId, blockId, transaction);
-                transactionId = existingTransactionId;
-            }
-            else {
-                final TransactionId newTransactionId = _insertTransaction(blockId, transaction);
-                transactionId = newTransactionId;
-            }
-        }
+    public long _transactionInputCount = 0L;
+    public long _transactionInputDuration = 0L;
 
+    public long _transactionOutputCount = 0L;
+    public long _transactionOutputDuration = 0L;
+
+    public TransactionId insertTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
+        final TransactionId transactionId = _insertTransaction(blockId, transaction);
+
+        long txInputStart = System.nanoTime();
         _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
+        long txInputEnd = System.nanoTime();
+
+        long txOutputStart = System.nanoTime();
         _insertTransactionOutputs(transactionId, transaction);
+        long txOutputEnd = System.nanoTime();
+
+        _transactionInputCount += transaction.getTransactionInputs().getSize();
+        _transactionOutputCount += transaction.getTransactionOutputs().getSize();
+        _transactionInputDuration += (txInputEnd - txInputStart);
+        _transactionOutputDuration += (txOutputEnd - txOutputStart);
 
         return transactionId;
     }
@@ -182,7 +206,7 @@ public class TransactionDatabaseManager {
     }
 
     /**
-     * Attempts to find the transaction that matches transactionHash that was published on the provided blockChainSegmentId.
+     * Attempts to find the transaction that matches transactionHash that has not been committed to a block.
      *  This function is intended to be used when the blockId is not known.
      *  Only uncommitted transactions (i.e. transactions have not been assigned a block or ones that associated to the block
      *  that is currently being stored...) are included in the search.

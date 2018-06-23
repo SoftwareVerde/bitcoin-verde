@@ -6,14 +6,14 @@
 
 CREATE TABLE blocks (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    hash varchar(64) NOT NULL,
+    hash char(64) NOT NULL,
     previous_block_id int unsigned,
     block_height int unsigned NOT NULL,
     block_chain_segment_id int unsigned,
-    merkle_root varchar(64) NOT NULL,
+    merkle_root char(64) NOT NULL,
     version int unsigned NOT NULL DEFAULT '1',
     timestamp bigint unsigned NOT NULL,
-    difficulty varchar(8) NOT NULL,
+    difficulty char(8) NOT NULL,
     nonce bigint unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
@@ -48,7 +48,7 @@ ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (bl
 
 CREATE TABLE transactions (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    hash varchar(64) NOT NULL,
+    hash char(64) NOT NULL,
     block_id int unsigned,
     version int unsigned NOT NULL,
     lock_time bigint unsigned NOT NULL,

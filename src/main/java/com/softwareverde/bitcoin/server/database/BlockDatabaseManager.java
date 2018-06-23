@@ -25,6 +25,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.util.List;
 
@@ -106,7 +107,7 @@ public class BlockDatabaseManager {
         { // Assert that the hashes match after inflation...
             final Sha256Hash expectedHash = MutableSha256Hash.fromHexString(row.getString("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
-            if (! expectedHash.equals(actualHash)) {
+            if (! Util.areEqual(expectedHash, actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
             }
         }
@@ -119,6 +120,13 @@ public class BlockDatabaseManager {
         for (final Transaction transaction : block.getTransactions()) {
             transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
         }
+        Logger.log("Insert TxIn: " + transactionDatabaseManager._transactionInputCount + " in " + transactionDatabaseManager._transactionInputDuration + "ms.");
+        Logger.log("Insert TxIn (A): " + TransactionInputDatabaseManager._aCount + " in " + TransactionInputDatabaseManager._aDuration + "ms.");
+        Logger.log("Insert TxIn (B): " + TransactionInputDatabaseManager._bCount + " in " + TransactionInputDatabaseManager._bDuration + "ms.");
+        Logger.log("Insert TxIn (C): " + TransactionInputDatabaseManager._cCount + " in " + TransactionInputDatabaseManager._cDuration + "ms.");
+        Logger.log("_getUncommittedTransactionIdFromHash (A): " + TransactionDatabaseManager._aCount + " in " + TransactionDatabaseManager._aDuration + "ms.");
+        Logger.log("_getUncommittedTransactionIdFromHash (B): " + TransactionDatabaseManager._bCount + " in " + TransactionDatabaseManager._bDuration + "ms.");
+        Logger.log("Insert TxOut: " + transactionDatabaseManager._transactionOutputCount + " in " + transactionDatabaseManager._transactionOutputDuration + "ms.");
     }
 
     protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -156,21 +164,6 @@ public class BlockDatabaseManager {
                 .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
                 .setParameter(blockHeader.getNonce())
         ));
-    }
-
-    protected BlockId _storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        final BlockId blockId;
-        {
-            final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
-            if (existingBlockId != null) {
-                _updateBlockHeader(existingBlockId, blockHeader);
-                blockId = existingBlockId;
-            }
-            else {
-                blockId = _insertBlockHeader(blockHeader);
-            }
-        }
-        return blockId;
     }
 
     protected void _setBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
@@ -325,10 +318,18 @@ public class BlockDatabaseManager {
     }
 
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        return _storeBlockHeader(blockHeader);
+        final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
+
+        if (existingBlockId != null) {
+            _updateBlockHeader(existingBlockId, blockHeader);
+            return existingBlockId;
+        }
+
+        return _insertBlockHeader(blockHeader);
     }
 
     public BlockId insertBlock(final Block block) throws DatabaseException {
+        long start = System.currentTimeMillis();
         final BlockId blockId = _insertBlockHeader(block);
 
         final BlockChainSegmentId blockChainSegmentId;
@@ -345,6 +346,8 @@ public class BlockDatabaseManager {
         }
 
         _insertBlockTransactions(blockChainSegmentId, blockId, block);
+        long end = System.currentTimeMillis();
+        Logger.log((end - start) + "ms to store 1 block.");
         return blockId;
     }
 
