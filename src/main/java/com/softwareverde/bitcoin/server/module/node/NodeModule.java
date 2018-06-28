@@ -178,7 +178,11 @@ public class NodeModule {
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
+            long storeBlockStartTime = System.currentTimeMillis();
             final BlockId blockId = blockDatabaseManager.insertBlock(block);
+            long storeBlockEndTime = System.currentTimeMillis();
+            final Long storeBlockDuration = (storeBlockEndTime - storeBlockStartTime);
+
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
@@ -197,7 +201,7 @@ public class NodeModule {
                 final Float averageBlocksPerSecond;
                 final Float averageTransactionsPerSecond;
                 synchronized (_statisticsMutex) {
-                    _blocksPerSecond.add(blockValidationMsElapsed);
+                    _blocksPerSecond.add(blockValidationMsElapsed + storeBlockDuration);
                     _transactionsPerBlock.add(blockTransactionCount);
 
                     final Integer blockCount = _blocksPerSecond.size();
@@ -258,10 +262,11 @@ public class NodeModule {
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
                     commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-                    commandLineArguments.setInnoDbBufferPoolByteCount(1L * ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
                     commandLineArguments.setInnoDbBufferPoolInstanceCount(2);
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setQueryCacheByteCount(0L);
                     commandLineArguments.addArgument("--performance_schema");
                 }
 

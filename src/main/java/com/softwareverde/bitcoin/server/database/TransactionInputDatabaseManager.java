@@ -32,30 +32,18 @@ public class TransactionInputDatabaseManager {
 
         final TransactionId previousOutputTransactionId;
         {
-            final Long aStart = System.nanoTime();
             final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
-            final Long aEnd = System.nanoTime();
-            _aCount += 1;
-            _aDuration += (aEnd - aStart);
             if (uncommittedPreviousOutputTransactionId != null) {
                 previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
             }
             else {
-                final Long bStart = System.nanoTime();
                 final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
                 previousOutputTransactionId = committedPreviousOutputTransactionId;
-                final Long bEnd = System.nanoTime();
-                _bCount += 1;
-                _bDuration += (bEnd - bStart);
             }
         }
         if (previousOutputTransactionId == null) { return null; }
 
-        final Long cStart = System.nanoTime();
         final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, transactionInput.getPreviousOutputIndex());
-        final Long cEnd = System.nanoTime();
-        _cCount += 1;
-        _cDuration += (cEnd - cStart);
         return transactionOutputId;
     }
 
@@ -85,15 +73,6 @@ public class TransactionInputDatabaseManager {
                 .setParameter(transactionInputId)
         );
     }
-
-    public static long _aCount = 0L;
-    public static long _aDuration = 0L;
-
-    public static long _bCount = 0L;
-    public static long _bDuration = 0L;
-
-    public static long _cCount = 0L;
-    public static long _cDuration = 0L;
 
     protected TransactionInputId _insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
 

@@ -23,7 +23,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -120,13 +119,6 @@ public class BlockDatabaseManager {
         for (final Transaction transaction : block.getTransactions()) {
             transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
         }
-        Logger.log("Insert TxIn: " + transactionDatabaseManager._transactionInputCount + " in " + transactionDatabaseManager._transactionInputDuration + "ms.");
-        Logger.log("Insert TxIn (A): " + TransactionInputDatabaseManager._aCount + " in " + TransactionInputDatabaseManager._aDuration + "ms.");
-        Logger.log("Insert TxIn (B): " + TransactionInputDatabaseManager._bCount + " in " + TransactionInputDatabaseManager._bDuration + "ms.");
-        Logger.log("Insert TxIn (C): " + TransactionInputDatabaseManager._cCount + " in " + TransactionInputDatabaseManager._cDuration + "ms.");
-        Logger.log("_getUncommittedTransactionIdFromHash (A): " + TransactionDatabaseManager._aCount + " in " + TransactionDatabaseManager._aDuration + "ms.");
-        Logger.log("_getUncommittedTransactionIdFromHash (B): " + TransactionDatabaseManager._bCount + " in " + TransactionDatabaseManager._bDuration + "ms.");
-        Logger.log("Insert TxOut: " + transactionDatabaseManager._transactionOutputCount + " in " + transactionDatabaseManager._transactionOutputDuration + "ms.");
     }
 
     protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -329,7 +321,6 @@ public class BlockDatabaseManager {
     }
 
     public BlockId insertBlock(final Block block) throws DatabaseException {
-        long start = System.currentTimeMillis();
         final BlockId blockId = _insertBlockHeader(block);
 
         final BlockChainSegmentId blockChainSegmentId;
@@ -346,8 +337,6 @@ public class BlockDatabaseManager {
         }
 
         _insertBlockTransactions(blockChainSegmentId, blockId, block);
-        long end = System.currentTimeMillis();
-        Logger.log((end - start) + "ms to store 1 block.");
         return blockId;
     }
 

@@ -86,15 +86,6 @@ public class TransactionDatabaseManager {
         return null;
     }
 
-    public static long _aCount = 0L;
-    public static long _aDuration = 0L;
-
-    public static long _bCount = 0L;
-    public static long _bDuration = 0L;
-
-    public static long _cCount = 0L;
-    public static long _cDuration = 0L;
-
     /**
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
      *  A matched transaction must belong to a block that has not been assigned a blockChainSegmentId.
@@ -102,30 +93,19 @@ public class TransactionDatabaseManager {
     protected TransactionId _getUncommittedTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
 
-final Long aStart = System.nanoTime();
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
                 .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
         if (rows.isEmpty()) { return null; }
-final Long aEnd = System.nanoTime();
-_aCount += 1;
-_aDuration += (aEnd - aStart);
 
-final Long bStart = System.nanoTime();
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
             final BlockChainSegmentId transactionBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
             if (transactionBlockChainSegmentId == null) {
-final Long bEnd = System.nanoTime();
-_bCount += 1;
-_bDuration += (bEnd - bStart);
                 return TransactionId.wrap(row.getLong("id"));
             }
         }
-final Long bEnd = System.nanoTime();
-_bCount += 1;
-_bDuration += (bEnd - bStart);
 
         return null;
     }
@@ -171,27 +151,12 @@ _bDuration += (bEnd - bStart);
         _databaseConnection = databaseConnection;
     }
 
-    public long _transactionInputCount = 0L;
-    public long _transactionInputDuration = 0L;
-
-    public long _transactionOutputCount = 0L;
-    public long _transactionOutputDuration = 0L;
-
     public TransactionId insertTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
         final TransactionId transactionId = _insertTransaction(blockId, transaction);
 
-        long txInputStart = System.nanoTime();
+
         _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
-        long txInputEnd = System.nanoTime();
-
-        long txOutputStart = System.nanoTime();
         _insertTransactionOutputs(transactionId, transaction);
-        long txOutputEnd = System.nanoTime();
-
-        _transactionInputCount += transaction.getTransactionInputs().getSize();
-        _transactionOutputCount += transaction.getTransactionOutputs().getSize();
-        _transactionInputDuration += (txInputEnd - txInputStart);
-        _transactionOutputDuration += (txOutputEnd - txOutputStart);
 
         return transactionId;
     }
