@@ -5,9 +5,9 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayReader {
-    private static class VariableSizedInteger {
-        final long value;
-        final int bytesConsumedCount;
+    public static class VariableSizedInteger {
+        public final long value;
+        public final int bytesConsumedCount;
 
         public VariableSizedInteger(final long value, final int byteCount) {
             this.value = value;
@@ -48,6 +48,10 @@ public class ByteArrayReader extends com.softwareverde.util.bytearray.ByteArrayR
         final VariableSizedInteger variableSizedInteger = _peakVariableSizedInteger(_index);
         _index += variableSizedInteger.bytesConsumedCount;
         return variableSizedInteger.value;
+    }
+
+    public VariableSizedInteger peakVariableSizedInteger() {
+        return _peakVariableSizedInteger(_index);
     }
 
     public String readVariableLengthString() {

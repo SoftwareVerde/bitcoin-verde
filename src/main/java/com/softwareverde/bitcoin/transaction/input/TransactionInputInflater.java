@@ -4,6 +4,9 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInputInflater {
@@ -20,6 +23,16 @@ public class TransactionInputInflater {
         if (byteArrayReader.didOverflow()) { return null; }
 
         return transactionInput;
+    }
+
+    public void _debugBytes(final ByteArrayReader byteArrayReader) {
+        Logger.log("Tx Input: Prev Tx: " + MutableByteArray.wrap(byteArrayReader.readBytes(32)));
+        Logger.log("Tx Input: Prev Out Ix: " + MutableByteArray.wrap(byteArrayReader.readBytes(4)));
+
+        final ByteArrayReader.VariableSizedInteger variableSizedInteger = byteArrayReader.peakVariableSizedInteger();
+        Logger.log("Tx Input: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
+        Logger.log("Tx Input: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
+        Logger.log("Tx Input: Sequence Number: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 
     public MutableTransactionInput fromBytes(final ByteArrayReader byteArrayReader) {

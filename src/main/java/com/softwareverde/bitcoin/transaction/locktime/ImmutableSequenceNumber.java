@@ -1,8 +1,5 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
-import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-
 public class ImmutableSequenceNumber extends ImmutableLockTime implements SequenceNumber {
     protected Long _getMaskedValue() {
         return (_value & 0x0000FFFF);

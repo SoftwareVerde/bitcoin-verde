@@ -6,6 +6,9 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionInflater {
@@ -39,6 +42,19 @@ public class TransactionInflater {
         if (byteArrayReader.didOverflow()) { return null; }
 
         return transaction;
+    }
+
+    public void _debugBytes(final ByteArrayReader byteArrayReader) {
+        Logger.log("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
+        Logger.log("Tx Input Count: " + HexUtil.toHexString(byteArrayReader.readBytes(byteArrayReader.peakVariableSizedInteger().bytesConsumedCount)));
+
+        final TransactionInputInflater transactionInputInflater = new TransactionInputInflater();
+        transactionInputInflater._debugBytes(byteArrayReader);
+
+        final TransactionOutputInflater transactionOutputInflater = new TransactionOutputInflater();
+        transactionOutputInflater._debugBytes(byteArrayReader);
+
+        Logger.log("LockTime: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 
     public MutableTransaction fromBytes(final ByteArrayReader byteArrayReader) {
