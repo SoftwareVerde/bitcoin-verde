@@ -13,6 +13,8 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -27,7 +29,6 @@ import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
@@ -263,7 +264,7 @@ public class NodeModule {
                 {
                     commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
                     commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(2);
+                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setQueryCacheByteCount(0L);
@@ -316,17 +317,7 @@ public class NodeModule {
             }
         }
 
-        _queryBlocksCallback = new BitcoinNode.QueryBlocksCallback() {
-            @Override
-            public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
-                Logger.log("NOTICE: QueryBlocks unimplemented.");
-                // final EmbeddedMysqlDatabase mysqlDatabase = _environment.getDatabase();
-                // try (final MysqlDatabaseConnection databaseConnection = mysqlDatabase.newConnection()) {
-                //     // TODO...
-                // }
-                // catch (final DatabaseException exception) { Logger.log(exception); }
-            }
-        };
+        _queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory);
 
         _queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory);
 

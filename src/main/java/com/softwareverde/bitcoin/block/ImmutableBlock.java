@@ -73,4 +73,9 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     public ImmutableBlock asConst() {
         return this;
     }
+
+    @Override
+    public Integer getTransactionCount() {
+        return _transactions.getSize();
+    }
 }

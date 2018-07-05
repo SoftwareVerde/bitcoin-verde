@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
+    protected static final Integer TOTAL_THREAD_COUNT = 2; // The total number of threads that will be spawned for each call to Validate.  NOTE: This number should be divisible by 2.
+
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
@@ -189,11 +191,11 @@ public class BlockValidator {
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
-        totalExpenditureValidationTaskSpawner.executeTasks(transactions, 4);
+        totalExpenditureValidationTaskSpawner.executeTasks(transactions, (TOTAL_THREAD_COUNT / 2));
 
         final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
         unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
-        unlockedInputsValidationTaskSpawner.executeTasks(transactions, 4);
+        unlockedInputsValidationTaskSpawner.executeTasks(transactions, (TOTAL_THREAD_COUNT / 2));
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
         final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();

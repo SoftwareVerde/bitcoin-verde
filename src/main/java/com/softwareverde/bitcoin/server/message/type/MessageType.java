@@ -8,9 +8,9 @@ public enum MessageType {
     NODE_ADDRESSES("addr"),
     QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCK_HEADERS_RESPONSE("headers"),
     ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
-    QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"), REQUEST_OBJECT("getdata"),
-    ERROR("reject"),
-    BLOCK("block");
+    QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"),
+    REQUEST_OBJECT("getdata"), BLOCK("block"),
+    ERROR("reject");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

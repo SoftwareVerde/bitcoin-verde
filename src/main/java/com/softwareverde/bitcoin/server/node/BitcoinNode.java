@@ -244,7 +244,7 @@ public class BitcoinNode extends Node {
             if (objectHashes.isEmpty()) { continue; }
 
             {   // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
-                //  so in order to tie the callback to the response, the first block within the response is requested.
+                //  in order to tie the callback to the response, the first block within the response is requested.
                 //  If the downloaded Block's previousBlockHash matchesByte the requestAfter BlockHash, then the response is
                 //  assumed to be for that callback's request.
 

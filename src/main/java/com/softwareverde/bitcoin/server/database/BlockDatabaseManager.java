@@ -179,10 +179,10 @@ public class BlockDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
-    protected com.softwareverde.constable.list.List<Transaction> _getBlockTransactions(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+    protected com.softwareverde.constable.list.List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
 
-        final java.util.List<Row> rows = databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transactions WHERE block_id = ?")
                 .setParameter(blockId)
         );
@@ -196,8 +196,8 @@ public class BlockDatabaseManager {
         return listBuilder.build();
     }
 
-    protected BlockHeader _blockHeaderFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final java.util.List<Row> rows = databaseConnection.query(
+    protected BlockHeader _blockHeaderFromDatabaseConnection(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
@@ -359,6 +359,17 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
+    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return 0; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("transaction_count");
+    }
+
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
@@ -412,15 +423,11 @@ public class BlockDatabaseManager {
         return null;
     }
 
-    public BlockHeader blockHeaderFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        return _blockHeaderFromDatabaseConnection(blockId, databaseConnection);
-    }
-
-    public MutableBlock blockFromDatabaseConnection(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockHeader blockHeader = _blockHeaderFromDatabaseConnection(blockId, databaseConnection);
+    public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
+        final BlockHeader blockHeader = _blockHeaderFromDatabaseConnection(blockId);
         if (blockHeader == null) { return null; }
 
-        final com.softwareverde.constable.list.List<Transaction> transactions = _getBlockTransactions(blockId, databaseConnection);
+        final com.softwareverde.constable.list.List<Transaction> transactions = _getBlockTransactions(blockId);
 
         return new MutableBlock(blockHeader, transactions);
     }

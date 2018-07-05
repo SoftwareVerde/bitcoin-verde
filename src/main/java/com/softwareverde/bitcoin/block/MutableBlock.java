@@ -135,4 +135,9 @@ public class MutableBlock implements Block {
     public ImmutableBlock asConst() {
         return new ImmutableBlock(this, _transactions);
     }
+
+    @Override
+    public Integer getTransactionCount() {
+        return _transactions.getSize();
+    }
 }
