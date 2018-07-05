@@ -17,7 +17,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeConnection;
 
 public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
-    protected QueryBlockHeadersHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public QueryBlockHeadersHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         super(databaseConnectionFactory);
     }
 

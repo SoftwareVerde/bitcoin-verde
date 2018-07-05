@@ -19,7 +19,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
     private final List<DataHash> _dataHashes = new ArrayList<DataHash>();
 
     public RequestDataMessage() {
-        super(MessageType.REQUEST_OBJECT);
+        super(MessageType.REQUEST_DATA);
     }
 
     public List<DataHash> getDataHashes() {

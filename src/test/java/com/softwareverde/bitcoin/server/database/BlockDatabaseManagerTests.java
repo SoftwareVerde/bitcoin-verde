@@ -135,7 +135,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
             }
 
             // Action
-            final Block inflatedBlock = blockDatabaseManager.blockFromDatabaseConnection(blockId, databaseConnection);
+            final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
 
             // Assert
             Assert.assertTrue(inflatedBlock.isValid());

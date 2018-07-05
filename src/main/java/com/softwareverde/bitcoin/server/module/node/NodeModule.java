@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -89,6 +90,7 @@ public class NodeModule {
 
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
     protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
+    protected final BitcoinNode.RequestDataCallback _requestDataCallback;
 
     protected void _exitFailure() {
         Logger.shutdown();
@@ -318,8 +320,9 @@ public class NodeModule {
         }
 
         _queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory);
-
         _queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        _requestDataCallback = new RequestDataHandler(databaseConnectionFactory);
+
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());

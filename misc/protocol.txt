@@ -1,0 +1,17 @@
+Node "A" Connecting to Node "B":
+    A -> B: "version" (BitcoinSynchronizeVersionMessage)
+    B -> A: "verack" (BitcoinAcknowledgeVersionMessage)
+    B -> A: "version"
+    A -> B: "verack"
+
+    NOTE: Bitcoin-Verde does not wait for a version message to be received before transmitting its version.
+
+Node "A" Synchronizing to Node "B":
+    A -> B: "getblocks" (QueryBlockHeadersMessage) (BitcoinNode::requestBlockHashesAfter(Sha256Hash))
+    B -> A: "inv" (QueryResponseMessage) (BitcoinNode::_onQueryResponseMessageReceived(QueryResponseMessage))
+    B -> A: "getdata" (RequestDataMessage) (BitcoinNode::requestBlock(Sha256Hash, DownloadBlockCallback)) **
+    A -> B: "block" (BlockMessage)
+
+    ** NOTE: Bitcoin-Verde does this step in order to tie an "inv" request to the originating request (i.e. "getblocks").
+
+

@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.message.type.version.synchronize.Bitcoin
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ipv4;
@@ -49,6 +50,10 @@ public class BitcoinNode extends Node {
         void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
 
+    public interface RequestDataCallback {
+        void run(List<DataHash> dataHashes, NodeConnection nodeConnection);
+    }
+
     protected static class BlockHashQueryCallback implements Callback<java.util.List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
         public QueryCallback callback;
@@ -75,6 +80,7 @@ public class BitcoinNode extends Node {
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
+    protected RequestDataCallback _requestDataMessageCallback = null;
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
@@ -167,6 +173,10 @@ public class BitcoinNode extends Node {
                         _onQueryResponseMessageReceived((QueryResponseMessage) message);
                     } break;
 
+                    case REQUEST_DATA: {
+                        _onRequestDataMessageReceived((RequestDataMessage) message, _connection);
+                    } break;
+
                     case BLOCK: {
                         _onBlockMessageReceived((BlockMessage) message);
                     } break;
@@ -229,6 +239,18 @@ public class BitcoinNode extends Node {
         Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ HexUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ HexUtil.toHexString(errorMessage.getExtraData()));
     }
 
+    protected void _onRequestDataMessageReceived(final RequestDataMessage requestDataMessage, final NodeConnection nodeConnection) {
+        final RequestDataCallback requestDataCallback = _requestDataMessageCallback;
+
+        if (requestDataCallback != null) {
+            final List<DataHash> dataHashes = new ImmutableList<DataHash>(requestDataMessage.getDataHashes());
+            requestDataCallback.run(dataHashes, nodeConnection);
+        }
+        else {
+            Logger.log("NOTICE: No handler set for QueryBlocks message.");
+        }
+    }
+
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
         final Map<DataHashType, java.util.List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, java.util.List<Sha256Hash>>();
 
@@ -283,10 +305,12 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage, final NodeConnection nodeConnection) {
-        if (_queryBlocksCallback != null) {
+        final QueryBlocksCallback queryBlocksCallback = _queryBlocksCallback;
+
+        if (queryBlocksCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getDesiredBlockHeaderHash();
-            _queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+            queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlocks message.");
@@ -294,10 +318,12 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryBlockHeadersReceived(final QueryBlockHeadersMessage queryBlockHeadersMessage, final NodeConnection nodeConnection) {
-        if (_queryBlockHeadersCallback != null) {
+        final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
+
+        if (queryBlockHeadersCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlockHeadersMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlockHeadersMessage.getDesiredBlockHeaderHash();
-            _queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+            queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlockHeaders message.");
@@ -332,6 +358,10 @@ public class BitcoinNode extends Node {
 
     public void setQueryBlockHeadersCallback(final QueryBlockHeadersCallback queryBlockHeadersCallback) {
         _queryBlockHeadersCallback = queryBlockHeadersCallback;
+    }
+
+    public void setRequestDataCallback(final RequestDataCallback requestDataCallback) {
+        _requestDataMessageCallback = requestDataCallback;
     }
 
     public Boolean newBlocksViaHeadersIsEnabled() {

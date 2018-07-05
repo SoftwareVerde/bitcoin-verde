@@ -105,7 +105,7 @@ public class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeaders
             startingBlockId = foundBlockId;
         }
 
-        if (blockChainSegmentId == null || startingBlockId == null) { return null; }
+        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) { return null; }
         return new StartingBlock(blockChainSegmentId, startingBlockId);
     }
 
