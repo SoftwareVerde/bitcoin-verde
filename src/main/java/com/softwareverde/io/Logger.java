@@ -1,5 +1,7 @@
 package com.softwareverde.io;
 
+import com.softwareverde.util.Util;
+
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -70,7 +72,7 @@ public class Logger {
                 else {
                     final String metadata = ("[" + _getMetadata(new Exception(), 1) + "] ");
                     stringWriter.append(metadata);
-                    stringWriter.append(object.toString());
+                    stringWriter.append(Util.coalesce(object, "null").toString());
                 }
 
                 _queuedMessages.add(stringWriter.toString());

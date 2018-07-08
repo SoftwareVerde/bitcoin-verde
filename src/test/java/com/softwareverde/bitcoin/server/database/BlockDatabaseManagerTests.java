@@ -8,8 +8,18 @@ import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -321,5 +331,58 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(isBlockConnected);
+    }
+
+    @Test
+    public void should_inflate_block_00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7() throws Exception {
+        // Setup
+        final BlockInflater blockInflater = new BlockInflater();
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+        { // Store prerequisite block...
+            final String blockData = IoUtil.getResource("/blocks/00000000B3DE4F2A07DF16131EAB4F13AA38F9DB2D4468BA25A083F8C0CB2CD6");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            blockDatabaseManager.insertBlock(block);
+        }
+
+        { // Store prerequisite block...
+            final String blockData = IoUtil.getResource("/blocks/00000000B2CDE2159116889837ECF300BD77D229D49B138C55366B54626E495D");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            blockDatabaseManager.insertBlock(block);
+        }
+
+        { // Store prerequisite block...
+            final String blockData = IoUtil.getResource("/blocks/00000000FB5B44EDC7A1AA105075564A179D65506E2BD25F55F1629251D0F6B0");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            blockDatabaseManager.insertBlock(block);
+        }
+
+        { // Store prerequisite block...
+            final String blockData = IoUtil.getResource("/blocks/00000000E47349DE5A0193ABC5A2FE0BE81CB1D1987E45AB85F3289D54CDDC4D");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            blockDatabaseManager.insertBlock(block);
+        }
+
+        final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
+        final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+        final Block block = blockInflater.fromBytes(blockBytes);
+
+        final BlockId blockId = blockDatabaseManager.insertBlock(block);
+
+        (new TransactionInflater())._debugBytes(new ByteArrayReader(HexUtil.hexStringToByteArray("010000000321F75F3139A013F50F315B23B0C9A2B6EAC31E2BEC98E5891C924664889942260000000049483045022100CB2C6B346A978AB8C61B18B5E9397755CBD17D6EB2FE0083EF32E067FA6C785A02206CE44E613F31D9A6B0517E46F3DB1576E9812CC98D159BFDAF759A5014081B5C01FFFFFFFF79CDA0945903627C3DA1F85FC95D0B8EE3E76AE0CFDC9A65D09744B1F8FC85430000000049483045022047957CDD957CFD0BECD642F6B84D82F49B6CB4C51A91F49246908AF7C3CFDF4A022100E96B46621F1BFFCF5EA5982F88CEF651E9354F5791602369BF5A82A6CD61A62501FFFFFFFFFE09F5FE3FFBF5EE97A54EB5E5069E9DA6B4856EE86FC52938C2F979B0F38E82000000004847304402204165BE9A4CBAB8049E1AF9723B96199BFD3E85F44C6B4C0177E3962686B26073022028F638DA23FC003760861AD481EAD4099312C60030D4CB57820CE4D33812A5CE01FFFFFFFF01009D966B01000000434104EA1FEFF861B51FE3F5F8A3B12D0F4712DB80E919548A80839FC47C6A21E66D957E9C5D8CD108C7A2D2324BAD71F9904AC0AE7336507D785B17A2C115E427A32FAC00000000")));
+
+        // Action
+        final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
+        Logger.log(inflatedBlock.getTransactions().get(1).getHash());
+
+        // Assert
+        Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
     }
 }

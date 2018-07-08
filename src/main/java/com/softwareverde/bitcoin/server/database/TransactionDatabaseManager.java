@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -20,6 +21,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.util.List;
 
@@ -184,7 +186,7 @@ public class TransactionDatabaseManager {
         return _getTransactionIdFromHash(blockId, transactionHash);
     }
 
-    public MutableTransaction fromDatabaseConnection(final TransactionId transactionId) throws DatabaseException {
+    public MutableTransaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
 
@@ -204,7 +206,7 @@ public class TransactionDatabaseManager {
         transaction.setLockTime(lockTime);
 
         final java.util.List<Row> transactionInputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ?")
+            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
                 .setParameter(transactionId)
         );
         for (final Row transactionInputRow : transactionInputRows) {
@@ -214,13 +216,21 @@ public class TransactionDatabaseManager {
         }
 
         final java.util.List<Row> transactionOutputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ?")
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
                 .setParameter(transactionId)
         );
         for (final Row transactionOutputRow : transactionOutputRows) {
             final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
             final TransactionOutput transactionOutput = transactionOutputDatabaseManager.fromDatabaseConnection(transactionOutputId);
             transaction.addTransactionOutput(transactionOutput);
+        }
+
+        { // Validate inflated transaction hash...
+            final Sha256Hash expectedTransactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+            if (! Util.areEqual(expectedTransactionHash, transaction.getHash())) {
+                Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                return null;
+            }
         }
 
         return transaction;

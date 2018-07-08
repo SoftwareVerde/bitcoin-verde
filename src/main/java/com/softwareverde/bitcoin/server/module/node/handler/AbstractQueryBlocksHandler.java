@@ -2,14 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.header.QueryBlockHeadersResponseMessage;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -20,9 +16,8 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeConnection;
 
-public class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
+public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     protected static class StartingBlock {
         public final BlockChainSegmentId selectedBlockChainSegmentId;
         public final BlockId startingBlockId;
@@ -39,21 +34,21 @@ public class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeaders
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
-    protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockChainSegmentId blockChainSegmentId, final BlockDatabaseManager blockDatabaseManager) throws DatabaseException {
+    protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockChainSegmentId blockChainSegmentId, final Integer maxCount, final BlockDatabaseManager blockDatabaseManager) throws DatabaseException {
         final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
 
         BlockId nextBlockId = blockId;
         while (true) {
+            nextBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, nextBlockId);
+            if (nextBlockId == null) { break; }
+
             final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHashFromId(nextBlockId);
             if (addedBlockHash == null) { break; }
 
             returnedBlockIds.add(nextBlockId);
 
             if (addedBlockHash.equals(desiredBlockHash)) { break; }
-            if (returnedBlockIds.getSize() >= QueryBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { break; }
-
-            nextBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, nextBlockId);
-            if (nextBlockId == null) { break; }
+            if (returnedBlockIds.getSize() >= maxCount) { break; }
         }
 
         return returnedBlockIds;
@@ -99,46 +94,19 @@ public class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeaders
             }
             else {
                 final BlockId desiredBlockId = blockDatabaseManager.getBlockIdFromHash(desiredBlockHash);
-                blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(desiredBlockId);
+                if (desiredBlockId != null) {
+                    blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(desiredBlockId);
+                }
+                else {
+                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                    blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+                }
             }
 
             startingBlockId = foundBlockId;
         }
 
-        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) { return null; }
+        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) { Logger.log(blockChainSegmentId + " " + startingBlockId); return null; }
         return new StartingBlock(blockChainSegmentId, startingBlockId);
-    }
-
-    @Override
-    public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-            final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
-
-            if (startingBlock == null) {
-                Logger.log("Unable to send headers: No blocks available.");
-                return;
-            }
-
-            final MutableList<BlockHeaderWithTransactionCount> blockHeaders = new MutableList<BlockHeaderWithTransactionCount>();
-            {
-                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, blockDatabaseManager);
-                for (final BlockId blockId : childrenBlockIds) {
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-                    final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
-                    final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
-                    blockHeaders.add(blockHeaderWithTransactionCount);
-                }
-            }
-
-            final QueryBlockHeadersResponseMessage responseMessage = new QueryBlockHeadersResponseMessage();
-            for (final BlockHeaderWithTransactionCount blockHeader : blockHeaders) {
-                responseMessage.addBlockHeader(blockHeader);
-            }
-
-            nodeConnection.queueMessage(responseMessage);
-        }
-        catch (final DatabaseException exception) { Logger.log(exception); }
     }
 }

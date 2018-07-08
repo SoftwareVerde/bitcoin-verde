@@ -25,6 +25,7 @@ public class NodeManager<NODE extends Node> {
      */
     public interface NodeApiInvocation<NODE> {
         void run(NODE node, NodeApiInvocationCallback nodeApiInvocationCallback);
+        default void onFailure() { }
     }
 
     public static abstract class NodeApiInvocationCallback {
@@ -33,13 +34,42 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected static class RequestTimeoutThread extends Thread {
+        public static class ReplayInvocation implements Runnable {
+            public static final Integer MAX_REPLAY_COUNT = 3;
+
+            private Integer _replayCount = 0;
+            private final Runnable _replayRunnable;
+            private final Runnable _failureRunnable;
+
+            public ReplayInvocation(final Runnable runnable, final Runnable failureRunnable) {
+                _replayRunnable = runnable;
+                _failureRunnable = failureRunnable;
+            }
+
+            @Override
+            public final void run() {
+                _replayCount += 1;
+                _replayRunnable.run();
+            }
+
+            public void fail() {
+                if (_failureRunnable != null) {
+                    _failureRunnable.run();
+                }
+            }
+
+            public Integer getReplayCount() {
+                return _replayCount;
+            }
+        }
+
         public final Object mutex = new Object();
 
         private final Container<Boolean> _didMessageTimeOut;
         private final NodeHealth _nodeHealth;
-        private final Runnable _replayInvocation;
+        private final ReplayInvocation _replayInvocation;
 
-        public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final Runnable replayInvocation) {
+        public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final ReplayInvocation replayInvocation) {
             _didMessageTimeOut = didMessageTimeoutContainer;
             _nodeHealth = nodeHealth;
             _replayInvocation = replayInvocation;
@@ -63,7 +93,13 @@ public class NodeManager<NODE extends Node> {
             }
 
             if (_replayInvocation != null) {
-                _replayInvocation.run();
+                final Integer attemptCount = _replayInvocation.getReplayCount();
+                if (attemptCount < ReplayInvocation.MAX_REPLAY_COUNT) {
+                    _replayInvocation.run();
+                }
+                else {
+                    _replayInvocation.fail();
+                }
             }
         }
     }
@@ -300,6 +336,7 @@ public class NodeManager<NODE extends Node> {
         });
 
         node.connect();
+        node.handshake();
         timeoutThread.start();
     }
 
@@ -453,14 +490,7 @@ public class NodeManager<NODE extends Node> {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    public void executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation) {
-        final Runnable replayInvocation = new Runnable() {
-            @Override
-            public void run() {
-                NodeManager.this.executeRequest(nodeApiInvocation);
-            }
-        };
-
+    protected void _executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation, final RequestTimeoutThread.ReplayInvocation replayInvocation) {
         final NODE selectedNode;
         final NodeHealth nodeHealth;
         {
@@ -501,5 +531,26 @@ public class NodeManager<NODE extends Node> {
         timeoutThread.start();
         nodeHealth.onMessageSent();
         nodeApiInvocation.run(selectedNode, cancelRequestTimeout);
+    }
+
+    public void executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation) {
+        final Container<RequestTimeoutThread.ReplayInvocation> replayInvocation = new Container<RequestTimeoutThread.ReplayInvocation>();
+
+        replayInvocation.value = new RequestTimeoutThread.ReplayInvocation(
+            new Runnable() {
+                @Override
+                public void run() {
+                    _executeRequest(nodeApiInvocation, replayInvocation.value);
+                }
+            },
+            new Runnable() {
+                @Override
+                public void run() {
+                    nodeApiInvocation.onFailure();
+                }
+            }
+        );
+
+        _executeRequest(nodeApiInvocation, replayInvocation.value);
     }
 }

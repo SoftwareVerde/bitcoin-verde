@@ -18,6 +18,10 @@ public class BlockMessage extends BitcoinProtocolMessage {
         return _block;
     }
 
+    public void setBlock(final Block block) {
+        _block = block;
+    }
+
     @Override
     protected ByteArray _getPayload() {
         final BlockDeflater blockDeflater = new BlockDeflater();

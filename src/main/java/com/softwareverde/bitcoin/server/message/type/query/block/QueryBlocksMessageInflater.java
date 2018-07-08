@@ -22,7 +22,7 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         queryBlocksMessage._version = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
-        if (blockHeaderCount >= QueryBlocksMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
+        if (blockHeaderCount >= QueryBlocksMessage.MAX_BLOCK_HASH_COUNT) { return null; }
 
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }

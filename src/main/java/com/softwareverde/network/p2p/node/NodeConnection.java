@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
@@ -259,6 +260,10 @@ public class NodeConnection {
     }
 
     public void queueMessage(final ProtocolMessage message) {
+        if (message instanceof BitcoinProtocolMessage) {
+            Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()) );
+        }
+
         (new Thread(new Runnable() {
             @Override
             public void run() {

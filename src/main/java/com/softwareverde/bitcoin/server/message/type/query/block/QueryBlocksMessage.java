@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class QueryBlocksMessage extends BitcoinProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 500;
+    public static Integer MAX_BLOCK_HASH_COUNT = 500;
 
     protected Integer _version;
     protected final List<Sha256Hash> _blockHeaderHashes = new ArrayList<Sha256Hash>();
@@ -31,7 +31,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     public Integer getVersion() { return _version; }
 
     public void addBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        if (_blockHeaderHashes.size() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (_blockHeaderHashes.size() >= MAX_BLOCK_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
 

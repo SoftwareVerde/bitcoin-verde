@@ -206,6 +206,9 @@ public class BitcoinNode extends Node {
                 _onConnect();
             }
         });
+        if (_connection.isConnected()) {
+            _onConnect();
+        }
 
         _connection.setOnConnectFailureCallback(new Runnable() {
             @Override
@@ -247,7 +250,7 @@ public class BitcoinNode extends Node {
             requestDataCallback.run(dataHashes, nodeConnection);
         }
         else {
-            Logger.log("NOTICE: No handler set for QueryBlocks message.");
+            Logger.log("NOTICE: No handler set for RequestData message.");
         }
     }
 

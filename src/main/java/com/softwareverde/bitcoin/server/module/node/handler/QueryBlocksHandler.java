@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
@@ -34,11 +35,18 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
 
             final QueryResponseMessage responseMessage = new QueryResponseMessage();
             {
-                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, blockDatabaseManager);
+                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
                     responseMessage.addInventoryItem(new DataHash(DataHashType.BLOCK, blockHash));
                 }
+            }
+
+            { // Debug Logging...
+                final Sha256Hash firstBlockHash = ((! blockHashes.isEmpty()) ? blockHashes.get(0) : null);
+                final List<DataHash> responseHashes = responseMessage.getDataHashes();
+                final Sha256Hash responseHash = ((! responseHashes.isEmpty()) ? responseHashes.get(0).getObjectHash() : null);
+                Logger.log("QueryBlocksHandler : " + firstBlockHash + " - " + desiredBlockHash + " -> " + responseHash);
             }
 
             nodeConnection.queueMessage(responseMessage);

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
@@ -210,7 +211,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
 
@@ -219,7 +220,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
 
         // Action
-        queryBlockHeadersHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
 
         // Assert
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
@@ -227,9 +228,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
-        int i = blockOffset;
+        int i = blockOffset + 1;
         for (final DataHash dataHash : dataHashes) {
             Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
             i += 1;
@@ -239,7 +240,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     }
 
     @Test
-    public void should_return_genesis_blocks_when_match_found() throws Exception {
+    public void should_return_first_block_when_match_found() throws Exception {
         // Setup
         final Block[] scenarioBlocks = _initScenario();
         final Block[] allBlocks = _initScenario2(scenarioBlocks);
@@ -249,7 +250,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
 
@@ -259,7 +260,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlockHeadersHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
 
         // Assert
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
@@ -267,9 +268,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
-        int i = blockOffset;
+        int i = blockOffset + 1;
         for (final DataHash dataHash : dataHashes) {
             Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
             i += 1;
@@ -279,7 +280,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     }
 
     @Test
-    public void should_return_genesis_blocks_when_non_genesis_match_found() throws Exception {
+    public void should_return_first_blocks_when_non_genesis_match_found() throws Exception {
         // Setup
         final Block[] scenarioBlocks = _initScenario();
         final Block[] allBlocks = _initScenario2(scenarioBlocks);
@@ -289,7 +290,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
 
@@ -299,7 +300,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlockHeadersHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
 
         // Assert
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
@@ -307,9 +308,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
-        int i = blockOffset;
+        int i = blockOffset + 1;
         for (final DataHash dataHash : dataHashes) {
             Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
             i += 1;
@@ -329,7 +330,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
 
@@ -339,7 +340,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlockHeadersHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
 
         // Assert
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
@@ -347,9 +348,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
-        int i = blockOffset;
+        int i = blockOffset + 1;
         for (final DataHash dataHash : dataHashes) {
             Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
             i += 1;
@@ -383,7 +384,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
 
@@ -391,7 +392,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
 
         // Action
-        queryBlockHeadersHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
 
         // Assert
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
@@ -399,10 +400,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
-        Assert.assertEquals(2, dataHashes.getSize());
+        Assert.assertEquals(1, dataHashes.getSize());
 
-        Assert.assertEquals(allBlocks[allBlocks.length - 1].getHash(), dataHashes.get(dataHashes.getSize() - 2).getObjectHash());
-        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(dataHashes.getSize() - 1).getObjectHash());
+        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getObjectHash());
 
         fakeNodeConnection.disconnect();
     }

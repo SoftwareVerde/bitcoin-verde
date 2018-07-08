@@ -140,7 +140,6 @@ public abstract class Node {
 
     protected void _onConnect() {
         _handshake();
-
         synchronized (_postConnectQueue) {
             while (! _postConnectQueue.isEmpty()) {
                 final Runnable postConnectRunnable = _postConnectQueue.removeLast();
@@ -327,6 +326,12 @@ public abstract class Node {
 
     public void setNodeConnectedCallback(final NodeConnectedCallback nodeConnectedCallback) {
         _nodeConnectedCallback = nodeConnectedCallback;
+
+        if (_connection.isConnected()) {
+            if (_nodeConnectedCallback != null) {
+                _nodeConnectedCallback.onNodeConnected();
+            }
+        }
     }
 
     public void setNodeHandshakeCompleteCallback(final NodeHandshakeCompleteCallback nodeHandshakeCompleteCallback) {

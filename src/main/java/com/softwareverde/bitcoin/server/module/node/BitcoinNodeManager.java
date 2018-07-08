@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 
 import java.util.List;
@@ -28,6 +29,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     }
                 });
             }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestBlockHashesAfter("+ blockHash +")");
+            }
         });
     }
 
@@ -46,6 +52,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         }
                     }
                 });
+            }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +")");
             }
         });
     }

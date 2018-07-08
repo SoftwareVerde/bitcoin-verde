@@ -9,7 +9,7 @@ public enum MessageType {
     QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCK_HEADERS_RESPONSE("headers"),
     ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
     QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"),
-    REQUEST_DATA("getdata"), BLOCK("block"),
+    REQUEST_DATA("getdata"), BLOCK("block"), NOT_FOUND("notfound"),
     ERROR("reject");
 
     public static MessageType fromBytes(final byte[] bytes) {

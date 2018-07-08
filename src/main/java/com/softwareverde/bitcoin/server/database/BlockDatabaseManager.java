@@ -23,6 +23,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -50,7 +51,7 @@ public class BlockDatabaseManager {
     protected BlockId _getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
-                .setParameter(HexUtil.toHexString(blockHash.getBytes()))
+                .setParameter(blockHash)
         );
 
         if (rows.isEmpty()) { return null; }
@@ -183,14 +184,14 @@ public class BlockDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE block_id = ?")
+            new Query("SELECT id FROM transactions WHERE block_id = ? ORDER BY id ASC")
                 .setParameter(blockId)
         );
 
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            final Transaction transaction = transactionDatabaseManager.fromDatabaseConnection(transactionId);
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             listBuilder.add(transaction);
         }
         return listBuilder.build();
@@ -351,6 +352,17 @@ public class BlockDatabaseManager {
         return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
     }
 
+    /**
+     * Returns the BlockId of the block that has the tallest block-height.
+     */
+    public BlockId getHeadBlockId() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
+
     public BlockId getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
         return _getBlockIdFromHash(blockHash);
     }
@@ -428,8 +440,14 @@ public class BlockDatabaseManager {
         if (blockHeader == null) { return null; }
 
         final com.softwareverde.constable.list.List<Transaction> transactions = _getBlockTransactions(blockId);
+        final MutableBlock block = new MutableBlock(blockHeader, transactions);
 
-        return new MutableBlock(blockHeader, transactions);
+        if (! Util.areEqual(blockHeader.getHash(), block.getHash())) {
+            Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+            return null;
+        }
+
+        return block;
     }
 
     public BlockId getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {

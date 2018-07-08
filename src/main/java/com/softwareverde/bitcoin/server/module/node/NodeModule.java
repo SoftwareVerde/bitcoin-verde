@@ -12,12 +12,19 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -328,8 +335,7 @@ public class NodeModule {
             final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
             node.setQueryBlocksCallback(_queryBlocksCallback);
             node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-            node.connect();
-            node.handshake();
+            node.setRequestDataCallback(_requestDataCallback);
             _nodeManager.addNode(node);
         }
 
@@ -341,8 +347,7 @@ public class NodeModule {
                 final BitcoinNode node = new BitcoinNode(binarySocket);
                 node.setQueryBlocksCallback(_queryBlocksCallback);
                 node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-                node.connect();
-                node.handshake();
+                node.setRequestDataCallback(_requestDataCallback);
                 _nodeManager.addNode(node);
             }
         });
