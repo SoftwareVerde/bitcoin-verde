@@ -372,8 +372,8 @@ public class BitcoinNode extends Node {
     }
 
     @Override
-    public BitcoinNodeIpAddress getNodeAddress() {
-        return (BitcoinNodeIpAddress) _nodeIpAddress;
+    public BitcoinNodeIpAddress getLocalNodeIpAddress() {
+        return (BitcoinNodeIpAddress) _localNodeIpAddress;
     }
 
     @Override

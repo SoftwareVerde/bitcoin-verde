@@ -59,7 +59,7 @@ public abstract class Node {
 
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected NodeIpAddress _nodeIpAddress = null;
+    protected NodeIpAddress _localNodeIpAddress = null;
     protected Boolean _handshakeHasBeenInvoked = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
@@ -215,7 +215,7 @@ public abstract class Node {
             _networkTimeOffset = ((nodeTime - currentTime) * 1000L);
         }
 
-        _nodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
+        _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
 
         final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
         _connection.queueMessage(acknowledgeVersionMessage);
@@ -300,24 +300,22 @@ public abstract class Node {
         return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
     }
 
-    public NodeIpAddress getNodeAddress() {
-        if (! _handshakeIsComplete) { return null; }
-        if (_nodeIpAddress == null) { return null; }
-
-        final NodeIpAddress nodeIpAddress = _nodeIpAddress.copy();
+    public NodeIpAddress getRemoteNodeIpAddress() {
+        final String remoteAddress = Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
+        if (remoteAddress == null) { return null; }
 
         final IpInflater ipInflater = new IpInflater();
-        final Ip ip = ipInflater.fromString(_connection.getRemoteIp());
-        if (ip != null) {
-            nodeIpAddress.setIp(ip);
-        }
+        final Ip ip = ipInflater.fromString(remoteAddress);
+        if (ip == null) { return null; }
 
-        final Integer port = _connection.getPort();
-        if (port != null) {
-            nodeIpAddress.setPort(port);
-        }
+        return new NodeIpAddress(ip, _connection.getPort());
+    }
 
-        return nodeIpAddress;
+    public NodeIpAddress getLocalNodeIpAddress() {
+        if (! _handshakeIsComplete) { return null; }
+        if (_localNodeIpAddress == null) { return null; }
+
+        return _localNodeIpAddress.copy();
     }
 
     public void setNodeAddressesReceivedCallback(final NodeAddressesReceivedCallback nodeAddressesReceivedCallback) {

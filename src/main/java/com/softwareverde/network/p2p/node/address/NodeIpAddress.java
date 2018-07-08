@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.address;
 
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.ip.Ipv4;
 
 public class NodeIpAddress {
@@ -10,6 +11,11 @@ public class NodeIpAddress {
     public NodeIpAddress() {
         _ip = new Ipv4();
         _port = 0x0000;
+    }
+
+    public NodeIpAddress(final Ip ip, final Integer port) {
+        _ip = ip;
+        _port = port;
     }
 
     public void setIp(final Ip ip) {

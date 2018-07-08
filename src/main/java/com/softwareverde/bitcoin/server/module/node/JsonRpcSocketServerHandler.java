@@ -6,11 +6,14 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.network.p2p.node.Node;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
@@ -25,6 +28,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public interface NodeHandler {
         Boolean addNode(String host, Integer port);
+        List<Node> getNodes();
     }
 
     public static class StatisticsContainer {
@@ -143,6 +147,30 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put("was_success", (wasSuccessful ? 1 : 0));
     }
 
+    protected void _nodeStatus(final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put("error_message", "Operation not supported.");
+            return;
+        }
+
+        final Json nodeListJson = new Json();
+
+        final List<Node> nodes = _nodeHandler.getNodes();
+        for (final Node node : nodes) {
+            final Json nodeJson = new Json();
+
+            final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+            nodeJson.put("host", nodeIpAddress.getIp().toString());
+            nodeJson.put("port", nodeIpAddress.getPort());
+
+            nodeListJson.add(nodeJson);
+        }
+
+        response.put("nodes", nodeListJson);
+        response.put("was_success", 1);
+    }
+
     public void setShutdownHandler(final ShutdownHandler shutdownHandler) {
         _shutdownHandler = shutdownHandler;
     }
@@ -177,6 +205,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "STATUS": {
                                 _queryStatus(response);
+                            } break;
+
+                            case "NODES": {
+                                _nodeStatus(response);
                             } break;
 
                             default: {
