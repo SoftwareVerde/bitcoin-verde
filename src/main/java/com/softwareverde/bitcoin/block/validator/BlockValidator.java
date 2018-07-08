@@ -33,7 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
-    protected static final Integer TOTAL_THREAD_COUNT = 2; // The total number of threads that will be spawned for each call to Validate.  NOTE: This number should be divisible by 2.
+    protected static final Integer TOTAL_THREAD_COUNT = 4; // The total number of threads that will be spawned for each call to Validate.  NOTE: This number should be divisible by 2.
 
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;

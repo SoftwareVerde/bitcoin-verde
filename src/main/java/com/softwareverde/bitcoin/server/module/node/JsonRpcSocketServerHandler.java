@@ -20,7 +20,11 @@ import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
     public interface ShutdownHandler {
-        void shutdown();
+        Boolean shutdown();
+    }
+
+    public interface NodeHandler {
+        Boolean addNode(String host, Integer port);
     }
 
     public static class StatisticsContainer {
@@ -29,13 +33,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected final Environment _environment;
-    protected final ShutdownHandler _shutdownHandler;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
 
-    public JsonRpcSocketServerHandler(final Environment environment, final ShutdownHandler shutdownHandler, final StatisticsContainer statisticsContainer) {
+    protected ShutdownHandler _shutdownHandler = null;
+    protected NodeHandler _nodeHandler = null;
+
+    public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
         _environment = environment;
-        _shutdownHandler = shutdownHandler;
 
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
@@ -108,9 +113,42 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
-    protected void _shutdown(final Json response) {
-        _shutdownHandler.shutdown();
-        response.put("was_success", 1);
+    protected void _shutdown(final Json parameters, final Json response) {
+        final ShutdownHandler shutdownHandler = _shutdownHandler;
+        if (shutdownHandler == null) {
+            response.put("error_message", "Operation not supported.");
+            return;
+        }
+
+        final Boolean wasSuccessful = shutdownHandler.shutdown();
+        response.put("was_success", (wasSuccessful ? 1 : 0));
+    }
+
+    protected void _addNode(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put("error_message", "Operation not supported.");
+            return;
+        }
+
+        if ((! parameters.hasKey("host")) || (! parameters.hasKey("port"))) {
+            response.put("error_message", "Missing parameters. Required: host, port");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+        final Integer port = parameters.getInteger("port");
+
+        final Boolean wasSuccessful = nodeHandler.addNode(host, port);
+        response.put("was_success", (wasSuccessful ? 1 : 0));
+    }
+
+    public void setShutdownHandler(final ShutdownHandler shutdownHandler) {
+        _shutdownHandler = shutdownHandler;
+    }
+
+    public void setNodeHandler(final NodeHandler nodeHandler) {
+        _nodeHandler = nodeHandler;
     }
 
     @Override
@@ -133,7 +171,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
-                            case "BLOCK-HEIGHT": {
+                            case "BLOCK_HEIGHT": {
                                 _queryBlockHeight(response);
                             } break;
 
@@ -148,9 +186,15 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     } break;
 
                     case "POST": {
+                        final Json parameters = message.get("parameters");
+
                         switch (query.toUpperCase()) {
                             case "SHUTDOWN": {
-                                _shutdown(response);
+                                _shutdown(parameters, response);
+                            } break;
+
+                            case "ADD_NODE": {
+                                _addNode(parameters, response);
                             } break;
 
                             default: {

@@ -118,6 +118,14 @@ public class NodeModule {
         return new Configuration(configurationFile);
     }
 
+    protected void _addNode(final String host, final Integer port) {
+        final BitcoinNode node = new BitcoinNode(host, port);
+        node.setQueryBlocksCallback(_queryBlocksCallback);
+        node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
+        node.setRequestDataCallback(_requestDataCallback);
+        _nodeManager.addNode(node);
+    }
+
     protected void _downloadAllBlocks() {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
 
@@ -332,11 +340,10 @@ public class NodeModule {
 
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
-            final BitcoinNode node = new BitcoinNode(seedNodeProperties.getAddress(), seedNodeProperties.getPort());
-            node.setQueryBlocksCallback(_queryBlocksCallback);
-            node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-            node.setRequestDataCallback(_requestDataCallback);
-            _nodeManager.addNode(node);
+            final String host = seedNodeProperties.getAddress();
+            final Integer port = seedNodeProperties.getPort();
+
+            _addNode(host, port);
         }
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
@@ -359,15 +366,33 @@ public class NodeModule {
         final Thread mainThread = Thread.currentThread();
         final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new JsonRpcSocketServerHandler.ShutdownHandler() {
             @Override
-            public void shutdown() {
+            public Boolean shutdown() {
                 mainThread.interrupt();
+                return true;
+            }
+        };
+
+        final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new JsonRpcSocketServerHandler.NodeHandler() {
+            @Override
+            public Boolean addNode(final String host, final Integer port) {
+                if ( (host == null) || (port == null) ) { return false; }
+                if ( (port <= 0)    || (port > 65535) ) { return false; }
+
+                _addNode(host, port);
+                return true;
             }
         };
 
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
-            _jsonRpcSocketServer = new JsonSocketServer(rpcPort);
-            _jsonRpcSocketServer.setSocketConnectedCallback(new JsonRpcSocketServerHandler(_environment, shutdownHandler, statisticsContainer));
+            final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort);
+
+            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, statisticsContainer);
+            rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
+            rpcSocketServerHandler.setNodeHandler(nodeHandler);
+
+            jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
+            _jsonRpcSocketServer = jsonRpcSocketServer;
         }
         else {
             _jsonRpcSocketServer = null;
