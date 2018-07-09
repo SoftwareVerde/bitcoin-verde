@@ -56,6 +56,7 @@ public abstract class Node {
 
     protected final NodeId _id;
     protected final NodeConnection _connection;
+    protected final Long _initializationTime = System.currentTimeMillis();
 
     protected final SystemTime _systemTime = new SystemTime();
 
@@ -276,6 +277,10 @@ public abstract class Node {
 
     public NodeId getId() { return _id; }
 
+    public Long getInitializationTime() {
+        return _initializationTime;
+    }
+
     public void handshake() {
         _handshake();
     }
@@ -367,6 +372,10 @@ public abstract class Node {
 
     public void disconnect() {
         _disconnect();
+    }
+
+    public Boolean isConnected() {
+        return _connection.isConnected();
     }
 
     @Override

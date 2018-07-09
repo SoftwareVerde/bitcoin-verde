@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
@@ -22,6 +23,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -30,6 +38,8 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
@@ -390,6 +400,13 @@ public class NodeModule {
             }
         };
 
+        final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new JsonRpcSocketServerHandler.QueryBalanceHandler() {
+            @Override
+            public Long getBalance(final Address address) {
+                return null;
+            }
+        };
+
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort);
@@ -397,6 +414,7 @@ public class NodeModule {
             final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, statisticsContainer);
             rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
             rpcSocketServerHandler.setNodeHandler(nodeHandler);
+            rpcSocketServerHandler.setQueryBalanceHandler(queryBalanceHandler);
 
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
             _jsonRpcSocketServer = jsonRpcSocketServer;
@@ -455,6 +473,115 @@ public class NodeModule {
         }
         else {
             _downloadAllBlocks();
+        }
+
+        { // Database Migration Hack...
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+//                    final ScriptInflater scriptInflater = new ScriptInflater();
+
+                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                        long nextId = 1L;
+                        {
+                            final java.util.List<Row> rows = databaseConnection.query(
+                                new Query("SELECT id, transaction_output_id FROM locking_scripts ORDER BY id DESC LIMIT 1")
+                            );
+                            if (! rows.isEmpty()) {
+                                final Row row = rows.get(0);
+                                nextId = row.getLong("transaction_output_id") + 1;
+                            }
+                        }
+
+                        Logger.log("Starting migration at: " + nextId);
+
+                        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+
+                        while (true) {
+                            if (nextId % 10000 == 0) {
+                                final java.util.List<Row> rows = databaseConnection.query(
+                                    new Query("SELECT id FROM transaction_outputs ORDER BY id DESC LIMIT 1")
+                                );
+
+                                final Long maxId = (rows.get(0).getLong("id"));
+
+                                Logger.log("Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
+                            }
+
+                            final java.util.List<Row> rows = databaseConnection.query(
+                                new Query("SELECT id, locking_script FROM transaction_outputs WHERE id = ?")
+                                    .setParameter(nextId)
+                            );
+                            if (rows.isEmpty()) {
+                                nextId += 1L;
+                                Logger.log("Skipping Migration Id: " + nextId);
+                                Thread.sleep(500L);
+                                continue;
+                            }
+
+                            final Row row = rows.get(0);
+                            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+                            final LockingScript lockingScript = new ImmutableLockingScript(row.getBytes("locking_script"));
+
+                            transactionOutputDatabaseManager._storeScriptAddress(lockingScript);
+                            transactionOutputDatabaseManager._insertLockingScript(transactionOutputId, lockingScript);
+
+                            nextId += 1L;
+                        }
+
+
+//                        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+//
+//                        long transactionOutputId = 1L;
+//                        {
+//                            final java.util.List<Row> rows = databaseConnection.query(
+//                                new Query("SELECT id, transaction_output_id FROM pay_to_public_key_hash_scripts ORDER BY id DESC LIMIT 1")
+//                            );
+//                            if (! rows.isEmpty()) {
+//                                final Row row = rows.get(0);
+//                                transactionOutputId = row.getLong("transaction_output_id") + 1;
+//                            }
+//                        }
+//
+//                        Logger.log("Starting migration at: " + transactionOutputId);
+//
+//                        while (true) {
+//                            if (transactionOutputId % 10000L == 0) {
+//                                final java.util.List<Row> rows = databaseConnection.query(
+//                                    new Query("SELECT id FROM transaction_outputs ORDER BY id DESC LIMIT 1")
+//                                );
+//                                final long maxTransactionOutputId = rows.get(0).getLong("id");
+//
+//                                Logger.log("Current P2PKH Migration Output Id: " + transactionOutputId + " / " + maxTransactionOutputId + " " + (transactionOutputId * 100F / (float) maxTransactionOutputId) + "%");
+//                            }
+//
+//                            final java.util.List<Row> rows = databaseConnection.query(
+//                                new Query("SELECT id, locking_script FROM transaction_outputs WHERE id = ?")
+//                                    .setParameter(transactionOutputId)
+//                            );
+//
+//                            if (rows.isEmpty()) {
+//                                Logger.log("No TxOutput For Id: " + transactionOutputId);
+//                                Thread.sleep(500);
+//                                transactionOutputId += 1L;
+//                                continue;
+//                            }
+//
+//                            final Row row = rows.get(0);
+//
+//                            final Script lockingScript = scriptInflater.fromBytes(row.getBytes("locking_script"));
+//                            transactionOutputDatabaseManager.updatePayToPublicKeyHashTable(TransactionOutputId.wrap(transactionOutputId), lockingScript);
+//
+//                            transactionOutputId += 1L;
+//                        }
+                    }
+                    catch (final Exception exception) {
+                        Logger.log(exception);
+                    }
+
+                    Logger.log("***** Database Migration Ended *****");
+                }
+            }).start();
         }
 
         while (! Thread.currentThread().isInterrupted()) {

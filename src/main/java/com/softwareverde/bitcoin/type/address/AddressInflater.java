@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.type.address;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
@@ -34,6 +35,11 @@ public class AddressInflater {
             final byte[] rawBitcoinAddress = _hashPublicKey(publicKey);
             return new Address(rawBitcoinAddress);
         }
+    }
+
+    public Address fromBytes(final ByteArray bytes) {
+        if (bytes.getByteCount() != 20) { return null; }
+        return new Address(bytes.getBytes());
     }
 
     public CompressedAddress compressedFromPublicKey(final PublicKey publicKey) {

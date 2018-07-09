@@ -118,6 +118,10 @@ public class NodeManager<NODE extends Node> {
                     _pingIdleNodes();
                 }
 
+                synchronized (_mutex) {
+                    _removeDisconnectedNodes();
+                }
+
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
 
@@ -457,6 +461,23 @@ public class NodeManager<NODE extends Node> {
                     }
                 }
             });
+        }
+    }
+
+    protected void _removeDisconnectedNodes() {
+        final java.util.List<NODE> purgeableNodes = new ArrayList<NODE>();
+
+        for (final NODE node : _nodes.values()) {
+            final Long nodeAge = (System.currentTimeMillis() - node.getInitializationTime());
+            if (! node.isConnected()) {
+                if (nodeAge > 10000L) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final NODE node : purgeableNodes) {
+            _removeNode(node);
         }
     }
 

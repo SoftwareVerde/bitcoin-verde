@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -31,6 +33,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<Node> getNodes();
     }
 
+    public interface QueryBalanceHandler {
+        Long getBalance(Address address);
+    }
+
     public static class StatisticsContainer {
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
@@ -42,6 +48,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     protected ShutdownHandler _shutdownHandler = null;
     protected NodeHandler _nodeHandler = null;
+    protected QueryBalanceHandler _queryBalanceHandler = null;
 
     public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
         _environment = environment;
@@ -117,6 +124,38 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
+    protected void _queryBalance(final Json parameters, final Json response) {
+        final QueryBalanceHandler queryBalanceHandler = _queryBalanceHandler;
+        if (queryBalanceHandler == null) {
+            response.put("error_message", "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("address")) {
+            response.put("error_message", "Missing parameters. Required: address");
+            return;
+        }
+
+        final String addressString = parameters.getString("address");
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address address = addressInflater.fromBase58Check(addressString);
+
+        if (address == null) {
+            response.put("error_message", "Invalid address.");
+            return;
+        }
+
+        final Long balance = queryBalanceHandler.getBalance(address);
+
+        if (balance == null) {
+            response.put("error_message", "Unable to determine balance.");
+            return;
+        }
+
+        response.put("balance", balance);
+        response.put("was_success", 1);
+    }
+
     protected void _shutdown(final Json parameters, final Json response) {
         final ShutdownHandler shutdownHandler = _shutdownHandler;
         if (shutdownHandler == null) {
@@ -179,6 +218,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _nodeHandler = nodeHandler;
     }
 
+    public void setQueryBalanceHandler(final QueryBalanceHandler queryBalanceHandler) {
+        _queryBalanceHandler = queryBalanceHandler;
+    }
+
     @Override
     public void run(final JsonSocket socketConnection) {
         Logger.log("New Connection: " + socketConnection);
@@ -196,6 +239,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put("was_success", 0);
                 response.put("error_message", null);
 
+                final Json parameters = message.get("parameters");
+
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
@@ -211,6 +256,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                                 _nodeStatus(response);
                             } break;
 
+                            case "BALANCE": {
+                                _queryBalance(parameters, response);
+                            } break;
+
                             default: {
                                 response.put("error_message", "Invalid command: " + method + "/" + query);
                             } break;
@@ -218,8 +267,6 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     } break;
 
                     case "POST": {
-                        final Json parameters = message.get("parameters");
-
                         switch (query.toUpperCase()) {
                             case "SHUTDOWN": {
                                 _shutdown(parameters, response);

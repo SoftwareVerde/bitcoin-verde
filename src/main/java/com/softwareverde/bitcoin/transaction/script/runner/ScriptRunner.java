@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
@@ -74,7 +75,7 @@ public class ScriptRunner {
 
         { // Pay-To-Script-Hash Validation
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
-            final Boolean scriptIsPayToScriptHash = lockingScript.isPayToScriptHash();
+            final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
             if ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash)) {
                 final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();

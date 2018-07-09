@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.locking;
 
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 
 public interface LockingScript extends Script {
     LockingScript EMPTY_SCRIPT = new ImmutableLockingScript();
@@ -9,7 +10,7 @@ public interface LockingScript extends Script {
         return new ImmutableLockingScript(script);
     }
 
-    Boolean isPayToScriptHash();
+    ScriptType getScriptType();
 
     @Override
     ImmutableLockingScript asConst();

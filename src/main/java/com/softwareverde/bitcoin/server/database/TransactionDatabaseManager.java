@@ -211,7 +211,7 @@ public class TransactionDatabaseManager {
         );
         for (final Row transactionInputRow : transactionInputRows) {
             final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputRow.getLong("id"));
-            final TransactionInput transactionInput = transactionInputDatabaseManager.fromDatabaseConnection(transactionInputId);
+            final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
             transaction.addTransactionInput(transactionInput);
         }
 
@@ -221,7 +221,7 @@ public class TransactionDatabaseManager {
         );
         for (final Row transactionOutputRow : transactionOutputRows) {
             final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
-            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.fromDatabaseConnection(transactionOutputId);
+            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
             transaction.addTransactionOutput(transactionOutput);
         }
 
