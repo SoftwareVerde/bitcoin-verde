@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -33,11 +34,6 @@ public class StratumModule {
     protected final Configuration _configuration;
     protected final StratumServerSocket _stratumServerSocket;
 
-    protected void _exitFailure() {
-        Logger.shutdown();
-        System.exit(1);
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
@@ -46,7 +42,7 @@ public class StratumModule {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
             _printError("Invalid configuration file.");
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
 
         return new Configuration(configurationFile);

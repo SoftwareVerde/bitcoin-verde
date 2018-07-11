@@ -71,7 +71,7 @@ CREATE TABLE transaction_inputs (
 
 CREATE TABLE locking_scripts (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    type ENUM('UNKNOWN', 'PAY_TO_PUBLIC_KEY_HASH', 'PAY_TO_SCRIPT_HASH') NOT NULL,
+    type ENUM('UNKNOWN', 'PAY_TO_PUBLIC_KEY', 'PAY_TO_PUBLIC_KEY_HASH', 'PAY_TO_SCRIPT_HASH') NOT NULL,
     transaction_output_id int unsigned NOT NULL,
     script blob NULL,
     address_id int unsigned NULL,

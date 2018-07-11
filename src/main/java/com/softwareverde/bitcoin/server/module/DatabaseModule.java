@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -14,11 +15,6 @@ public class DatabaseModule {
     protected final Configuration _configuration;
     protected final Environment _environment;
 
-    protected void _exitFailure() {
-        Logger.shutdown();
-        System.exit(1);
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
@@ -27,7 +23,7 @@ public class DatabaseModule {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
             _printError("Invalid configuration file.");
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
 
         return new Configuration(configurationFile);
@@ -48,7 +44,7 @@ public class DatabaseModule {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                _exitFailure();
+                BitcoinUtil.exitFailure();
             }
             database = databaseInstance;
             Logger.log("[Database Online]");

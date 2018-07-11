@@ -78,13 +78,17 @@ public class TransactionInputDatabaseManager {
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
         if (transactionInputId == null) { return null; }
 
+        _insertUnlockingScript(transactionInputId, unlockingScript);
+
+        return transactionInputId;
+    }
+
+    public void _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)")
                 .setParameter(transactionInputId)
                 .setParameter(unlockingScript.getBytes().getBytes())
         );
-
-        return transactionInputId;
     }
 
     public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {

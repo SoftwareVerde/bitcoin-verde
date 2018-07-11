@@ -109,14 +109,15 @@ public class TransactionOutputDatabaseManager {
         final Address address;
         {
             switch (scriptType) {
+                case PAY_TO_PUBLIC_KEY: {
+                    address = scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript);
+                } break;
                 case PAY_TO_PUBLIC_KEY_HASH: {
                     address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(lockingScript);
                 } break;
-
                 case PAY_TO_SCRIPT_HASH: {
                     address = scriptPatternMatcher.extractAddressFromPayToScriptHash(lockingScript);
                 } break;
-
                 default: {
                     address = null;
                 } break;

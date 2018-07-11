@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -25,11 +26,6 @@ public class MinerModule {
         final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
         minerModule.run();
         Logger.shutdown();
-    }
-
-    protected void _exitFailure() {
-        Logger.shutdown();
-        System.exit(1);
     }
 
     protected void _printError(final String errorMessage) {
@@ -56,7 +52,7 @@ public class MinerModule {
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
             if (address == null) {
                 _printError("Invalid Bitcoin Address: "+ _base58CheckAddress);
-                _exitFailure();
+                BitcoinUtil.exitFailure();
                 return;
             }
 

@@ -3,40 +3,34 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
-import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
-import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -46,14 +40,14 @@ import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
-import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.*;
+import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -64,17 +58,25 @@ public class NodeModule {
         nodeModule.loop();
     }
 
-    class BlockValidatorThread extends Thread {
+    protected static class BlockValidatorThread extends Thread {
+        protected final ConcurrentLinkedQueue<Block> _queuedBlocks;
+        protected final BlockProcessor _blockProcessor;
+
+        public BlockValidatorThread(final ConcurrentLinkedQueue<Block> queuedBlocks, final BlockProcessor blockProcessor) {
+            _queuedBlocks = queuedBlocks;
+            _blockProcessor = blockProcessor;
+        }
+
         @Override
         public void run() {
             while (true) {
                 final Block block = _queuedBlocks.poll();
                 if (block != null) {
-                    final Boolean isValidBlock = _processBlock(block);
+                    final Boolean isValidBlock = _blockProcessor.processBlock(block);
 
                     if (! isValidBlock) {
                         Logger.log("Invalid block: " + block.getHash());
-                        _exitFailure();
+                        BitcoinUtil.exitFailure();
                     }
                 }
                 else {
@@ -94,27 +96,15 @@ public class NodeModule {
 
     protected final Integer _maxQueueSize;
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
-    protected final BlockValidatorThread _blockValidatorThread = new BlockValidatorThread();
+    protected final BlockProcessor _blockProcessor;
+    protected final BlockValidatorThread _blockValidatorThread;
 
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
 
-    protected final Object _statisticsMutex = new Object();
-    protected final RotatingQueue<Long> _blocksPerSecond = new RotatingQueue<Long>(100);
-    protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
-    protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
-    protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
-
-    protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
-    protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
-    protected final BitcoinNode.RequestDataCallback _requestDataCallback;
-
-    protected void _exitFailure() {
-        Logger.shutdown();
-        System.exit(1);
-    }
+    protected final NodeInitializer _nodeInitializer;
 
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
@@ -124,18 +114,10 @@ public class NodeModule {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
             _printError("Invalid configuration file.");
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
 
         return new Configuration(configurationFile);
-    }
-
-    protected void _addNode(final String host, final Integer port) {
-        final BitcoinNode node = new BitcoinNode(host, port);
-        node.setQueryBlocksCallback(_queryBlocksCallback);
-        node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-        node.setRequestDataCallback(_requestDataCallback);
-        _nodeManager.addNode(node);
     }
 
     protected void _downloadAllBlocks() {
@@ -198,83 +180,9 @@ public class NodeModule {
         _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
     }
 
-    protected Boolean _processBlock(final Block block) {
-        final EmbeddedMysqlDatabase database = _environment.getDatabase();
-        final NetworkTime networkTime = _nodeManager.getNetworkTime();
-
-        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            TransactionUtil.startTransaction(databaseConnection);
-
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-            long storeBlockStartTime = System.currentTimeMillis();
-            final BlockId blockId = blockDatabaseManager.insertBlock(block);
-            long storeBlockEndTime = System.currentTimeMillis();
-            final Long storeBlockDuration = (storeBlockEndTime - storeBlockStartTime);
-
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-            final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
-
-            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
-            final long blockValidationStartTime = System.currentTimeMillis();
-            final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-            final long blockValidationEndTime = System.currentTimeMillis();
-            final long blockValidationMsElapsed = (blockValidationEndTime - blockValidationStartTime);
-
-            if (blockIsValid) {
-                _medianBlockTime.addBlock(block);
-                TransactionUtil.commitTransaction(databaseConnection);
-
-                final Integer blockTransactionCount = block.getTransactions().getSize();
-
-                final Float averageBlocksPerSecond;
-                final Float averageTransactionsPerSecond;
-                synchronized (_statisticsMutex) {
-                    _blocksPerSecond.add(blockValidationMsElapsed + storeBlockDuration);
-                    _transactionsPerBlock.add(blockTransactionCount);
-
-                    final Integer blockCount = _blocksPerSecond.size();
-                    final Long validationTimeElapsed;
-                    {
-                        long value = 0L;
-                        for (final Long elapsed : _blocksPerSecond) {
-                            value += elapsed;
-                        }
-                        validationTimeElapsed = value;
-                    }
-
-                    final Integer totalTransactionCount;
-                    {
-                        int value = 0;
-                        for (final Integer transactionCount : _transactionsPerBlock) {
-                            value += transactionCount;
-                        }
-                        totalTransactionCount = value;
-                    }
-
-                    averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
-                    averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
-                }
-
-                _averageBlocksPerSecond.value = averageBlocksPerSecond;
-                _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
-
-                return true;
-            }
-            else {
-                TransactionUtil.rollbackTransaction(databaseConnection);
-            }
-        }
-        catch (final Exception exception) {
-            exception.printStackTrace();
-        }
-
-        Logger.log("Invalid block: "+ block.getHash());
-        return false;
-    }
-
     public NodeModule(final String configurationFilename) {
+        final Thread mainThread = Thread.currentThread();
+
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -311,7 +219,7 @@ public class NodeModule {
                 Logger.log("[Database Online]");
             }
             else {
-                _exitFailure();
+                BitcoinUtil.exitFailure();
             }
         }
 
@@ -342,20 +250,24 @@ public class NodeModule {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                _exitFailure();
+                BitcoinUtil.exitFailure();
             }
         }
 
-        _queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory);
-        _queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory);
-        _requestDataCallback = new RequestDataHandler(databaseConnectionFactory);
+        {
+            final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
+            final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+            final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory);
+            _nodeInitializer = new NodeInitializer(queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+        }
 
 
         for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
             final String host = seedNodeProperties.getAddress();
             final Integer port = seedNodeProperties.getPort();
 
-            _addNode(host, port);
+            final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
+            _nodeManager.addNode(node);
         }
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
@@ -363,52 +275,22 @@ public class NodeModule {
             @Override
             public void run(final BinarySocket binarySocket) {
                 Logger.log("New Connection: " + binarySocket);
-                final BitcoinNode node = new BitcoinNode(binarySocket);
-                node.setQueryBlocksCallback(_queryBlocksCallback);
-                node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
-                node.setRequestDataCallback(_requestDataCallback);
+                final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
                 _nodeManager.addNode(node);
             }
         });
 
-        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
-        statisticsContainer.averageBlocksPerSecond = _averageBlocksPerSecond;
-        statisticsContainer.averageTransactionsPerSecond = _averageTransactionsPerSecond;
+        _blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, _medianBlockTime, _readUncommittedDatabaseConnectionPool);
+        _blockValidatorThread = new BlockValidatorThread(_queuedBlocks, _blockProcessor);
 
-        final Thread mainThread = Thread.currentThread();
-        final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new JsonRpcSocketServerHandler.ShutdownHandler() {
-            @Override
-            public Boolean shutdown() {
-                mainThread.interrupt();
-                return true;
-            }
-        };
-
-        final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new JsonRpcSocketServerHandler.NodeHandler() {
-            @Override
-            public Boolean addNode(final String host, final Integer port) {
-                if ( (host == null) || (port == null) ) { return false; }
-                if ( (port <= 0)    || (port > 65535) ) { return false; }
-
-                _addNode(host, port);
-                return true;
-            }
-
-            @Override
-            public List<Node> getNodes() {
-                return ConstUtil.downcastList(_nodeManager.getNodes());
-            }
-        };
-
-        final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new JsonRpcSocketServerHandler.QueryBalanceHandler() {
-            @Override
-            public Long getBalance(final Address address) {
-                return null;
-            }
-        };
+        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = _blockProcessor.getStatisticsContainer();
 
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
+            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread);
+            final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
+            final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory);
+
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort);
 
             final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, statisticsContainer);
@@ -425,11 +307,11 @@ public class NodeModule {
     }
 
     public void loop() {
-        _nodeManager.startNodeMaintenanceThread();
+        // _nodeManager.startNodeMaintenanceThread();
 
         Logger.log("[Server Online]");
 
-        _blockValidatorThread.start();
+        // _blockValidatorThread.start();
         Logger.log("[Block Validator Thread Online]");
 
         if (_jsonRpcSocketServer != null) {
@@ -440,7 +322,7 @@ public class NodeModule {
             Logger.log("NOTICE: Bitcoin RPC Server not started.");
         }
 
-        _socketServer.start();
+        // _socketServer.start();
         Logger.log("[Listening For Connections]");
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
@@ -463,7 +345,7 @@ public class NodeModule {
                         return; // NOTE: Can happen if the NodeModule received GenesisBlock from another node...
                     }
 
-                    final Boolean isValidBlock = _processBlock(block);
+                    final Boolean isValidBlock = _blockProcessor.processBlock(block);
 
                     if (isValidBlock) {
                         _downloadAllBlocks();
@@ -479,8 +361,6 @@ public class NodeModule {
             new Thread(new Runnable() {
                 @Override
                 public void run() {
-//                    final ScriptInflater scriptInflater = new ScriptInflater();
-
                     try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
                         long nextId = 1L;
                         {
@@ -493,19 +373,20 @@ public class NodeModule {
                             }
                         }
 
-                        Logger.log("Starting migration at: " + nextId);
+                        Logger.log("Starting output migration at: " + nextId);
 
                         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
 
+                        long maxId = Long.MAX_VALUE;
                         while (true) {
                             if (nextId % 10000 == 0) {
                                 final java.util.List<Row> rows = databaseConnection.query(
                                     new Query("SELECT id FROM transaction_outputs ORDER BY id DESC LIMIT 1")
                                 );
 
-                                final Long maxId = (rows.get(0).getLong("id"));
+                                maxId = (rows.get(0).getLong("id"));
 
-                                Logger.log("Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
+                                Logger.log("Output Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
                             }
 
                             final java.util.List<Row> rows = databaseConnection.query(
@@ -513,9 +394,9 @@ public class NodeModule {
                                     .setParameter(nextId)
                             );
                             if (rows.isEmpty()) {
+                                Logger.log("Skipping Output Migration Id: " + nextId);
+                                if (nextId >= maxId) { Thread.sleep(500L); }
                                 nextId += 1L;
-                                Logger.log("Skipping Migration Id: " + nextId);
-                                Thread.sleep(500L);
                                 continue;
                             }
 
@@ -528,52 +409,66 @@ public class NodeModule {
 
                             nextId += 1L;
                         }
+                    }
+                    catch (final Exception exception) {
+                        Logger.log(exception);
+                    }
 
+                    Logger.log("***** Output Database Migration Ended *****");
+                }
+            }).start();
 
-//                        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-//
-//                        long transactionOutputId = 1L;
-//                        {
-//                            final java.util.List<Row> rows = databaseConnection.query(
-//                                new Query("SELECT id, transaction_output_id FROM pay_to_public_key_hash_scripts ORDER BY id DESC LIMIT 1")
-//                            );
-//                            if (! rows.isEmpty()) {
-//                                final Row row = rows.get(0);
-//                                transactionOutputId = row.getLong("transaction_output_id") + 1;
-//                            }
-//                        }
-//
-//                        Logger.log("Starting migration at: " + transactionOutputId);
-//
-//                        while (true) {
-//                            if (transactionOutputId % 10000L == 0) {
-//                                final java.util.List<Row> rows = databaseConnection.query(
-//                                    new Query("SELECT id FROM transaction_outputs ORDER BY id DESC LIMIT 1")
-//                                );
-//                                final long maxTransactionOutputId = rows.get(0).getLong("id");
-//
-//                                Logger.log("Current P2PKH Migration Output Id: " + transactionOutputId + " / " + maxTransactionOutputId + " " + (transactionOutputId * 100F / (float) maxTransactionOutputId) + "%");
-//                            }
-//
-//                            final java.util.List<Row> rows = databaseConnection.query(
-//                                new Query("SELECT id, locking_script FROM transaction_outputs WHERE id = ?")
-//                                    .setParameter(transactionOutputId)
-//                            );
-//
-//                            if (rows.isEmpty()) {
-//                                Logger.log("No TxOutput For Id: " + transactionOutputId);
-//                                Thread.sleep(500);
-//                                transactionOutputId += 1L;
-//                                continue;
-//                            }
-//
-//                            final Row row = rows.get(0);
-//
-//                            final Script lockingScript = scriptInflater.fromBytes(row.getBytes("locking_script"));
-//                            transactionOutputDatabaseManager.updatePayToPublicKeyHashTable(TransactionOutputId.wrap(transactionOutputId), lockingScript);
-//
-//                            transactionOutputId += 1L;
-//                        }
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                        long nextId = 1L;
+                        {
+                            final java.util.List<Row> rows = databaseConnection.query(
+                                new Query("SELECT id, transaction_input_id FROM unlocking_scripts ORDER BY id DESC LIMIT 1")
+                            );
+                            if (! rows.isEmpty()) {
+                                final Row row = rows.get(0);
+                                nextId = row.getLong("transaction_input_id") + 1;
+                            }
+                        }
+
+                        Logger.log("Starting input migration at: " + nextId);
+
+                        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
+
+                        long maxId = Long.MAX_VALUE;
+
+                        while (true) {
+                            if (nextId % 10000 == 0) {
+                                final java.util.List<Row> rows = databaseConnection.query(
+                                    new Query("SELECT id FROM transaction_inputs ORDER BY id DESC LIMIT 1")
+                                );
+
+                                maxId = (rows.get(0).getLong("id"));
+
+                                Logger.log("Input Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
+                            }
+
+                            final java.util.List<Row> rows = databaseConnection.query(
+                                new Query("SELECT id, unlocking_script FROM transaction_inputs WHERE id = ?")
+                                    .setParameter(nextId)
+                            );
+                            if (rows.isEmpty()) {
+                                Logger.log("Skipping Input Migration Id: " + nextId);
+                                if (nextId >= maxId) { Thread.sleep(500L); }
+                                nextId += 1L;
+                                continue;
+                            }
+
+                            final Row row = rows.get(0);
+                            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
+                            final UnlockingScript unlockingScript = new ImmutableUnlockingScript(row.getBytes("unlocking_script"));
+
+                            transactionInputDatabaseManager._insertUnlockingScript(transactionInputId, unlockingScript);
+
+                            nextId += 1L;
+                        }
                     }
                     catch (final Exception exception) {
                         Logger.log(exception);

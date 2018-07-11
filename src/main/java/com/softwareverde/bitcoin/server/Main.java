@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.StratumModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
-import com.softwareverde.io.Logger;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
 
 public class Main {
@@ -13,11 +13,6 @@ public class Main {
     public static void main(final String[] commandLineArguments) {
         final Main application = new Main(commandLineArguments);
         application.run();
-    }
-
-    protected void _exitFailure() {
-        Logger.shutdown();
-        System.exit(1);
     }
 
     protected void _printError(final String errorMessage) {
@@ -86,7 +81,7 @@ public class Main {
 
         if (arguments.length < 1) {
             _printUsage();
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
     }
 
@@ -97,7 +92,7 @@ public class Main {
             case "NODE": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -108,7 +103,7 @@ public class Main {
             case "STRATUM": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -119,7 +114,7 @@ public class Main {
             case "DATABASE": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -134,7 +129,7 @@ public class Main {
             case "MINER": {
                 if (_arguments.length != 5) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -147,7 +142,7 @@ public class Main {
 
             default: {
                 _printUsage();
-                _exitFailure();
+                BitcoinUtil.exitFailure();
             }
         }
     }
