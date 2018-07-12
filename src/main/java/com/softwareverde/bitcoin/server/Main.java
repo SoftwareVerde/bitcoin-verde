@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.StratumModule;
+import com.softwareverde.bitcoin.server.module.node.AddressMigrationModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
@@ -98,6 +99,17 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 NodeModule.execute(configurationFile);
+            } break;
+
+            case "MIGRATION": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                AddressMigrationModule.execute(configurationFile);
             } break;
 
             case "STRATUM": {

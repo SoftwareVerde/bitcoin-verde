@@ -9,8 +9,6 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
@@ -19,26 +17,17 @@ import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.socket.BinarySocket;
@@ -106,14 +95,10 @@ public class NodeModule {
 
     protected final NodeInitializer _nodeInitializer;
 
-    protected void _printError(final String errorMessage) {
-        System.err.println(errorMessage);
-    }
-
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
-            _printError("Invalid configuration file.");
+            Logger.error("Invalid configuration file.");
             BitcoinUtil.exitFailure();
         }
 
@@ -180,7 +165,7 @@ public class NodeModule {
         _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
     }
 
-    public NodeModule(final String configurationFilename) {
+    protected NodeModule(final String configurationFilename) {
         final Thread mainThread = Thread.currentThread();
 
         _configuration = _loadConfigurationFile(configurationFilename);
@@ -307,11 +292,11 @@ public class NodeModule {
     }
 
     public void loop() {
-        // _nodeManager.startNodeMaintenanceThread();
+        _nodeManager.startNodeMaintenanceThread();
 
         Logger.log("[Server Online]");
 
-        // _blockValidatorThread.start();
+        _blockValidatorThread.start();
         Logger.log("[Block Validator Thread Online]");
 
         if (_jsonRpcSocketServer != null) {
@@ -322,7 +307,7 @@ public class NodeModule {
             Logger.log("NOTICE: Bitcoin RPC Server not started.");
         }
 
-        // _socketServer.start();
+        _socketServer.start();
         Logger.log("[Listening For Connections]");
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
@@ -355,128 +340,6 @@ public class NodeModule {
         }
         else {
             _downloadAllBlocks();
-        }
-
-        { // Database Migration Hack...
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-                        long nextId = 1L;
-                        {
-                            final java.util.List<Row> rows = databaseConnection.query(
-                                new Query("SELECT id, transaction_output_id FROM locking_scripts ORDER BY id DESC LIMIT 1")
-                            );
-                            if (! rows.isEmpty()) {
-                                final Row row = rows.get(0);
-                                nextId = row.getLong("transaction_output_id") + 1;
-                            }
-                        }
-
-                        Logger.log("Starting output migration at: " + nextId);
-
-                        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-
-                        long maxId = Long.MAX_VALUE;
-                        while (true) {
-                            if (nextId % 10000 == 0) {
-                                final java.util.List<Row> rows = databaseConnection.query(
-                                    new Query("SELECT id FROM transaction_outputs ORDER BY id DESC LIMIT 1")
-                                );
-
-                                maxId = (rows.get(0).getLong("id"));
-
-                                Logger.log("Output Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
-                            }
-
-                            final java.util.List<Row> rows = databaseConnection.query(
-                                new Query("SELECT id, locking_script FROM transaction_outputs WHERE id = ?")
-                                    .setParameter(nextId)
-                            );
-                            if (rows.isEmpty()) {
-                                Logger.log("Skipping Output Migration Id: " + nextId);
-                                if (nextId >= maxId) { Thread.sleep(500L); }
-                                nextId += 1L;
-                                continue;
-                            }
-
-                            final Row row = rows.get(0);
-                            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
-                            final LockingScript lockingScript = new ImmutableLockingScript(row.getBytes("locking_script"));
-
-                            transactionOutputDatabaseManager._storeScriptAddress(lockingScript);
-                            transactionOutputDatabaseManager._insertLockingScript(transactionOutputId, lockingScript);
-
-                            nextId += 1L;
-                        }
-                    }
-                    catch (final Exception exception) {
-                        Logger.log(exception);
-                    }
-
-                    Logger.log("***** Output Database Migration Ended *****");
-                }
-            }).start();
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-                        long nextId = 1L;
-                        {
-                            final java.util.List<Row> rows = databaseConnection.query(
-                                new Query("SELECT id, transaction_input_id FROM unlocking_scripts ORDER BY id DESC LIMIT 1")
-                            );
-                            if (! rows.isEmpty()) {
-                                final Row row = rows.get(0);
-                                nextId = row.getLong("transaction_input_id") + 1;
-                            }
-                        }
-
-                        Logger.log("Starting input migration at: " + nextId);
-
-                        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
-
-                        long maxId = Long.MAX_VALUE;
-
-                        while (true) {
-                            if (nextId % 10000 == 0) {
-                                final java.util.List<Row> rows = databaseConnection.query(
-                                    new Query("SELECT id FROM transaction_inputs ORDER BY id DESC LIMIT 1")
-                                );
-
-                                maxId = (rows.get(0).getLong("id"));
-
-                                Logger.log("Input Migration: " + nextId + " / " + maxId + " ("+ (nextId * 100F / (float) maxId) +"%)");
-                            }
-
-                            final java.util.List<Row> rows = databaseConnection.query(
-                                new Query("SELECT id, unlocking_script FROM transaction_inputs WHERE id = ?")
-                                    .setParameter(nextId)
-                            );
-                            if (rows.isEmpty()) {
-                                Logger.log("Skipping Input Migration Id: " + nextId);
-                                if (nextId >= maxId) { Thread.sleep(500L); }
-                                nextId += 1L;
-                                continue;
-                            }
-
-                            final Row row = rows.get(0);
-                            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
-                            final UnlockingScript unlockingScript = new ImmutableUnlockingScript(row.getBytes("unlocking_script"));
-
-                            transactionInputDatabaseManager._insertUnlockingScript(transactionInputId, unlockingScript);
-
-                            nextId += 1L;
-                        }
-                    }
-                    catch (final Exception exception) {
-                        Logger.log(exception);
-                    }
-
-                    Logger.log("***** Database Migration Ended *****");
-                }
-            }).start();
         }
 
         while (! Thread.currentThread().isInterrupted()) {

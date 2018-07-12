@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
@@ -22,12 +22,12 @@ public class BlockProcessor {
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
-    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
+    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeManager = nodeManager;
         _medianBlockTime = medianBlockTime;

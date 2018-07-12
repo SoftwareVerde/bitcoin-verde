@@ -54,14 +54,9 @@ public class Logger {
     }
 
     public static LogCallback LOG_CALLBACK = null;
+    public static LogCallback ERROR_CALLBACK = null;
 
-    protected static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
-        final StackTraceElement stackTraceElements[] = exception.getStackTrace();
-        final StackTraceElement stackTraceElement = stackTraceElements[backtraceIndex];
-        return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
-    }
-
-    public static void log(final Object object) {
+    private static String _toString(final Object object) {
         try (final StringWriter stringWriter = new StringWriter()) {
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
                 if (object instanceof Exception) {
@@ -75,14 +70,37 @@ public class Logger {
                     stringWriter.append(Util.coalesce(object, "null").toString());
                 }
 
-                _queuedMessages.add(stringWriter.toString());
+                return stringWriter.toString();
             }
         }
         catch (final Exception exception) { exception.printStackTrace(); }
 
+        return "null";
+    }
+
+    private static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
+        final StackTraceElement stackTraceElements[] = exception.getStackTrace();
+        final StackTraceElement stackTraceElement = stackTraceElements[backtraceIndex];
+        return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
+    }
+
+    public static void log(final Object object) {
+        final String string = _toString(object);
+        _queuedMessages.add(string);
+
         final LogCallback logCallback = LOG_CALLBACK;
         if (logCallback != null) {
             logCallback.onLog(object);
+        }
+    }
+
+    public static void error(final Object object) {
+        final String string = _toString(object);
+        System.err.println(string);
+
+        final LogCallback errorCallback = ERROR_CALLBACK;
+        if (errorCallback != null) {
+            errorCallback.onLog(object);
         }
     }
 

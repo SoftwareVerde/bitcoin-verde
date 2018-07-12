@@ -9,15 +9,15 @@ import com.softwareverde.bitcoin.type.address.Address;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.factory.DatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 import java.math.BigInteger;
 
 public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBalanceHandler {
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
-    public QueryBalanceHandler(final DatabaseConnectionFactory databaseConnectionFactory) {
+    public QueryBalanceHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
