@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.gui.VerdeWallet;
 import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
@@ -99,6 +100,10 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 NodeModule.execute(configurationFile);
+            } break;
+
+            case "WALLET": {
+                VerdeWallet.launch(VerdeWallet.class, _arguments);
             } break;
 
             case "MIGRATION": {

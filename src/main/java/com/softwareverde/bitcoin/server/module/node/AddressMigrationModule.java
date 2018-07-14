@@ -92,7 +92,7 @@ public class AddressMigrationModule {
                         );
                         if (rows.isEmpty()) {
                             Logger.log("Skipping Input Migration Id: " + nextId);
-                            if (nextId >= maxId) { Thread.sleep(500L); }
+                            if (nextId >= maxId) { break; }
                             nextId += 1L;
                             continue;
                         }

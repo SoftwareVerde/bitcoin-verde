@@ -1,9 +1,13 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
+import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
@@ -40,7 +44,23 @@ public class DatabaseModule {
         {
             EmbeddedMysqlDatabase databaseInstance = null;
             try {
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties);
+                final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", Constants.DATABASE_VERSION, new DatabaseInitializer.DatabaseUpgradeHandler() {
+                    @Override
+                    public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
+                });
+
+                final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
+                {
+                    commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
+                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
+                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setQueryCacheByteCount(0L);
+                    commandLineArguments.addArgument("--performance_schema");
+                }
+
+                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);

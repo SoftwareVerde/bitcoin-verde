@@ -1,0 +1,23 @@
+#root {
+    -fx-background-color: #222222;
+    -fx-text-fill: #EEEEEE;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-opacity: 0.2;
+}
+
+.tab {
+    -fx-background-color: #333333;
+    -fx-text-fill: #EEEEEE;
+
+    -fx-border-style: none;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.tab:selected  {
+    -fx-background-color: #70BF4A;
+    -fx-text-fill: #222222;
+    -fx-font-weight: bold;
+}
