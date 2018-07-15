@@ -21,3 +21,29 @@
     -fx-text-fill: #222222;
     -fx-font-weight: bold;
 }
+
+.label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.text-field {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #505050, #383838, #383838;
+    -fx-background-insets: 0 -2 -2 -2, 0 0 0 0, 0 -2 3 -2;
+}
+
+.text-field:focused {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #606060, #383838, #383838;
+    -fx-background-insets: 0 -2 -2 -2, 0 0 0 0, 0 -2 3 -2;
+}
+
+.context-menu {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #656565;
+}
+
+.context-menu .menu-item {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #656565;
+}

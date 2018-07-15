@@ -2,6 +2,10 @@ package com.softwareverde.bitcoin.gui;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
@@ -13,10 +17,8 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
 import java.io.File;
@@ -24,7 +26,7 @@ import java.io.File;
 public class VerdeWallet extends Application {
     protected TabPane _tabPane;
 
-    protected Tab _userDocumentsTab;
+    protected Tab _transactionHistoryTab;
 
     protected Double _width = 720D / 2D;
     protected Double _height = 960D / 2D;
@@ -90,26 +92,14 @@ public class VerdeWallet extends Application {
         final ObservableList<Tab> tabs = _tabPane.getTabs();
 
         {
-            _userDocumentsTab = new Tab();
-            _userDocumentsTab.setText("Transaction History");
-            tabs.add(_userDocumentsTab);
+            final TransactionsPane transactionsPane = new TransactionsPane(databaseConnectionFactory);
+            _transactionHistoryTab = new Tab();
+            _transactionHistoryTab.setText("Transaction History");
+            _transactionHistoryTab.setContent(transactionsPane);
+            tabs.add(_transactionHistoryTab);
         }
 
         children.add(_tabPane);
-
-        {
-            final Text label = new Text("Address:");
-            final TextField textField = new TextField();
-            textField.textProperty().addListener(new ChangeListener<String>() {
-                @Override
-                public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
-
-                }
-            });
-
-            children.add(label);
-            children.add(textField);
-        }
 
         primaryStage.setScene(scene);
         primaryStage.setTitle("Bitcoin Verde");
