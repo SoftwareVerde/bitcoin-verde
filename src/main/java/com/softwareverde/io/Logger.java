@@ -60,12 +60,12 @@ public class Logger {
         try (final StringWriter stringWriter = new StringWriter()) {
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
                 if (object instanceof Exception) {
-                    final String metadata = ("[" + _getMetadata((Exception) object, 0) + "]");
+                    final String metadata = ("[" + _getMetadata((Exception) object, 1) + "]");
                     stringWriter.append(metadata);
                     ((Exception) object).printStackTrace(printWriter);
                 }
                 else {
-                    final String metadata = ("[" + _getMetadata(new Exception(), 1) + "] ");
+                    final String metadata = ("[" + _getMetadata(new Exception(), 2) + "] ");
                     stringWriter.append(metadata);
                     stringWriter.append(Util.coalesce(object, "null").toString());
                 }

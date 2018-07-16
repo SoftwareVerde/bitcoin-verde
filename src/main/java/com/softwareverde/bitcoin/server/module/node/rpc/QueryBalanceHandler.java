@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
-import com.softwareverde.bitcoin.type.address.Address;
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;

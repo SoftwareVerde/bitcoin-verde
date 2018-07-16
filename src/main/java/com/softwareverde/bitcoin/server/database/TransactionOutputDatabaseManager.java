@@ -1,21 +1,19 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
-import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.address.AddressId;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 
 import java.util.List;
 
@@ -56,7 +54,16 @@ public class TransactionOutputDatabaseManager {
     public void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-        final AddressId addressId = (scriptType != ScriptType.UNKNOWN ? _storeScriptAddress(lockingScript) : null);
+
+
+        final AddressId addressId;
+        if (scriptType != ScriptType.UNKNOWN) {
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
+            addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
+        }
+        else {
+            addressId = null;
+        }
 
         _databaseConnection.executeSql(
             new Query("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
@@ -96,55 +103,6 @@ public class TransactionOutputDatabaseManager {
         mutableTransactionOutput.setAmount(transactionOutputRow.getLong("amount"));
         mutableTransactionOutput.setLockingScript(lockingScript);
         return mutableTransactionOutput;
-    }
-
-    public AddressId _storeScriptAddress(final Script lockingScript) throws DatabaseException {
-        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-
-        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-        if (scriptType == ScriptType.UNKNOWN) {
-            return null;
-        }
-
-        final Address address;
-        {
-            switch (scriptType) {
-                case PAY_TO_PUBLIC_KEY: {
-                    address = scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript);
-                } break;
-                case PAY_TO_PUBLIC_KEY_HASH: {
-                    address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(lockingScript);
-                } break;
-                case PAY_TO_SCRIPT_HASH: {
-                    address = scriptPatternMatcher.extractAddressFromPayToScriptHash(lockingScript);
-                } break;
-                default: {
-                    address = null;
-                } break;
-            }
-        }
-
-        if (address == null) {
-            Logger.log("Error determining address.");
-            return null;
-        }
-
-        final String addressString = address.toBase58CheckEncoded();
-
-        final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM addresses WHERE address = ?")
-                .setParameter(addressString)
-        );
-
-        if (! rows.isEmpty()) {
-            final Row row = rows.get(0);
-            return AddressId.wrap(row.getLong("id"));
-        }
-
-        return AddressId.wrap(_databaseConnection.executeSql(
-            new Query("INSERT INTO addresses (address) VALUES (?)")
-                .setParameter(addressString)
-        ));
     }
 
     public TransactionOutputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {

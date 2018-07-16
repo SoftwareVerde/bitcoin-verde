@@ -1,6 +1,6 @@
 CREATE TABLE addresses (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    address char(34) NOT NULL,
+    address varchar(255) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY addresses_uq (address)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

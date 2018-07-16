@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.address;
+package com.softwareverde.bitcoin.address;
 
 public class PayToScriptHashAddress extends Address {
     public static final byte PREFIX = (byte) 0x05;

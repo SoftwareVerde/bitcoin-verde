@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.address;
+package com.softwareverde.bitcoin.address;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;

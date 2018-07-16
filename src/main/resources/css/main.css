@@ -26,6 +26,10 @@
     -fx-text-fill: #FFFFFF;
 }
 
+.text {
+    -fx-text-fill: #FFFFFF;
+}
+
 .text-field {
     -fx-text-fill: #EEEEEE;
     -fx-background-color: #505050, #383838, #383838;
@@ -46,4 +50,61 @@
 .context-menu .menu-item {
     -fx-text-fill: #EEEEEE;
     -fx-background-color: #656565;
+}
+
+.list-view {
+    -fx-background-color: #000000;
+    -fx-background-insets: 0;
+}
+
+.list-cell {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #000000;
+    -fx-font-size: 8pt;
+}
+
+.list-cell:filled:selected:focused, .list-cell:filled:selected {
+    -fx-text-fill: #FFFFFF;
+}
+
+.list-cell:even {
+    -fx-background-color: #101010;
+}
+
+.list-cell:filled:hover {
+    -fx-background-color: #202020;
+    -fx-text-fill: #FFFFFF;
+}
+
+.list-cell:empty {
+    -fx-background-color: #000000;
+}
+
+.scroll-pane {
+    -fx-background-color: #000000;
+    -fx-font-size: 5px;
+}
+
+.scroll-bar:horizontal, .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.increment-button, .decrement-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:horizontal .track, .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0em;
+}
+
+.scroll-bar:horizontal .thumb, .scroll-bar:vertical .thumb {
+    -fx-background-color: #EEEEEE;
+    -fx-background-radius: 5em;
+}
+
+.scroll-pane > .corner {
+    -fx-background-color: #191A19;
 }

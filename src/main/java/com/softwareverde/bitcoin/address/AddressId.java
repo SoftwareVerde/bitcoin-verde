@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.address;
+package com.softwareverde.bitcoin.address;
 
 import com.softwareverde.util.type.identifier.Identifier;
 

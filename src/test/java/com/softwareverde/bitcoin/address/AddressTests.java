@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.address;
+package com.softwareverde.bitcoin.address;
 
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import org.junit.Assert;

@@ -19,7 +19,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
-import com.softwareverde.bitcoin.type.address.AddressInflater;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;

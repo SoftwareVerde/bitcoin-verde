@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.type.key;
 
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.address.AddressInflater;
-import com.softwareverde.bitcoin.type.address.CompressedAddress;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.CompressedAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;

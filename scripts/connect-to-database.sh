@@ -1,7 +1,7 @@
 #!/bin/bash
 
-USER='root'
-PASSWORD='d3d4a3d0533e3e83bc16db93414afd96'
+USER='bitcoin'
+PASSWORD='81b797117e8e0233ea8fd1d46923df54'
 DATABASE='bitcoin'
 PORT='8336'
 HOST='127.0.0.1'

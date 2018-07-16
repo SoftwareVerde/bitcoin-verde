@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
@@ -17,7 +18,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.Util;
 
 import java.io.File;
 
@@ -134,6 +134,7 @@ public class AddressMigrationModule {
                     Logger.log("Starting output migration at: " + nextId);
 
                     final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+                    final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
 
                     long maxId = Long.MAX_VALUE;
                     while (true) {
@@ -163,7 +164,7 @@ public class AddressMigrationModule {
                         final LockingScript lockingScript = new ImmutableLockingScript(row.getBytes("locking_script"));
 
                         TransactionUtil.startTransaction(databaseConnection);
-                        transactionOutputDatabaseManager._storeScriptAddress(lockingScript);
+                        addressDatabaseManager.storeScriptAddress(lockingScript);
                         transactionOutputDatabaseManager._insertLockingScript(transactionOutputId, lockingScript);
                         TransactionUtil.commitTransaction(databaseConnection);
 
