@@ -172,6 +172,17 @@ public class TransactionDatabaseManager {
         return _getTransactionIdFromHash(blockChainSegmentId, transactionHash);
     }
 
+    public Sha256Hash getTransactionHashFromTransactionId(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return MutableSha256Hash.fromHexString(row.getString("hash"));
+    }
+
     /**
      * Attempts to find the transaction that matches transactionHash that has not been committed to a block.
      *  This function is intended to be used when the blockId is not known.

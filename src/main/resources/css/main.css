@@ -8,7 +8,7 @@
 }
 
 .tab {
-    -fx-background-color: #333333;
+    -fx-background-color: #242424;
     -fx-text-fill: #EEEEEE;
 
     -fx-border-style: none;
@@ -17,16 +17,12 @@
 }
 
 .tab:selected  {
-    -fx-background-color: #70BF4A;
-    -fx-text-fill: #222222;
+    -fx-background-color: #79A890;
+    -fx-text-fill: #000000;
     -fx-font-weight: bold;
 }
 
 .label {
-    -fx-text-fill: #FFFFFF;
-}
-
-.text {
     -fx-text-fill: #FFFFFF;
 }
 
@@ -58,7 +54,6 @@
 }
 
 .list-cell {
-    -fx-text-fill: #EEEEEE;
     -fx-background-color: #000000;
     -fx-font-size: 8pt;
 }
@@ -72,8 +67,8 @@
 }
 
 .list-cell:filled:hover {
-    -fx-background-color: #202020;
     -fx-text-fill: #FFFFFF;
+    -fx-background-color: #202020;
 }
 
 .list-cell:empty {
@@ -101,10 +96,32 @@
 }
 
 .scroll-bar:horizontal .thumb, .scroll-bar:vertical .thumb {
-    -fx-background-color: #EEEEEE;
+    -fx-background-color: #303030;
     -fx-background-radius: 5em;
 }
 
-.scroll-pane > .corner {
-    -fx-background-color: #191A19;
+.scroll-bar:vertical {
+    -fx-pref-width: 10;
+    -fx-padding: 1;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10;
+    -fx-padding: 1;
+}
+
+.scroll-bar, .scroll-bar:pressed, .scroll-bar:focused {
+    -fx-font-size: 15;
+}
+
+.corner {
+    -fx-background-color: #000000;
+}
+
+.label.spent {
+    -fx-text-fill: #EFABCD;
+}
+
+.label.unspent {
+    -fx-text-fill: #ABEFCD;
 }

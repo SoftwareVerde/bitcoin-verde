@@ -4,13 +4,22 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.StringUtil;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 import javafx.beans.property.StringProperty;
 import javafx.beans.value.ChangeListener;
@@ -22,6 +31,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.paint.Paint;
 import javafx.scene.text.Text;
 
 import java.math.BigInteger;
@@ -35,7 +45,7 @@ public class TransactionsPane extends GridPane {
 
     protected final LabeledNode<AutoCompleteTextField> _addressInputNode;
     protected final LabeledNode<Label> _addressBalanceNode;
-    protected final ListView<String> _transactionListView;
+    protected final ListView<Label> _transactionListView;
 
     protected LabeledNode<TextField> _createTextField(final String label, final String value) {
         final Integer preferredColumnCount = 30;
@@ -117,37 +127,67 @@ public class TransactionsPane extends GridPane {
                             addressBalanceText.setText("");
 
                             if (addressIsValid) {
-                                final BigInteger addressBalance = addressDatabaseManager.getAddressBalance(addressId);
-                                addressBalanceText.setText(StringUtil.formatNumberString(addressBalance.longValue()));
+                                if (addressId != null) {
+                                    final BigInteger addressBalance = addressDatabaseManager.getAddressBalance(addressId);
+                                    addressBalanceText.setText(StringUtil.formatNumberString(addressBalance.longValue()) + " Satoshis");
+                                }
                             }
                         }
 
                         { // Display Address transactions history...
-                            _transactionListView.getItems().clear();
+                            final ObservableList<Label> transactionListItems = _transactionListView.getItems();
+                            transactionListItems.clear();
 
                             if (addressIsValid) {
                                 if (addressId != null) {
-                                    final java.util.List<Row> rows = databaseConnection.query(
-                                        new Query(
-                                            "SELECT " +
-                                                    "transactions.id, transactions.hash " +
-                                                "FROM " +
-                                                    "transactions " +
-                                                    "INNER JOIN transaction_outputs " +
-                                                        "ON transactions.id = transaction_outputs.transaction_id " +
-                                                    "INNER JOIN locking_scripts " +
-                                                        "ON transaction_outputs.id = locking_scripts.transaction_output_id " +
-                                                "WHERE " +
-                                                    "locking_scripts.address_id = ?"
-                                        )
-                                            .setParameter(addressId)
-                                    );
+                                    final List<AddressDatabaseManager.SpendableTransactionOutput> spendableTransactionOutputs = addressDatabaseManager.getSpendableTransactionOutputs(addressId);
 
-                                    final java.util.List<String> addressTransactions = new ArrayList<String>();
-                                    for (final Row row : rows) {
-                                        addressTransactions.add(row.getString("hash"));
+                                    final java.util.List<Label> addressTransactions = new ArrayList<Label>(spendableTransactionOutputs.getSize());
+
+                                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+                                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+                                    for (AddressDatabaseManager.SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
+                                        final TransactionId transactionId = spendableTransactionOutput.getTransactionId();
+
+                                        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHashFromTransactionId(transactionId);
+                                        final String transactionHashString = transactionHash.toString();
+
+                                        final String transactionDateString;
+                                        {
+                                            final BlockId blockId = transactionDatabaseManager.getBlockId(transactionId);
+                                            if (blockId == null) {
+                                                transactionDateString = "UNCONFIRMED";
+                                            }
+                                            else {
+                                                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                                                final Long timestampInSeconds = blockHeader.getTimestamp();
+                                                transactionDateString = DateUtil.timestampToDatetimeString(timestampInSeconds * 1000L);
+                                            }
+                                        }
+
+                                        final StringBuilder stringBuilder = new StringBuilder();
+                                        stringBuilder.append(transactionDateString);
+                                        stringBuilder.append(" - ");
+                                        stringBuilder.append(transactionHashString.substring(0, 8));
+                                        stringBuilder.append("...");
+                                        stringBuilder.append(transactionHashString.substring(transactionHashString.length() - 8));
+                                        stringBuilder.append(" -> ");
+                                        stringBuilder.append(StringUtil.formatNumberString(spendableTransactionOutput.getAmount()));
+                                        stringBuilder.append(" ");
+                                        stringBuilder.append(spendableTransactionOutput.wasSpent() ? "(S)" : "(U)");
+
+                                        final Label label = new Label(stringBuilder.toString());
+                                        if (spendableTransactionOutput.wasSpent()) {
+                                            label.getStyleClass().add("spent");
+                                        }
+                                        else {
+                                            label.getStyleClass().add("unspent");
+                                        }
+                                        addressTransactions.add(label);
                                     }
-                                    _transactionListView.getItems().addAll(addressTransactions);
+
+                                    transactionListItems.addAll(addressTransactions);
                                 }
                             }
                         }
@@ -160,7 +200,7 @@ public class TransactionsPane extends GridPane {
         }
 
         { // Transaction ListView...
-            _transactionListView = new ListView<String>();
+            _transactionListView = new ListView<Label>();
             children.add(_transactionListView);
             GridPane.setConstraints(_transactionListView, 0, 2);
         }
