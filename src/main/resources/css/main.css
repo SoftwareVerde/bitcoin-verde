@@ -125,3 +125,7 @@
 .label.unspent {
     -fx-text-fill: #ABEFCD;
 }
+
+.status-bar {
+    -fx-padding: 0 10 10 10;
+}

@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -31,8 +30,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
-import javafx.scene.paint.Paint;
-import javafx.scene.text.Text;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -65,8 +62,8 @@ public class TransactionsPane extends GridPane {
         this.setVgap(20);
         this.setHgap(20);
 
-        final ObservableList<Node> children = getChildren();
-        children.clear();
+        final ObservableList<Node> children = this.getChildren();
+        this.getChildren().clear();
 
         { // Address TextField...
             final AutoCompleteTextField textField = new AutoCompleteTextField();
