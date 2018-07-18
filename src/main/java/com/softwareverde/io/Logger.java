@@ -78,7 +78,7 @@ public class Logger {
         return "null";
     }
 
-    private static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
+    public static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
         final StackTraceElement stackTraceElements[] = exception.getStackTrace();
         final StackTraceElement stackTraceElement = stackTraceElements[backtraceIndex];
         return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
@@ -86,7 +86,13 @@ public class Logger {
 
     public static void log(final Object object) {
         final String string = _toString(object);
-        _queuedMessages.add(string);
+
+        if (_logThread.isAlive()) {
+            _queuedMessages.add(string);
+        }
+        else {
+            System.out.println(string);
+        }
 
         final LogCallback logCallback = LOG_CALLBACK;
         if (logCallback != null) {

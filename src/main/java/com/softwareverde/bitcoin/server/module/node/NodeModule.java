@@ -39,6 +39,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeModule {
@@ -193,7 +194,19 @@ public class NodeModule {
                     commandLineArguments.addArgument("--performance_schema");
                 }
 
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
+                final Properties connectionProperties = new Properties();
+                {
+                    connectionProperties.setProperty("dataSource.cachePrepStmts", "true");
+                    connectionProperties.setProperty("dataSource.prepStmtCacheSize", "250");
+                    connectionProperties.setProperty("dataSource.prepStmtCacheSqlLimit", "2048");
+                    connectionProperties.setProperty("dataSource.useServerPrepStmts", "true");
+                    connectionProperties.setProperty("dataSource.useLocalSessionState", "true");
+                    connectionProperties.setProperty("dataSource.rewriteBatchedStatements", "true");
+                    connectionProperties.setProperty("dataSource.cacheResultSetMetadata", "true");
+                    connectionProperties.setProperty("dataSource.cacheServerConfiguration", "true");
+                }
+
+                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments, connectionProperties);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
