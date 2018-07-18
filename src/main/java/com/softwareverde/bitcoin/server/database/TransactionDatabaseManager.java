@@ -23,9 +23,58 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
-import java.util.List;
+import java.util.*;
 
 public class TransactionDatabaseManager {
+    protected static class CachedTransactionHash {
+        public final BlockChainSegmentId blockChainSegmentId;
+        public final Sha256Hash transactionHash;
+
+        public CachedTransactionHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash sha256Hash) {
+            this.blockChainSegmentId = blockChainSegmentId;
+            this.transactionHash = sha256Hash;
+        }
+
+        @Override
+        public int hashCode() {
+            return this.transactionHash.hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            if (object == null) { return false; }
+            if (object == this) { return true; }
+            if (! (object instanceof CachedTransactionHash)) { return false; }
+
+            final CachedTransactionHash cachedTransactionHash = (CachedTransactionHash) object;
+            return (Util.areEqual(this.transactionHash, cachedTransactionHash.transactionHash) && Util.areEqual(this.blockChainSegmentId, cachedTransactionHash.blockChainSegmentId));
+        }
+    }
+
+    protected static final Object CACHE_MUTEX = new Object();
+    protected static final Map<CachedTransactionHash, TransactionId> TRANSACTION_CACHE = new HashMap<CachedTransactionHash, TransactionId>();
+    protected static TransactionId loadFromCache(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) {
+        final CachedTransactionHash cachedTransactionHash = new CachedTransactionHash(blockChainSegmentId, transactionHash);
+        synchronized (CACHE_MUTEX) {
+            return TRANSACTION_CACHE.get(cachedTransactionHash);
+        }
+    }
+    protected static void cacheTransactionHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash, final TransactionId transactionId) {
+        final CachedTransactionHash cachedTransactionHash = new CachedTransactionHash(blockChainSegmentId, transactionHash);
+        synchronized (CACHE_MUTEX) {
+            if (TRANSACTION_CACHE.containsKey(cachedTransactionHash)) { return; }
+
+            final java.util.List<CachedTransactionHash> keySet = new ArrayList<CachedTransactionHash>(TRANSACTION_CACHE.keySet());
+            while (keySet.size() >= 100) {
+                final CachedTransactionHash key = keySet.remove(0);
+                TRANSACTION_CACHE.remove(key);
+            }
+
+            TRANSACTION_CACHE.put(cachedTransactionHash, transactionId);
+        }
+    }
+
+
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected void _insertTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
@@ -169,7 +218,12 @@ public class TransactionDatabaseManager {
      *  Uncommitted transactions are NOT included in this search.
      */
     public TransactionId getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
-        return _getTransactionIdFromHash(blockChainSegmentId, transactionHash);
+        final TransactionId cachedTransactionId = loadFromCache(blockChainSegmentId, transactionHash);
+        if (cachedTransactionId != null) { return cachedTransactionId; }
+
+        final TransactionId transactionId = _getTransactionIdFromHash(blockChainSegmentId, transactionHash);
+        cacheTransactionHash(blockChainSegmentId, transactionHash, transactionId);
+        return transactionId;
     }
 
     public Sha256Hash getTransactionHashFromTransactionId(final TransactionId transactionId) throws DatabaseException {

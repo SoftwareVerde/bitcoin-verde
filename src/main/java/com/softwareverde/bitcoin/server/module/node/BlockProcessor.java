@@ -43,13 +43,22 @@ public class BlockProcessor {
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            long storeBlockStartTime = System.currentTimeMillis();
+            final long storeBlockStartTime = System.currentTimeMillis();
             final BlockId blockId = blockDatabaseManager.insertBlock(block);
-            long storeBlockEndTime = System.currentTimeMillis();
+            final long storeBlockEndTime = System.currentTimeMillis();
             final Long storeBlockDuration = (storeBlockEndTime - storeBlockStartTime);
 
+            final long updateBlockChainsStartTime = System.currentTimeMillis();
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+            final long updateBlockChainsEndTime = System.currentTimeMillis();
+            final Long updateBlockChainsDuration = (updateBlockChainsEndTime - updateBlockChainsStartTime);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+
+            {
+                final int transactionCount = block.getTransactions().getSize();
+                Logger.log("Stored " + transactionCount + " transactions in " + (storeBlockDuration) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockDuration) * 1000)) + " tps).");
+                Logger.log("Updated Chains " + updateBlockChainsDuration);
+            }
 
             final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
             final long blockValidationStartTime = System.currentTimeMillis();
@@ -66,7 +75,7 @@ public class BlockProcessor {
                 final Float averageBlocksPerSecond;
                 final Float averageTransactionsPerSecond;
                 synchronized (_statisticsMutex) {
-                    _blocksPerSecond.add(blockValidationMsElapsed + storeBlockDuration);
+                    _blocksPerSecond.add(blockValidationMsElapsed + storeBlockDuration + updateBlockChainsDuration);
                     _transactionsPerBlock.add(blockTransactionCount);
 
                     final Integer blockCount = _blocksPerSecond.size();
