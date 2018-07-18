@@ -37,6 +37,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.Timer;
 
 import java.io.File;
 import java.util.Properties;
@@ -62,7 +63,11 @@ public class NodeModule {
             while (true) {
                 final Block block = _queuedBlocks.poll();
                 if (block != null) {
+                    final Timer timer = new Timer();
+                    timer.start();
                     final Boolean isValidBlock = _blockProcessor.processBlock(block);
+                    timer.stop();
+                    Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()));
 
                     if (! isValidBlock) {
                         Logger.log("Invalid block: " + block.getHash());
@@ -196,14 +201,14 @@ public class NodeModule {
 
                 final Properties connectionProperties = new Properties();
                 {
-                    connectionProperties.setProperty("dataSource.cachePrepStmts", "true");
-                    connectionProperties.setProperty("dataSource.prepStmtCacheSize", "250");
-                    connectionProperties.setProperty("dataSource.prepStmtCacheSqlLimit", "2048");
-                    connectionProperties.setProperty("dataSource.useServerPrepStmts", "true");
-                    connectionProperties.setProperty("dataSource.useLocalSessionState", "true");
-                    connectionProperties.setProperty("dataSource.rewriteBatchedStatements", "true");
-                    connectionProperties.setProperty("dataSource.cacheResultSetMetadata", "true");
-                    connectionProperties.setProperty("dataSource.cacheServerConfiguration", "true");
+//                    connectionProperties.setProperty("dataSource.cachePrepStmts", "true");
+//                    connectionProperties.setProperty("dataSource.prepStmtCacheSize", "250");
+//                    connectionProperties.setProperty("dataSource.prepStmtCacheSqlLimit", "2048");
+//                    connectionProperties.setProperty("dataSource.useServerPrepStmts", "true");
+//                    connectionProperties.setProperty("dataSource.useLocalSessionState", "true");
+//                    connectionProperties.setProperty("dataSource.rewriteBatchedStatements", "true");
+//                    connectionProperties.setProperty("dataSource.cacheResultSetMetadata", "true");
+//                    connectionProperties.setProperty("dataSource.cacheServerConfiguration", "true");
                 }
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments, connectionProperties);

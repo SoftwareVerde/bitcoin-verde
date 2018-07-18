@@ -33,6 +33,7 @@ public class ReadUncommittedDatabaseConnectionFactory implements DatabaseConnect
 
         protected static final Object mutex = new Object();
         protected static final Map<String, Long> queryValues = new HashMap<String, Long>();
+        protected static final Map<String, Long> queryCounts = new HashMap<String, Long>();
         protected static long queryCount = 0L;
 
         protected void _log(final Query query, final long duration) {
@@ -40,6 +41,9 @@ public class ReadUncommittedDatabaseConnectionFactory implements DatabaseConnect
                 final String queryString = query.getQueryString();
                 final Long currentValue = Util.coalesce(queryValues.get(queryString), 0L);
                 queryValues.put(queryString, currentValue + duration);
+
+                final Long currentCount = Util.coalesce(queryCounts.get(queryString), 0L);
+                queryCounts.put(queryString, currentCount + 1);
             }
 
             synchronized (mutex) {
@@ -47,7 +51,8 @@ public class ReadUncommittedDatabaseConnectionFactory implements DatabaseConnect
                     Logger.log("");
                     for (final String queryString : queryValues.keySet()) {
                         final Long qsDuration = queryValues.get(queryString);
-                        Logger.log(qsDuration + " - " + queryString);
+                        final Long qsCount = queryCounts.get(queryString);
+                        Logger.log(qsDuration + " - " + qsCount + " (" + (qsDuration.floatValue() / qsCount.floatValue()) + ") " + queryString);
                     }
                     Logger.log("");
                 }

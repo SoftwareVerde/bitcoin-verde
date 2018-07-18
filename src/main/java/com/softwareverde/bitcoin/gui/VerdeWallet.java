@@ -35,6 +35,8 @@ public class VerdeWallet extends Application {
     protected Runnable _statusUpdateRunnable = new Runnable() {
         protected JsonSocket _jsonSocket;
 
+        protected Float _transactionsPerSecond = 0F;
+        protected Float _blocksPerSecond = 0F;
         protected String _blockDate = "Querying";
         protected final Integer _maxSleepCount = 4;
         protected Integer _sleepCount = 0;
@@ -59,7 +61,10 @@ public class VerdeWallet extends Application {
                     final JsonProtocolMessage responseMessage = _jsonSocket.popMessage();
                     if (responseMessage != null) {
                         final Json responseJson = responseMessage.getMessage();
-                        _blockDate = responseJson.get("statistics").getString("blockDate");
+                        final Json statisticsJson = responseJson.get("statistics");
+                        _blockDate = statisticsJson.getString("blockDate");
+                        _blocksPerSecond = statisticsJson.getFloat("blocksPerSecond");
+                        _transactionsPerSecond = statisticsJson.getFloat("transactionsPerSecond");
                     }
 
                     final Json queryStatusJson = new Json();
@@ -81,7 +86,17 @@ public class VerdeWallet extends Application {
                 Platform.runLater(new Runnable() {
                     @Override
                     public void run() {
-                        _statusBar.setText("Synchronization Date: " + _blockDate + " " + ellipses);
+                        final String blocksPerSecondMessage;
+                        if (_blocksPerSecond >= 1.0F || _blocksPerSecond <= 0.0001) {
+                            blocksPerSecondMessage = String.format("%.2f", _blocksPerSecond) + " blocks/sec";
+                        }
+                        else {
+                            blocksPerSecondMessage = String.format("%.2f", (1.0F / _blocksPerSecond)) + " seconds/block";
+                        }
+
+                        final String transactionsPerSecondMessage = String.format("%.2f", _transactionsPerSecond) + " transactions/sec";
+
+                        _statusBar.setText("Synchronization Date: " + _blockDate + " " + ellipses + "\n" + blocksPerSecondMessage + " | " + transactionsPerSecondMessage);
                     }
                 });
 
