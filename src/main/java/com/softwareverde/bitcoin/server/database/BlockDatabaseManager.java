@@ -23,6 +23,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -33,7 +34,7 @@ public class BlockDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
     public BlockDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
-        _databaseConnection = databaseConnection;
+        _databaseConnection = new ReadUncommittedDatabaseConnectionFactory.Q(databaseConnection);
     }
 
     protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {

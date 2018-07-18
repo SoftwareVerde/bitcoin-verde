@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class ReadUncommittedDatabaseConnectionPool extends ReadUncommittedDatabaseConnectionFactory {
-    private static final class CachedMysqlDatabaseConnection extends MysqlDatabaseConnection {
+    private static final class CachedMysqlDatabaseConnection extends Q {
         final Collection<CachedMysqlDatabaseConnection> _connectionPool;
 
         public CachedMysqlDatabaseConnection(final Connection rawConnection, final Collection<CachedMysqlDatabaseConnection> connectionPool) {
