@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
@@ -14,6 +14,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.timer.Timer;
 
 public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
@@ -43,28 +44,29 @@ public class BlockProcessor {
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            final long storeBlockStartTime = System.currentTimeMillis();
+            final Timer storeBlockTimer = new Timer();
+            storeBlockTimer.start();
             final BlockId blockId = blockDatabaseManager.insertBlock(block);
-            final long storeBlockEndTime = System.currentTimeMillis();
-            final Long storeBlockDuration = (storeBlockEndTime - storeBlockStartTime);
+            storeBlockTimer.stop();
 
-            final long updateBlockChainsStartTime = System.currentTimeMillis();
+            final Timer updateBlockChainsTimer = new Timer();
+            updateBlockChainsTimer.start();
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-            final long updateBlockChainsEndTime = System.currentTimeMillis();
-            final Long updateBlockChainsDuration = (updateBlockChainsEndTime - updateBlockChainsStartTime);
-            final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+            updateBlockChainsTimer.stop();
 
             {
                 final int transactionCount = block.getTransactions().getSize();
-                Logger.log("Stored " + transactionCount + " transactions in " + (storeBlockDuration) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockDuration) * 1000)) + " tps).");
-                Logger.log("Updated Chains " + updateBlockChainsDuration);
+                Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps).");
+                Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed());
             }
 
             final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
-            final long blockValidationStartTime = System.currentTimeMillis();
+            final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+
+            final Timer blockValidationTimer = new Timer();
+            blockValidationTimer.start();
             final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-            final long blockValidationEndTime = System.currentTimeMillis();
-            final long blockValidationMsElapsed = (blockValidationEndTime - blockValidationStartTime);
+            blockValidationTimer.stop();
 
             if (blockIsValid) {
                 _medianBlockTime.addBlock(block);
@@ -75,7 +77,7 @@ public class BlockProcessor {
                 final Float averageBlocksPerSecond;
                 final Float averageTransactionsPerSecond;
                 synchronized (_statisticsMutex) {
-                    _blocksPerSecond.add(blockValidationMsElapsed + storeBlockDuration + updateBlockChainsDuration);
+                    _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed() + updateBlockChainsTimer.getMillisecondsElapsed()));
                     _transactionsPerBlock.add(blockTransactionCount);
 
                     final Integer blockCount = _blocksPerSecond.size();

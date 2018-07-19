@@ -27,6 +27,7 @@ import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabase
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.timer.Timer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -52,7 +53,8 @@ public class BlockValidator {
             return false;
         }
 
-        final long startTime = System.currentTimeMillis();
+        final Timer validateBlockTimer = new Timer();
+        validateBlockTimer.start();
 
         final List<Transaction> transactions;
         final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
@@ -210,9 +212,8 @@ public class BlockValidator {
             return false;
         }
 
-        final long endTime = System.currentTimeMillis();
-        final long msElapsed = (endTime - startTime);
-        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (msElapsed) + "ms ("+ String.format("%.2f", ((((double) transactions.getSize()) / msElapsed) * 1000)) +" tps).");
+        validateBlockTimer.stop();
+        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms ("+ ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) +" tps).");
 
         final Long totalTransactionFees;
         {

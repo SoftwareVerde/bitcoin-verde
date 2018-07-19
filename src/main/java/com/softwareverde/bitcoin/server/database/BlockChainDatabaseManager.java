@@ -1,72 +1,24 @@
-package com.softwareverde.bitcoin.chain;
+package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.BlockChainSegmentCache;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
 public class BlockChainDatabaseManager {
-    protected static final Object BLOCK_CHAIN_SEGMENT_ID_CACHE_MUTEX = new Object();
-    protected static final Map<BlockId, BlockChainSegmentId> BLOCK_CHAIN_SEGMENT_ID_CACHE = new HashMap<BlockId, BlockChainSegmentId>();
-    protected static BlockChainSegmentId loadFromCache(final BlockId blockId) {
-        synchronized (BLOCK_CHAIN_SEGMENT_ID_CACHE_MUTEX) {
-            return BLOCK_CHAIN_SEGMENT_ID_CACHE.get(blockId);
-        }
-    }
-    protected static void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) {
-        synchronized (BLOCK_CHAIN_SEGMENT_ID_CACHE_MUTEX) {
-            if (BLOCK_CHAIN_SEGMENT_ID_CACHE.containsKey(blockId)) { return; }
-
-            final java.util.List<BlockId> keySet = new ArrayList<BlockId>(BLOCK_CHAIN_SEGMENT_ID_CACHE.keySet());
-            while (keySet.size() >= 10000) {
-                final BlockId key = keySet.remove(0);
-                BLOCK_CHAIN_SEGMENT_ID_CACHE.remove(key);
-            }
-
-            BLOCK_CHAIN_SEGMENT_ID_CACHE.put(blockId, blockChainSegmentId);
-        }
-    }
+    protected static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected static class CachedBlockChainSegment extends BlockChainSegment {
-        public CachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) {
-            _id = blockChainSegmentId;
-        }
-
-        public CachedBlockChainSegment(final BlockChainSegment blockChainSegment) {
-            _id = blockChainSegment.getId();
-            _headBlockId = blockChainSegment.getHeadBlockId();
-            _tailBlockId = blockChainSegment.getTailBlockId();
-            _blockHeight = blockChainSegment.getBlockHeight();
-            _blockCount = blockChainSegment.getBlockCount();
-        }
-
-        public void setHeadBlockId(final BlockId blockId) { _headBlockId = blockId; }
-        public void setTailBlockId(final BlockId blockId) { _tailBlockId = blockId; }
-        public void setBlockHeight (final Long blockHeight) { _blockHeight = blockHeight; }
-        public void setBlockCount(final Long blockCount) { _blockCount = blockCount; }
-    }
-
-    protected static final Object CACHE_MUTEX = new Object();
-    protected static BlockChainSegment CACHED_BLOCK_CHAIN_SEGMENT = new CachedBlockChainSegment(BlockChainSegmentId.wrap(0L));
-
     protected BlockChainSegment _inflateBlockChainSegmentFromId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        synchronized (CACHE_MUTEX) {
-            if (CACHED_BLOCK_CHAIN_SEGMENT.getId().longValue() == blockChainSegmentId.longValue()) {
-                return CACHED_BLOCK_CHAIN_SEGMENT;
-            }
-        }
+        final BlockChainSegment cachedBlockChainSegment = BLOCK_CHAIN_SEGMENT_CACHE.loadCachedBlockChainSegment(blockChainSegmentId);
+        if (cachedBlockChainSegment != null) { return cachedBlockChainSegment; }
 
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM block_chain_segments WHERE id = ?")
@@ -79,17 +31,12 @@ public class BlockChainDatabaseManager {
         final BlockChainSegmentInflater blockChainSegmentInflater = new BlockChainSegmentInflater();
         final BlockChainSegment blockChainSegment = blockChainSegmentInflater.fromRow(row);
 
-        synchronized (CACHE_MUTEX) {
-            CACHED_BLOCK_CHAIN_SEGMENT = blockChainSegment;
-        }
+        BLOCK_CHAIN_SEGMENT_CACHE.cacheBlockChainSegment(blockChainSegment);
 
         return blockChainSegment;
     }
 
     protected BlockChainSegmentId _getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        final BlockChainSegmentId cachedBlockChainSegmentId = loadFromCache(blockId);
-        if (cachedBlockChainSegmentId != null) { return cachedBlockChainSegmentId; }
-
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_chain_segment_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -99,7 +46,6 @@ public class BlockChainDatabaseManager {
 
         final Row row = rows.get(0);
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("block_chain_segment_id"));
-        cacheBlockChainSegmentId(blockId, blockChainSegmentId);
         return blockChainSegmentId;
     }
 
@@ -173,15 +119,7 @@ public class BlockChainDatabaseManager {
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
                 // 2.1.1 Update the blockChain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-                synchronized (CACHE_MUTEX) {
-                    if (CACHED_BLOCK_CHAIN_SEGMENT.getId().longValue() == previousBlockChainSegmentId.longValue()) {
-                        final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(CACHED_BLOCK_CHAIN_SEGMENT);
-                        cachedBlockChainSegment.setHeadBlockId(newBlockId);
-                        cachedBlockChainSegment.setBlockHeight(cachedBlockChainSegment.getBlockHeight() + 1);
-                        cachedBlockChainSegment.setBlockCount(cachedBlockChainSegment.getBlockCount() + 1);
-                        CACHED_BLOCK_CHAIN_SEGMENT = cachedBlockChainSegment;
-                    }
-                }
+                BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId);
                 _databaseConnection.executeSql(
                     new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
                         .setParameter(newBlockId)
@@ -237,15 +175,7 @@ public class BlockChainDatabaseManager {
             // 3.2 Update/revert the baseBlockChain.
             //  The head_block_id should point to the previousBlock.
             //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-            synchronized (CACHE_MUTEX) {
-                if (CACHED_BLOCK_CHAIN_SEGMENT.getId().longValue() == previousBlockChainSegmentId.longValue()) {
-                    final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(CACHED_BLOCK_CHAIN_SEGMENT);
-                    cachedBlockChainSegment.setHeadBlockId(newBlockId);
-                    cachedBlockChainSegment.setBlockHeight(previousBlockBlockHeight);
-                    cachedBlockChainSegment.setBlockCount(cachedBlockChainSegment.getBlockCount() - refactoredChainBlockCount);
-                    CACHED_BLOCK_CHAIN_SEGMENT = cachedBlockChainSegment;
-                }
-            }
+            BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId, previousBlockBlockHeight, refactoredChainBlockCount);
             _databaseConnection.executeSql(
                 new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
                     .setParameter(previousBlockId)
@@ -292,20 +222,17 @@ public class BlockChainDatabaseManager {
         }
     }
 
-    public Boolean blockChainSegmentExists(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        synchronized (CACHE_MUTEX) {
-            if (CACHED_BLOCK_CHAIN_SEGMENT.getId().longValue() == blockChainSegmentId.longValue()) {
-                return true;
-            }
-        }
-
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM block_chain_segments WHERE id = ?")
-                .setParameter(blockChainSegmentId)
-        );
-
-        return (! rows.isEmpty());
-    }
+//    public Boolean blockChainSegmentExists(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+//        final Boolean isCached = BLOCK_CHAIN_SEGMENT_CACHE.isCached(blockChainSegmentId);
+//        if (isCached) { return true; }
+//
+//        final java.util.List<Row> rows = _databaseConnection.query(
+//            new Query("SELECT id FROM block_chain_segments WHERE id = ?")
+//                .setParameter(blockChainSegmentId)
+//        );
+//
+//        return (! rows.isEmpty());
+//    }
 
     public BlockChainSegment getBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);

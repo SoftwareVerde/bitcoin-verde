@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -23,7 +22,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -34,7 +32,7 @@ public class BlockDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
     public BlockDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
-        _databaseConnection = new ReadUncommittedDatabaseConnectionFactory.Q(databaseConnection);
+        _databaseConnection = databaseConnection;
     }
 
     protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
