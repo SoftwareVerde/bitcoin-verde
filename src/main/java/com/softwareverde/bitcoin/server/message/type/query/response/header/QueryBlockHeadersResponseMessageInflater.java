@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.header;
 
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCountInflater;

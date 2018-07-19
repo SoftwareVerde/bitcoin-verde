@@ -1,7 +1,6 @@
 package com.softwareverde.network.p2p.node.address;
 
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.ip.Ipv4;
 
 public class NodeIpAddress {
