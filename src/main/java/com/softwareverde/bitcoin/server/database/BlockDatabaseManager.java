@@ -277,7 +277,7 @@ public class BlockDatabaseManager {
             final long upperBound = (blockChainSegment.getBlockHeight());
             if (lowerBound <= blockHeight && blockHeight <= upperBound) {
                 final BlockId blockIdAtChainSegmentAndHeight = _getBlockIdAtBlockHeight(queriedBlockChainSegmentId, blockHeight);
-                return (blockId.longValue() == blockIdAtChainSegmentAndHeight.longValue());
+                return (Util.areEqual(blockId, blockIdAtChainSegmentAndHeight));
             }
 
             final BlockId nextBlockId;

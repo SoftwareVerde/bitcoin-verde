@@ -21,8 +21,9 @@ import org.junit.Test;
 public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
     @Before
-    public void setup() throws Exception {
+    public void setup() {
         _resetDatabase();
+        _resetCache();
     }
 
     @Test

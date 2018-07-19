@@ -197,6 +197,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+        _resetCache();
     }
 
     @Test

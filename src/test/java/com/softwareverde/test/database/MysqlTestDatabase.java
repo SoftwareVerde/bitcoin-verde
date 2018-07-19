@@ -27,7 +27,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
     }
 
     public MysqlTestDatabase() {
-        super(null, null, null);
+        super(null, "", "");
         final DBConfiguration dbConfiguration;
         {
             final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();

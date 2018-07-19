@@ -5,7 +5,10 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class TransactionCache {
     protected final Object _mutex = new Object();
@@ -29,6 +32,12 @@ public class TransactionCache {
 
     public TransactionCache(final Integer maxCachedItemCount) {
         _maxCachedItemCount = maxCachedItemCount;
+    }
+
+    public void clear() {
+        synchronized (_mutex) {
+            _cache.clear();
+        }
     }
 
     public void cacheTransactionId(final BlockId blockId, final TransactionId transactionId, final Sha256Hash sha256Hash) {

@@ -109,8 +109,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     }
 
     @Before
-    public void setup() throws Exception {
+    public void setup() {
         _resetDatabase();
+        _resetCache();
     }
 
     @Test
