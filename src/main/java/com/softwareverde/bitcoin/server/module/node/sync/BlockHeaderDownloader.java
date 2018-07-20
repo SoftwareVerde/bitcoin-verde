@@ -4,6 +4,10 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
@@ -21,6 +25,7 @@ import com.softwareverde.util.Util;
 public class BlockHeaderDownloader {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final BitcoinNodeManager _nodeManager;
+    protected final MutableMedianBlockTime _medianBlockTime;
 
     protected Long _startTime;
     protected Long _blockHeaderCount = 0L;
@@ -109,9 +114,10 @@ public class BlockHeaderDownloader {
         _nodeManager.requestBlockHeadersAfter(lastBlockHash.value, downloadBlockHeadersCallback);
     }
 
-    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager) {
+    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeManager = nodeManager;
+        _medianBlockTime = medianBlockTime;
     }
 
     public void start() {
@@ -132,12 +138,22 @@ public class BlockHeaderDownloader {
                 if (! _hasGenesisBlockHeader()) {
                     // NOTE: Can happen if the NodeModule received GenesisBlock from another node...
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
                         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
                         TransactionUtil.startTransaction(databaseConnection);
                         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
                         blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+
+                        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+                        final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+                        if (! blockHeaderIsValid) {
+                            Logger.log("Invalid BlockHeader: " + blockHeader.getHash());
+                            TransactionUtil.rollbackTransaction(databaseConnection);
+                            return;
+                        }
+
                         TransactionUtil.commitTransaction(databaseConnection);
 
                         if (blockId == null) {

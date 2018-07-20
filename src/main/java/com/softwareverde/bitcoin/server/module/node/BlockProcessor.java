@@ -31,8 +31,9 @@ public class BlockProcessor {
     public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeManager = nodeManager;
-        _medianBlockTime = medianBlockTime;
         _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
+
+        _medianBlockTime = medianBlockTime;
     }
 
     public Boolean processBlock(final Block block) {

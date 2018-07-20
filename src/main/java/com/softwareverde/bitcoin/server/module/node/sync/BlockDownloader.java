@@ -14,7 +14,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.concurrent.ConcurrentLinkedQueue;

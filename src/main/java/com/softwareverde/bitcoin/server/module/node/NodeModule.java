@@ -47,7 +47,6 @@ public class NodeModule {
     protected final Environment _environment;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
-    protected final MutableMedianBlockTime _medianBlockTime;
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
@@ -117,27 +116,6 @@ public class NodeModule {
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
         _nodeManager = new BitcoinNodeManager(maxPeerCount);
 
-        _medianBlockTime = new MutableMedianBlockTime();
-        { // Initialize _medianBlockTime with the N most recent blocks...
-            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-                Sha256Hash blockHash = Util.coalesce(blockDatabaseManager.getHeadBlockHash(), Block.GENESIS_BLOCK_HASH);
-                for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
-                    if (blockId == null) { break; }
-
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-                    _medianBlockTime.addBlock(blockHeader);
-                    blockHash = blockHeader.getPreviousBlockHash();
-                }
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-                BitcoinUtil.exitFailure();
-            }
-        }
-
         {
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
@@ -165,14 +143,48 @@ public class NodeModule {
         });
 
         { // Initialize BlockDownloader...
+            final MutableMedianBlockTime medianBlockTime;
+            {
+                MutableMedianBlockTime newMedianBlockTime = null;
+                try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    newMedianBlockTime = MutableMedianBlockTime.newInitializedMedianBlockTime(databaseConnection);
+                    if (newMedianBlockTime == null) {
+                        Logger.log("Error initializing MedianBlockTime.");
+                        BitcoinUtil.exitFailure();
+                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    BitcoinUtil.exitFailure();
+                }
+                medianBlockTime = newMedianBlockTime;
+            }
+
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, _medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
             _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
             _blockDownloader.setMaxQueueSize(maxQueueSize);
         }
 
         { // Initialize BlockHeaderDownloader...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, _nodeManager);
+            final MutableMedianBlockTime medianBlockTime;
+            {
+                MutableMedianBlockTime newMedianBlockTime = null;
+                try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    newMedianBlockTime = MutableMedianBlockTime.newInitializedMedianBlockHeaderTime(databaseConnection);
+                    if (newMedianBlockTime == null) {
+                        Logger.log("Error initializing MedianBlockTime.");
+                        BitcoinUtil.exitFailure();
+                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    BitcoinUtil.exitFailure();
+                }
+                medianBlockTime = newMedianBlockTime;
+            }
+
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, _nodeManager, medianBlockTime);
         }
 
         final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = _blockDownloader.getStatisticsContainer();
