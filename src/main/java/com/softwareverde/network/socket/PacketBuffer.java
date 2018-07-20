@@ -180,7 +180,10 @@ public class PacketBuffer {
         final int headerByteCount  = _protocolMessageHeaderInflater.getHeaderByteCount();
         final int payloadByteCount = protocolMessageHeader.getPayloadByteCount();
 
-        if (_byteCount < payloadByteCount) { return null; }
+        if (_byteCount < payloadByteCount) {
+            Logger.log("NOTICE: PacketBuffer.popMessage: Insufficient byte count.");
+            return null;
+        }
 
         final int fullPacketByteCount = (headerByteCount + payloadByteCount);
 
@@ -191,6 +194,11 @@ public class PacketBuffer {
             return null;
         }
 
-        return _protocolMessageFactory.fromBytes(fullPacket);
+        final ProtocolMessage protocolMessage = _protocolMessageFactory.fromBytes(fullPacket);
+        if (protocolMessage == null) {
+            Logger.log("NOTICE: Error inflating message: " + HexUtil.toHexString(ByteUtil.copyBytes(fullPacket, 0, Math.min(fullPacket.length, 128))) + " (+"+ ( (fullPacket.length > 128) ? (fullPacket.length - 128) : 0 ) +" bytes)");
+        }
+
+        return protocolMessage;
     }
 }

@@ -343,7 +343,7 @@ public class BlockDatabaseManager {
     /**
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
-    public Sha256Hash getHeadBlockHash() throws DatabaseException {
+    public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
@@ -354,8 +354,30 @@ public class BlockDatabaseManager {
     /**
      * Returns the BlockId of the block that has the tallest block-height.
      */
-    public BlockId getHeadBlockId() throws DatabaseException {
+    public BlockId getHeadBlockHeaderId() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
+
+    /**
+     * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     */
+    public Sha256Hash getHeadBlockHash() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+    }
+
+    /**
+     * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     */
+    public BlockId getHeadBlockId() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);

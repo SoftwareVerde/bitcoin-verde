@@ -1,10 +1,10 @@
-package com.softwareverde.bitcoin.server.message.type.query.response.header;
+package com.softwareverde.bitcoin.server.message.type.query.response.block.header;
 
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -12,15 +12,15 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
-public class QueryBlockHeadersResponseMessage extends BitcoinProtocolMessage {
+public class BlockHeadersMessage extends BitcoinProtocolMessage {
     protected final MutableList<BlockHeaderWithTransactionCount> _blockHeaders = new MutableList<BlockHeaderWithTransactionCount>();
 
-    public QueryBlockHeadersResponseMessage() {
-        super(MessageType.QUERY_BLOCK_HEADERS_RESPONSE);
+    public BlockHeadersMessage() {
+        super(MessageType.BLOCK_HEADERS);
     }
 
     public void addBlockHeader(final BlockHeaderWithTransactionCount blockHeader) {
-        if (_blockHeaders.getSize() >= QueryBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (_blockHeaders.getSize() >= RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaders.add(blockHeader);
     }
 

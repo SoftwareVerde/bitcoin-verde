@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.header.QueryBlockHeadersResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -36,7 +36,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
 
             final MutableList<BlockHeaderWithTransactionCount> blockHeaders = new MutableList<BlockHeaderWithTransactionCount>();
             {
-                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockDatabaseManager);
+                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
                     final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
@@ -45,7 +45,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
                 }
             }
 
-            final QueryBlockHeadersResponseMessage responseMessage = new QueryBlockHeadersResponseMessage();
+            final BlockHeadersMessage responseMessage = new BlockHeadersMessage();
             for (final BlockHeaderWithTransactionCount blockHeader : blockHeaders) {
                 responseMessage.addBlockHeader(blockHeader);
             }

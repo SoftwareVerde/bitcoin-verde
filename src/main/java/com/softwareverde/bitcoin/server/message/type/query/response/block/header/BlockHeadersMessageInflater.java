@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.query.response.header;
+package com.softwareverde.bitcoin.server.message.type.query.response.block.header;
 
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
@@ -6,21 +6,26 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCountInf
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
-public class QueryBlockHeadersResponseMessageInflater extends BitcoinProtocolMessageInflater {
+public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
-    public QueryBlockHeadersResponseMessage fromBytes(final byte[] bytes) {
-        final QueryBlockHeadersResponseMessage blockHeadersResponseMessage = new QueryBlockHeadersResponseMessage();
+    public BlockHeadersMessage fromBytes(final byte[] bytes) {
+        final BlockHeadersMessage blockHeadersResponseMessage = new BlockHeadersMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.QUERY_BLOCK_HEADERS);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK_HEADERS);
         if (protocolMessageHeader == null) { return null; }
 
         final Integer blockHeaderCount = byteArrayReader.readVariableSizedInteger().intValue();
-        if (blockHeaderCount >= QueryBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) { return null; }
+        if (blockHeaderCount > RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT) {
+            Logger.log("Block Header Count Exceeded: " + blockHeaderCount);
+            return null;
+        }
 
         final Integer bytesRequired = ( blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }

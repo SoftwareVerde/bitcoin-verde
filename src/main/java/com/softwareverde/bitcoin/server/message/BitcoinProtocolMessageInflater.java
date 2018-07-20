@@ -19,6 +19,7 @@ public abstract class BitcoinProtocolMessageInflater {
 
         { // Validate MessageType Type
             if (command != protocolMessageHeader.command) {
+                Logger.log("ProtocolMessage: Command mismatch.");
                 return null;
             }
         }
@@ -26,7 +27,7 @@ public abstract class BitcoinProtocolMessageInflater {
         final Integer actualPayloadByteCount = byteArrayReader.remainingByteCount();
         { // Validate Payload Byte Count
             if (protocolMessageHeader.payloadByteCount != actualPayloadByteCount) {
-                Logger.log("Bad Payload size. "+ protocolMessageHeader.payloadByteCount +" != "+ actualPayloadByteCount);
+                Logger.log("ProtocolMessage: Bad payload size. "+ protocolMessageHeader.payloadByteCount +" != "+ actualPayloadByteCount);
                 return null;
             }
         }
@@ -36,11 +37,15 @@ public abstract class BitcoinProtocolMessageInflater {
         { // Validate Checksum
             final ByteArray calculatedChecksum = BitcoinProtocolMessage.calculateChecksum(MutableByteArray.wrap(payload));
             if (! ByteUtil.areEqual(protocolMessageHeader.payloadChecksum, calculatedChecksum.getBytes())) {
+                Logger.log("ProtocolMessage: Bad message checksum.");
                 return null;
             }
         }
 
-        if (byteArrayReader.didOverflow()) { return null; }
+        if (byteArrayReader.didOverflow()) {
+            Logger.log("ProtocolMessage: Buffer overflow.");
+            return null;
+        }
 
         return protocolMessageHeader;
     }

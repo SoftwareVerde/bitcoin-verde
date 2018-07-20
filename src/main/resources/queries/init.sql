@@ -20,7 +20,7 @@ CREATE TABLE blocks (
     UNIQUE KEY block_hash_uq (hash),
     UNIQUE KEY block_hash_uq2 (block_chain_segment_id, block_height),
     FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
-    INDEX block_timestamp_ix (timestamp) USING BTREE
+    INDEX blocks_height_ix (block_height) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE block_chain_segments (

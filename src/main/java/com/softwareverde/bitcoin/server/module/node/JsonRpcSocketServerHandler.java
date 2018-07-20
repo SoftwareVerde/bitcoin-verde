@@ -38,12 +38,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     public static class StatisticsContainer {
+        public Container<Float> averageBlockHeadersPerSecond;
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
     }
 
     protected final Environment _environment;
     protected final Container<Float> _averageBlocksPerSecond;
+    protected final Container<Float> _averageBlockHeadersPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
 
     protected ShutdownHandler _shutdownHandler = null;
@@ -53,16 +55,26 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
         _environment = environment;
 
+        _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
     }
 
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
-        if (lastKnownHash == null) { return 0L; }
 
-        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
+        final BlockId blockId = blockDatabaseManager.getHeadBlockId();
+        if (blockId == null) { return 0L; }
+
+        return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+    }
+
+    protected Long _calculateBlockHeaderHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final BlockId blockId = blockDatabaseManager.getHeadBlockHeaderId();
+        if (blockId == null) { return 0L; }
+
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
     }
 
@@ -70,13 +82,15 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
+            final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
 
-            response.put("was_success", 1);
-            response.put("block_height", blockHeight);
+            response.put("wasSuccess", 1);
+            response.put("blockHeight", blockHeight);
+            response.put("blockHeaderHeight", blockHeaderHeight);
         }
         catch (final Exception exception) {
-            response.put("was_success", 0);
-            response.put("error_message", exception.getMessage());
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
         }
     }
 
@@ -100,39 +114,59 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
             }
 
+            final Long blockHeaderTimestampInSeconds;
+            {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
+                if (lastKnownHash == null) {
+                    blockHeaderTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+                }
+                else {
+                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    blockHeaderTimestampInSeconds = blockHeader.getTimestamp();
+                }
+            }
+
             final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
 
             final Integer secondsInAnHour = (60 * 60);
             final Boolean isSyncing = (secondsBehind > secondsInAnHour);
 
-            response.put("was_success", 1);
+            response.put("wasSuccess", 1);
             response.put("status", (isSyncing ? "SYNCHRONIZING" : "ONLINE"));
 
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
+            final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
 
             final Json statisticsJson = new Json();
-            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
-            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
+            statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
+            statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
+            statisticsJson.put("blockHeaderDate", DateUtil.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
+
             statisticsJson.put("blockHeight", blockHeight);
+            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
             statisticsJson.put("blockDate", DateUtil.timestampToDatetimeString(blockTimestampInSeconds * 1000));
+
+            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
 
             response.put("statistics", statisticsJson);
         }
         catch (final Exception exception) {
-            response.put("was_success", 0);
-            response.put("error_message", exception.getMessage());
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
         }
     }
 
     protected void _queryBalance(final Json parameters, final Json response) {
         final QueryBalanceHandler queryBalanceHandler = _queryBalanceHandler;
         if (queryBalanceHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
         if (! parameters.hasKey("address")) {
-            response.put("error_message", "Missing parameters. Required: address");
+            response.put("errorMessage", "Missing parameters. Required: address");
             return;
         }
 
@@ -141,41 +175,41 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
-            response.put("error_message", "Invalid address.");
+            response.put("errorMessage", "Invalid address.");
             return;
         }
 
         final Long balance = queryBalanceHandler.getBalance(address);
 
         if (balance == null) {
-            response.put("error_message", "Unable to determine balance.");
+            response.put("errorMessage", "Unable to determine balance.");
             return;
         }
 
         response.put("balance", balance);
-        response.put("was_success", 1);
+        response.put("wasSuccess", 1);
     }
 
     protected void _shutdown(final Json parameters, final Json response) {
         final ShutdownHandler shutdownHandler = _shutdownHandler;
         if (shutdownHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
         final Boolean wasSuccessful = shutdownHandler.shutdown();
-        response.put("was_success", (wasSuccessful ? 1 : 0));
+        response.put("wasSuccess", (wasSuccessful ? 1 : 0));
     }
 
     protected void _addNode(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
         if ((! parameters.hasKey("host")) || (! parameters.hasKey("port"))) {
-            response.put("error_message", "Missing parameters. Required: host, port");
+            response.put("errorMessage", "Missing parameters. Required: host, port");
             return;
         }
 
@@ -183,13 +217,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Integer port = parameters.getInteger("port");
 
         final Boolean wasSuccessful = nodeHandler.addNode(host, port);
-        response.put("was_success", (wasSuccessful ? 1 : 0));
+        response.put("wasSuccess", (wasSuccessful ? 1 : 0));
     }
 
     protected void _nodeStatus(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
@@ -207,7 +241,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
 
         response.put("nodes", nodeListJson);
-        response.put("was_success", 1);
+        response.put("wasSuccess", 1);
     }
 
     public void setShutdownHandler(final ShutdownHandler shutdownHandler) {
@@ -236,8 +270,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 final Json response = new Json();
                 response.put("method", "RESPONSE");
-                response.put("was_success", 0);
-                response.put("error_message", null);
+                response.put("wasSuccess", 0);
+                response.put("errorMessage", null);
 
                 final Json parameters = message.get("parameters");
 
@@ -261,7 +295,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             default: {
-                                response.put("error_message", "Invalid command: " + method + "/" + query);
+                                response.put("errorMessage", "Invalid command: " + method + "/" + query);
                             } break;
                         }
                     } break;
@@ -277,13 +311,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             default: {
-                                response.put("error_message", "Invalid command: " + method + "/" + query);
+                                response.put("errorMessage", "Invalid command: " + method + "/" + query);
                             } break;
                         }
                     } break;
 
                     default: {
-                        response.put("error_message", "Invalid method: " + method);
+                        response.put("errorMessage", "Invalid method: " + method);
                     } break;
                 }
 

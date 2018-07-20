@@ -3,16 +3,16 @@ package com.softwareverde.bitcoin.server.message;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.block.BlockMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.query.response.header.QueryBlockHeadersResponseMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessageInflater;
@@ -34,8 +34,8 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.PING, new BitcoinPingMessageInflater());
         _commandInflaterMap.put(MessageType.PONG, new BitcoinPongMessageInflater());
         _commandInflaterMap.put(MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater());
-        _commandInflaterMap.put(MessageType.QUERY_BLOCK_HEADERS, new QueryBlockHeadersMessageInflater());
-        _commandInflaterMap.put(MessageType.QUERY_BLOCK_HEADERS_RESPONSE, new QueryBlockHeadersResponseMessageInflater());
+        _commandInflaterMap.put(MessageType.REQUEST_BLOCK_HEADERS, new RequestBlockHeadersMessageInflater());
+        _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_RESPONSE, new QueryResponseMessageInflater());
@@ -44,6 +44,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
     }
 
+    @Override
     public BitcoinProtocolMessage fromBytes(final byte[] bytes) {
         final BitcoinProtocolMessageHeader protocolMessageHeader = _protocolMessageHeaderParser.fromBytes(bytes);
         if (protocolMessageHeader == null) { return null; }

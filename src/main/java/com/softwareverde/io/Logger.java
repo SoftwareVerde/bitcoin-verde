@@ -57,6 +57,8 @@ public class Logger {
     public static LogCallback ERROR_CALLBACK = null;
 
     private static String _toString(final Object object) {
+        if (object == null) { return "null"; }
+
         try (final StringWriter stringWriter = new StringWriter()) {
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
                 if (object instanceof Exception) {

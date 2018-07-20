@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.query.block.header;
+package com.softwareverde.bitcoin.server.message.type.request.header;
 
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -15,15 +15,15 @@ import com.softwareverde.util.bytearray.Endian;
 import java.util.ArrayList;
 import java.util.List;
 
-public class QueryBlockHeadersMessage extends BitcoinProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000;
+public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
+    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000; // NOTE: This value is a "not-to-exceed"...
 
     protected Integer _version;
     protected final List<Sha256Hash> _blockHeaderHashes = new ArrayList<Sha256Hash>();
-    protected final MutableSha256Hash _desiredBlockHeaderHash = new MutableSha256Hash();
+    protected MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
-    public QueryBlockHeadersMessage() {
-        super(MessageType.QUERY_BLOCK_HEADERS);
+    public RequestBlockHeadersMessage() {
+        super(MessageType.REQUEST_BLOCK_HEADERS);
         _version = Constants.PROTOCOL_VERSION;
     }
 
@@ -42,12 +42,12 @@ public class QueryBlockHeadersMessage extends BitcoinProtocolMessage {
         return Util.copyList(_blockHeaderHashes);
     }
 
-    public Sha256Hash getDesiredBlockHeaderHash() {
-        return _desiredBlockHeaderHash;
+    public Sha256Hash getStopBeforeBlockHash() {
+        return _stopBeforeBlockHash;
     }
 
-    public void setDesiredBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        _desiredBlockHeaderHash.setBytes(blockHeaderHash);
+    public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
+        _stopBeforeBlockHash.setBytes(blockHeaderHash);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class QueryBlockHeadersMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_stopBeforeBlockHash, Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

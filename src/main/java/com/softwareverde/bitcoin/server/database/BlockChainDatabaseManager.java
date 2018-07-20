@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
@@ -53,7 +54,7 @@ public class BlockChainDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public void updateBlockChainsForNewBlock(final Block newBlock) throws DatabaseException {
+    public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
 
         /*
             Each fork creates 2 new BlockChainSegments.

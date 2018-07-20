@@ -21,7 +21,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     protected Integer _version;
     protected final List<Sha256Hash> _blockHeaderHashes = new ArrayList<Sha256Hash>();
-    protected Sha256Hash _desiredBlockHeaderHash = new MutableSha256Hash();
+    protected Sha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
@@ -43,12 +43,12 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         return Util.copyList(_blockHeaderHashes);
     }
 
-    public Sha256Hash getDesiredBlockHeaderHash() {
-        return new ImmutableSha256Hash(_desiredBlockHeaderHash);
+    public Sha256Hash getStopBeforeBlockHash() {
+        return new ImmutableSha256Hash(_stopBeforeBlockHash);
     }
 
-    public void setDesiredBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        _desiredBlockHeaderHash = blockHeaderHash.asConst();
+    public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
+        _stopBeforeBlockHash = blockHeaderHash.asConst();
     }
 
     @Override
@@ -70,7 +70,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash.getBytes(), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_stopBeforeBlockHash.getBytes(), Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

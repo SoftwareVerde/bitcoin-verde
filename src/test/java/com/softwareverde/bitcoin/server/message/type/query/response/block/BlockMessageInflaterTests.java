@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.message.type.block;
+package com.softwareverde.bitcoin.server.message.type.query.response.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.test.util.TestUtil;
