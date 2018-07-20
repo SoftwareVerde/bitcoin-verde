@@ -46,7 +46,7 @@ public class BlockProcessor {
 
             final Timer storeBlockTimer = new Timer();
             storeBlockTimer.start();
-            final BlockId blockId = blockDatabaseManager.insertBlock(block);
+            final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
             storeBlockTimer.stop();
 
             final Timer updateBlockChainsTimer = new Timer();

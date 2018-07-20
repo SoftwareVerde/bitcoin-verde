@@ -301,6 +301,15 @@ public class BlockDatabaseManager {
         return false;
     }
 
+    protected BlockChainSegmentId _getNewlyInsertedBlocksChainSegmentId(final Block block) throws DatabaseException {
+        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+        final BlockId previousBlockId = _getBlockIdFromHash(previousBlockHash);
+        if (previousBlockId == null) { return null; }
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        return blockChainDatabaseManager.getBlockChainSegmentId(previousBlockId);
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _insertBlockHeader(blockHeader);
     }
@@ -320,21 +329,39 @@ public class BlockDatabaseManager {
         return _insertBlockHeader(blockHeader);
     }
 
-    public BlockId insertBlock(final Block block) throws DatabaseException {
-        final BlockId blockId = _insertBlockHeader(block);
+    /**
+     * Inserts the Block (and BlockHeader if it does not exist) (including its transactions) into the database.
+     *  If the BlockHeader has already been stored, this will update the existing BlockHeader.
+     *  Transactions inserted on this chain are assumed to be a part of the parent's chain if the BlockHeader did not exist.
+     */
+    public BlockId storeBlock(final Block block) throws DatabaseException {
+        final BlockId existingBlockId = _getBlockIdFromHash(block.getHash());
 
         final BlockChainSegmentId blockChainSegmentId;
-        {
-            final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
-            final BlockId previousBlockId = _getBlockIdFromHash(previousBlockHash);
-            if (previousBlockId != null) {
-                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-                blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(previousBlockId);
-            }
-            else {
-                blockChainSegmentId = null;
-            }
+        final BlockId blockId;
+        if (existingBlockId == null) {
+            blockId = _insertBlockHeader(block);
+            blockChainSegmentId = _getNewlyInsertedBlocksChainSegmentId(block);
         }
+        else {
+            _updateBlockHeader(existingBlockId, block);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+            blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(existingBlockId);
+            blockId = existingBlockId;
+        }
+
+        _insertBlockTransactions(blockChainSegmentId, blockId, block);
+        return blockId;
+    }
+
+    /**
+     * Inserts the Block (including its transactions) into the database.
+     *  If the BlockHeader has already been stored, this function will throw a DatabaseException.
+     *  Transactions inserted on this chain are assumed to be a part of the parent's chain.
+     */
+    public BlockId insertBlock(final Block block) throws DatabaseException {
+        final BlockId blockId = _insertBlockHeader(block);
+        final BlockChainSegmentId blockChainSegmentId = _getNewlyInsertedBlocksChainSegmentId(block);
 
         _insertBlockTransactions(blockChainSegmentId, blockId, block);
         return blockId;

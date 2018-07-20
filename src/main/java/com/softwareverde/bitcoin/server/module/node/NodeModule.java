@@ -215,7 +215,7 @@ public class NodeModule {
         _socketServer.start();
         Logger.log("[Listening For Connections]");
 
-        // _blockDownloader.start();
+        _blockDownloader.start();
         Logger.log("[Started Syncing Blocks]");
 
         _blockHeaderDownloader.start();
