@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -23,13 +24,13 @@ public class MutableContext implements Context, Const {
 
     public MutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
-        _transaction = context.getTransaction().asConst();
+        _transaction = ConstUtil.asConstOrNull(context.getTransaction());
         _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = context.getTransactionInput().asConst();
-        _transactionOutput = context.getTransactionOutput().asConst();
+        _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
+        _transactionOutput = ConstUtil.asConstOrNull(context.getTransactionOutput());
 
         final Script currentScript = context.getCurrentScript();
-        _currentScript = (currentScript != null ? currentScript.asConst() : null);
+        _currentScript = ConstUtil.asConstOrNull(currentScript);
         _currentScriptIndex = context.getScriptIndex();
         _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.block.validator;
 import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -75,7 +74,7 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, Boolean> unlockedInputsTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
             @Override
             public TaskHandler<Transaction, Boolean> newInstance() {
-                return new UnlockedInputsTaskHandler(blockChainSegmentId, _networkTime, _medianBlockTime);
+                return new UnlockedInputsTaskHandler(blockChainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         };
 

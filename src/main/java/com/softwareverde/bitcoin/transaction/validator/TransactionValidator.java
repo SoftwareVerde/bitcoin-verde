@@ -96,22 +96,22 @@ public class TransactionValidator {
         final Transaction transaction = context.getTransaction();
         final Long blockHeight = context.getBlockHeight();
 
-        final LockTime lockTime = transaction.getLockTime();
-        if (lockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
-            if (blockHeight < lockTime.getValue()) { return false; }
+        final LockTime transactionLockTime = transaction.getLockTime();
+        if (transactionLockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
+            if (blockHeight < transactionLockTime.getValue()) { return false; }
         }
         else {
-            final Long networkTime;
+            final Long currentNetworkTime;
             {
                 if (Bip113.isEnabled(blockHeight)) {
-                    networkTime = _medianBlockTime.getCurrentTimeInSeconds();
+                    currentNetworkTime = _medianBlockTime.getCurrentTimeInSeconds();
                 }
                 else {
-                    networkTime = _networkTime.getCurrentTimeInSeconds();
+                    currentNetworkTime = _networkTime.getCurrentTimeInSeconds();
                 }
             }
 
-            if (networkTime < lockTime.getValue()) { return false; }
+            if (currentNetworkTime < transactionLockTime.getValue()) { return false; }
         }
 
         return true;
@@ -167,24 +167,11 @@ public class TransactionValidator {
         _medianBlockTime = medianBlockTime;
     }
 
-    public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) {
+    public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction) {
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         final MutableContext context = new MutableContext();
-
-        final Long blockHeight;
-        { // Set the block height for this transaction...
-            try {
-                final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-                blockHeight = blockChainSegment.getBlockHeight(); // TODO: This may be insufficient when re-validating previously validated transactions, and may be incorrect due to when reading uncommitted values from the database...
-                context.setBlockHeight(blockHeight);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-                _logInvalidTransaction(transaction, context);
-                return false;
-            }
-        }
+        context.setBlockHeight(blockHeight);
 
         context.setTransaction(transaction);
 
@@ -192,7 +179,7 @@ public class TransactionValidator {
             final Boolean shouldValidateLockTime = _shouldValidateLockTime(transaction);
             if (shouldValidateLockTime) {
                 final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
-                if (!lockTimeIsValid) {
+                if (! lockTimeIsValid) {
                     Logger.log("Invalid LockTime for Tx.");
                     _logInvalidTransaction(transaction, context);
                     return false;

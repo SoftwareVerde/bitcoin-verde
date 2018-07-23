@@ -10,13 +10,15 @@ import com.softwareverde.network.time.NetworkTime;
 
 public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boolean> {
     private final BlockChainSegmentId _blockChainSegmentId;
+    private final Long _blockHeight;
     private final NetworkTime _networkTime;
     private final MedianBlockTime _medianBlockTime;
     private TransactionValidator _transactionValidator;
     private boolean _allInputsAreUnlocked = true;
 
-    public UnlockedInputsTaskHandler(final BlockChainSegmentId blockChainSegmentId, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public UnlockedInputsTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainSegmentId = blockChainSegmentId;
+        _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
     }
@@ -34,7 +36,7 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
         {
             boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, transaction);
+                inputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, _blockHeight, transaction);
             }
             catch (final Exception exception) { Logger.log(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;
