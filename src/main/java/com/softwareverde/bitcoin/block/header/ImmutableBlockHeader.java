@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
+import com.softwareverde.json.Json;
 
 public class ImmutableBlockHeader implements BlockHeader, Const {
     protected final Sha256Hash _hash;
@@ -72,5 +73,11 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     @Override
     public ImmutableBlockHeader asConst() {
         return this;
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        return blockHeaderDeflater.toJson(this);
     }
 }

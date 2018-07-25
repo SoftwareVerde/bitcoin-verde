@@ -2,12 +2,23 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -21,6 +32,8 @@ import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
@@ -76,6 +89,96 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         if (blockId == null) { return 0L; }
 
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+    }
+
+    protected void _getBlock(final Json parameters, final Json response) {
+        if (! parameters.hasKey("hash")) {
+            response.put("errorMessage", "Missing parameters. Required: hash");
+            return;
+        }
+
+        final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
+
+        final String blockHashString = parameters.getString("hash");
+        final Sha256Hash blockHash = MutableSha256Hash.fromHexString(blockHashString);
+
+        if (blockHash == null) {
+            response.put("errorMessage", "Invalid block hash: " + blockHashString);
+            return;
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            if (blockId == null) {
+                response.put("errorMessage", "Block not found: " + blockHashString);
+                return;
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+
+            if (shouldReturnRawBlockData) {
+                final BlockDeflater blockDeflater = new BlockDeflater();
+                final ByteArray blockData = blockDeflater.toBytes(block);
+                response.put("block", HexUtil.toHexString(blockData.getBytes()));
+            }
+            else {
+                response.put("block", block);
+            }
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
+    }
+
+    protected void _getTransaction(final Json parameters, final Json response) {
+        if (! parameters.hasKey("hash")) {
+            response.put("errorMessage", "Missing parameters. Required: hash");
+            return;
+        }
+
+        final Boolean shouldReturnRawTransactionData = parameters.getBoolean("rawFormat");
+
+        final String transactionHashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(transactionHashString);
+
+        if (transactionHash == null) {
+            response.put("errorMessage", "Invalid transaction hash: " + transactionHashString);
+            return;
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(mainBlockChainSegmentId, transactionHash);
+            if (transactionId == null) {
+                response.put("errorMessage", "Transaction not found: " + transactionHashString);
+                return;
+            }
+
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (shouldReturnRawTransactionData) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+                response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
+            }
+            else {
+                response.put("transaction", transaction);
+            }
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
     }
 
     protected void _queryBlockHeight(final Json response) {
@@ -278,6 +381,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
+                            case "BLOCK": {
+                                _getBlock(parameters, response);
+                            } break;
+
+                            case "TRANSACTION": {
+                                _getTransaction(parameters, response);
+                            } break;
+
                             case "BLOCK_HEIGHT": {
                                 _queryBlockHeight(response);
                             } break;
@@ -321,7 +432,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     } break;
                 }
 
-                Logger.log("Writing: " + response.toString());
+                final String responseString = response.toString();
+                final String truncatedResponseString = responseString.substring(0, Math.min(256, responseString.length()));
+                Logger.log("Writing: " + truncatedResponseString + (responseString.length() > 256 ? "..." : ""));
                 socketConnection.write(new JsonProtocolMessage(response));
             }
         });

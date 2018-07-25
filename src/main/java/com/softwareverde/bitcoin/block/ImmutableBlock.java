@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.json.Json;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     protected final List<Transaction> _transactions;
@@ -77,5 +78,11 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     @Override
     public Integer getTransactionCount() {
         return _transactions.getSize();
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        return blockDeflater.toJson(this);
     }
 }
