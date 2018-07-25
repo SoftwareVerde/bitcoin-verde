@@ -3,8 +3,20 @@ package com.softwareverde.bitcoin.type.hash.sha256;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 
 public class ImmutableSha256Hash extends ImmutableHash implements Sha256Hash, Const {
+    public static ImmutableSha256Hash fromHexString(final String hexString) {
+        final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
+        if (hashBytes == null) {
+            Logger.log("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
+            return null;
+        }
+
+        return new ImmutableSha256Hash(hashBytes);
+    }
+
     public static ImmutableSha256Hash copyOf(final byte[] bytes) {
         return new ImmutableSha256Hash(bytes);
     }

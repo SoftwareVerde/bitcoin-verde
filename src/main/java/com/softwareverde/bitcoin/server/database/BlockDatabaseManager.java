@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -278,7 +277,7 @@ public class BlockDatabaseManager {
             final long upperBound = (blockChainSegment.getBlockHeight());
             if (lowerBound <= blockHeight && blockHeight <= upperBound) {
                 final BlockId blockIdAtChainSegmentAndHeight = _getBlockIdAtBlockHeight(queriedBlockChainSegmentId, blockHeight);
-                return (blockId.longValue() == blockIdAtChainSegmentAndHeight.longValue());
+                return (Util.areEqual(blockId, blockIdAtChainSegmentAndHeight));
             }
 
             final BlockId nextBlockId;
@@ -302,6 +301,15 @@ public class BlockDatabaseManager {
         return false;
     }
 
+    protected BlockChainSegmentId _getNewlyInsertedBlocksChainSegmentId(final Block block) throws DatabaseException {
+        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+        final BlockId previousBlockId = _getBlockIdFromHash(previousBlockHash);
+        if (previousBlockId == null) { return null; }
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        return blockChainDatabaseManager.getBlockChainSegmentId(previousBlockId);
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _insertBlockHeader(blockHeader);
     }
@@ -321,21 +329,39 @@ public class BlockDatabaseManager {
         return _insertBlockHeader(blockHeader);
     }
 
-    public BlockId insertBlock(final Block block) throws DatabaseException {
-        final BlockId blockId = _insertBlockHeader(block);
+    /**
+     * Inserts the Block (and BlockHeader if it does not exist) (including its transactions) into the database.
+     *  If the BlockHeader has already been stored, this will update the existing BlockHeader.
+     *  Transactions inserted on this chain are assumed to be a part of the parent's chain if the BlockHeader did not exist.
+     */
+    public BlockId storeBlock(final Block block) throws DatabaseException {
+        final BlockId existingBlockId = _getBlockIdFromHash(block.getHash());
 
         final BlockChainSegmentId blockChainSegmentId;
-        {
-            final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
-            final BlockId previousBlockId = _getBlockIdFromHash(previousBlockHash);
-            if (previousBlockId != null) {
-                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-                blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(previousBlockId);
-            }
-            else {
-                blockChainSegmentId = null;
-            }
+        final BlockId blockId;
+        if (existingBlockId == null) {
+            blockId = _insertBlockHeader(block);
+            blockChainSegmentId = _getNewlyInsertedBlocksChainSegmentId(block);
         }
+        else {
+            _updateBlockHeader(existingBlockId, block);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+            blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(existingBlockId);
+            blockId = existingBlockId;
+        }
+
+        _insertBlockTransactions(blockChainSegmentId, blockId, block);
+        return blockId;
+    }
+
+    /**
+     * Inserts the Block (including its transactions) into the database.
+     *  If the BlockHeader has already been stored, this function will throw a DatabaseException.
+     *  Transactions inserted on this chain are assumed to be a part of the parent's chain.
+     */
+    public BlockId insertBlock(final Block block) throws DatabaseException {
+        final BlockId blockId = _insertBlockHeader(block);
+        final BlockChainSegmentId blockChainSegmentId = _getNewlyInsertedBlocksChainSegmentId(block);
 
         _insertBlockTransactions(blockChainSegmentId, blockId, block);
         return blockId;
@@ -344,7 +370,7 @@ public class BlockDatabaseManager {
     /**
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
-    public Sha256Hash getHeadBlockHash() throws DatabaseException {
+    public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
@@ -355,8 +381,30 @@ public class BlockDatabaseManager {
     /**
      * Returns the BlockId of the block that has the tallest block-height.
      */
-    public BlockId getHeadBlockId() throws DatabaseException {
+    public BlockId getHeadBlockHeaderId() throws DatabaseException {
         final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
+
+    /**
+     * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     */
+    public Sha256Hash getHeadBlockHash() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+    }
+
+    /**
+     * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
+     */
+    public BlockId getHeadBlockId() throws DatabaseException {
+        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);

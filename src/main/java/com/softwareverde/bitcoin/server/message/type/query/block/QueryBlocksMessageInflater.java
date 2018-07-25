@@ -33,7 +33,7 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);
-        queryBlocksMessage._desiredBlockHeaderHash = MutableSha256Hash.wrap(blockHeaderHashBytes);
+        queryBlocksMessage._stopBeforeBlockHash = MutableSha256Hash.wrap(blockHeaderHashBytes);
 
         if (byteArrayReader.didOverflow()) { return null; }
 

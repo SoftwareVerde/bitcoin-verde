@@ -16,7 +16,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
-    public static final Long REQUEST_TIMEOUT_THRESHOLD = 5_000L;
+    public static final Long REQUEST_TIMEOUT_THRESHOLD = 10_000L;
     public static Boolean LOGGING_ENABLED = true;
 
     /**
@@ -118,6 +118,10 @@ public class NodeManager<NODE extends Node> {
                     _pingIdleNodes();
                 }
 
+                synchronized (_mutex) {
+                    _removeDisconnectedNodes();
+                }
+
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
 
@@ -188,7 +192,7 @@ public class NodeManager<NODE extends Node> {
     protected void _broadcastExistingNodesToNewNode(final NODE newNode) {
         final Collection<NODE> nodes = _nodes.values();
 
-        final java.util.List<NodeIpAddress> nodeAddresses = new ArrayList<NodeIpAddress>(nodes.size());
+        final MutableList<NodeIpAddress> nodeAddresses = new MutableList<NodeIpAddress>(nodes.size());
         for (final NODE node : nodes) {
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
             if (nodeIpAddress == null) { continue; }
@@ -457,6 +461,23 @@ public class NodeManager<NODE extends Node> {
                     }
                 }
             });
+        }
+    }
+
+    protected void _removeDisconnectedNodes() {
+        final java.util.List<NODE> purgeableNodes = new ArrayList<NODE>();
+
+        for (final NODE node : _nodes.values()) {
+            final Long nodeAge = (System.currentTimeMillis() - node.getInitializationTime());
+            if (! node.isConnected()) {
+                if (nodeAge > 10000L) {
+                    purgeableNodes.add(node);
+                }
+            }
+        }
+
+        for (final NODE node : purgeableNodes) {
+            _removeNode(node);
         }
     }
 

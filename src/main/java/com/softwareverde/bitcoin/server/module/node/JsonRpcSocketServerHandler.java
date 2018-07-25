@@ -1,11 +1,24 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -19,6 +32,8 @@ import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
@@ -31,45 +46,154 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<Node> getNodes();
     }
 
+    public interface QueryBalanceHandler {
+        Long getBalance(Address address);
+    }
+
     public static class StatisticsContainer {
+        public Container<Float> averageBlockHeadersPerSecond;
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
     }
 
     protected final Environment _environment;
     protected final Container<Float> _averageBlocksPerSecond;
+    protected final Container<Float> _averageBlockHeadersPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
 
     protected ShutdownHandler _shutdownHandler = null;
     protected NodeHandler _nodeHandler = null;
+    protected QueryBalanceHandler _queryBalanceHandler = null;
 
     public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
         _environment = environment;
 
+        _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
     }
 
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
-        if (lastKnownHash == null) { return 0L; }
 
-        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
+        final BlockId blockId = blockDatabaseManager.getHeadBlockId();
+        if (blockId == null) { return 0L; }
+
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+    }
+
+    protected Long _calculateBlockHeaderHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final BlockId blockId = blockDatabaseManager.getHeadBlockHeaderId();
+        if (blockId == null) { return 0L; }
+
+        return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+    }
+
+    protected void _getBlock(final Json parameters, final Json response) {
+        if (! parameters.hasKey("hash")) {
+            response.put("errorMessage", "Missing parameters. Required: hash");
+            return;
+        }
+
+        final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
+
+        final String blockHashString = parameters.getString("hash");
+        final Sha256Hash blockHash = MutableSha256Hash.fromHexString(blockHashString);
+
+        if (blockHash == null) {
+            response.put("errorMessage", "Invalid block hash: " + blockHashString);
+            return;
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            if (blockId == null) {
+                response.put("errorMessage", "Block not found: " + blockHashString);
+                return;
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+
+            if (shouldReturnRawBlockData) {
+                final BlockDeflater blockDeflater = new BlockDeflater();
+                final ByteArray blockData = blockDeflater.toBytes(block);
+                response.put("block", HexUtil.toHexString(blockData.getBytes()));
+            }
+            else {
+                response.put("block", block);
+            }
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
+    }
+
+    protected void _getTransaction(final Json parameters, final Json response) {
+        if (! parameters.hasKey("hash")) {
+            response.put("errorMessage", "Missing parameters. Required: hash");
+            return;
+        }
+
+        final Boolean shouldReturnRawTransactionData = parameters.getBoolean("rawFormat");
+
+        final String transactionHashString = parameters.getString("hash");
+        final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(transactionHashString);
+
+        if (transactionHash == null) {
+            response.put("errorMessage", "Invalid transaction hash: " + transactionHashString);
+            return;
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(mainBlockChainSegmentId, transactionHash);
+            if (transactionId == null) {
+                response.put("errorMessage", "Transaction not found: " + transactionHashString);
+                return;
+            }
+
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (shouldReturnRawTransactionData) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+                response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
+            }
+            else {
+                response.put("transaction", transaction);
+            }
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
     }
 
     protected void _queryBlockHeight(final Json response) {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
+            final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
 
-            response.put("was_success", 1);
-            response.put("block_height", blockHeight);
+            response.put("wasSuccess", 1);
+            response.put("blockHeight", blockHeight);
+            response.put("blockHeaderHeight", blockHeaderHeight);
         }
         catch (final Exception exception) {
-            response.put("was_success", 0);
-            response.put("error_message", exception.getMessage());
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
         }
     }
 
@@ -93,50 +217,102 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
             }
 
+            final Long blockHeaderTimestampInSeconds;
+            {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
+                if (lastKnownHash == null) {
+                    blockHeaderTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+                }
+                else {
+                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    blockHeaderTimestampInSeconds = blockHeader.getTimestamp();
+                }
+            }
+
             final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
 
             final Integer secondsInAnHour = (60 * 60);
             final Boolean isSyncing = (secondsBehind > secondsInAnHour);
 
-            response.put("was_success", 1);
+            response.put("wasSuccess", 1);
             response.put("status", (isSyncing ? "SYNCHRONIZING" : "ONLINE"));
 
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
+            final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
 
             final Json statisticsJson = new Json();
-            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
-            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
+            statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
+            statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
+            statisticsJson.put("blockHeaderDate", DateUtil.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
+
             statisticsJson.put("blockHeight", blockHeight);
+            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
             statisticsJson.put("blockDate", DateUtil.timestampToDatetimeString(blockTimestampInSeconds * 1000));
+
+            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
 
             response.put("statistics", statisticsJson);
         }
         catch (final Exception exception) {
-            response.put("was_success", 0);
-            response.put("error_message", exception.getMessage());
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
         }
+    }
+
+    protected void _queryBalance(final Json parameters, final Json response) {
+        final QueryBalanceHandler queryBalanceHandler = _queryBalanceHandler;
+        if (queryBalanceHandler == null) {
+            response.put("errorMessage", "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("address")) {
+            response.put("errorMessage", "Missing parameters. Required: address");
+            return;
+        }
+
+        final String addressString = parameters.getString("address");
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address address = addressInflater.fromBase58Check(addressString);
+
+        if (address == null) {
+            response.put("errorMessage", "Invalid address.");
+            return;
+        }
+
+        final Long balance = queryBalanceHandler.getBalance(address);
+
+        if (balance == null) {
+            response.put("errorMessage", "Unable to determine balance.");
+            return;
+        }
+
+        response.put("balance", balance);
+        response.put("wasSuccess", 1);
     }
 
     protected void _shutdown(final Json parameters, final Json response) {
         final ShutdownHandler shutdownHandler = _shutdownHandler;
         if (shutdownHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
         final Boolean wasSuccessful = shutdownHandler.shutdown();
-        response.put("was_success", (wasSuccessful ? 1 : 0));
+        response.put("wasSuccess", (wasSuccessful ? 1 : 0));
     }
 
     protected void _addNode(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
         if ((! parameters.hasKey("host")) || (! parameters.hasKey("port"))) {
-            response.put("error_message", "Missing parameters. Required: host, port");
+            response.put("errorMessage", "Missing parameters. Required: host, port");
             return;
         }
 
@@ -144,13 +320,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Integer port = parameters.getInteger("port");
 
         final Boolean wasSuccessful = nodeHandler.addNode(host, port);
-        response.put("was_success", (wasSuccessful ? 1 : 0));
+        response.put("wasSuccess", (wasSuccessful ? 1 : 0));
     }
 
     protected void _nodeStatus(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
-            response.put("error_message", "Operation not supported.");
+            response.put("errorMessage", "Operation not supported.");
             return;
         }
 
@@ -168,7 +344,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
 
         response.put("nodes", nodeListJson);
-        response.put("was_success", 1);
+        response.put("wasSuccess", 1);
     }
 
     public void setShutdownHandler(final ShutdownHandler shutdownHandler) {
@@ -177,6 +353,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public void setNodeHandler(final NodeHandler nodeHandler) {
         _nodeHandler = nodeHandler;
+    }
+
+    public void setQueryBalanceHandler(final QueryBalanceHandler queryBalanceHandler) {
+        _queryBalanceHandler = queryBalanceHandler;
     }
 
     @Override
@@ -193,12 +373,22 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 final Json response = new Json();
                 response.put("method", "RESPONSE");
-                response.put("was_success", 0);
-                response.put("error_message", null);
+                response.put("wasSuccess", 0);
+                response.put("errorMessage", null);
+
+                final Json parameters = message.get("parameters");
 
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
+                            case "BLOCK": {
+                                _getBlock(parameters, response);
+                            } break;
+
+                            case "TRANSACTION": {
+                                _getTransaction(parameters, response);
+                            } break;
+
                             case "BLOCK_HEIGHT": {
                                 _queryBlockHeight(response);
                             } break;
@@ -211,15 +401,17 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                                 _nodeStatus(response);
                             } break;
 
+                            case "BALANCE": {
+                                _queryBalance(parameters, response);
+                            } break;
+
                             default: {
-                                response.put("error_message", "Invalid command: " + method + "/" + query);
+                                response.put("errorMessage", "Invalid command: " + method + "/" + query);
                             } break;
                         }
                     } break;
 
                     case "POST": {
-                        final Json parameters = message.get("parameters");
-
                         switch (query.toUpperCase()) {
                             case "SHUTDOWN": {
                                 _shutdown(parameters, response);
@@ -230,17 +422,19 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             default: {
-                                response.put("error_message", "Invalid command: " + method + "/" + query);
+                                response.put("errorMessage", "Invalid command: " + method + "/" + query);
                             } break;
                         }
                     } break;
 
                     default: {
-                        response.put("error_message", "Invalid method: " + method);
+                        response.put("errorMessage", "Invalid method: " + method);
                     } break;
                 }
 
-                Logger.log("Writing: " + response.toString());
+                final String responseString = response.toString();
+                final String truncatedResponseString = responseString.substring(0, Math.min(256, responseString.length()));
+                Logger.log("Writing: " + truncatedResponseString + (responseString.length() > 256 ? "..." : ""));
                 socketConnection.write(new JsonProtocolMessage(response));
             }
         });

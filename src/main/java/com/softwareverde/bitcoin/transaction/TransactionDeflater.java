@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
@@ -60,8 +62,8 @@ public class TransactionDeflater {
         return byteArrayBuilder;
     }
 
-    public byte[] toBytes(final Transaction transaction) {
-        return _toBytes(transaction);
+    public ByteArray toBytes(final Transaction transaction) {
+        return MutableByteArray.wrap(_toBytes(transaction));
     }
 
     public Integer getByteCount(final Transaction transaction) {
@@ -110,7 +112,7 @@ public class TransactionDeflater {
     public Json toJson(final Transaction transaction) {
         final Json json = new Json();
 
-        json.put("version", transaction.VERSION);
+        json.put("version", transaction.getVersion());
 
         final Json inputsJson = new Json();
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {

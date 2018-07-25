@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -157,21 +157,21 @@ public class ProtocolMessageTests {
         final byte[] versionMessage = HexUtil.hexStringToByteArray(getHeadersMessageHexString.replaceAll("\\s", ""));
 
         // Action
-        final QueryBlockHeadersMessage queryBlockHeadersMessage = (QueryBlockHeadersMessage) protocolMessageFactory.fromBytes(versionMessage);
+        final RequestBlockHeadersMessage requestBlockHeadersMessage = (RequestBlockHeadersMessage) protocolMessageFactory.fromBytes(versionMessage);
 
         // Assert
-        Assert.assertNotNull(queryBlockHeadersMessage);
+        Assert.assertNotNull(requestBlockHeadersMessage);
 
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlockHeadersMessage.getMagicNumber().getBytes());
-        Assert.assertEquals(MessageType.QUERY_BLOCK_HEADERS, queryBlockHeadersMessage.getCommand());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), requestBlockHeadersMessage.getMagicNumber().getBytes());
+        Assert.assertEquals(MessageType.REQUEST_BLOCK_HEADERS, requestBlockHeadersMessage.getCommand());
 
-        final List<Sha256Hash> blockHeaderHashes = queryBlockHeadersMessage.getBlockHeaderHashes();
+        final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
         Assert.assertEquals(30, blockHeaderHashes.size());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29).getBytes());
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), queryBlockHeadersMessage.getDesiredBlockHeaderHash().getBytes());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), requestBlockHeadersMessage.getStopBeforeBlockHash().getBytes());
     }
 
     @Test
@@ -237,6 +237,6 @@ public class ProtocolMessageTests {
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29).getBytes());
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), queryBlocksMessage.getDesiredBlockHeaderHash().getBytes());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), queryBlocksMessage.getStopBeforeBlockHash().getBytes());
     }
 }

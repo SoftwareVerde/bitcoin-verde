@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.json.Json;
 
 public class MutableBlockHeader implements BlockHeader {
     protected Long _version;
@@ -72,5 +73,11 @@ public class MutableBlockHeader implements BlockHeader {
     @Override
     public ImmutableBlockHeader asConst() {
         return new ImmutableBlockHeader(this);
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        return blockHeaderDeflater.toJson(this);
     }
 }

@@ -4,8 +4,9 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 
 public class BlockHeaderWithTransactionCountInflater extends BlockHeaderInflater {
+    @Override
     protected MutableBlockHeaderWithTransactionCount _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
-        final MutableBlockHeader blockHeader = super.fromBytes(byteArrayReader);
+        final MutableBlockHeader blockHeader = super._fromByteArrayReader(byteArrayReader);
         final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         return new MutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
     }

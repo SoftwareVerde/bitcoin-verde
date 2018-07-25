@@ -1,12 +1,15 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -30,45 +33,75 @@ public class TransactionOutputDatabaseManager {
         return TransactionOutputId.wrap(row.getLong("id"));
     }
 
-    protected void _updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        final ByteArray lockingScript = transactionOutput.getLockingScript().getBytes();
-        _databaseConnection.executeSql(
-            new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ?, locking_script = ? WHERE id = ?")
+    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+        final Long transactionOutputIdLong = _databaseConnection.executeSql(
+            new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
                 .setParameter(transactionId)
                 .setParameter(transactionOutput.getIndex())
                 .setParameter(transactionOutput.getAmount())
-                .setParameter(lockingScript.getBytes())
-                .setParameter(transactionOutputId)
         );
+
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputIdLong);
+        if (transactionOutputId == null) { return null; }
+
+        _insertLockingScript(transactionOutputId, lockingScript);
+
+        return transactionOutputId;
     }
 
-    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        final ByteArray lockingScript = transactionOutput.getLockingScript().getBytes();
+    public void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
-        final Long transactionOutputId = _databaseConnection.executeSql(
-            new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount, locking_script) VALUES (?, ?, ?, ?)")
-                .setParameter(transactionId)
-                .setParameter(transactionOutput.getIndex())
-                .setParameter(transactionOutput.getAmount())
-                .setParameter(lockingScript.getBytes())
+
+        final AddressId addressId;
+        if (scriptType != ScriptType.UNKNOWN) {
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
+            addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
+        }
+        else {
+            addressId = null;
+        }
+
+        _databaseConnection.executeSql(
+            new Query("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
+                .setParameter(scriptType)
+                .setParameter(transactionOutputId)
+                .setParameter(lockingScript.getBytes().getBytes())
+                .setParameter(addressId)
         );
-
-        return TransactionOutputId.wrap(transactionOutputId);
     }
 
     protected TransactionOutput _getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT * FROM transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
-        );
-        if (rows.isEmpty()) { return null; }
+        final Row transactionOutputRow;
+        {
+            final List<Row> rows = _databaseConnection.query(
+                new Query("SELECT * FROM transaction_outputs WHERE id = ?")
+                    .setParameter(transactionOutputId)
+            );
+            if (rows.isEmpty()) { return null; }
 
-        final Row row = rows.get(0);
+            transactionOutputRow = rows.get(0);
+        }
+
+        final LockingScript lockingScript;
+        {
+            final List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, script FROM locking_scripts WHERE transaction_output_id = ?")
+                    .setParameter(transactionOutputId)
+            );
+            if (rows.isEmpty()) { return null; }
+
+            final Row row = rows.get(0);
+            lockingScript = new MutableLockingScript(row.getBytes("script"));
+        }
 
         final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-        mutableTransactionOutput.setIndex(row.getInteger("index"));
-        mutableTransactionOutput.setAmount(row.getLong("amount"));
-        mutableTransactionOutput.setLockingScript(row.getBytes("locking_script"));
+        mutableTransactionOutput.setIndex(transactionOutputRow.getInteger("index"));
+        mutableTransactionOutput.setAmount(transactionOutputRow.getLong("amount"));
+        mutableTransactionOutput.setLockingScript(lockingScript);
         return mutableTransactionOutput;
     }
 
@@ -80,51 +113,11 @@ public class TransactionOutputDatabaseManager {
         return _insertTransactionOutput(transactionId, transactionOutput);
     }
 
-    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        _updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
-    }
-
-    public TransactionOutputId storeTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutput.getIndex());
-        if (transactionOutputId != null) {
-            _updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
-            return transactionOutputId;
-        }
-
-        return _insertTransactionOutput(transactionId, transactionOutput);
-    }
-
     public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         return _findTransactionOutput(transactionId, transactionOutputIndex);
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         return _getTransactionOutput(transactionOutputId);
-    }
-
-    public TransactionOutput fromDatabaseConnection(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        final ScriptInflater scriptInflater = new ScriptInflater();
-
-        final List<Row> rows = _databaseConnection.query(
-            new Query("SELECT * FROM transaction_outputs WHERE id = ?")
-                .setParameter(transactionOutputId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-
-        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-
-        final Long amount = row.getLong("amount");
-        final Integer index = row.getInteger("index");
-
-        final LockingScript lockingScript = LockingScript.castFrom(scriptInflater.fromBytes(row.getBytes("locking_script")));
-
-        transactionOutput.setAmount(amount);
-        transactionOutput.setIndex(index);
-
-        transactionOutput.setLockingScript(lockingScript);
-
-        return transactionOutput;
     }
 }

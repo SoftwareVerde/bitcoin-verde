@@ -1,11 +1,8 @@
 package com.softwareverde.bitcoin.block.validator;
 
-import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -26,7 +23,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.timer.Timer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -40,19 +37,14 @@ public class BlockValidator {
     protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
 
-    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        _databaseConnectionFactory = threadedConnectionsFactory;
-        _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
-    }
-
-    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
+    protected Boolean _validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block, final Long blockHeight) {
         if (! block.isValid()) {
             Logger.log("Block header is invalid.");
             return false;
         }
 
-        final long startTime = System.currentTimeMillis();
+        final Timer validateBlockTimer = new Timer();
+        validateBlockTimer.start();
 
         final List<Transaction> transactions;
         final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
@@ -82,40 +74,9 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, Boolean> unlockedInputsTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
             @Override
             public TaskHandler<Transaction, Boolean> newInstance() {
-                return new UnlockedInputsTaskHandler(blockChainSegmentId, _networkTime, _medianBlockTime);
+                return new UnlockedInputsTaskHandler(blockChainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         };
-
-        final BlockId blockId;
-        final Long blockHeight;
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
-            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
-        }
-        catch (final DatabaseException databaseException) {
-            Logger.log(databaseException);
-            return false;
-        }
-
-        { // Validate Block Timestamp...
-            final Long blockTime = block.getTimestamp();
-            final Long minimumTimeInSeconds;
-            {
-                if (Bip113.isEnabled(blockHeight)) {
-                    minimumTimeInSeconds = _medianBlockTime.getCurrentTimeInSeconds();
-                }
-                else {
-                    minimumTimeInSeconds = 0L;
-                }
-            }
-            final Long networkTime = _networkTime.getCurrentTimeInSeconds();
-            final Long secondsInTwoHours = 7200L;
-            final Long maximumNetworkTime = networkTime + secondsInTwoHours;
-
-            if (blockTime < minimumTimeInSeconds) { return false; }
-            if (blockTime > maximumNetworkTime) { return false; }
-        }
 
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
@@ -168,27 +129,6 @@ public class BlockValidator {
             }
         }
 
-        { // Validate block (calculated) difficulty...
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
-                final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, block);
-                if (calculatedRequiredDifficulty == null) {
-                    Logger.log("Unable to calculate required difficulty for block: " + blockChainSegmentId + " " + block.getHash());
-                    return false;
-                }
-
-                final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(block.getDifficulty());
-                if (!difficultyIsCorrect) {
-                    Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()) + " Found: " + HexUtil.toHexString(block.getDifficulty().encode()));
-                    return false;
-                }
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.log(databaseException);
-                return false;
-            }
-        }
-
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, (TOTAL_THREAD_COUNT / 2));
@@ -210,9 +150,8 @@ public class BlockValidator {
             return false;
         }
 
-        final long endTime = System.currentTimeMillis();
-        final long msElapsed = (endTime - startTime);
-        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (msElapsed) + "ms ("+ String.format("%.2f", ((((double) transactions.getSize()) / msElapsed) * 1000)) +" tps).");
+        validateBlockTimer.stop();
+        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms ("+ ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) +" tps).");
 
         final Long totalTransactionFees;
         {
@@ -257,5 +196,31 @@ public class BlockValidator {
         }
 
         return true;
+    }
+
+    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+        _databaseConnectionFactory = threadedConnectionsFactory;
+        _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
+    }
+
+    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
+        final BlockId blockId;
+        final Long blockHeight;
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
+            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _networkTime, _medianBlockTime);
+            final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(blockChainSegmentId, block, blockHeight);
+            if (! headerIsValid) { return false; }
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+            return false;
+        }
+
+        return _validateBlock(blockChainSegmentId, block, blockHeight);
     }
 }

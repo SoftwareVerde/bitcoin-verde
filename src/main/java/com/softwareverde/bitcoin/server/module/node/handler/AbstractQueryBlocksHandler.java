@@ -2,10 +2,9 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -14,7 +13,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
@@ -106,7 +105,11 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             startingBlockId = foundBlockId;
         }
 
-        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) { Logger.log(blockChainSegmentId + " " + startingBlockId); return null; }
+        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) {
+            Logger.log("QueryBlocksHandler._getStartingBlock: " + blockChainSegmentId + " " + startingBlockId);
+            return null;
+        }
+
         return new StartingBlock(blockChainSegmentId, startingBlockId);
     }
 }

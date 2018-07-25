@@ -1,7 +1,5 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-
 public interface SequenceNumber extends LockTime {
     Long SECONDS_PER_SEQUENCE_NUMBER = 512L;
 

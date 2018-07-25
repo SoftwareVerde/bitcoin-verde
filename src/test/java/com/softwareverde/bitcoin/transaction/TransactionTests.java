@@ -23,7 +23,7 @@ public class TransactionTests {
         final Transaction transaction = transactionInflater.fromBytes(expectedTransactionBytes);
 
         // Action
-        final byte[] transactionBytes = transactionDeflater.toBytes(transaction);
+        final byte[] transactionBytes = transactionDeflater.toBytes(transaction).getBytes();
         final Sha256Hash transactionHash = transaction.getHash();
 
         // Assert
@@ -44,7 +44,7 @@ public class TransactionTests {
 
 
         // Action
-        final byte[] transactionBytes = transactionDeflater.toBytes(transaction);
+        final byte[] transactionBytes = transactionDeflater.toBytes(transaction).getBytes();
         final Sha256Hash transactionHash = transaction.getHash();
 
         // Assert

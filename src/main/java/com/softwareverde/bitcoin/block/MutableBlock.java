@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.json.Json;
 
 public class MutableBlock implements Block {
     protected Long _version;
@@ -139,5 +140,11 @@ public class MutableBlock implements Block {
     @Override
     public Integer getTransactionCount() {
         return _transactions.getSize();
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        return blockDeflater.toJson(this);
     }
 }

@@ -3,8 +3,8 @@ package com.softwareverde.test.database;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.Credentials;
-import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
@@ -27,7 +27,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
     }
 
     public MysqlTestDatabase() {
-        super(null, null, null);
+        super(null, "", "");
         final DBConfiguration dbConfiguration;
         {
             final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();

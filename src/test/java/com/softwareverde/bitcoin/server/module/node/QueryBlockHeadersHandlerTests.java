@@ -3,12 +3,11 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -17,7 +16,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.socket.BinarySocket;
@@ -198,6 +197,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+        _resetCache();
     }
 
     @Test

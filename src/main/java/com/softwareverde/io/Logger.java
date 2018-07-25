@@ -54,35 +54,61 @@ public class Logger {
     }
 
     public static LogCallback LOG_CALLBACK = null;
+    public static LogCallback ERROR_CALLBACK = null;
 
-    protected static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
+    private static String _toString(final Object object) {
+        if (object == null) { return "null"; }
+
+        try (final StringWriter stringWriter = new StringWriter()) {
+            try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
+                if (object instanceof Exception) {
+                    final String metadata = ("[" + _getMetadata((Exception) object, 1) + "]");
+                    stringWriter.append(metadata);
+                    ((Exception) object).printStackTrace(printWriter);
+                }
+                else {
+                    final String metadata = ("[" + _getMetadata(new Exception(), 2) + "] ");
+                    stringWriter.append(metadata);
+                    stringWriter.append(Util.coalesce(object, "null").toString());
+                }
+
+                return stringWriter.toString();
+            }
+        }
+        catch (final Exception exception) { exception.printStackTrace(); }
+
+        return "null";
+    }
+
+    public static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
         final StackTraceElement stackTraceElements[] = exception.getStackTrace();
         final StackTraceElement stackTraceElement = stackTraceElements[backtraceIndex];
         return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
     }
 
     public static void log(final Object object) {
-        try (final StringWriter stringWriter = new StringWriter()) {
-            try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
-                if (object instanceof Exception) {
-                    final String metadata = ("[" + _getMetadata((Exception) object, 0) + "]");
-                    stringWriter.append(metadata);
-                    ((Exception) object).printStackTrace(printWriter);
-                }
-                else {
-                    final String metadata = ("[" + _getMetadata(new Exception(), 1) + "] ");
-                    stringWriter.append(metadata);
-                    stringWriter.append(Util.coalesce(object, "null").toString());
-                }
+        final String string = _toString(object);
 
-                _queuedMessages.add(stringWriter.toString());
-            }
+        if (_logThread.isAlive()) {
+            _queuedMessages.add(string);
         }
-        catch (final Exception exception) { exception.printStackTrace(); }
+        else {
+            System.out.println(string);
+        }
 
         final LogCallback logCallback = LOG_CALLBACK;
         if (logCallback != null) {
             logCallback.onLog(object);
+        }
+    }
+
+    public static void error(final Object object) {
+        final String string = _toString(object);
+        System.err.println(string);
+
+        final LogCallback errorCallback = ERROR_CALLBACK;
+        if (errorCallback != null) {
+            errorCallback.onLog(object);
         }
     }
 

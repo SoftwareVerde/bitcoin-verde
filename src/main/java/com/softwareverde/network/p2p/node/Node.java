@@ -1,5 +1,7 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.IpInflater;
@@ -45,10 +47,10 @@ public abstract class Node {
         destinationSet.add(value);
     }
 
-    protected static <T, S> void _storeInMapList(final Map<T, List<S>> destinationList, final T key, final S value) {
-        List<S> destinationSet = destinationList.get(key);
+    protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
+        MutableList<S> destinationSet = destinationList.get(key);
         if (destinationSet == null) {
-            destinationSet = new ArrayList<S>();
+            destinationSet = new MutableList<S>();
             destinationList.put(key, destinationSet);
         }
         destinationSet.add(value);
@@ -56,6 +58,7 @@ public abstract class Node {
 
     protected final NodeId _id;
     protected final NodeConnection _connection;
+    protected final Long _initializationTime = System.currentTimeMillis();
 
     protected final SystemTime _systemTime = new SystemTime();
 
@@ -276,6 +279,10 @@ public abstract class Node {
 
     public NodeId getId() { return _id; }
 
+    public Long getInitializationTime() {
+        return _initializationTime;
+    }
+
     public void handshake() {
         _handshake();
     }
@@ -367,6 +374,10 @@ public abstract class Node {
 
     public void disconnect() {
         _disconnect();
+    }
+
+    public Boolean isConnected() {
+        return _connection.isConnected();
     }
 
     @Override

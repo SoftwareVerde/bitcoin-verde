@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.message.type.block.BlockMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
@@ -10,8 +12,9 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.block.header.QueryBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
@@ -39,8 +42,10 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public interface QueryCallback extends Callback<java.util.List<Sha256Hash>> { }
+
+    public interface QueryCallback extends Callback<List<Sha256Hash>> { }
     public interface DownloadBlockCallback extends Callback<Block> { }
+    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
 
     public interface QueryBlocksCallback {
         void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
@@ -54,7 +59,7 @@ public class BitcoinNode extends Node {
         void run(List<DataHash> dataHashes, NodeConnection nodeConnection);
     }
 
-    protected static class BlockHashQueryCallback implements Callback<java.util.List<Sha256Hash>> {
+    protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
         public QueryCallback callback;
 
@@ -64,7 +69,7 @@ public class BitcoinNode extends Node {
         }
 
         @Override
-        public void onResult(final java.util.List<Sha256Hash> result) {
+        public void onResult(final List<Sha256Hash> result) {
             this.callback.onResult(result);
         }
     }
@@ -84,6 +89,7 @@ public class BitcoinNode extends Node {
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
@@ -181,12 +187,16 @@ public class BitcoinNode extends Node {
                         _onBlockMessageReceived((BlockMessage) message);
                     } break;
 
+                    case BLOCK_HEADERS: {
+                        _onBlockHeadersMessageReceived((BlockHeadersMessage) message);
+                    } break;
+
                     case QUERY_BLOCKS: {
                         _onQueryBlocksMessageReceived((QueryBlocksMessage) message, _connection);
                     } break;
 
-                    case QUERY_BLOCK_HEADERS: {
-                        _onQueryBlockHeadersReceived((QueryBlockHeadersMessage) message, _connection);
+                    case REQUEST_BLOCK_HEADERS: {
+                        _onQueryBlockHeadersReceived((RequestBlockHeadersMessage) message, _connection);
                     } break;
 
                     case ENABLE_NEW_BLOCKS_VIA_HEADERS: {
@@ -255,7 +265,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
-        final Map<DataHashType, java.util.List<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, java.util.List<Sha256Hash>>();
+        final Map<DataHashType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<DataHashType, MutableList<Sha256Hash>>();
 
         final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
         for (final DataHash dataHash : dataHashes) {
@@ -265,7 +275,7 @@ public class BitcoinNode extends Node {
         }
 
         for (final DataHashType dataHashType : dataHashesMap.keySet()) {
-            final java.util.List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
+            final List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
             if (objectHashes.isEmpty()) { continue; }
 
             {   // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
@@ -307,12 +317,33 @@ public class BitcoinNode extends Node {
         _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
     }
 
+    protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
+        final List<BlockHeaderWithTransactionCount> blockHeaders = blockHeadersMessage.getBlockHeaders();
+
+        final Boolean allBlockHeadersAreValid;
+        {
+            Boolean isValid = true;
+            for (final BlockHeader blockHeader : blockHeaders) {
+                if (! blockHeader.isValid()) {
+                    isValid = false;
+                    break;
+                }
+            }
+            allBlockHeadersAreValid = isValid;
+        }
+
+        if (blockHeaders.isEmpty()) { return; }
+
+        final BlockHeader firstBlockHeader = blockHeaders.get(0);
+        _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null));
+    }
+
     protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage, final NodeConnection nodeConnection) {
         final QueryBlocksCallback queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHeaderHashes());
-            final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getDesiredBlockHeaderHash();
+            final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
             queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
@@ -320,12 +351,12 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected void _onQueryBlockHeadersReceived(final QueryBlockHeadersMessage queryBlockHeadersMessage, final NodeConnection nodeConnection) {
+    protected void _onQueryBlockHeadersReceived(final RequestBlockHeadersMessage requestBlockHeadersMessage, final NodeConnection nodeConnection) {
         final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
 
         if (queryBlockHeadersCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlockHeadersMessage.getBlockHeaderHashes());
-            final Sha256Hash desiredBlockHeaderHash = queryBlockHeadersMessage.getDesiredBlockHeaderHash();
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(requestBlockHeadersMessage.getBlockHeaderHashes());
+            final Sha256Hash desiredBlockHeaderHash = requestBlockHeadersMessage.getStopBeforeBlockHash();
             queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
         }
         else {
@@ -345,6 +376,14 @@ public class BitcoinNode extends Node {
         _queueMessage(requestDataMessage);
     }
 
+    protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes) {
+        final RequestBlockHeadersMessage requestBlockHeadersMessage = new RequestBlockHeadersMessage();
+        for (final Sha256Hash blockHash : blockHashes) {
+            requestBlockHeadersMessage.addBlockHeaderHash(blockHash);
+        }
+        _queueMessage(requestBlockHeadersMessage);
+    }
+
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
@@ -353,6 +392,14 @@ public class BitcoinNode extends Node {
     public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
         _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
         _requestBlock(blockHash);
+    }
+
+    public void requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
+        if (blockHashes.isEmpty()) { return; }
+
+        final Sha256Hash firstBlockHash = blockHashes.get(0);
+        _storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, downloadBlockHeaderCallback);
+        _requestBlockHeaders(blockHashes);
     }
 
     public void setQueryBlocksCallback(final QueryBlocksCallback queryBlocksCallback) {
@@ -383,5 +430,6 @@ public class BitcoinNode extends Node {
         _availableDataHashes.clear();
         _queryRequests.clear();
         _downloadBlockRequests.clear();
+        _downloadBlockHeadersRequests.clear();
     }
 }

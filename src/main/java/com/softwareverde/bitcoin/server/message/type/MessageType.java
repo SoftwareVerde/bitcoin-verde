@@ -6,11 +6,14 @@ public enum MessageType {
     SYNCHRONIZE_VERSION("version"), ACKNOWLEDGE_VERSION("verack"),
     PING("ping"), PONG("pong"),
     NODE_ADDRESSES("addr"),
-    QUERY_BLOCK_HEADERS("getheaders"), QUERY_BLOCK_HEADERS_RESPONSE("headers"),
-    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
+
     QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"),
-    REQUEST_DATA("getdata"), BLOCK("block"), NOT_FOUND("notfound"),
-    ERROR("reject");
+    REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
+    REQUEST_DATA("getdata"), BLOCK("block"),
+
+    NOT_FOUND("notfound"), ERROR("reject"),
+
+    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

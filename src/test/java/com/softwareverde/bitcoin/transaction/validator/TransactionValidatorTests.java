@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.transaction.validator;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -25,10 +27,10 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
-import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.address.AddressInflater;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -93,9 +95,14 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransaction;
     }
 
+    protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
+    }
+
     @Before
     public void setup() {
         _resetDatabase();
+        _resetCache();
     }
 
     @Test
@@ -121,7 +128,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, transaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, _calculateBlockHeight(databaseConnection), transaction);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -163,7 +170,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -205,7 +212,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);
@@ -247,7 +254,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);

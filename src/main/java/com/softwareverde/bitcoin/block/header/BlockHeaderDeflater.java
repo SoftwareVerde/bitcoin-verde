@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -59,5 +62,19 @@ public class BlockHeaderDeflater {
 
     public BlockHeaderByteData toByteData( final BlockHeader blockHeader) {
         return _createByteData(blockHeader);
+    }
+
+    public Json toJson(final BlockHeader blockHeader) {
+        final Json json = new Json();
+
+        json.put("hash", blockHeader.getHash());
+        json.put("previousBlockHash", blockHeader.getPreviousBlockHash());
+        json.put("merkleRoot", blockHeader.getMerkleRoot());
+        json.put("version", blockHeader.getVersion());
+        json.put("timestamp", DateUtil.Utc.timestampToDatetimeString(blockHeader.getTimestamp()));
+        json.put("difficulty", HexUtil.toHexString(blockHeader.getDifficulty().encode()));
+        json.put("nonce", blockHeader.getNonce());
+
+        return json;
     }
 }

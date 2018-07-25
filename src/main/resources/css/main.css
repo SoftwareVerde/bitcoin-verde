@@ -1,0 +1,131 @@
+#root {
+    -fx-background-color: #222222;
+    -fx-text-fill: #EEEEEE;
+}
+
+.tab-pane .tab-header-area .tab-header-background {
+    -fx-opacity: 0.2;
+}
+
+.tab {
+    -fx-background-color: #242424;
+    -fx-text-fill: #EEEEEE;
+
+    -fx-border-style: none;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.tab:selected  {
+    -fx-background-color: #79A890;
+    -fx-text-fill: #000000;
+    -fx-font-weight: bold;
+}
+
+.label {
+    -fx-text-fill: #FFFFFF;
+}
+
+.text-field {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #505050, #383838, #383838;
+    -fx-background-insets: 0 -2 -2 -2, 0 0 0 0, 0 -2 3 -2;
+}
+
+.text-field:focused {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #606060, #383838, #383838;
+    -fx-background-insets: 0 -2 -2 -2, 0 0 0 0, 0 -2 3 -2;
+}
+
+.context-menu {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #656565;
+}
+
+.context-menu .menu-item {
+    -fx-text-fill: #EEEEEE;
+    -fx-background-color: #656565;
+}
+
+.list-view {
+    -fx-background-color: #000000;
+    -fx-background-insets: 0;
+}
+
+.list-cell {
+    -fx-background-color: #000000;
+    -fx-font-size: 8pt;
+}
+
+.list-cell:filled:selected:focused, .list-cell:filled:selected {
+    -fx-text-fill: #FFFFFF;
+}
+
+.list-cell:even {
+    -fx-background-color: #101010;
+}
+
+.list-cell:filled:hover {
+    -fx-text-fill: #FFFFFF;
+    -fx-background-color: #202020;
+}
+
+.list-cell:empty {
+    -fx-background-color: #000000;
+}
+
+.scroll-pane {
+    -fx-background-color: #000000;
+    -fx-font-size: 5px;
+}
+
+.scroll-bar:horizontal, .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.increment-button, .decrement-button {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:horizontal .track, .scroll-bar:vertical .track {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 0em;
+}
+
+.scroll-bar:horizontal .thumb, .scroll-bar:vertical .thumb {
+    -fx-background-color: #303030;
+    -fx-background-radius: 5em;
+}
+
+.scroll-bar:vertical {
+    -fx-pref-width: 10;
+    -fx-padding: 1;
+}
+
+.scroll-bar:horizontal {
+    -fx-pref-height: 10;
+    -fx-padding: 1;
+}
+
+.scroll-bar, .scroll-bar:pressed, .scroll-bar:focused {
+    -fx-font-size: 15;
+}
+
+.corner {
+    -fx-background-color: #000000;
+}
+
+.label.spent {
+    -fx-text-fill: #EFABCD;
+}
+
+.label.unspent {
+    -fx-text-fill: #ABEFCD;
+}
+
+.status-bar {
+    -fx-padding: 0 10 10 10;
+}
