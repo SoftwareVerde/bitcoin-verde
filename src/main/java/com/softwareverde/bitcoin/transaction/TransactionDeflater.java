@@ -21,7 +21,7 @@ public class TransactionDeflater {
         ByteUtil.setBytes(versionBytes, ByteUtil.integerToBytes(transaction.getVersion()));
 
         final byte[] lockTimeBytes = new byte[4];
-        ByteUtil.setBytes(lockTimeBytes, transaction.getLockTime().getBytes());
+        ByteUtil.setBytes(lockTimeBytes, transaction.getLockTime().getBytes().getBytes());
 
         headBytesBuilder.appendBytes(versionBytes, Endian.LITTLE);
 

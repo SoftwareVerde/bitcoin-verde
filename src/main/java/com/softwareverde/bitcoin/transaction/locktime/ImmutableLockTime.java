@@ -2,14 +2,16 @@ package com.softwareverde.bitcoin.transaction.locktime;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
 
 public class ImmutableLockTime implements LockTime, Const {
     protected final Long _value;
 
-    protected static Type _getType(final Long lockTime) {
-        return ((lockTime < MAX_BLOCK_HEIGHT_VALUE) ? Type.BLOCK_HEIGHT: Type.TIMESTAMP);
+    protected static LockTimeType _getType(final Long lockTime) {
+        return ((lockTime < MAX_BLOCK_HEIGHT_VALUE) ? LockTimeType.BLOCK_HEIGHT: LockTimeType.TIMESTAMP);
     }
 
     public ImmutableLockTime() {
@@ -26,7 +28,7 @@ public class ImmutableLockTime implements LockTime, Const {
     }
 
     @Override
-    public Type getType() {
+    public LockTimeType getType() {
         return _getType(_value);
     }
 
@@ -35,9 +37,10 @@ public class ImmutableLockTime implements LockTime, Const {
         return _value;
     }
 
-    public byte[] getBytes() {
+    @Override
+    public ByteArray getBytes() {
         // 4 Bytes...
-        return ByteUtil.integerToBytes(_value);
+        return MutableByteArray.wrap(ByteUtil.integerToBytes(_value));
     }
 
     @Override
@@ -47,11 +50,12 @@ public class ImmutableLockTime implements LockTime, Const {
 
     @Override
     public Json toJson() {
-        final Type type = _getType(_value);
+        final LockTimeType type = _getType(_value);
         final Json json = new Json();
         json.put("type", type);
+        json.put("date", (type == LockTimeType.TIMESTAMP ? DateUtil.Utc.timestampToDatetimeString(_value * 1000L) : null));
         json.put("value", _value);
-        json.put("date", (type == Type.TIMESTAMP ? DateUtil.Utc.timestampToDatetimeString(_value * 1000L) : null));
+        json.put("bytes", this.getBytes());
         return json;
     }
 

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
@@ -16,7 +15,9 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.LockTimeType;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumberType;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -97,7 +98,7 @@ public class TransactionValidator {
         final Long blockHeight = context.getBlockHeight();
 
         final LockTime transactionLockTime = transaction.getLockTime();
-        if (transactionLockTime.getType() == LockTime.Type.BLOCK_HEIGHT) {
+        if (transactionLockTime.getType() == LockTimeType.BLOCK_HEIGHT) {
             if (blockHeight < transactionLockTime.getValue()) { return false; }
         }
         else {
@@ -129,7 +130,7 @@ public class TransactionValidator {
                     blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
                 }
 
-                if (sequenceNumber.getType() == LockTime.Type.TIMESTAMP) {
+                if (sequenceNumber.getType() == SequenceNumberType.SECONDS_ELAPSED) {
                     final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
 
                     final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _blockDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);

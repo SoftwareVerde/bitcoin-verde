@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Jsonable;
 
 public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
@@ -12,13 +13,9 @@ public interface LockTime extends Constable<ImmutableLockTime>, Jsonable {
     LockTime MAX_TIMESTAMP = new ImmutableLockTime(LockTime.MAX_TIMESTAMP_VALUE);
     LockTime MIN_TIMESTAMP = new ImmutableLockTime(LockTime.MIN_TIMESTAMP_VALUE);
 
-    enum Type {
-        TIMESTAMP, BLOCK_HEIGHT
-    }
-
-    Type getType();
+    LockTimeType getType();
     Long getValue();
-    byte[] getBytes();
+    ByteArray getBytes();
 
     @Override
     ImmutableLockTime asConst();

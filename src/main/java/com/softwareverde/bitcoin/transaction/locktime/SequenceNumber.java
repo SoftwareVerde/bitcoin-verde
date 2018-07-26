@@ -1,10 +1,18 @@
 package com.softwareverde.bitcoin.transaction.locktime;
 
-public interface SequenceNumber extends LockTime {
+import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.json.Jsonable;
+
+public interface SequenceNumber extends Constable<ImmutableSequenceNumber>, Jsonable {
     Long SECONDS_PER_SEQUENCE_NUMBER = 512L;
 
     SequenceNumber MAX_SEQUENCE_NUMBER = new ImmutableSequenceNumber(LockTime.MAX_TIMESTAMP_VALUE);
     SequenceNumber EMPTY_SEQUENCE_NUMBER = new ImmutableSequenceNumber(LockTime.MIN_TIMESTAMP_VALUE);
+
+    SequenceNumberType getType();
+    Long getValue();
+    ByteArray getBytes();
 
     Boolean isDisabled();
 
