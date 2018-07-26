@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
@@ -114,6 +115,8 @@ public class TransactionDeflater {
 
         json.put("version", transaction.getVersion());
 
+        json.put("hash", transaction.getHash());
+
         final Json inputsJson = new Json();
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             inputsJson.add(transactionInput);
@@ -126,9 +129,9 @@ public class TransactionDeflater {
             outputsJson.add(transactionOutput);
         }
         json.put("outputs", outputsJson);
-
         json.put("lockTime", transaction.getLockTime());
-        json.put("bytes", HexUtil.toHexString(_toBytes(transaction)));
+
+        // json.put("bytes", HexUtil.toHexString(_toBytes(transaction)));
 
         return json;
     }

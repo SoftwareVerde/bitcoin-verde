@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -132,7 +133,7 @@ public class AddressDatabaseManager {
         _databaseConnection = databaseConnection;
     }
 
-    public AddressId storeScriptAddress(final Script lockingScript) throws DatabaseException {
+    public AddressId storeScriptAddress(final LockingScript lockingScript) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
@@ -140,24 +141,7 @@ public class AddressDatabaseManager {
             return null;
         }
 
-        final Address address;
-        {
-            switch (scriptType) {
-                case PAY_TO_PUBLIC_KEY: {
-                    address = scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript);
-                } break;
-                case PAY_TO_PUBLIC_KEY_HASH: {
-                    address = scriptPatternMatcher.extractAddressFromPayToPublicKeyHash(lockingScript);
-                } break;
-                case PAY_TO_SCRIPT_HASH: {
-                    address = scriptPatternMatcher.extractAddressFromPayToScriptHash(lockingScript);
-                } break;
-                default: {
-                    address = null;
-                } break;
-            }
-        }
-
+        final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
         if (address == null) {
             Logger.log("Error determining address.");
             return null;

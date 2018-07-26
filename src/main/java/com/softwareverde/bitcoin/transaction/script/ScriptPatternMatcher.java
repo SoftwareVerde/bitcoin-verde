@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.address.CompressedAddress;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
@@ -128,23 +129,8 @@ public class ScriptPatternMatcher {
         return publicKey;
     }
 
-    /**
-     * Returns true if the provided script matches the Pay-To-Public-Key (P2PK) script format.
-     *  The P2PK format is: <20-byte public-key-hash> OP_CHECKSIG
-     */
-    public Boolean matchesPayToPublicKeyFormat(final Script lockingScript) {
-        return _matchesPayToPublicKeyFormat(lockingScript);
-    }
 
-    /**
-     * Returns true if the provided script matches the Pay-To-Public-Key-Hash (P2PKH) script format.
-     *  The P2PKH format is: OP_DUP OP_HASH160 <20-byte public-key-hash> OP_EQUALVERIFY OP_CHECKSIG
-     */
-    public Boolean matchesPayToPublicKeyHashFormat(final Script lockingScript) {
-        return _matchesPayToPublicKeyHashFormat(lockingScript);
-    }
-
-    public Address extractAddressFromPayToPublicKey(final Script lockingScript) {
+    protected Address _extractAddressFromPayToPublicKey(final Script lockingScript) {
         final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
         if (publicKey == null) { return null; }
 
@@ -157,7 +143,7 @@ public class ScriptPatternMatcher {
         }
     }
 
-    public Address extractDecompressedAddressFromPayToPublicKey(final Script lockingScript) {
+    protected Address _extractDecompressedAddressFromPayToPublicKey(final Script lockingScript) {
         final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
         if (publicKey == null) { return null; }
 
@@ -165,7 +151,7 @@ public class ScriptPatternMatcher {
         return addressInflater.fromPublicKey(publicKey.decompress());
     }
 
-    public CompressedAddress extractCompressedAddressFromPayToPublicKey(final Script lockingScript) {
+    protected CompressedAddress _extractCompressedAddressFromPayToPublicKey(final Script lockingScript) {
         final PublicKey publicKey = _extractPublicKeyFromPayToPublicKey(lockingScript);
         if (publicKey == null) { return null; }
 
@@ -173,7 +159,7 @@ public class ScriptPatternMatcher {
         return addressInflater.compressedFromPublicKey(publicKey);
     }
 
-    public Address extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToPublicKeyHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getSize() != PAY_TO_PUBLIC_KEY_HASH_PATTERN.getSize()) { return null; }
@@ -190,7 +176,7 @@ public class ScriptPatternMatcher {
         return addressInflater.fromBytes(bytes);
     }
 
-    public Address extractAddressFromPayToScriptHash(final Script lockingScript) {
+    protected Address _extractAddressFromPayToScriptHash(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         if (scriptOperations == null) { return null; }
         if (scriptOperations.getSize() != PAY_TO_SCRIPT_HASH_PATTERN.getSize()) { return null; }
@@ -208,14 +194,75 @@ public class ScriptPatternMatcher {
     }
 
     /**
+     * Returns true if the provided script matches the Pay-To-Public-Key (P2PK) script format.
+     *  The P2PK format is: <20-byte public-key-hash> OP_CHECKSIG
+     */
+    public Boolean matchesPayToPublicKeyFormat(final Script lockingScript) {
+        return _matchesPayToPublicKeyFormat(lockingScript);
+    }
+
+    /**
+     * Returns true if the provided script matches the Pay-To-Public-Key-Hash (P2PKH) script format.
+     *  The P2PKH format is: OP_DUP OP_HASH160 <20-byte public-key-hash> OP_EQUALVERIFY OP_CHECKSIG
+     */
+    public Boolean matchesPayToPublicKeyHashFormat(final Script lockingScript) {
+        return _matchesPayToPublicKeyHashFormat(lockingScript);
+    }
+
+    public Address extractAddress(final ScriptType scriptType, final Script lockingScript) {
+        final Address address;
+        {
+            switch (scriptType) {
+                case PAY_TO_PUBLIC_KEY: {
+                    address = _extractAddressFromPayToPublicKey(lockingScript);
+                } break;
+
+                case PAY_TO_PUBLIC_KEY_HASH: {
+                    address = _extractAddressFromPayToPublicKeyHash(lockingScript);
+                } break;
+
+                case PAY_TO_SCRIPT_HASH: {
+                    address = _extractAddressFromPayToScriptHash(lockingScript);
+                } break;
+
+                default: {
+                    address = null;
+                } break;
+            }
+        }
+        return address;
+    }
+
+    public Address extractAddressFromPayToPublicKey(final LockingScript lockingScript) {
+        return _extractAddressFromPayToPublicKey(lockingScript);
+    }
+
+    public Address extractDecompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
+        return _extractDecompressedAddressFromPayToPublicKey(lockingScript);
+    }
+
+    public CompressedAddress extractCompressedAddressFromPayToPublicKey(final LockingScript lockingScript) {
+        return _extractCompressedAddressFromPayToPublicKey(lockingScript);
+    }
+
+    public Address extractAddressFromPayToPublicKeyHash(final LockingScript lockingScript) {
+        return _extractAddressFromPayToPublicKeyHash(lockingScript);
+    }
+
+
+    public Address extractAddressFromPayToScriptHash(final LockingScript lockingScript) {
+        return _extractAddressFromPayToScriptHash(lockingScript);
+    }
+
+    /**
      * Returns true if the provided script matches the Pay-To-Script-Hash (P2SH) script format.
      *  The P2SH format is: HASH160 <20-byte redeem-script-hash> EQUAL
      */
-    public Boolean matchesPayToScriptHashFormat(final Script unlockingScript) {
-        return _matchesPayToScriptHashFormat(unlockingScript);
+    public Boolean matchesPayToScriptHashFormat(final LockingScript lockingScript) {
+        return _matchesPayToScriptHashFormat(lockingScript);
     }
 
-    public ScriptType getScriptType(final Script script) {
+    public ScriptType getScriptType(final LockingScript script) {
         final Boolean isPayToPublicKeyHash = _matchesPayToPublicKeyHashFormat(script);
         final Boolean isPayToScriptHash = ( isPayToPublicKeyHash ? false : _matchesPayToScriptHashFormat(script) );
         final Boolean isPayToPublicKey = ( (isPayToPublicKeyHash || isPayToScriptHash) ? false : _matchesPayToPublicKeyFormat(script) );

@@ -1,11 +1,14 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
+
+import java.math.BigDecimal;
 
 public class BlockHeaderDeflater {
     public static class BlockHeaderByteData {
@@ -71,8 +74,25 @@ public class BlockHeaderDeflater {
         json.put("previousBlockHash", blockHeader.getPreviousBlockHash());
         json.put("merkleRoot", blockHeader.getMerkleRoot());
         json.put("version", blockHeader.getVersion());
-        json.put("timestamp", DateUtil.Utc.timestampToDatetimeString(blockHeader.getTimestamp()));
-        json.put("difficulty", HexUtil.toHexString(blockHeader.getDifficulty().encode()));
+
+        { // Timestamp Json...
+            final Long timestamp = blockHeader.getTimestamp();
+
+            final Json timestampJson = new Json();
+            timestampJson.put("date", DateUtil.Utc.timestampToDatetimeString(timestamp * 1000L));
+            timestampJson.put("value", timestamp);
+            json.put("timestamp", timestampJson);
+        }
+
+        { // Difficulty Json...
+            final Difficulty difficulty = blockHeader.getDifficulty();
+
+            final Json difficultyJson = new Json();
+            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, BigDecimal.ROUND_HALF_UP));
+            difficultyJson.put("value", HexUtil.toHexString(difficulty.encode()));
+            json.put("difficulty", difficultyJson);
+        }
+
         json.put("nonce", blockHeader.getNonce());
 
         return json;

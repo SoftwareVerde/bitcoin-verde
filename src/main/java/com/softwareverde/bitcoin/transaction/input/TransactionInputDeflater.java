@@ -1,7 +1,11 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -67,12 +71,16 @@ public class TransactionInputDeflater {
     }
 
     public Json toJson(final TransactionInput transactionInput) {
+        final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+
         final Json json = new Json();
         json.put("previousOutputTransactionHash", transactionInput.getPreviousOutputTransactionHash());
         json.put("previousOutputIndex", transactionInput.getPreviousOutputIndex());
-        json.put("unlockingScript", transactionInput.getUnlockingScript());
+        json.put("unlockingScript", unlockingScript);
         json.put("sequenceNumber", transactionInput.getSequenceNumber());
-        json.put("bytes", HexUtil.toHexString(_toBytes(transactionInput)));
+
+        // json.put("bytes", HexUtil.toHexString(_toBytes(transactionInput)));
+
         return json;
     }
 }

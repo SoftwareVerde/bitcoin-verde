@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
@@ -33,7 +32,6 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
@@ -125,7 +123,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put("block", HexUtil.toHexString(blockData.getBytes()));
             }
             else {
-                response.put("block", block);
+                final Json blockJson = block.toJson();
+
+                { // Include Block's height...
+                    final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    blockJson.put("height", blockHeight);
+                }
+
+                response.put("block", blockJson);
             }
         }
         catch (final Exception exception) {
@@ -172,8 +177,22 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
             }
             else {
-                response.put("transaction", transaction);
+                final Json transactionJson = transaction.toJson();
+
+                { // Include Block hashes which include this transaction...
+                    final Json blockHashesJson = new Json(true);
+                    final List<TransactionId> duplicateTransactionIds = transactionDatabaseManager.getTransactionIdsFromHash(transactionHash);
+                    for (final TransactionId duplicateTransactionId : duplicateTransactionIds) {
+                        final BlockId blockId = transactionDatabaseManager.getBlockId(duplicateTransactionId);
+                        final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
+                        blockHashesJson.add(blockHash);
+                    }
+                    transactionJson.put("blocks", blockHashesJson);
+                }
+
+                response.put("transaction", transactionJson);
             }
+            response.put("wasSuccess", 1);
         }
         catch (final Exception exception) {
             response.put("wasSuccess", 0);

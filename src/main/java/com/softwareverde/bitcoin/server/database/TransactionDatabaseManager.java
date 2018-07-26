@@ -14,6 +14,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -22,7 +24,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
-import java.util.List;
 import java.util.Map;
 
 public class TransactionDatabaseManager {
@@ -67,7 +68,7 @@ public class TransactionDatabaseManager {
             }
         }
 
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
                 .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
@@ -89,7 +90,7 @@ public class TransactionDatabaseManager {
      *  A matched transaction must belong to a block that has not been assigned a blockChainSegmentId.
      */
     protected TransactionId _getUncommittedTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT transactions.id, transactions.block_id FROM transactions INNER JOIN blocks ON blocks.id = transactions.block_id WHERE blocks.block_chain_segment_id IS NULL AND transactions.hash = ?")
                 .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
@@ -103,7 +104,7 @@ public class TransactionDatabaseManager {
         final TransactionId cachedTransactionId = TRANSACTION_CACHE.getCachedTransactionId(blockId, transactionHash);
         if (cachedTransactionId != null) { return cachedTransactionId; }
 
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query(
                 "SELECT id FROM transactions WHERE block_id = ? AND hash = ?")
                 .setParameter(blockId)
@@ -153,6 +154,21 @@ public class TransactionDatabaseManager {
         _insertTransactionOutputs(transactionId, transaction);
 
         return transactionId;
+    }
+
+    public List<TransactionId> getTransactionIdsFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transactions WHERE hash = ?")
+                .setParameter(transactionHash)
+        );
+
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            transactionIds.add(transactionId);
+        }
+
+        return transactionIds;
     }
 
     /**
@@ -241,7 +257,7 @@ public class TransactionDatabaseManager {
     }
 
     public BlockId getBlockId(final TransactionId transactionId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_id FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
         );
