@@ -1,14 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
@@ -19,7 +14,6 @@ import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -33,7 +27,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.Util;
 
 import java.io.File;
 
@@ -162,6 +155,7 @@ public class NodeModule {
 
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
             final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
             _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
             _blockDownloader.setMaxQueueSize(maxQueueSize);
         }

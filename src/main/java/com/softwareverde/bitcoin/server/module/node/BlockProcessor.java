@@ -28,12 +28,18 @@ public class BlockProcessor {
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
+    protected Integer _trustedBlockHeight = 0;
+
     public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeManager = nodeManager;
         _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
 
         _medianBlockTime = medianBlockTime;
+    }
+
+    public void setTrustedBlockHeight(final Integer trustedBlockHeight) {
+        _trustedBlockHeight = trustedBlockHeight;
     }
 
     public Boolean processBlock(final Block block) {
@@ -62,6 +68,7 @@ public class BlockProcessor {
             }
 
             final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
+            blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
             final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
             final Timer blockValidationTimer = new Timer();

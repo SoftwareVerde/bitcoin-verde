@@ -17,7 +17,9 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
@@ -36,6 +38,7 @@ public class BlockValidator {
     protected final MedianBlockTime _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
+    protected Integer _trustedBlockHeight = 0;
 
     protected Boolean _validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block, final Long blockHeight) {
         if (! block.isValid()) {
@@ -129,13 +132,24 @@ public class BlockValidator {
             }
         }
 
+        final Integer threadCount = (TOTAL_THREAD_COUNT / 2);
+
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
-        totalExpenditureValidationTaskSpawner.executeTasks(transactions, (TOTAL_THREAD_COUNT / 2));
+        totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
         final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
         unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
-        unlockedInputsValidationTaskSpawner.executeTasks(transactions, (TOTAL_THREAD_COUNT / 2));
+
+        final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
+        if (shouldValidateInputs) {
+            unlockedInputsValidationTaskSpawner.executeTasks(transactions, threadCount);
+        }
+        else {
+            final List<Transaction> emptyTransactionList = new MutableList<Transaction>();
+            unlockedInputsValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
+        }
+
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
         final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();
@@ -202,6 +216,10 @@ public class BlockValidator {
         _databaseConnectionFactory = threadedConnectionsFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+    }
+
+    public void setTrustedBlockHeight(final Integer trustedBlockHeight) {
+        _trustedBlockHeight = trustedBlockHeight;
     }
 
     public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {

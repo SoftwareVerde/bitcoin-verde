@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -40,8 +39,10 @@ public class DifficultyCalculator {
             }
 
             final Boolean isFirstBlock = (blockChainSegment.getBlockHeight() == 0);
+            if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
+
             final Boolean requiresDifficultyEvaluation = (blockHeight % blockCountPerDifficultyAdjustment == 0);
-            if ( (requiresDifficultyEvaluation) && (! isFirstBlock) ) {
+            if (requiresDifficultyEvaluation) {
                 //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
                 //  1. Get the block that is 2016 blocks behind the head block of this chain.
