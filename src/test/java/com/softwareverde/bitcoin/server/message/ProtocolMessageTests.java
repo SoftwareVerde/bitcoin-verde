@@ -38,7 +38,7 @@ public class ProtocolMessageTests {
         ;
 
         final NodeFeatures nodeFeatures = new NodeFeatures();
-        nodeFeatures.enableFeatureFlag(NodeFeatures.Flags.BLOCKCHAIN_ENABLED);
+        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
 
         final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
         remoteNodeIpAddress.setIp(Ipv4.parse("192.168.1.1"));

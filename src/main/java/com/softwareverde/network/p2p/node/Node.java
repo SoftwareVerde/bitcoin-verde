@@ -380,6 +380,14 @@ public abstract class Node {
         return _connection.isConnected();
     }
 
+    public String getHost() {
+        return _connection.getHost();
+    }
+
+    public Integer getPort() {
+        return _connection.getPort();
+    }
+
     @Override
     public String toString() {
         return _connection.toString();

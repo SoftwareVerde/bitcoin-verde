@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 
 public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
 

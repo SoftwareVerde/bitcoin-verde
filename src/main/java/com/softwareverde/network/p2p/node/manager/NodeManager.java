@@ -16,7 +16,6 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
-    public static final Long REQUEST_TIMEOUT_THRESHOLD = 10_000L;
     public static Boolean LOGGING_ENABLED = true;
 
     /**
@@ -33,77 +32,6 @@ public class NodeManager<NODE extends Node> {
     public static abstract class NodeApiInvocationCallback {
         protected NodeApiInvocationCallback() { }
         public abstract Boolean didTimeout();
-    }
-
-    protected static class RequestTimeoutThread extends Thread {
-        public static class ReplayInvocation implements Runnable {
-            public static final Integer MAX_REPLAY_COUNT = 3;
-
-            private Integer _replayCount = 0;
-            private final Runnable _replayRunnable;
-            private final Runnable _failureRunnable;
-
-            public ReplayInvocation(final Runnable runnable, final Runnable failureRunnable) {
-                _replayRunnable = runnable;
-                _failureRunnable = failureRunnable;
-            }
-
-            @Override
-            public final void run() {
-                _replayCount += 1;
-                _replayRunnable.run();
-            }
-
-            public void fail() {
-                if (_failureRunnable != null) {
-                    _failureRunnable.run();
-                }
-            }
-
-            public Integer getReplayCount() {
-                return _replayCount;
-            }
-        }
-
-        public final Object mutex = new Object();
-
-        private final Container<Boolean> _didMessageTimeOut;
-        private final NodeHealth _nodeHealth;
-        private final ReplayInvocation _replayInvocation;
-
-        public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final ReplayInvocation replayInvocation) {
-            _didMessageTimeOut = didMessageTimeoutContainer;
-            _nodeHealth = nodeHealth;
-            _replayInvocation = replayInvocation;
-
-            this.setName("Node Manager - Request Timeout Thread - " + this.getId());
-        }
-
-        @Override
-        public void run() {
-            try { Thread.sleep(REQUEST_TIMEOUT_THRESHOLD); }
-            catch (final Exception exception) { return; }
-
-            synchronized (this.mutex) {
-                if (_didMessageTimeOut.value != null) { return; }
-                _didMessageTimeOut.value = true;
-            }
-
-            _nodeHealth.onMessageReceived(false);
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
-            }
-
-            if (_replayInvocation != null) {
-                final Integer attemptCount = _replayInvocation.getReplayCount();
-                if (attemptCount < ReplayInvocation.MAX_REPLAY_COUNT) {
-                    _replayInvocation.run();
-                }
-                else {
-                    _replayInvocation.fail();
-                }
-            }
-        }
     }
 
     protected class NodeMaintenanceThread extends Thread {
@@ -141,6 +69,15 @@ public class NodeManager<NODE extends Node> {
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime = new MutableNetworkTime();
 
+    protected void _onAllNodesDisconnected() { }
+    protected void _onNodeHandshakeComplete(final NODE node) { }
+
+    protected void _addNode(final NODE node) {
+        final NodeId newNodeId = node.getId();
+        _nodes.put(newNodeId, node);
+        _nodeHealthMap.put(newNodeId, new NodeHealth(newNodeId));
+    }
+
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
 
@@ -152,9 +89,14 @@ public class NodeManager<NODE extends Node> {
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.calculateHealth() + "hp");
         }
+
+        if (_nodes.isEmpty()) {
+            _onAllNodesDisconnected();
+        }
     }
 
-    protected void _checkNodeCount(final Integer maxNodeCount) {
+    // NOTE: Requires Mutex lock...
+    protected void _checkMaxNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
                 final java.util.List<NODE> inactiveNodes = _getInactiveNodes();
@@ -224,7 +166,7 @@ public class NodeManager<NODE extends Node> {
                             }
 
                             synchronized (_mutex) {
-                                _nodes.remove(node.getId());
+                                _removeNode(node);
                             }
 
                             node.disconnect();
@@ -271,11 +213,9 @@ public class NodeManager<NODE extends Node> {
 
                     _broadcastExistingNodesToNewNode(newNode);
 
-                    _checkNodeCount(_maxNodeCount - 1);
+                    _checkMaxNodeCount(_maxNodeCount - 1);
 
-                    final NodeId newNodeId = newNode.getId();
-                    _nodes.put(newNodeId, newNode);
-                    _nodeHealthMap.put(newNodeId, new NodeHealth(newNodeId));
+                    _addNode(newNode);
                 }
             }
         });
@@ -323,6 +263,8 @@ public class NodeManager<NODE extends Node> {
                     }
                     _queuedNodeRequests.clear();
                 }
+
+                _onNodeHandshakeComplete(node);
             }
         });
 
@@ -330,13 +272,11 @@ public class NodeManager<NODE extends Node> {
             @Override
             public void onNodeDisconnected() {
                 synchronized (_mutex) {
-                    final NodeId nodeId = node.getId();
-                    _nodes.remove(nodeId);
-                    _nodeHealthMap.remove(nodeId);
-
                     if (LOGGING_ENABLED) {
                         Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
                     }
+
+                    _removeNode(node);
                 }
             }
         });
@@ -424,6 +364,7 @@ public class NodeManager<NODE extends Node> {
         return selectedNode;
     }
 
+    // NOTE: Requires Mutex lock...
     protected void _pingIdleNodes() {
         final Long maxIdleTime = 30000L;
 
@@ -464,6 +405,7 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
+    // NOTE: Requires Mutex lock...
     protected void _removeDisconnectedNodes() {
         final java.util.List<NODE> purgeableNodes = new ArrayList<NODE>();
 
@@ -492,11 +434,8 @@ public class NodeManager<NODE extends Node> {
         _initNode(node);
 
         synchronized (_mutex) {
-            _checkNodeCount(_maxNodeCount - 1);
-
-            final NodeId nodeId = node.getId();
-            _nodes.put(nodeId, node);
-            _nodeHealthMap.put(nodeId, new NodeHealth(nodeId));
+            _checkMaxNodeCount(_maxNodeCount - 1);
+            _addNode(node);
         }
     }
 
@@ -513,7 +452,7 @@ public class NodeManager<NODE extends Node> {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    protected void _executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation, final RequestTimeoutThread.ReplayInvocation replayInvocation) {
+    protected void _executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation, final ReplayInvocation replayInvocation) {
         final NODE selectedNode;
         final NodeHealth nodeHealth;
         {
@@ -557,9 +496,9 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation) {
-        final Container<RequestTimeoutThread.ReplayInvocation> replayInvocation = new Container<RequestTimeoutThread.ReplayInvocation>();
+        final Container<ReplayInvocation> replayInvocation = new Container<ReplayInvocation>();
 
-        replayInvocation.value = new RequestTimeoutThread.ReplayInvocation(
+        replayInvocation.value = new ReplayInvocation(
             new Runnable() {
                 @Override
                 public void run() {

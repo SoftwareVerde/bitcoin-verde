@@ -107,7 +107,7 @@ public class NodeModule {
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
-        _nodeManager = new BitcoinNodeManager(maxPeerCount);
+        _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory);
 
         {
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);

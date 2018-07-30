@@ -2,16 +2,50 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
-    public BitcoinNodeManager(final Integer maxNodeCount) {
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+
+    @Override
+    protected void _addNode(final BitcoinNode node) {
+        super._addNode(node);
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            nodeDatabaseManager.storeNode(node);
+
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+        }
+    }
+
+    @Override
+    public void _onNodeHandshakeComplete(final BitcoinNode node) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            nodeDatabaseManager.updateLastHandshake(node);
+            nodeDatabaseManager.updateNodeFeatures(node);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+        }
+    }
+
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         super(maxNodeCount, new BitcoinNodeFactory());
+        _databaseConnectionFactory = databaseConnectionFactory;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
