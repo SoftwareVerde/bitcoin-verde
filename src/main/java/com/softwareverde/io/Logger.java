@@ -82,7 +82,7 @@ public class Logger {
 
     public static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
         final StackTraceElement stackTraceElements[] = exception.getStackTrace();
-        final StackTraceElement stackTraceElement = stackTraceElements[backtraceIndex];
+        final StackTraceElement stackTraceElement = stackTraceElements[Math.min(backtraceIndex, stackTraceElements.length)];
         return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
     }
 
