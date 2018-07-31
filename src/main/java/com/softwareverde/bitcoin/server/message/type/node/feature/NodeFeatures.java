@@ -17,6 +17,16 @@ public class NodeFeatures {
         Feature(final Long flag) {
             this.value = flag;
         }
+
+        public static Feature fromString(final String string) {
+            for (final Feature feature : Feature.values()) {
+                if (Util.areEqual(string.toLowerCase(), feature.toString().toLowerCase())) {
+                    return feature;
+                }
+            }
+
+            return null;
+        }
     }
 
     private Long _value;

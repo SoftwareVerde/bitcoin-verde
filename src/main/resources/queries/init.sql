@@ -92,7 +92,7 @@ CREATE TABLE unlocking_scripts (
 
 CREATE TABLE nodes (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    ip varchar(255) NOT NULL,
+    host varchar(255) NOT NULL,
     port int unsigned NOT NULL,
     timestamp bigint unsigned NOT NULL DEFAULT UNIX_TIMESTAMP(),
     last_handshake_timestamp bigint unsigned NULL,

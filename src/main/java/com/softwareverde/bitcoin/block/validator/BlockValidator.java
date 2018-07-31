@@ -145,6 +145,7 @@ public class BlockValidator {
             unlockedInputsValidationTaskSpawner.executeTasks(transactions, threadCount);
         }
         else {
+            Logger.log("NOTE: Trusting Block Height: " + blockHeight);
             final List<Transaction> emptyTransactionList = new MutableList<Transaction>();
             unlockedInputsValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
         }

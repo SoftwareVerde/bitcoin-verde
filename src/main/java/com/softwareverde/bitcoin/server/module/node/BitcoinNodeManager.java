@@ -12,10 +12,39 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+
+    @Override
+    protected void _onAllNodesDisconnected() {
+        Logger.log("All nodes disconnected.");
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+
+            final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+            requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+            final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
+
+            for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
+                final Ip ip = bitcoinNodeIpAddress.getIp();
+                if (ip == null) { continue; }
+
+                final String host = ip.toString();
+                final Integer port = bitcoinNodeIpAddress.getPort();
+                final BitcoinNode node = new BitcoinNode(host, port);
+                this.addNode(node); // NOTE: _addNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
+
+                Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
+            }
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+        }
+    }
 
     @Override
     protected void _addNode(final BitcoinNode node) {
