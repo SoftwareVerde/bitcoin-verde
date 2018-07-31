@@ -15,10 +15,14 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
+import java.util.HashSet;
+import java.util.Set;
 
 public class AddressDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -162,6 +166,103 @@ public class AddressDatabaseManager {
             new Query("INSERT INTO addresses (address) VALUES (?)")
                 .setParameter(addressString)
         ));
+    }
+
+    static class DuplicateAddress extends AddressId {
+        protected DuplicateAddress(final String addressString) {
+            super(-2L);
+
+            this.addressString = addressString;
+        }
+
+        public final String addressString;
+    }
+
+    public List<AddressId> storeScriptAddresses(final List<LockingScript> lockingScripts) throws DatabaseException {
+        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getSize());
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final AddressId INVALID = AddressId.wrap(-1L);
+        final AddressId DUPLICATE = AddressId.wrap(-2L);
+
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO addresses (address) VALUES (?)");
+
+        final Set<String> newAddresses = new HashSet<String>(lockingScripts.getSize());
+
+        int insertCount = 0;
+        for (final LockingScript lockingScript : lockingScripts) {
+            final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+            if (scriptType == ScriptType.UNKNOWN) {
+                addressIds.add(INVALID);
+                continue;
+            }
+
+            final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+            if (address == null) {
+                Logger.log("Error determining address.");
+                return null;
+            }
+
+            final String addressString = address.toBase58CheckEncoded();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id FROM addresses WHERE address = ?")
+                    .setParameter(addressString)
+            );
+
+            if (! rows.isEmpty()) {
+                final Row row = rows.get(0);
+                final AddressId addressId = AddressId.wrap(row.getLong("id"));
+                addressIds.add(addressId);
+                continue;
+            }
+
+            if (newAddresses.contains(addressString)) {
+                addressIds.add(new DuplicateAddress(addressString));
+                continue;
+            }
+
+            batchedInsertQuery.setParameter(addressString);
+            addressIds.add(null);
+            insertCount += 1;
+
+            newAddresses.add(addressString);
+        }
+
+        final Long firstAddressId;
+        if (insertCount > 0) {
+            firstAddressId = _databaseConnection.executeSql(batchedInsertQuery);
+            if (firstAddressId == null) { return null; }
+        }
+        else {
+            firstAddressId = null;
+        }
+
+        Long nextAddressId = firstAddressId;
+        for (int i = 0; i < addressIds.getSize(); ++i) {
+            final AddressId addressId = addressIds.get(i);
+
+            if (addressId == INVALID) {
+                addressIds.set(i, null);
+            }
+            else if (Util.areEqual(addressId, DUPLICATE)) {
+                final DuplicateAddress duplicateAddress = (DuplicateAddress) addressId;
+                final java.util.List<Row> rows = _databaseConnection.query(
+                    new Query("SELECT id FROM addresses WHERE address = ?")
+                        .setParameter(duplicateAddress.addressString)
+                );
+
+                final Row row = rows.get(0);
+                final AddressId duplicateAddressId = AddressId.wrap(row.getLong("id"));
+                addressIds.set(i, duplicateAddressId);
+            }
+            else if (addressId == null) {
+                addressIds.set(i, AddressId.wrap(nextAddressId));
+                nextAddressId += 1L;
+            }
+        }
+
+        return addressIds;
     }
 
     public AddressId getAddressId(final TransactionOutputId transactionOutputId) throws DatabaseException {

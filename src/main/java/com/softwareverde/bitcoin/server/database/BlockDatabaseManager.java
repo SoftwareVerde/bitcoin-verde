@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -26,8 +27,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
-import java.util.List;
-
 public class BlockDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -36,7 +35,7 @@ public class BlockDatabaseManager {
     }
 
     protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_height FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
@@ -48,7 +47,7 @@ public class BlockDatabaseManager {
     }
 
     protected BlockId _getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
                 .setParameter(blockHash)
         );
@@ -62,7 +61,7 @@ public class BlockDatabaseManager {
     protected Sha256Hash _getBlockHashFromId(final BlockId blockId) throws DatabaseException {
         if (blockId == null) { return new MutableSha256Hash(); }
 
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, hash FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );
@@ -80,7 +79,7 @@ public class BlockDatabaseManager {
     protected BlockHeader _inflateBlockHeader(final BlockId blockId) throws DatabaseException {
         final Row row;
         {
-            final List<Row> rows = _databaseConnection.query(
+            final java.util.List<Row> rows = _databaseConnection.query(
                 new Query("SELECT * FROM blocks WHERE id = ?")
                     .setParameter(blockId)
             );
@@ -116,9 +115,13 @@ public class BlockDatabaseManager {
 
     protected void _insertBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Block block) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
-        for (final Transaction transaction : block.getTransactions()) {
-            transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
-        }
+
+        // for (final Transaction transaction : block.getTransactions()) {
+        //     transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
+        // }
+
+        final List<Transaction> transactions = block.getTransactions();
+        transactionDatabaseManager.insertTransactions(blockChainSegmentId, blockId, transactions);
     }
 
     protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -167,7 +170,7 @@ public class BlockDatabaseManager {
     }
 
     protected BlockId _getBlockIdAtBlockHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE block_chain_segment_id = ? AND block_height = ?")
                 .setParameter(blockChainSegmentId)
                 .setParameter(blockHeight)
@@ -231,7 +234,7 @@ public class BlockDatabaseManager {
     }
 
     protected BlockId _getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
                 .setParameter(previousBlockId)
         );
@@ -371,7 +374,7 @@ public class BlockDatabaseManager {
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
     public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
@@ -382,7 +385,7 @@ public class BlockDatabaseManager {
      * Returns the BlockId of the block that has the tallest block-height.
      */
     public BlockId getHeadBlockHeaderId() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
+        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
@@ -393,7 +396,7 @@ public class BlockDatabaseManager {
      * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
+        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
@@ -404,7 +407,7 @@ public class BlockDatabaseManager {
      * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
     public BlockId getHeadBlockId() throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
+        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
@@ -420,7 +423,7 @@ public class BlockDatabaseManager {
     }
 
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
                 .setParameter(blockId)
         );
@@ -431,7 +434,7 @@ public class BlockDatabaseManager {
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
                 .setParameter(blockId)
         );
@@ -443,7 +446,7 @@ public class BlockDatabaseManager {
     }
 
     public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        final List<Row> rows = _databaseConnection.query(
+        final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_chain_segment_id FROM blocks WHERE id = ?")
                 .setParameter(blockId)
         );

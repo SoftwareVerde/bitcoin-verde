@@ -19,6 +19,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
@@ -45,6 +46,28 @@ public class TransactionDatabaseManager {
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
             transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
         }
+    }
+
+    protected void _insertTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
+
+        final MutableList<List<TransactionInput>> transactionInputs = new MutableList<List<TransactionInput>>(transactions.getSize());
+        for (final Transaction transaction : transactions) {
+            transactionInputs.add(transaction.getTransactionInputs());
+        }
+
+        transactionInputDatabaseManager.insertTransactionInputs(blockChainSegmentId, transactionIds, transactionInputs);
+    }
+
+    protected void _insertTransactionOutputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+
+        final MutableList<List<TransactionOutput>> transactionOutputs = new MutableList<List<TransactionOutput>>(transactions.getSize());
+        for (final Transaction transaction : transactions) {
+            transactionOutputs.add(transaction.getTransactionOutputs());
+        }
+
+        transactionOutputDatabaseManager.insertTransactionOutputs(transactionIds, transactionOutputs);
     }
 
     /**
@@ -143,6 +166,27 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
+    protected List<TransactionId> _insertTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, block_id, version, lock_time) VALUES (?, ?, ?, ?)");
+        for (final Transaction transaction : transactions) {
+            final LockTime lockTime = transaction.getLockTime();
+
+            batchedInsertQuery.setParameter(transaction.getHash());
+            batchedInsertQuery.setParameter(blockId);
+            batchedInsertQuery.setParameter(transaction.getVersion());
+            batchedInsertQuery.setParameter(lockTime.getValue());
+        }
+
+        final Long firstTransactionId = _databaseConnection.executeSql(batchedInsertQuery);
+        if (firstTransactionId == null) { return null; }
+
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getSize());
+        for (int i = 0; i < transactions.getSize(); ++i) {
+            transactionIds.add(TransactionId.wrap(firstTransactionId + i));
+        }
+        return transactionIds;
+    }
+
     public TransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
@@ -154,6 +198,15 @@ public class TransactionDatabaseManager {
         _insertTransactionOutputs(transactionId, transaction);
 
         return transactionId;
+    }
+
+    public void insertTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+        final List<TransactionId> transactionIds = _insertTransactions(blockId, transactions);
+
+        _insertTransactionOutputs(transactionIds, transactions); // NOTE: Since this is a bulk-insert and the following inputs may reference these outputs, insert the TransactionOutputs first...
+        _insertTransactionInputs(blockChainSegmentId, transactionIds, transactions);
+
+        // TODO: Bulk-inserting does not validate the order of the transactions (inputs may be (incorrectly) spending outputs that are in this batch, but not in the correct order).  Consider asserting that the order of the transactions is correct.
     }
 
     public List<TransactionId> getTransactionIdsFromHash(final Sha256Hash transactionHash) throws DatabaseException {

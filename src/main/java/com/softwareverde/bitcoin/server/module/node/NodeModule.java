@@ -83,7 +83,10 @@ public class NodeModule {
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setQueryCacheByteCount(0L);
+                    commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.addArgument("--performance_schema");
+                    commandLineArguments.addArgument("--general_log_file=query.log");
+                    commandLineArguments.addArgument("--general_log=1");
                 }
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
