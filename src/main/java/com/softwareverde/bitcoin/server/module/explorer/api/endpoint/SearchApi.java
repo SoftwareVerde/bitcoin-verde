@@ -1,9 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
-import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.servlet.GetParameters;
@@ -16,7 +14,7 @@ import com.softwareverde.socket.SocketConnection;
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class SearchApi extends ExplorerApiEndpoint {
-    public static final Long RPC_DURATION_TIMEOUT_MS = 3000L;
+    public static final Long RPC_DURATION_TIMEOUT_MS = 15000L;
 
     private static class SearchResult extends ApiResult {
         public enum ObjectType {

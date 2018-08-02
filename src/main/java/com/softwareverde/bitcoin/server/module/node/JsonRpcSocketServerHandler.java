@@ -132,6 +132,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 response.put("block", blockJson);
             }
+
+            response.put("wasSuccess", 1);
         }
         catch (final Exception exception) {
             response.put("wasSuccess", 0);
