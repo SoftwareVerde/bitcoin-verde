@@ -79,10 +79,13 @@ public class BlockHeaderDownloader {
                             break;
                         }
 
-                        TransactionUtil.startTransaction(databaseConnection);
-                        final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
-                        blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-                        TransactionUtil.commitTransaction(databaseConnection);
+                        final BlockId blockId;
+                        synchronized (BlockDatabaseManager.MUTEX) {
+                            TransactionUtil.startTransaction(databaseConnection);
+                            blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+                            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+                            TransactionUtil.commitTransaction(databaseConnection);
+                        }
 
                         if (blockId == null) {
                             Logger.log("Error storing BlockHeader: " + blockHash);

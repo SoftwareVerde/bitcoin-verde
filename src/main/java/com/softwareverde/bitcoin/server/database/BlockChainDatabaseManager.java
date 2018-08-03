@@ -105,7 +105,6 @@ public class BlockChainDatabaseManager {
         //          Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
         //      3.5 Set the newBlock's block_chain_segment_id to the newBlockChain's id created in 3.4.
 
-        BlockDatabaseManager.BLOCK_HEADER_WRITE_MUTEX.lock();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
 
         final BlockId newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
@@ -222,8 +221,6 @@ public class BlockChainDatabaseManager {
             // 3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.
             blockDatabaseManager.setBlockChainSegmentId(newBlockId, newChainId);
         }
-
-        BlockDatabaseManager.BLOCK_HEADER_WRITE_MUTEX.unlock();
     }
 
 //    public Boolean blockChainSegmentExists(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {

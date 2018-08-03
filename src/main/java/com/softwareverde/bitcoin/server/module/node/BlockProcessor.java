@@ -43,81 +43,87 @@ public class BlockProcessor {
     }
 
     public Boolean processBlock(final Block block) {
+        final Thread currentThread = Thread.currentThread();
+        currentThread.setPriority(Thread.MAX_PRIORITY);
+
         final NetworkTime networkTime = _nodeManager.getNetworkTime();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            TransactionUtil.startTransaction(databaseConnection);
+            synchronized (BlockDatabaseManager.MUTEX) {
+                TransactionUtil.startTransaction(databaseConnection);
 
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            final Timer storeBlockTimer = new Timer();
-            storeBlockTimer.start();
-            final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
-            storeBlockTimer.stop();
+                final Timer storeBlockTimer = new Timer();
+                final Timer updateBlockChainsTimer = new Timer();
 
-            final Timer updateBlockChainsTimer = new Timer();
-            updateBlockChainsTimer.start();
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-            updateBlockChainsTimer.stop();
+                storeBlockTimer.start();
+                final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
+                storeBlockTimer.stop();
 
-            {
-                final int transactionCount = block.getTransactions().getSize();
-                Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps).");
-                Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed());
-            }
+                updateBlockChainsTimer.start();
+                blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+                updateBlockChainsTimer.stop();
 
-            final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
-            blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-            final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
-
-            final Timer blockValidationTimer = new Timer();
-            blockValidationTimer.start();
-            final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-            blockValidationTimer.stop();
-
-            if (blockIsValid) {
-                _medianBlockTime.addBlock(block);
-                TransactionUtil.commitTransaction(databaseConnection);
-
-                final Integer blockTransactionCount = block.getTransactions().getSize();
-
-                final Float averageBlocksPerSecond;
-                final Float averageTransactionsPerSecond;
-                synchronized (_statisticsMutex) {
-                    _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed() + updateBlockChainsTimer.getMillisecondsElapsed()));
-                    _transactionsPerBlock.add(blockTransactionCount);
-
-                    final Integer blockCount = _blocksPerSecond.size();
-                    final Long validationTimeElapsed;
-                    {
-                        long value = 0L;
-                        for (final Long elapsed : _blocksPerSecond) {
-                            value += elapsed;
-                        }
-                        validationTimeElapsed = value;
-                    }
-
-                    final Integer totalTransactionCount;
-                    {
-                        int value = 0;
-                        for (final Integer transactionCount : _transactionsPerBlock) {
-                            value += transactionCount;
-                        }
-                        totalTransactionCount = value;
-                    }
-
-                    averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
-                    averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+                {
+                    final int transactionCount = block.getTransactions().getSize();
+                    Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps).");
+                    Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed());
                 }
 
-                _averageBlocksPerSecond.value = averageBlocksPerSecond;
-                _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
+                final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
+                blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+                final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 
-                return true;
-            }
-            else {
-                TransactionUtil.rollbackTransaction(databaseConnection);
+                final Timer blockValidationTimer = new Timer();
+                blockValidationTimer.start();
+                final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+                blockValidationTimer.stop();
+
+                if (blockIsValid) {
+                    _medianBlockTime.addBlock(block);
+                    TransactionUtil.commitTransaction(databaseConnection);
+
+                    final Integer blockTransactionCount = block.getTransactions().getSize();
+
+                    final Float averageBlocksPerSecond;
+                    final Float averageTransactionsPerSecond;
+                    synchronized (_statisticsMutex) {
+                        _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed() + updateBlockChainsTimer.getMillisecondsElapsed()));
+                        _transactionsPerBlock.add(blockTransactionCount);
+
+                        final Integer blockCount = _blocksPerSecond.size();
+                        final Long validationTimeElapsed;
+                        {
+                            long value = 0L;
+                            for (final Long elapsed : _blocksPerSecond) {
+                                value += elapsed;
+                            }
+                            validationTimeElapsed = value;
+                        }
+
+                        final Integer totalTransactionCount;
+                        {
+                            int value = 0;
+                            for (final Integer transactionCount : _transactionsPerBlock) {
+                                value += transactionCount;
+                            }
+                            totalTransactionCount = value;
+                        }
+
+                        averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+                        averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+                    }
+
+                    _averageBlocksPerSecond.value = averageBlocksPerSecond;
+                    _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
+
+                    return true;
+                }
+                else {
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                }
             }
         }
         catch (final Exception exception) {
