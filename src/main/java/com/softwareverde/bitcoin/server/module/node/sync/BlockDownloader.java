@@ -26,6 +26,7 @@ public class BlockDownloader {
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
     protected final BlockProcessor _blockProcessor;
     protected final BlockValidatorThread _blockValidatorThread;
+    protected volatile Boolean _shouldContinue = true;
 
     protected Boolean _hasGenesisBlock() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -72,6 +73,8 @@ public class BlockDownloader {
         final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
+                if (! _shouldContinue) { return; }
+
                 Logger.log("DOWNLOADED BLOCK: "+ block.getHash());
 
                 if (! lastBlockHash.value.equals(block.getPreviousBlockHash())) { return; } // Ignore blocks sent out of order...
@@ -82,6 +85,7 @@ public class BlockDownloader {
                 lastBlockHash.value = block.getHash();
 
                 while (_queuedBlocks.size() >= _maxQueueSize) {
+                    if (! _shouldContinue) { return; }
                     try { Thread.sleep(500L); } catch (final Exception exception) { return; }
                 }
 
@@ -97,6 +101,8 @@ public class BlockDownloader {
         getBlocksHashesAfterCallback.value = new BitcoinNode.QueryCallback() {
             @Override
             public void onResult(final List<Sha256Hash> blockHashes) {
+                if (! _shouldContinue) { return; }
+
                 availableBlockHashes.addAll(blockHashes);
 
                 if (! availableBlockHashes.isEmpty()) {
@@ -109,34 +115,36 @@ public class BlockDownloader {
     }
 
     public void start() {
+        _shouldContinue = true;
         _blockValidatorThread.start();
 
-        if (_hasGenesisBlock()) {
-            _downloadAllBlocks();
-            return;
-        }
-
-        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
-            @Override
-            public void onResult(final Block block) {
-                if (! _hasGenesisBlock()) {
-                    // NOTE: This can happen if the NodeModule received GenesisBlock from another process...
-                    final Boolean isValidBlock = _blockProcessor.processBlock(block);
-                    if (! isValidBlock) {
-                        Logger.error("Error processing genesis block.");
-                        return;
+        if (! _hasGenesisBlock()) {
+            _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
+                @Override
+                public void onResult(final Block block) {
+                    if (! _hasGenesisBlock()) {
+                        // NOTE: This can happen if the NodeModule received GenesisBlock from another process...
+                        final Boolean isValidBlock = _blockProcessor.processBlock(block);
+                        if (! isValidBlock) {
+                            Logger.error("Error processing genesis block.");
+                            return;
+                        }
                     }
-                }
 
-                _downloadAllBlocks();
-            }
-        });
+                    _downloadAllBlocks();
+                }
+            });
+        }
+        else {
+            _downloadAllBlocks();
+        }
     }
 
-
     public void stop() {
-        _blockValidatorThread.interrupt();
-        try { _blockValidatorThread.join(); } catch (final Exception exception) { }
+        _shouldContinue = false;
+        _blockValidatorThread.stop();
+//        _blockValidatorThread.interrupt();
+//        try { _blockValidatorThread.join(); } catch (final Exception exception) { }
     }
 
     public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() {

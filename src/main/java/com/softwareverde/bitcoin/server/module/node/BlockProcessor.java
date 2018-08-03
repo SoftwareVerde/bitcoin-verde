@@ -44,7 +44,6 @@ public class BlockProcessor {
 
     public Boolean processBlock(final Block block) {
         final Thread currentThread = Thread.currentThread();
-        currentThread.setPriority(Thread.MAX_PRIORITY);
 
         final NetworkTime networkTime = _nodeManager.getNetworkTime();
 
