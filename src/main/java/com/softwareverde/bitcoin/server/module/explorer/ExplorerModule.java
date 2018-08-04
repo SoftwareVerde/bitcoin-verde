@@ -51,7 +51,7 @@ public class ExplorerModule {
         // _apiServer.redirectToTls(true);
 
         { // Account Api
-            _assignEndpoint("/api/search", new SearchApi(_explorerProperties));
+            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));
         }
 
         { // Static Content

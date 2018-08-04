@@ -43,8 +43,6 @@ public class BlockProcessor {
     }
 
     public Boolean processBlock(final Block block) {
-        final Thread currentThread = Thread.currentThread();
-
         final NetworkTime networkTime = _nodeManager.getNetworkTime();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {

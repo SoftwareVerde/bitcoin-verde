@@ -1,6 +1,14 @@
-body {
-    background-color: #FFFFFF;
-    color: #303030;
-    font-family: sans-serif;
+html {
+    background-color: #EEEEEE;
 }
 
+body {
+    background-color: #EEEEEE;
+    color: #303030;
+    font-family: sans-serif;
+    margin: 0px;
+}
+
+.bold {
+    font-weight: bold;
+}
