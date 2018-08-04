@@ -61,7 +61,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    public void _onNodeHandshakeComplete(final BitcoinNode node) {
+    protected void _onNodeHandshakeComplete(final BitcoinNode node) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             nodeDatabaseManager.updateLastHandshake(node);

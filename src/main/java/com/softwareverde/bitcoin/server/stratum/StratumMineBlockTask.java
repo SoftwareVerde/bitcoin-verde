@@ -157,7 +157,7 @@ public class StratumMineBlockTask {
         parametersJson.add(partialMerkleTreeJson);
 
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
-        parametersJson.add(HexUtil.toHexString(_prototypeBlock.getDifficulty().encode()));
+        parametersJson.add(_prototypeBlock.getDifficulty().encode());
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(timestamp)));
         parametersJson.add(true);
 

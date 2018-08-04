@@ -48,7 +48,7 @@
     color: #EEEEEE;
     font-size: 1.5em;
     float: left;
-    margin-top: 0.89em;
+    margin-top: 0.88em;
     margin-left: 0.1em;
 }
 
@@ -91,5 +91,108 @@
     -webkit-text-fill-color: #F7931D;
     -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.15) inset;
     transition: background-color 5000s ease-in-out 0s;
+}
+
+.block {
+    background-color: rgba(0, 0, 0, 0.05);
+    overflow: auto;
+
+    box-sizing: border-box;
+    margin-top: 2em;
+    margin-left: 2em;
+    margin-right: 2em;
+    padding-left: 2em;
+    padding-right: 2em;
+    padding-bottom: 2em;
+}
+
+.block:before {
+    content: 'Block';
+    color: rgba(0, 0, 0, 0.2);
+    font-weight: bold;
+    font-size: 1.5em;
+    margin-left: -1em;
+    position: relative;
+    top: 0.25em;
+}
+
+.block .block-header {
+    box-sizing: border-box;
+    overflow: auto;
+    margin-top: 0.25em;
+}
+
+.block .block-header > div {
+    padding: 0.25em;
+    margin: 0.25em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.025);
+    float: left;
+    width: calc(50% - 0.5em);
+    box-sizing: border-box;
+}
+
+.block .block-header div label {
+    width: 50%;
+    display: inline-block;
+    box-sizing: border-box;
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #404040;
+}
+
+.block .block-header div span.value {
+    width: 50%;
+    display: block;
+    box-sizing: border-box;
+    padding-left: 1em;
+    margin-top: 0.25em;
+}
+
+.block .block-header div.timestamp span.value:after {
+    content: '(UTC)';
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.block .block-header div.reward span.value:after {
+    content: '(bitcoin)';
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.block .block-header div.byte-count span.value:after {
+    content: '(bytes)';
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.block .block-header div.previous-block-hash span.value:hover {
+    cursor: pointer;
+    color: #F7931D;
+}
+
+.block .block-header div.difficulty {
+    float: right;
+}
+
+.block .block-header div.difficulty div label {
+    margin-left: 0.5em;
+    color: rgba(0, 0, 0, 0.5);
+    font-size: 1.1em;
+}
+
+#templates {
+    display: none;
+}
+
+.fixed {
+    font-family: monospace;
 }
 

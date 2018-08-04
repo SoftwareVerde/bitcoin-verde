@@ -4,7 +4,7 @@ public class CompressedAddress extends Address {
     public static final byte PREFIX = (byte) 0x00;
 
     @Override
-    public byte _getPrefix() {
+    protected byte _getPrefix() {
         return PREFIX;
     }
 

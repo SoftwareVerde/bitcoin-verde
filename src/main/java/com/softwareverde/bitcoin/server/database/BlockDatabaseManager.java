@@ -139,7 +139,7 @@ public class BlockDatabaseManager {
                 .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(blockHeader.getDifficulty().encode())
                 .setParameter(blockHeader.getNonce())
                 .setParameter(blockId)
         );
@@ -158,7 +158,7 @@ public class BlockDatabaseManager {
                 .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(HexUtil.toHexString(blockHeader.getDifficulty().encode()))
+                .setParameter(blockHeader.getDifficulty().encode())
                 .setParameter(blockHeader.getNonce())
         ));
     }

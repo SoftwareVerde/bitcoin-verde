@@ -4,7 +4,7 @@ public class PayToScriptHashAddress extends Address {
     public static final byte PREFIX = (byte) 0x05;
 
     @Override
-    public byte _getPrefix() {
+    protected byte _getPrefix() {
         return PREFIX;
     }
 

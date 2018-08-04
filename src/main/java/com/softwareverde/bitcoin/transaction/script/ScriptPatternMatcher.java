@@ -98,7 +98,7 @@ public class ScriptPatternMatcher {
         return true;
     }
 
-    public Boolean _matchesPayToScriptHashFormat(final Script lockingScript) {
+    protected Boolean _matchesPayToScriptHashFormat(final Script lockingScript) {
         final List<Operation> scriptOperations = lockingScript.getOperations();
         final boolean matchesPattern = _matchesPattern(PAY_TO_SCRIPT_HASH_PATTERN, scriptOperations);
         if (! matchesPattern) { return false; }

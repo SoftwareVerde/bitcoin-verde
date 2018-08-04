@@ -117,17 +117,20 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
             final Block block = blockDatabaseManager.getBlock(blockId);
 
+            final BlockDeflater blockDeflater = new BlockDeflater();
+            final ByteArray blockData = blockDeflater.toBytes(block);
+
             if (shouldReturnRawBlockData) {
-                final BlockDeflater blockDeflater = new BlockDeflater();
-                final ByteArray blockData = blockDeflater.toBytes(block);
                 response.put("block", HexUtil.toHexString(blockData.getBytes()));
             }
             else {
                 final Json blockJson = block.toJson();
 
-                { // Include Block's height...
+                { // Include Extra Block Metadata...
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
                     blockJson.put("height", blockHeight);
+                    blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
+                    blockJson.put("byteCount", blockData.getByteCount());
                 }
 
                 response.put("block", blockJson);
@@ -173,9 +176,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             }
 
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final TransactionDeflater transactionDeflater = new TransactionDeflater();
+            final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+
             if (shouldReturnRawTransactionData) {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
-                final ByteArray transactionData = transactionDeflater.toBytes(transaction);
                 response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
             }
             else {
@@ -191,6 +195,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     }
                     transactionJson.put("blocks", blockHashesJson);
                 }
+
+                transactionJson.put("byteCount", transactionData.getByteCount());
 
                 response.put("transaction", transactionJson);
             }

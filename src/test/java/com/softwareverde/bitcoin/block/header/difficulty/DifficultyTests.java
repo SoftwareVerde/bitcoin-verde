@@ -16,7 +16,7 @@ public class DifficultyTests {
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
-        final byte[] bytes = difficulty.getBytes();
+        final byte[] bytes = difficulty.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedBytes, bytes);
@@ -29,7 +29,7 @@ public class DifficultyTests {
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
-        final byte[] bytes = difficulty.getBytes();
+        final byte[] bytes = difficulty.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedBytes, bytes);
@@ -42,7 +42,7 @@ public class DifficultyTests {
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("00000000000000A4290000000000000000000000000000000000000000000000");
 
         // Action
-        final byte[] bytes = difficulty.getBytes();
+        final byte[] bytes = difficulty.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedBytes, bytes);
@@ -52,7 +52,7 @@ public class DifficultyTests {
     public void should_not_be_satisfied_by_larger_hash() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes().getBytes()); // Ensure our decoding is sane...
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000001FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -66,7 +66,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_equal_hash() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes().getBytes()); // Ensure our decoding is sane...
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000000FFFF0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -80,7 +80,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_smaller_hash_0() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes().getBytes()); // Ensure our decoding is sane...
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "00000000FFFE0000000000000000000000000000000000000000000000000000");
 
         // Action
@@ -94,7 +94,7 @@ public class DifficultyTests {
     public void should_be_satisfied_by_smaller_hash_1() {
         // Setup
         final Difficulty difficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00FFFF"), (0x1D - 0x03));
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes()); // Ensure our decoding is sane...
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray(      "00000000FFFF0000000000000000000000000000000000000000000000000000"), difficulty.getBytes().getBytes()); // Ensure our decoding is sane...
         final byte[] sha256Hash = HexUtil.hexStringToByteArray( "000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
 
         // Action
@@ -111,7 +111,7 @@ public class DifficultyTests {
         final byte[] expectedEncoding = HexUtil.hexStringToByteArray("1D00FFFF");
 
         // Action
-        final byte[] encodedBytes = difficulty.encode();
+        final byte[] encodedBytes = difficulty.encode().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedEncoding, encodedBytes);
@@ -124,7 +124,7 @@ public class DifficultyTests {
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000001");
 
         // Action
-        final byte[] bytes = difficulty.getBytes();
+        final byte[] bytes = difficulty.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedBytes, bytes);
@@ -137,7 +137,7 @@ public class DifficultyTests {
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("000000000000000000000000000000000000000000000000000000000000FF00");
 
         // Action
-        final byte[] bytes = difficulty.getBytes();
+        final byte[] bytes = difficulty.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedBytes, bytes);
@@ -151,9 +151,9 @@ public class DifficultyTests {
         final byte[] expectedRawBytes = HexUtil.hexStringToByteArray("00000000000000000000000000000000000000000000000000000000000000FF");
 
         // Action
-        final byte[] encodedBytes = difficulty.encode();
-        final byte[] rawBytes0 = difficulty.getBytes();
-        final byte[] rawBytes1 = ImmutableDifficulty.decode(encodedBytes).getBytes();
+        final byte[] encodedBytes = difficulty.encode().getBytes();
+        final byte[] rawBytes0 = difficulty.getBytes().getBytes();
+        final byte[] rawBytes1 = ImmutableDifficulty.decode(encodedBytes).getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedEncodedBytes, encodedBytes);
@@ -171,11 +171,11 @@ public class DifficultyTests {
 
         // Action
         difficulty0 = ImmutableDifficulty.decode(encodedBaseDifficulty);
-        final byte[] encodedBytes0 = difficulty0.encode();
+        final byte[] encodedBytes0 = difficulty0.encode().getBytes();
         difficulty1 = ImmutableDifficulty.decode(encodedBytes0);
 
-        final byte[] rawBytes0 = difficulty0.getBytes();
-        final byte[] rawBytes1 = difficulty1.getBytes();
+        final byte[] rawBytes0 = difficulty0.getBytes().getBytes();
+        final byte[] rawBytes1 = difficulty1.getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedRawBytes, rawBytes0);

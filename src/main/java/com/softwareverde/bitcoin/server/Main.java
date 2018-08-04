@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.StratumModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
-import com.softwareverde.bitcoin.server.module.node.AddressMigrationModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
@@ -133,17 +132,6 @@ public class Main {
 
             case "WALLET": {
                 VerdeWallet.launch(VerdeWallet.class, _arguments);
-            } break;
-
-            case "MIGRATION": {
-                if (_arguments.length != 2) {
-                    _printUsage();
-                    BitcoinUtil.exitFailure();
-                    break;
-                }
-
-                final String configurationFile = _arguments[1];
-                AddressMigrationModule.execute(configurationFile);
             } break;
 
             case "STRATUM": {

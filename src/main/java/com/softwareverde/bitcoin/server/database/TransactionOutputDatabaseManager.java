@@ -17,7 +17,6 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 public class TransactionOutputDatabaseManager {
@@ -54,7 +53,7 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputId;
     }
 
-    public void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
+    protected void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
@@ -77,7 +76,7 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
-    public void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
+    protected void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionOutputIds.getSize(), lockingScripts.getSize())) {
             throw new RuntimeException("TransactionOutputDatabaseManager::_insertLockingScripts -- transactionOutputIds.getSize must equal lockingScripts.getSize");
         }

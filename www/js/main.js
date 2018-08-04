@@ -53,6 +53,7 @@ Api.PREFIX = "/api/v1/";
 class Constants {
     static get BLOCK() { return "BLOCK"; }
     static get TRANSACTION() { return "TRANSACTION"; }
+    static get SATOSHIS_PER_BITCOIN() { return 100000000; }
 }
 
 class KeyCodes {
@@ -61,7 +62,45 @@ class KeyCodes {
 
 class UI {
     static renderBlock(block) {
-        console.log(block);
+
+        const loadingImage = $("#search-loading-image");
+
+        const templates = $("#templates");
+        const blockTemplate = $(".block", templates);
+        const blockUi = blockTemplate.clone();
+
+        $(".block-header .height .value", blockUi).text(block.height);
+        $(".block-header .hash .value", blockUi).text(block.hash);
+        $(".block-header .difficulty .mask .value", blockUi).text(block.difficulty.mask);
+        $(".block-header .difficulty .ratio .value", blockUi).text(block.difficulty.ratio);
+        const previousBlockHashSpan = $(".block-header .previous-block-hash .value", blockUi);
+        previousBlockHashSpan.text(block.previousBlockHash);
+        previousBlockHashSpan.on("click", function() {
+            loadingImage.css("visibility", "visible");
+            Api.search(block.previousBlockHash, function(data) {
+                loadingImage.css("visibility", "hidden");
+
+                const wasSuccess = data.wasSuccess;
+                const errorMessage = data.errorMessage;
+                const object = data.object;
+
+                if (wasSuccess) {
+                    UI.renderBlock(object);
+                }
+                else {
+                   console.log(errorMessage);
+                }
+            });
+        });
+        $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
+        $(".block-header .timestamp .value", blockUi).text(block.timestamp.date);
+        $(".block-header .nonce .value", blockUi).text(block.nonce);
+        $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toFixed(4));
+        $(".block-header .byte-count .value", blockUi).text(block.byteCount);
+
+        const main = $("#main");
+        main.empty();
+        main.append(blockUi);
     }
 
     static renderTransaction(transaction) {
@@ -79,7 +118,6 @@ $(document).ready(function() {
             loadingImage.css("visibility", "visible");
             Api.search(searchInput.val(), function(data) {
                 loadingImage.css("visibility", "hidden");
-                console.log(data);
 
                 const wasSuccess = data.wasSuccess;
                 const errorMessage = data.errorMessage;

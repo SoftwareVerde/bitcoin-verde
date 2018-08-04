@@ -95,7 +95,7 @@ public class TransactionInputDatabaseManager {
         return transactionInputId;
     }
 
-    public Long _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+    protected Long _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
         return _databaseConnection.executeSql(
             new Query("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)")
                 .setParameter(transactionInputId)
@@ -103,7 +103,7 @@ public class TransactionInputDatabaseManager {
         );
     }
 
-    public List<Long> _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
+    protected List<Long> _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionInputIds.getSize(), unlockingScripts.getSize())) {
             throw new DatabaseException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getSize must equal unlockingScripts.getSize");
         }
