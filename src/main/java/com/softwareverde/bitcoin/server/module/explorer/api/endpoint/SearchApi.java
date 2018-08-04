@@ -18,7 +18,7 @@ public class SearchApi extends ExplorerApiEndpoint {
 
     private static class SearchResult extends ApiResult {
         public enum ObjectType {
-            BLOCK, TRANSACTION
+            BLOCK, BLOCK_HEADER, TRANSACTION
         }
 
         private ObjectType _objectType;
@@ -66,7 +66,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     }
 
                     rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("query", "BLOCK");
+                    rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
                     rpcRequestJson.put("parameters", rpcParametersJson);
                 }
 
@@ -79,11 +79,19 @@ public class SearchApi extends ExplorerApiEndpoint {
                 final Json queryBlockResponseJson = Json.parse(queryBlockResponse);
                 if (queryBlockResponseJson.getBoolean("wasSuccess")) {
                     final Json blockJson = queryBlockResponseJson.get("block");
+
+                    final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
+
                     object = blockJson;
-                    objectType = SearchResult.ObjectType.BLOCK;
+                    if (isFullBlock) {
+                        objectType = SearchResult.ObjectType.BLOCK;
+                    }
+                    else {
+                        objectType = SearchResult.ObjectType.BLOCK_HEADER;
+                    }
                 }
                 else {
-                    rpcRequestJson.put("query", "TRANSACTION");
+                    rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
                     socketConnection.write(rpcRequestJson.toString());
                     final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
                     if (queryTransactionResponse == null) {

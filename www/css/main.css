@@ -93,6 +93,7 @@
     transition: background-color 5000s ease-in-out 0s;
 }
 
+.transaction,
 .block {
     background-color: rgba(0, 0, 0, 0.05);
     overflow: auto;
@@ -106,6 +107,9 @@
     padding-bottom: 2em;
 }
 
+.transaction .io .transaction-inputs:before,
+.transaction .io .transaction-outputs:before,
+.transaction:before,
 .block:before {
     content: 'Block';
     color: rgba(0, 0, 0, 0.2);
@@ -116,12 +120,93 @@
     top: 0.25em;
 }
 
+.transaction:before {
+    content: 'Transaction';
+}
+.transaction .io .transaction-inputs:before {
+    content: 'Transaction Inputs';
+    margin-left: 0px;
+}
+.transaction .io .transaction-outputs:before {
+    content: 'Transaction Outputs';
+    margin-left: 0px;
+}
+
+.transaction .io {
+    clear: both;
+    width: calc(100% - 0.5em);
+}
+
+.transaction .io .transaction-inputs,
+.transaction .io .transaction-outputs {
+    margin-top: 0.25em;
+    overflow: auto;
+    float: left;
+    width: calc(50% - 0.5em);
+}
+
+.transaction .io .transaction-inputs > div,
+.transaction .io .transaction-outputs > div {
+    margin-top: 0.5em;
+    margin-left: 1em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.025);
+    box-sizing: border-box;
+}
+
+.transaction .io .transaction-input > .label {
+    border: solid 1px rgba(0, 0, 0, 0.2);
+    background-color: #EEEEEE;
+    overflow: auto;
+    padding: 0.5em;
+    line-height: 2em;
+    padding-left: 1em;
+    padding-right: 1em;
+    margin: 0.5em;
+    font-size: 0.75em;
+    cursor: pointer;
+}
+
+.transaction .io .transaction-input > div:not(:first-child) {
+    display: none;
+    margin-left: 1em;
+}
+
+.transaction .io .transaction-input > div:last-child:not(:first-child) {
+    margin-bottom: 1em;
+}
+
+
+.transaction .io .transaction-input .unlocking-script .operations > .value .script-operation > .value {
+    font-size: 0.8em;
+    word-wrap: break-word;
+    margin-left: 0.5em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.25);
+    padding: 0.5em;
+    margin-right: 0.5em;
+
+    padding-left: 1.5em;
+    text-indent: -0.75em;
+}
+
+.transaction .io .transaction-input > .label .address {
+    float: left;
+    color: #262626;
+}
+.transaction .io .transaction-input > .label .amount {
+    float: right;
+    color: #505050
+}
+
+.transaction > div,
 .block .block-header {
     box-sizing: border-box;
     overflow: auto;
     margin-top: 0.25em;
 }
 
+.transaction > div > div,
 .block .block-header > div {
     padding: 0.25em;
     margin: 0.25em;
@@ -132,8 +217,8 @@
     box-sizing: border-box;
 }
 
+.transaction > div > div label,
 .block .block-header div label {
-    width: 50%;
     display: inline-block;
     box-sizing: border-box;
     font-size: 1.2em;
@@ -141,15 +226,15 @@
     color: #404040;
 }
 
-.block .block-header div span.value {
-    width: 50%;
+.transaction > div > div .value,
+.block .block-header div .value {
     display: block;
     box-sizing: border-box;
     padding-left: 1em;
     margin-top: 0.25em;
 }
 
-.block .block-header div.timestamp span.value:after {
+.block .block-header div.timestamp .value:after {
     content: '(UTC)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -157,7 +242,7 @@
     font-style: italic;
 }
 
-.block .block-header div.reward span.value:after {
+.block .block-header div.reward .value:after {
     content: '(bitcoin)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -165,7 +250,8 @@
     font-style: italic;
 }
 
-.block .block-header div.byte-count span.value:after {
+.transaction div div.byte-count .value:after,
+.block .block-header div.byte-count .value:after {
     content: '(bytes)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -173,20 +259,30 @@
     font-style: italic;
 }
 
-.block .block-header div.previous-block-hash span.value:hover {
+.clickable:hover {
     cursor: pointer;
     color: #F7931D;
+}
+
+.transaction div div.block-hashes div.value span {
+    display: block;
 }
 
 .block .block-header div.difficulty {
     float: right;
 }
 
+.transaction div div.lock-time div label,
 .block .block-header div.difficulty div label {
     margin-left: 0.5em;
     color: rgba(0, 0, 0, 0.5);
     font-size: 1.1em;
 }
+
+.block .block-header div {
+    transition: all 500ms ease;
+}
+
 
 #templates {
     display: none;
@@ -194,5 +290,18 @@
 
 .fixed {
     font-family: monospace;
+    overflow-x: auto;
+
+    -ms-overflow-style: none;
+    overflow: -moz-scrollbars-none;
 }
 
+.fixed::-webkit-scrollbar { 
+    display: none;
+}
+
+@media only screen and (max-width: 960px) {
+    .block .block-header > div {
+        width: calc(100% - 0.5em);
+    }
+}

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
@@ -115,10 +116,33 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 return;
             }
 
-            final Block block = blockDatabaseManager.getBlock(blockId);
+            final BlockHeader block;
+            final ByteArray blockData;
+            final Boolean isFullBlock;
+            {
+                final Block fullBlock = blockDatabaseManager.getBlock(blockId);
+                if (fullBlock != null) {
+                    final BlockDeflater blockDeflater = new BlockDeflater();
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
-            final ByteArray blockData = blockDeflater.toBytes(block);
+                    isFullBlock = true;
+                    block = fullBlock;
+                    blockData = blockDeflater.toBytes(fullBlock);
+                }
+                else {
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    if (blockHeader == null) {
+                        response.put("errorMessage", "Could not inflate Block; it may be corrupted.");
+                        return;
+                    }
+
+                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+
+                    isFullBlock = false;
+                    block = blockHeader;
+                    blockData = blockHeaderDeflater.toBytes(blockHeader);
+                    response.put("errorMessage", "Block not synchronized yet; falling back to BlockHeader.");
+                }
+            }
 
             if (shouldReturnRawBlockData) {
                 response.put("block", HexUtil.toHexString(blockData.getBytes()));
@@ -130,7 +154,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
                     blockJson.put("height", blockHeight);
                     blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
-                    blockJson.put("byteCount", blockData.getByteCount());
+                    blockJson.put("byteCount", (isFullBlock ? blockData.getByteCount() : null));
                 }
 
                 response.put("block", blockJson);

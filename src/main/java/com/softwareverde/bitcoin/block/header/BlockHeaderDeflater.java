@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
@@ -51,10 +53,10 @@ public class BlockHeaderDeflater {
         return byteData;
     }
 
-    public byte[] toBytes(final BlockHeader blockHeader) {
+    public ByteArray toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
         final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
