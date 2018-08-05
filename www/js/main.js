@@ -80,17 +80,21 @@ class Ui {
         });
 
         $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
-        $(".amount", transactionInputUi).text(transactionInput.amount);
-        $(".transaction-hash .value", transactionInputUi).text(transactionInput.previousOutputTransactionHash);
+        $(".amount", transactionInputUi).text((transactionInput.previousTransactionAmount || 0).toLocaleString());
+
+        const transactionLink = $(".transaction-hash .value", transactionInputUi);
+        transactionLink.text(transactionInput.previousOutputTransactionHash);
+        transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transactionInput.previousOutputTransactionHash));
+
         $(".transaction-output-index .value", transactionInputUi).text(transactionInput.previousOutputIndex);
 
         const sequenceNumber = transactionInput.sequenceNumber;
         $(".sequence-number .type .value", transactionInputUi).text(sequenceNumber.type);
-        $(".sequence-number .type-value .value", transactionInputUi).text(sequenceNumber.value);
+        $(".sequence-number .type-value .value", transactionInputUi).text(sequenceNumber.value.toLocaleString());
         $(".sequence-number .is-disabled .value", transactionInputUi).text((sequenceNumber.isDisabled ? "Yes" : "No"));
         $(".sequence-number .bytes .value", transactionInputUi).text(sequenceNumber.bytes);
 
-        const operationsContainer = $(".unlocking-script .operations .value", transactionInputUi);
+        const operationsContainer = $(".unlocking-script .value", transactionInputUi);
         const unlockingScript = transactionInput.unlockingScript;
         const operations = unlockingScript.operations;
         for (let i = 0; i < operations.length; i += 1) {
@@ -112,18 +116,18 @@ class Ui {
         const blockTemplate = $(".block", templates);
         const blockUi = blockTemplate.clone();
 
-        $(".block-header .height .value", blockUi).text(block.height);
+        $(".block-header .height .value", blockUi).text(block.height.toLocaleString());
         $(".block-header .hash .value", blockUi).text(block.hash);
         $(".block-header .difficulty .mask .value", blockUi).text(block.difficulty.mask);
-        $(".block-header .difficulty .ratio .value", blockUi).text(block.difficulty.ratio);
+        $(".block-header .difficulty .ratio .value", blockUi).text(block.difficulty.ratio.toLocaleString());
         const previousBlockHashSpan = $(".block-header .previous-block-hash .value", blockUi);
         previousBlockHashSpan.text(block.previousBlockHash);
         previousBlockHashSpan.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(block.timestamp.date);
-        $(".block-header .nonce .value", blockUi).text(block.nonce);
-        $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toFixed(4));
-        $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-"));
+        $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
+        $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toLocaleString());
+        $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
 
         blockUi.hide();
         const main = $("#main");
@@ -154,6 +158,28 @@ class Ui {
         };
     }
 
+    static _makeNavigateToTransactionEvent(transactionHash) {
+        const loadingImage = $("#search-loading-image");
+
+        return function() {
+            loadingImage.css("visibility", "visible");
+            Api.search(transactionHash, function(data) {
+                loadingImage.css("visibility", "hidden");
+
+                const wasSuccess = data.wasSuccess;
+                const errorMessage = data.errorMessage;
+                const object = data.object;
+
+                if (wasSuccess) {
+                    Ui.renderTransaction(object);
+                }
+                else {
+                   console.log(errorMessage);
+                }
+            });
+        };
+    }
+
     static renderTransaction(transaction) {
         console.log(transaction);
 
@@ -165,8 +191,8 @@ class Ui {
 
         $(".hash .value", transactionUi).text(transaction.hash);
         $(".version .value", transactionUi).text(transaction.version);
-        $(".byte-count .value", transactionUi).text(transaction.byteCount);
-        $(".fee .value", transactionUi).text(transaction.fee);
+        $(".byte-count .value", transactionUi).text(transaction.byteCount.toLocaleString());
+        $(".fee .value", transactionUi).text(transaction.fee.toLocaleString());
 
         const blocks = transaction.blocks;
         for (let i = 0; i < blocks.length; i += 1) {

@@ -13,9 +13,17 @@ import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -218,6 +226,71 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                         blockHashesJson.add(blockHash);
                     }
                     transactionJson.put("blocks", blockHashesJson);
+                }
+
+                { // Calculate and include Transaction fee and Previous Transaction Output Amount...
+                    final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+                    Long transactionFee = 0L;
+
+                    { // Process TransactionInputs...
+                        Integer transactionInputIndex = 0;
+                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                            final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                            final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+                            if (previousTransactionOutputId == null) {
+                                Logger.log("Error calculating fee for Transaction: " + transactionHashString);
+                                response.put("errorMessage", "Error calculating fee for Transaction: " + transactionHashString);
+                                return;
+                            }
+
+                            final TransactionOutput previousTransactionOutput = transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId);
+
+                            final Long previousTransactionOutputAmount = previousTransactionOutput.getAmount();
+                            transactionFee += previousTransactionOutputAmount;
+
+                            { // Add extra previousTransactionOutput json fields...
+                                final String addressString;
+                                {
+                                    final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
+                                    final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                                    final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                                    addressString = address.toBase58CheckEncoded();
+                                }
+
+                                final Json transactionInputJson = transactionJson.get("inputs").get(transactionInputIndex);
+                                transactionInputJson.put("previousTransactionAmount", previousTransactionOutputAmount);
+                                transactionInputJson.put("address", addressString);
+                            }
+
+                            transactionInputIndex += 1;
+                        }
+                    }
+
+                    { // Process TransactionOutputs...
+                        int transactionOutputIndex = 0;
+                        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                            transactionFee -= transactionOutput.getAmount();
+
+                            { // Add extra TransactionOutput json fields...
+                                final String addressString;
+                                {
+                                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                                    final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                                    final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                                    addressString = address.toBase58CheckEncoded();
+                                }
+
+                                final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
+                                transactionOutputJson.put("address", addressString);
+                            }
+
+                            transactionOutputIndex += 1;
+                        }
+                    }
+
+                    transactionJson.put("fee", transactionFee);
                 }
 
                 transactionJson.put("byteCount", transactionData.getByteCount());
