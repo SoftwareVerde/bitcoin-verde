@@ -76,7 +76,7 @@ class Ui {
         const transactionInputUi = transactionInputTemplate.clone();
 
         $("div.label", transactionInputUi).on("click", function() {
-            $("> div:not(:first-child)", transactionInputUi).toggle();
+            $("> div:not(:first-child)", transactionInputUi).slideToggle(250);
         });
 
         $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
@@ -94,8 +94,9 @@ class Ui {
         $(".sequence-number .is-disabled .value", transactionInputUi).text((sequenceNumber.isDisabled ? "Yes" : "No"));
         $(".sequence-number .bytes .value", transactionInputUi).text(sequenceNumber.bytes);
 
-        const operationsContainer = $(".unlocking-script .value", transactionInputUi);
         const unlockingScript = transactionInput.unlockingScript;
+        $(".unlocking-script .type .value", transactionInputUi).text(unlockingScript.scriptType);
+        const operationsContainer = $(".unlocking-script .script .value", transactionInputUi);
         const operations = unlockingScript.operations;
         for (let i = 0; i < operations.length; i += 1) {
             const operation = operations[i];
@@ -107,6 +108,34 @@ class Ui {
         $(".unlocking-script .bytes .value", transactionInputUi).text(unlockingScript.bytes);
 
         return transactionInputUi;
+    }
+
+    static inflateTransactionOutput(transactionOutput) {
+        const templates = $("#templates");
+        const transactionOutputTemplate = $(".transaction-output", templates);
+        const transactionOutputUi = transactionOutputTemplate.clone();
+
+        $("div.label", transactionOutputUi).on("click", function() {
+            $("> div:not(:first-child)", transactionOutputUi).slideToggle(250);
+        });
+
+        $(".address", transactionOutputUi).text(transactionOutput.address || "[CUSTOM SCRIPT]");
+        $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
+
+        const lockingScript = transactionOutput.lockingScript;
+        $(".locking-script .type .value", transactionOutputUi).text(lockingScript.scriptType);
+        const operationsContainer = $(".locking-script .script .value", transactionOutputUi);
+        const operations = lockingScript.operations;
+        for (let i = 0; i < operations.length; i += 1) {
+            const operation = operations[i];
+            const scriptOperationUi = $(".script-operation", templates).clone();
+            $(".value", scriptOperationUi).text(operation);
+            operationsContainer.append(scriptOperationUi);
+        }
+
+        $(".locking-script .bytes .value", transactionOutputUi).text(lockingScript.bytes);
+
+        return transactionOutputUi;
     }
 
     static renderBlock(block) {
@@ -128,6 +157,13 @@ class Ui {
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
         $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toLocaleString());
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
+
+        const transactions = block.transactions;
+        for (let i = 0; i < transactions.length; i += 1) {
+            const transaction = transactions[i];
+            const transactionUi = Ui.inflateTransaction(transaction);
+            $(".transactions", blockUi).append(transactionUi);
+        }
 
         blockUi.hide();
         const main = $("#main");
@@ -181,8 +217,15 @@ class Ui {
     }
 
     static renderTransaction(transaction) {
-        console.log(transaction);
+        const transactionUi = Ui.inflateTransaction(transaction);
+        transactionUi.hide();
+        const main = $("#main");
+        main.empty();
+        main.append(transactionUi);
+        transactionUi.fadeIn(500);
+    }
 
+    static inflateTransaction(transaction) {
         const loadingImage = $("#search-loading-image");
 
         const templates = $("#templates");
@@ -191,10 +234,10 @@ class Ui {
 
         $(".hash .value", transactionUi).text(transaction.hash);
         $(".version .value", transactionUi).text(transaction.version);
-        $(".byte-count .value", transactionUi).text(transaction.byteCount.toLocaleString());
-        $(".fee .value", transactionUi).text(transaction.fee.toLocaleString());
+        $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
+        $(".fee .value", transactionUi).text((transaction.fee || "-").toLocaleString());
 
-        const blocks = transaction.blocks;
+        const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {
             const blockHash = blocks[i];
             const blockLink = $("<span class=\"fixed clickable\"></span>");
@@ -215,11 +258,14 @@ class Ui {
             $(".io .transaction-inputs", transactionUi).append(transactionInputUi);
         }
 
-        transactionUi.hide();
-        const main = $("#main");
-        main.empty();
-        main.append(transactionUi);
-        transactionUi.fadeIn(500);
+        const transactionOutputs = transaction.outputs;
+        for (let i = 0; i < transactionOutputs.length; i += 1) {
+            const transactionOutput = transactionOutputs[i];
+            const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput);
+            $(".io .transaction-outputs", transactionUi).append(transactionOutputUi);
+        }
+
+        return transactionUi;
     }
 }
 

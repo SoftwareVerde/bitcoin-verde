@@ -135,6 +135,7 @@
 .transaction .io {
     clear: both;
     width: calc(100% - 0.5em);
+    position: relative;
 }
 
 .transaction .io .transaction-inputs,
@@ -142,7 +143,24 @@
     margin-top: 0.25em;
     overflow: auto;
     float: left;
-    width: calc(50% - 0.5em);
+    width: calc(48.5% - 0.5em);
+}
+.transaction .io .transaction-outputs {
+    margin-left: calc(5% - 1.5em);
+}
+.transaction .io img.tx-arrow {
+    width: 2em;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-1em);
+    margin-left: calc(2.5% - 1.5em);
+    opacity: 0.75;
+}
+.transaction .io .transaction-component-separator img {
+    position: absolute;
+    width: 4em;
+    top: 50%;
+    transform: translate-y(-2em);
 }
 
 .transaction .io .transaction-inputs > div,
@@ -152,9 +170,11 @@
     border: solid 1px rgba(0, 0, 0, 0.05);
     background-color: rgba(0, 0, 0, 0.025);
     box-sizing: border-box;
+    transition: all 500ms ease;
 }
 
-.transaction .io .transaction-input > .label {
+.transaction .io .transaction-input > .label,
+.transaction .io .transaction-output > .label {
     border: solid 1px rgba(0, 0, 0, 0.2);
     background-color: #EEEEEE;
     overflow: auto;
@@ -167,7 +187,8 @@
     cursor: pointer;
 }
 
-.transaction .io .transaction-input > div:not(:first-child) {
+.transaction .io .transaction-input > div:not(:first-child),
+.transaction .io .transaction-output> div:not(:first-child) {
     display: none;
     margin-bottom: 0.25em;
     margin-top: 0.25em;
@@ -176,15 +197,16 @@
     border: solid 1px rgba(0, 0, 0, 0.05);
     background-color: rgba(255, 255, 255, 0.1);
     padding: 0.5em;
-    font-size: 75%;
 }
 
-.transaction .io .transaction-input > div:last-child:not(:first-child) {
+.transaction .io .transaction-input > div:last-child:not(:first-child),
+.transaction .io .transaction-output > div:last-child:not(:first-child) {
     margin-bottom: 1em;
 }
 
 
-.transaction .io .transaction-input .unlocking-script > .value .script-operation > .value {
+.transaction .io .transaction-input .unlocking-script .script .script-operation > .value,
+.transaction .io .transaction-output .locking-script .script .script-operation > .value {
     font-size: 0.8em;
     word-wrap: break-word;
     margin-left: 0.5em;
@@ -197,11 +219,14 @@
     text-indent: -0.75em;
 }
 
-.transaction .io .transaction-input > .label .address {
+.transaction .io .transaction-input > .label .address,
+.transaction .io .transaction-output > .label .address {
     float: left;
     color: #262626;
 }
-.transaction .io .transaction-input > .label .amount {
+
+.transaction .io .transaction-input > .label .amount,
+.transaction .io .transaction-output > .label .amount {
     float: right;
     color: #505050
 }
@@ -224,7 +249,7 @@
     box-sizing: border-box;
 }
 
-.transaction > div > div label,
+.transaction div > label,
 .block .block-header div label {
     display: inline-block;
     box-sizing: border-box;
@@ -281,7 +306,6 @@
 }
 
 .transaction div div.lock-time div {
-    font-size: 75%;
 }
 
 .transaction div div.block-hashes div.value span {
@@ -292,6 +316,8 @@
     float: right;
 }
 
+.transaction .io .transaction-input .unlocking-script > div > label,
+.transaction .io .transaction-output .locking-script > div > label,
 .transaction-input div.unlocking-script div label,
 .transaction-input div.sequence-number div label,
 .transaction div div.lock-time div label,
@@ -299,6 +325,12 @@
     margin-left: 0.5em;
     color: rgba(0, 0, 0, 0.5);
     font-size: 1.1em;
+    margin-top: 0.2em;
+}
+
+.transaction .io .unlocking-script > div > .value,
+.transaction .io .locking-script > div > .value {
+    margin-left: 0.5em;
 }
 
 .block .block-header div {
