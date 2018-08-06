@@ -232,10 +232,13 @@ class Ui {
         const transactionTemplate = $(".transaction", templates);
         const transactionUi = transactionTemplate.clone();
 
-        $(".hash .value", transactionUi).text(transaction.hash);
+        const transactionHashElement = $(".hash .value", transactionUi);
+        transactionHashElement.text(transaction.hash);
+        transactionHashElement.on("click", Ui._makeNavigateToTransactionEvent(transaction.hash));
+
         $(".version .value", transactionUi).text(transaction.version);
         $(".byte-count .value", transactionUi).text((transaction.byteCount || "-").toLocaleString());
-        $(".fee .value", transactionUi).text((transaction.fee || "-").toLocaleString());
+        $(".fee .value", transactionUi).text((transaction.fee != null ? transaction.fee : "-").toLocaleString());
 
         const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {

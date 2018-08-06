@@ -41,6 +41,7 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
@@ -71,6 +72,97 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected ShutdownHandler _shutdownHandler = null;
     protected NodeHandler _nodeHandler = null;
     protected QueryBalanceHandler _queryBalanceHandler = null;
+
+    protected void _addMetadataForTransactionToJson(final BlockChainSegmentId mainBlockChainSegmentId, final Transaction transaction, final Json transactionJson, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final Sha256Hash transactionHash = transaction.getHash();
+        final String transactionHashString = transactionHash.toString();
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+        transactionJson.put("byteCount", transactionData.getByteCount());
+
+        Long transactionFee = 0L;
+
+        { // Include Block hashes which include this transaction...
+            final Json blockHashesJson = new Json(true);
+            final List<TransactionId> duplicateTransactionIds = transactionDatabaseManager.getTransactionIdsFromHash(transactionHash);
+            for (final TransactionId duplicateTransactionId : duplicateTransactionIds) {
+                final BlockId blockId = transactionDatabaseManager.getBlockId(duplicateTransactionId);
+                final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
+                blockHashesJson.add(blockHash);
+            }
+            transactionJson.put("blocks", blockHashesJson);
+        }
+
+        { // Process TransactionInputs...
+            Integer transactionInputIndex = 0;
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+                if (previousTransactionOutputId == null) {
+                    Logger.log("Error calculating fee for Transaction: " + transactionHashString);
+                    transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
+                }
+
+                final TransactionOutput previousTransactionOutput = ( previousTransactionOutputId != null ? transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId) : null );
+                final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
+
+                if (transactionFee != null) {
+                    transactionFee += Util.coalesce(previousTransactionOutputAmount);
+                }
+
+                final String addressString;
+                {
+                    if (previousTransactionOutput != null) {
+                        final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
+                        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                        final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                        addressString = address.toBase58CheckEncoded();
+                    }
+                    else {
+                        addressString = null;
+                    }
+                }
+
+                final Json transactionInputJson = transactionJson.get("inputs").get(transactionInputIndex);
+                transactionInputJson.put("previousTransactionAmount", previousTransactionOutputAmount);
+                transactionInputJson.put("address", addressString);
+
+                transactionInputIndex += 1;
+            }
+        }
+
+        { // Process TransactionOutputs...
+            int transactionOutputIndex = 0;
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                if (transactionFee != null) {
+                    transactionFee -= transactionOutput.getAmount();
+                }
+
+                { // Add extra TransactionOutput json fields...
+                    final String addressString;
+                    {
+                        final LockingScript lockingScript = transactionOutput.getLockingScript();
+                        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                        final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+                        addressString = address.toBase58CheckEncoded();
+                    }
+
+                    final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
+                    transactionOutputJson.put("address", addressString);
+                }
+
+                transactionOutputIndex += 1;
+            }
+        }
+
+        transactionJson.put("fee", transactionFee);
+    }
 
     public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
         _environment = environment;
@@ -116,6 +208,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
             final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
@@ -165,6 +258,22 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     blockJson.put("byteCount", (isFullBlock ? blockData.getByteCount() : null));
                 }
 
+                { // Add extra transaction metadata...
+                    if (isFullBlock) {
+                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                        final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+
+                        final Json transactionsJson = blockJson.get("transactions");
+
+                        int transactionIndex = 0;
+                        for (final Transaction transaction : ((Block) block).getTransactions()) {
+                            final Json transactionJson = transactionsJson.get(transactionIndex);
+                            _addMetadataForTransactionToJson(mainBlockChainSegmentId, transaction, transactionJson, databaseConnection);
+                            transactionIndex += 1;
+                        }
+                    }
+                }
+
                 response.put("block", blockJson);
             }
 
@@ -208,92 +317,16 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             }
 
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-            final TransactionDeflater transactionDeflater = new TransactionDeflater();
-            final ByteArray transactionData = transactionDeflater.toBytes(transaction);
 
             if (shouldReturnRawTransactionData) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final ByteArray transactionData = transactionDeflater.toBytes(transaction);
                 response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
             }
             else {
                 final Json transactionJson = transaction.toJson();
 
-                { // Include Block hashes which include this transaction...
-                    final Json blockHashesJson = new Json(true);
-                    final List<TransactionId> duplicateTransactionIds = transactionDatabaseManager.getTransactionIdsFromHash(transactionHash);
-                    for (final TransactionId duplicateTransactionId : duplicateTransactionIds) {
-                        final BlockId blockId = transactionDatabaseManager.getBlockId(duplicateTransactionId);
-                        final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
-                        blockHashesJson.add(blockHash);
-                    }
-                    transactionJson.put("blocks", blockHashesJson);
-                }
-
-                { // Calculate and include Transaction fee and Previous Transaction Output Amount...
-                    final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-
-                    Long transactionFee = 0L;
-
-                    { // Process TransactionInputs...
-                        Integer transactionInputIndex = 0;
-                        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                            final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                            final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
-                            if (previousTransactionOutputId == null) {
-                                Logger.log("Error calculating fee for Transaction: " + transactionHashString);
-                                response.put("errorMessage", "Error calculating fee for Transaction: " + transactionHashString);
-                                return;
-                            }
-
-                            final TransactionOutput previousTransactionOutput = transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId);
-
-                            final Long previousTransactionOutputAmount = previousTransactionOutput.getAmount();
-                            transactionFee += previousTransactionOutputAmount;
-
-                            { // Add extra previousTransactionOutput json fields...
-                                final String addressString;
-                                {
-                                    final LockingScript lockingScript = previousTransactionOutput.getLockingScript();
-                                    final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-                                    final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                                    addressString = address.toBase58CheckEncoded();
-                                }
-
-                                final Json transactionInputJson = transactionJson.get("inputs").get(transactionInputIndex);
-                                transactionInputJson.put("previousTransactionAmount", previousTransactionOutputAmount);
-                                transactionInputJson.put("address", addressString);
-                            }
-
-                            transactionInputIndex += 1;
-                        }
-                    }
-
-                    { // Process TransactionOutputs...
-                        int transactionOutputIndex = 0;
-                        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-                            transactionFee -= transactionOutput.getAmount();
-
-                            { // Add extra TransactionOutput json fields...
-                                final String addressString;
-                                {
-                                    final LockingScript lockingScript = transactionOutput.getLockingScript();
-                                    final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-                                    final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                                    addressString = address.toBase58CheckEncoded();
-                                }
-
-                                final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
-                                transactionOutputJson.put("address", addressString);
-                            }
-
-                            transactionOutputIndex += 1;
-                        }
-                    }
-
-                    transactionJson.put("fee", transactionFee);
-                }
-
-                transactionJson.put("byteCount", transactionData.getByteCount());
+                _addMetadataForTransactionToJson(mainBlockChainSegmentId, transaction, transactionJson, databaseConnection);
 
                 response.put("transaction", transactionJson);
             }

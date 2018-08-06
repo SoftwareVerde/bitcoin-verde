@@ -53,7 +53,6 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             nodeDatabaseManager.storeNode(node);
-
         }
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);
