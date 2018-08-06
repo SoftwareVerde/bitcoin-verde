@@ -1,14 +1,16 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.Bip112;
 import com.softwareverde.bitcoin.bip.Bip65;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class LockTimeOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_LOCK_TIME;
@@ -31,42 +33,35 @@ public class LockTimeOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case CHECK_LOCK_TIME_THEN_VERIFY: {
                 final Boolean operationIsEnabled = Bip65.isEnabled(context.getBlockHeight());
                 if (! operationIsEnabled) {
-                    // Before Bip65, CHECK_LOCK_TIME_THEN_VERIFY performed as a no-operation.
-                    return true;
+                    return true; // NOTE: Before Bip65, CHECK_LOCK_TIME_THEN_VERIFY performed as a NOP...
                 }
+
+                // CheckLockTimeThenVerify fails if...
+                // the stack is empty; or
+                // the top item on the stack is less than 0; or
+                // the lock-time type (height vs. timestamp) of the top stack item and the nLockTime field are not the same; or
+                // the top stack item is greater than the transaction's nLockTime field; or
+                // the nSequence field of the txin is 0xffffffff
 
                 final Transaction transaction = context.getTransaction();
                 final LockTime transactionLockTime = transaction.getLockTime();
 
+                final Value requiredLockTimeValue = stack.peak();
+                if (requiredLockTimeValue.asLong() < 0L) { return false; } // NOTE: This is possible since 5-bytes are permitted when parsing Lock/SequenceNumbers...
+
+                final LockTime stackLockTime = requiredLockTimeValue.asLockTime();
+
+                if (stackLockTime.getType() != transactionLockTime.getType()) { return false; }
+                if (stackLockTime.getValue() > transactionLockTime.getValue()) { return false; }
+
                 final TransactionInput transactionInput = context.getTransactionInput();
-                final Long transactionInputSequenceNumber = transactionInput.getSequenceNumber();
-                if (TransactionInput.MAX_SEQUENCE_NUMBER.equals(transactionInputSequenceNumber)) {
-                    return false;
-                }
-
-                final Value requiredLockTimeValue = stack.pop();
-                final Long requiredLockTimeLong = requiredLockTimeValue.asLong();
-                if (requiredLockTimeLong < 0) { return false; }
-                final LockTime requiredLockTime = new ImmutableLockTime(requiredLockTimeLong);
-
-                final Boolean lockTimeIsSatisfied;
-                {
-                    if (requiredLockTime.getType() != transactionLockTime.getType()) {
-                        lockTimeIsSatisfied = false;
-                    }
-                    else {
-                        lockTimeIsSatisfied = (transactionLockTime.getValue() >= requiredLockTime.getValue());
-                    }
-                }
-
-                if (! lockTimeIsSatisfied) {
+                final SequenceNumber transactionInputSequenceNumber = transactionInput.getSequenceNumber();
+                if (SequenceNumber.MAX_SEQUENCE_NUMBER.equals(transactionInputSequenceNumber)) {
                     return false;
                 }
 
@@ -74,13 +69,46 @@ public class LockTimeOperation extends SubTypedOperation {
             }
 
             case CHECK_SEQUENCE_NUMBER_THEN_VERIFY: {
-                final Value requiredSequenceNumberValue = stack.pop();
-                final Long requiredSequenceNumberLong = requiredSequenceNumberValue.asLong();
+                final Boolean operationIsEnabled = (Bip112.isEnabled(context.getBlockHeight()));
+                if (! operationIsEnabled) {
+                    return true; // NOTE: Before Bip112, the operation is considered a NOP...
+                }
 
+                // CheckSequenceVerify fails if...
+                // the stack is empty; or
+                // the top item on the stack is less than 0; or
+                // the top item on the stack has the disable flag (1 << 31) unset; and {
+                //  the transaction version is less than 2; or
+                //  the transaction input sequence number disable flag (1 << 31) is set; or
+                //  the relative lock-time type is not the same; or
+                //  the top stack item is greater than the transaction sequence (when masked according to the BIP68);
+                // }
+
+                final Transaction transaction = context.getTransaction();
                 final TransactionInput transactionInput = context.getTransactionInput();
-                final Long transactionInputSequenceNumber = transactionInput.getSequenceNumber();
-                if (transactionInputSequenceNumber < requiredSequenceNumberLong) {
-                    return false;
+
+                final Value stackSequenceNumberValue = stack.peak();
+                if (stackSequenceNumberValue.asLong() < 0L) { return false; } // NOTE: This is possible due to the value's weird encoding rules and/or also possible since 5-bytes are permitted when parsing SequenceNumbers...
+
+                final SequenceNumber stackSequenceNumber = stackSequenceNumberValue.asSequenceNumber();
+
+                if (! stackSequenceNumber.isDisabled()) {
+                    if (transaction.getVersion() < 2) {
+                        return false;
+                    }
+
+                    final SequenceNumber transactionInputSequenceNumber = transactionInput.getSequenceNumber();
+                    if (transactionInputSequenceNumber.isDisabled()) {
+                        return false;
+                    }
+
+                    if (stackSequenceNumber.getType() != transactionInputSequenceNumber.getType()) {
+                        return false;
+                    }
+
+                    if (stackSequenceNumber.getMaskedValue() > transactionInputSequenceNumber.getMaskedValue()) {
+                        return false;
+                    }
                 }
 
                 return (! stack.didOverflow());

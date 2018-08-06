@@ -1,10 +1,12 @@
 package com.softwareverde.bitcoin.transaction.script.runner.context;
 
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
+import com.softwareverde.json.Json;
 
 public class MutableContext implements Context, Const {
     protected Long _blockHeight;
@@ -22,14 +24,14 @@ public class MutableContext implements Context, Const {
 
     public MutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
-        _transaction = context.getTransaction().asConst();
+        _transaction = ConstUtil.asConstOrNull(context.getTransaction());
         _transactionInputIndex = context.getTransactionInputIndex();
-        _transactionInput = context.getTransactionInput().asConst();
-        _transactionOutput = context.getTransactionOutput().asConst();
+        _transactionInput = ConstUtil.asConstOrNull(context.getTransactionInput());
+        _transactionOutput = ConstUtil.asConstOrNull(context.getTransactionOutput());
 
         final Script currentScript = context.getCurrentScript();
-        _currentScript = (currentScript != null ? currentScript.asConst() : null);
-        _currentScriptIndex = context.getCurrentScriptIndex();
+        _currentScript = ConstUtil.asConstOrNull(currentScript);
+        _currentScriptIndex = context.getScriptIndex();
         _scriptLastCodeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
     }
 
@@ -37,6 +39,9 @@ public class MutableContext implements Context, Const {
         _blockHeight = blockHeight;
     }
 
+    /**
+     * Sets the Transaction currently being validated.
+     */
     public void setTransaction(final Transaction transaction) {
         _transaction = transaction;
     }
@@ -59,11 +64,11 @@ public class MutableContext implements Context, Const {
         _scriptLastCodeSeparatorIndex = 0;
     }
 
-    public void incrementCurrentLockingScriptIndex() {
+    public void incrementCurrentScriptIndex() {
         _currentScriptIndex += 1;
     }
 
-    public void setLockingScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
+    public void setCurrentScriptLastCodeSeparatorIndex(final Integer codeSeparatorIndex) {
         _scriptLastCodeSeparatorIndex = codeSeparatorIndex;
     }
 
@@ -98,7 +103,7 @@ public class MutableContext implements Context, Const {
     }
 
     @Override
-    public Integer getCurrentScriptIndex() {
+    public Integer getScriptIndex() {
         return _currentScriptIndex;
     }
 
@@ -110,5 +115,11 @@ public class MutableContext implements Context, Const {
     @Override
     public ImmutableContext asConst() {
         return new ImmutableContext(this);
+    }
+
+    @Override
+    public Json toJson() {
+        final ContextDeflater contextDeflater = new ContextDeflater();
+        return contextDeflater.toJson(this);
     }
 }

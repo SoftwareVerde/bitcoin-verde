@@ -1,16 +1,17 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 
 public class MutableTransactionInput implements TransactionInput {
 
-    protected Hash _previousOutputTransactionHash = new MutableHash();
+    protected Sha256Hash _previousOutputTransactionHash = new MutableSha256Hash();
     protected Integer _previousOutputIndex = 0;
     protected UnlockingScript _unlockingScript = UnlockingScript.EMPTY_SCRIPT;
-    protected Long _sequenceNumber = MAX_SEQUENCE_NUMBER;
+    protected SequenceNumber _sequenceNumber = SequenceNumber.MAX_SEQUENCE_NUMBER;
 
     public MutableTransactionInput() { }
 
@@ -22,8 +23,8 @@ public class MutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public Hash getPreviousOutputTransactionHash() { return _previousOutputTransactionHash; }
-    public void setPreviousOutputTransactionHash(final Hash previousOutputTransactionHash) {
+    public Sha256Hash getPreviousOutputTransactionHash() { return _previousOutputTransactionHash; }
+    public void setPreviousOutputTransactionHash(final Sha256Hash previousOutputTransactionHash) {
         _previousOutputTransactionHash = previousOutputTransactionHash;
     }
 
@@ -40,10 +41,10 @@ public class MutableTransactionInput implements TransactionInput {
     }
 
     @Override
-    public Long getSequenceNumber() { return _sequenceNumber; }
+    public SequenceNumber getSequenceNumber() { return _sequenceNumber; }
 
-    public void setSequenceNumber(final Long sequenceNumber) {
-        _sequenceNumber = sequenceNumber;
+    public void setSequenceNumber(final SequenceNumber sequenceNumber) {
+        _sequenceNumber = sequenceNumber.asConst();
     }
 
     @Override
@@ -53,11 +54,7 @@ public class MutableTransactionInput implements TransactionInput {
 
     @Override
     public Json toJson() {
-        final Json json = new Json();
-        json.put("previousOutputTransactionHash", _previousOutputTransactionHash);
-        json.put("previousOutputIndex", _previousOutputIndex);
-        json.put("unlockingScript", _unlockingScript);
-        json.put("sequenceNumber", _sequenceNumber);
-        return json;
+        final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
+        return transactionInputDeflater.toJson(this);
     }
 }

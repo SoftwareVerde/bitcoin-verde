@@ -1,14 +1,15 @@
 package com.softwareverde.bitcoin.block;
 
-import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 
-public interface Block extends BlockHeader {
+public interface Block extends BlockHeaderWithTransactionCount {
     List<Transaction> getTransactions();
-    Transaction getCoinbaseTransaction();
-    List<Hash> getPartialMerkleTree(int transactionIndex);
+    CoinbaseTransaction getCoinbaseTransaction();
+    List<Sha256Hash> getPartialMerkleTree(int transactionIndex);
 
     @Override
     ImmutableBlock asConst();

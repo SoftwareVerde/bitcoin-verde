@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -164,7 +165,7 @@ public class ValueTests {
     public void should_maintain_integer_interpretation() {
         // Setup
         final Integer expectedIntegerValue = 7;
-        final Value value = Value.fromInteger(expectedIntegerValue);
+        final Value value = Value.fromInteger(expectedIntegerValue.longValue());
 
         // Action
         final Integer integerValue = value.asInteger();
@@ -197,5 +198,85 @@ public class ValueTests {
 
         // Assert
         Assert.assertEquals(expectedIntegerValue, integerValue);
+    }
+
+    @Test
+    public void should_convert_values_to_mpi_encoding() {
+        {
+            final long value = 1L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("01"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 2L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("02"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 15L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("0F"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 16L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("10"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 0x0100L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("0001"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 0xFF;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("FF00"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = 0xFF00;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("00FF00"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = -0xFF00;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("00FF80"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = -943534368L;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("20313DB8"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = Integer.MAX_VALUE;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("FFFFFF7F"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
+
+        {
+            final long value = Integer.MIN_VALUE;
+            final byte[] bytes = Value._longToBytes(value);
+            TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000080"), bytes);
+            Assert.assertEquals(value, Value.fromBytes(bytes).asLong().longValue());
+        }
     }
 }

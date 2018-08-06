@@ -7,25 +7,31 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.MutableScript;
+import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionSigner {
+    private static final byte[] INVALID_SIGNATURE_HASH_SINGLE_VALUE = HexUtil.hexStringToByteArray("0100000000000000000000000000000000000000000000000000000000000000");
 
     // Steps:
     // 1. Set all input-scripts to empty scripts.
@@ -36,73 +42,122 @@ public class TransactionSigner {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
         final Transaction transaction = signatureContext.getTransaction();
-        final ScriptSignature.HashType hashType = signatureContext.getHashType();
+        // NOTE: The if the currentScript has not been set, the current script will default to the PreviousTransactionOutput's locking script.
+        // if (currentScript == null) { throw new NullPointerException("SignatureContext must have its currentScript set."); }
+
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
+        final HashType hashType = signatureContext.getHashType();
+        final Mode signatureMode = hashType.getMode();
+
+        { // Bitcoin Core Bug: https://bitcointalk.org/index.php?topic=260595.0
+            // This bug is caused when an input uses SigHash Single without a matching output.
+            // Originally, the Bitcoin Core client returned "1" as the bytes to be hashed, but the invoker never checked
+            // for that case, which caused the "1" value to be the actual bytes that are signed for the whole transaction.
+            if (signatureMode == Mode.SIGNATURE_HASH_SINGLE) {
+                if (signatureContext.getInputIndexBeingSigned() >= transactionOutputs.getSize()) {
+                    return INVALID_SIGNATURE_HASH_SINGLE_VALUE;
+                }
+            }
+        }
+
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(transaction.getVersion());
-        mutableTransaction.setHasWitnessData(transaction.hasWitnessData());
         mutableTransaction.setLockTime(transaction.getLockTime());
 
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
-            final TransactionInput transactionInput = transactionInputs.get(i);
+        for (int inputIndex = 0; inputIndex < transactionInputs.getSize(); ++inputIndex) {
+            if (! signatureContext.shouldInputBeSigned(inputIndex)) { continue; }
+
+            final TransactionInput transactionInput = transactionInputs.get(inputIndex);
 
             final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
             mutableTransactionInput.setPreviousOutputIndex(transactionInput.getPreviousOutputIndex());
             mutableTransactionInput.setPreviousOutputTransactionHash(transactionInput.getPreviousOutputTransactionHash());
 
-            final UnlockingScript unlockingScriptForSigning;
-            final Boolean shouldSignIndex = signatureContext.shouldInputIndexBeSigned(i);
-            if  (shouldSignIndex) {
-                final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(i);
-                final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+            { // Handle Input-Script Signing...
+                final Script unlockingScriptForSigning;
+                final Boolean shouldSignScript = signatureContext.shouldInputScriptBeSigned(inputIndex);
+                if (shouldSignScript) {
+                    final Script currentScript = signatureContext.getCurrentScript();
+                    final TransactionOutput transactionOutputBeingSpent = signatureContext.getTransactionOutputBeingSpent(inputIndex);
+                    final LockingScript outputBeingSpentLockingScript = transactionOutputBeingSpent.getLockingScript();
 
-                final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(i);
-                if (subscriptIndex > 0) {
-                    final ScriptDeflater scriptDeflater = new ScriptDeflater();
+                    { // Handle Code-Separators...
+                        final MutableScript mutableScript = new MutableScript(Util.coalesce(currentScript, outputBeingSpentLockingScript));
 
-                    // NOTE: Unsure if the LockingScript should receive the same treatment if it has a CodeSeparator.
-                    // final MutableScript mutableScript = new MutableScript(signatureContext.getCurrentScript()); //  // TODO: Determine if CodeSeparators are valid in UnlockingScripts...
+                        final Integer subscriptIndex = signatureContext.getLastCodeSeparatorIndex(inputIndex);
+                        if (subscriptIndex > 0) {
+                            mutableScript.subScript(subscriptIndex);
+                        }
 
-                    final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
-                    final MutableScript mutableScript = new MutableScript(unlockingScript);
-
-                    mutableScript.subScript(subscriptIndex);
-                    mutableScript.removeOperations(Operation.Opcode.CODE_SEPARATOR);
-                    // mutableScript.removeData(scriptSignature); // TODO: Other implementations do this... no one is sure why.
-                    unlockingScriptForSigning = UnlockingScript.castFrom(mutableScript);
+                        mutableScript.removeOperations(Opcode.CODE_SEPARATOR);
+                        unlockingScriptForSigning = mutableScript;
+                    }
                 }
                 else {
-                    unlockingScriptForSigning = UnlockingScript.castFrom(lockingScript);
+                    unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
+                }
+
+                { // Remove any ByteArrays that should be excluded from the script signing (aka signatures)...
+                    final MutableScript modifiedScript = new MutableScript(unlockingScriptForSigning);
+                    final List<ByteArray> bytesToExcludeFromScript = signatureContext.getBytesToExcludeFromScript();
+                    for (final ByteArray byteArray : bytesToExcludeFromScript) {
+                        modifiedScript.removePushOperations(byteArray);
+                    }
+                    mutableTransactionInput.setUnlockingScript(UnlockingScript.castFrom(modifiedScript));
                 }
             }
-            else {
-                unlockingScriptForSigning = UnlockingScript.EMPTY_SCRIPT;
+
+            { // Handle Input-Sequence-Number Signing...
+                if (signatureContext.shouldInputSequenceNumberBeSigned(inputIndex)) {
+                    mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+                }
+                else {
+                    mutableTransactionInput.setSequenceNumber(SequenceNumber.EMPTY_SEQUENCE_NUMBER);
+                }
             }
-            mutableTransactionInput.setUnlockingScript(unlockingScriptForSigning);
-            mutableTransactionInput.setSequenceNumber(transactionInput.getSequenceNumber());
+
             mutableTransaction.addTransactionInput(mutableTransactionInput);
         }
 
-        for (final TransactionOutput transactionOutput : transactionOutputs) {
+        for (int outputIndex = 0; outputIndex < transactionOutputs.getSize(); ++outputIndex) {
+            if (! signatureContext.shouldOutputBeSigned(outputIndex)) { continue; } // If the output should not be signed, then it is omitted from the signature completely...
+
+            final TransactionOutput transactionOutput = transactionOutputs.get(outputIndex);
             final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
-            mutableTransactionOutput.setAmount(transactionOutput.getAmount());
-            mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
+
+            { // Handle Output-Amounts Signing...
+                if (signatureContext.shouldOutputAmountBeSigned(outputIndex)) {
+                    mutableTransactionOutput.setAmount(transactionOutput.getAmount());
+                }
+                else {
+                    mutableTransactionOutput.setAmount(-1L);
+                }
+            }
+
+            { // Handle Output-Script Signing...
+                if (signatureContext.shouldOutputScriptBeSigned(outputIndex)) {
+                    mutableTransactionOutput.setLockingScript(transactionOutput.getLockingScript());
+                }
+                else {
+                    mutableTransactionOutput.setLockingScript(LockingScript.EMPTY_SCRIPT);
+                }
+            }
+
             mutableTransactionOutput.setIndex(transactionOutput.getIndex());
             mutableTransaction.addTransactionOutput(mutableTransactionOutput);
         }
 
         final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(mutableTransaction);
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.getValue())), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(ByteUtil.byteToInteger(hashType.toByte())), Endian.LITTLE);
         final byte[] bytes = byteArrayBuilder.build();
-
         return BitcoinUtil.sha256(BitcoinUtil.sha256(bytes));
     }
 
     public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
         final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
-        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey.getBytes(), bytesForSigning);
+        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
     }
 
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
@@ -117,7 +172,7 @@ public class TransactionSigner {
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            if (signatureContext.shouldInputIndexBeSigned(i)) {
+            if (signatureContext.shouldInputScriptBeSigned(i)) {
                 final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(transactionInput);
                 mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, privateKey.getPublicKey()));
                 mutableTransaction.setTransactionInput(i, mutableTransactionInput);

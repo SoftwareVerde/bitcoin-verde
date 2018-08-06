@@ -1,8 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.type.hash.ripemd160.MutableRipemd160Hash;
+import com.softwareverde.bitcoin.type.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -18,7 +19,7 @@ public class ImmutableScript implements Script, Const {
     protected void _requireCachedOperations() {
         if (_cachedOperations == null) {
             final ScriptInflater scriptInflater = new ScriptInflater();
-            _cachedOperations = scriptInflater._getOperationList(_bytes);
+            _cachedOperations = scriptInflater.getOperationList(_bytes);
         }
     }
 
@@ -35,11 +36,24 @@ public class ImmutableScript implements Script, Const {
     }
 
     @Override
-    public Hash getHash() {
+    public Boolean isValid() {
+        _requireCachedOperations();
+
+        for (final Operation operation : _cachedOperations) {
+            if (operation.getType() == Operation.Type.OP_INVALID) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public Ripemd160Hash getHash() {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
         final ByteArray bytes = scriptDeflater.toBytes(this);
         final byte[] hashBytes = BitcoinUtil.ripemd160(BitcoinUtil.sha256(bytes.getBytes()));
-        return MutableHash.wrap(hashBytes);
+        return MutableRipemd160Hash.wrap(hashBytes);
     }
 
     @Override
@@ -57,6 +71,19 @@ public class ImmutableScript implements Script, Const {
     @Override
     public ByteArray getBytes() {
         return _bytes;
+    }
+
+    @Override
+    public Boolean containsNonPushOperations() {
+        _requireCachedOperations();
+
+        for (final Operation operation : _cachedOperations) {
+            if (operation.getType() != PushOperation.TYPE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override

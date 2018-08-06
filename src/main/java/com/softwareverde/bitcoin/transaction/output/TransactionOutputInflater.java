@@ -2,10 +2,13 @@ package com.softwareverde.bitcoin.transaction.output;
 
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputInflater {
-    protected TransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
+    protected MutableTransactionOutput _fromByteArrayReader(final Integer index, final ByteArrayReader byteArrayReader) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
 
         transactionOutput._amount = byteArrayReader.readLong(8, Endian.LITTLE);
@@ -19,11 +22,19 @@ public class TransactionOutputInflater {
         return transactionOutput;
     }
 
-    public TransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {
+    public void _debugBytes(final ByteArrayReader byteArrayReader) {
+        Logger.log("Tx Output: Amount: " + MutableByteArray.wrap(byteArrayReader.readBytes(8)));
+
+        final ByteArrayReader.VariableSizedInteger variableSizedInteger = byteArrayReader.peakVariableSizedInteger();
+        Logger.log("Tx Output: Script Byte Count: " + HexUtil.toHexString(byteArrayReader.readBytes(variableSizedInteger.bytesConsumedCount)));
+        Logger.log("Tx Output: Script: " + HexUtil.toHexString(byteArrayReader.readBytes((int) variableSizedInteger.value)));
+    }
+
+    public MutableTransactionOutput fromBytes(final Integer index, final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(index, byteArrayReader);
     }
 
-    public TransactionOutput fromBytes(final Integer index, final byte[] bytes) {
+    public MutableTransactionOutput fromBytes(final Integer index, final byte[] bytes) {
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(index, byteArrayReader);
     }

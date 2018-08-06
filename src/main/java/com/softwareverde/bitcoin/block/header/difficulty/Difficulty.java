@@ -1,7 +1,8 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Constable;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 import java.math.BigDecimal;
 
@@ -13,14 +14,14 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     Integer getExponent();
     byte[] getSignificand();
 
-    Boolean isSatisfiedBy(final Hash hash);
+    Boolean isSatisfiedBy(final Sha256Hash hash);
     Boolean isLessDifficultThan(final Difficulty difficulty);
     BigDecimal getDifficultyRatio();
 
     Difficulty multiplyBy(final double difficultyAdjustment);
 
-    byte[] getBytes();
-    byte[] encode();
+    ByteArray getBytes();
+    ByteArray encode();
 
     @Override
     ImmutableDifficulty asConst();

@@ -27,20 +27,14 @@ public class TestUtil {
             final char maskCharacter = uppercaseStrippedStringMask.charAt(i);
 
             if (i >= uppercaseStringLength) {
-                _fail("Provided value does not match expected value. (Expected length: "+ uppercaseStrippedStringMaskLength +", found: "+ uppercaseStringLength +".)");
+                _fail("Provided value does not match expected value. (Expected length: "+ (uppercaseStrippedStringMaskLength/2) +", found: "+ (uppercaseStringLength/2) +".)\n" + stringMask + "\n" + string);
             }
 
             if (maskCharacter == 'X') { continue; }
 
             final char stringCharacter = uppercaseString.charAt(i);
             if (maskCharacter != stringCharacter) {
-                final Integer contextStartIndex = Math.max(0, i-24);
-                final Integer contextEndIndex = Math.min(uppercaseStringLength, i+24);
-
-                final String context = string.substring(contextStartIndex, Math.max(0, i)) + "[" + string.charAt(i) + "]" + string.substring(Math.min((uppercaseStringLength-1), i+1), contextEndIndex);
-                final String expectedContext = stringMask.substring(contextStartIndex, Math.max(0, i)) + "[" + stringMask.charAt(i) + "]" + stringMask.substring(Math.min((uppercaseStringLength-1), i+1), contextEndIndex);
-
-                _fail("Provided value does not match expected value at index: "+ i +". (Found '"+ stringCharacter +"', expected '"+ maskCharacter +"'.)\n    Found:    "+ context +"\n    Expected: "+ expectedContext);
+                _fail("Provided value does not match expected value.\n" + stringMask + "\n" + string);
             }
         }
     }

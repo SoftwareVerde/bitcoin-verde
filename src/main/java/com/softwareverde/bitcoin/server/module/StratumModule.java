@@ -14,8 +14,9 @@ import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -33,10 +34,6 @@ public class StratumModule {
     protected final Configuration _configuration;
     protected final StratumServerSocket _stratumServerSocket;
 
-    protected void _exitFailure() {
-        System.exit(1);
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
@@ -45,7 +42,7 @@ public class StratumModule {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
             _printError("Invalid configuration file.");
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
 
         return new Configuration(configurationFile);
@@ -87,15 +84,16 @@ public class StratumModule {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
             stratumMineBlockTask.setBlockVersion(block.getVersion());
-            stratumMineBlockTask.setPreviousBlockHash(MutableHash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
+            stratumMineBlockTask.setPreviousBlockHash(MutableSha256Hash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
             stratumMineBlockTask.setDifficulty(block.getDifficulty());
 
             final Transaction coinbaseTransaction;
             {
+                final Long blockHeight = 1L;
                 final MutableTransaction mutableTransaction = new MutableTransaction(block.getCoinbaseTransaction());
                 final TransactionInput transactionInput = mutableTransaction.getTransactionInputs().get(0);
                 final ByteArray unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
-                final TransactionInput newTransactionInput = TransactionInput.createCoinbaseTransactionInputWithExtraNonce(StringUtil.bytesToString(unlockingScriptBytes.getBytes()), extraNonceByteCount);
+                final TransactionInput newTransactionInput = TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, StringUtil.bytesToString(unlockingScriptBytes.getBytes()), extraNonceByteCount);
                 mutableTransaction.setTransactionInput(0, newTransactionInput);
                 coinbaseTransaction = mutableTransaction;
             }
@@ -181,14 +179,14 @@ public class StratumModule {
                                     final String stratumTimestamp = messageParameters.getString(3);
 
                                     final BlockHeader blockHeader = stratumMineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                                    final Hash hash = blockHeader.getHash();
+                                    final Sha256Hash hash = blockHeader.getHash();
                                     Logger.log(hash);
 
                                     final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), blockHeader.isValid());
 
                                     if (blockHeader.isValid()) {
                                         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-                                        Logger.log("Valid Block: "+ HexUtil.toHexString(blockHeaderDeflater.toBytes(blockHeader)));
+                                        Logger.log("Valid Block: "+ blockHeaderDeflater.toBytes(blockHeader));
 
                                         final BlockDeflater blockDeflater = new BlockDeflater();
                                         final Block block = stratumMineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);

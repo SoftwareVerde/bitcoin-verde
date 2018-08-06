@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.io.Logger;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class StackOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STACK;
@@ -27,17 +27,17 @@ public class StackOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case POP_TO_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
-                return false;
+                final Value value = stack.pop();
+                stack.pushToAltStack(value);
+                return (! stack.didOverflow());
             }
             case POP_FROM_ALT_STACK: {
-                Logger.log("NOTICE: Opcode not implemented: "+ _opcode);
-                return false;
+                final Value value = stack.popFromAltStack();
+                stack.push(value);
+                return (! stack.didOverflow());
             }
             case IF_1ST_TRUE_THEN_COPY_1ST: {
                 final Value value = stack.peak();
@@ -66,17 +66,17 @@ public class StackOperation extends SubTypedOperation {
                 // Where the head is the leftmost element...
                 // 0 1 2 3  // Initial state.
                 //       3
-                //     0 3
-                //   2 0 3
-                // 1 2 0 3  // End state.
+                //     1 3
+                //   0 1 3
+                // 2 0 1 3  // End state.
 
                 final Value valueAtZero = stack.pop();
                 final Value valueAtOne = stack.pop();
                 final Value valueAtTwo = stack.pop();
 
+                stack.push(valueAtOne);
                 stack.push(valueAtZero);
                 stack.push(valueAtTwo);
-                stack.push(valueAtOne);
 
                 return (! stack.didOverflow());
             }
@@ -120,7 +120,7 @@ public class StackOperation extends SubTypedOperation {
                 // 2 3 0 1 4 5 6// End state.
 
                 final Value valueAtTwo = stack.pop(2);
-                final Value valueAtThree = stack.pop(3);
+                final Value valueAtThree = stack.pop(2);
                 stack.push(valueAtThree);
                 stack.push(valueAtTwo);
 

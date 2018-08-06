@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.chain.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -22,14 +21,14 @@ public class DifficultyCalculator {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
     }
 
-    public Difficulty calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId, final Block block) {
+    public Difficulty calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader) {
         final Integer blockCountPerDifficultyAdjustment = 2016;
         try {
             final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
 
-            final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(block.getHash());
+            final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(blockHeader.getHash());
             if (blockId == null) {
-                Logger.log("Unable to find BlockId from Hash: "+ block.getHash());
+                Logger.log("Unable to find BlockId from Hash: "+ blockHeader.getHash());
                 return null;
             }
 
@@ -40,8 +39,10 @@ public class DifficultyCalculator {
             }
 
             final Boolean isFirstBlock = (blockChainSegment.getBlockHeight() == 0);
+            if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
+
             final Boolean requiresDifficultyEvaluation = (blockHeight % blockCountPerDifficultyAdjustment == 0);
-            if ( (requiresDifficultyEvaluation) && (! isFirstBlock) ) {
+            if (requiresDifficultyEvaluation) {
                 //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
                 //  1. Get the block that is 2016 blocks behind the head block of this chain.
@@ -52,7 +53,7 @@ public class DifficultyCalculator {
                 //  2. Get the current block timestamp.
                 final Long blockTimestamp;
                 {
-                    final BlockId previousBlockId = _blockDatabaseManager.getBlockIdFromHash(block.getPreviousBlockHash());
+                    final BlockId previousBlockId = _blockDatabaseManager.getBlockIdFromHash(blockHeader.getPreviousBlockHash());
                     final BlockHeader previousBlock = _blockDatabaseManager.getBlockHeader(previousBlockId);
                     blockTimestamp = previousBlock.getTimestamp();
                 }
@@ -87,7 +88,10 @@ public class DifficultyCalculator {
                 return newDifficulty;
             }
             else {
-                final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(blockChainSegment.getHeadBlockId());
+                final BlockId previousBlockBlockId = _blockDatabaseManager.getBlockIdFromHash(blockHeader.getPreviousBlockHash());
+                if (previousBlockBlockId == null) { return null; }
+
+                final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(previousBlockBlockId);
                 return headBlockHeader.getDifficulty();
             }
         }

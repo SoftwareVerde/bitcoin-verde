@@ -4,15 +4,18 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.json.Json;
 
 public class MutableBlock implements Block {
-    protected Integer _version;
-    protected Hash _previousBlockHash = new ImmutableHash();
+    protected Long _version;
+    protected Sha256Hash _previousBlockHash = new ImmutableSha256Hash();
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
@@ -38,12 +41,12 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public Integer getVersion() { return _version; }
-    public void setVersion(final Integer version) { _version = version; }
+    public Long getVersion() { return _version; }
+    public void setVersion(final Long version) { _version = version; }
 
     @Override
-    public Hash getPreviousBlockHash() { return _previousBlockHash; }
-    public void setPreviousBlockHash(final Hash previousBlockHash) {
+    public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }
+    public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _previousBlockHash = previousBlockHash.asConst();
     }
 
@@ -63,7 +66,7 @@ public class MutableBlock implements Block {
     public void setNonce(final Long nonce) { _nonce = nonce; }
 
     @Override
-    public Hash getHash() {
+    public Sha256Hash getHash() {
         return _blockHasher.calculateBlockHash(this);
     }
 
@@ -71,7 +74,7 @@ public class MutableBlock implements Block {
     public Boolean isValid() {
         if (_transactions.isEmpty()) { return false; }
 
-        final Hash sha256Hash = _blockHasher.calculateBlockHash(this);
+        final Sha256Hash sha256Hash = _blockHasher.calculateBlockHash(this);
         return (_difficulty.isSatisfiedBy(sha256Hash));
     }
 
@@ -116,19 +119,32 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public Transaction getCoinbaseTransaction() {
+    public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
-        return _transactions.get(0);
+
+        final Transaction transaction = _transactions.get(0);
+        return new MutableCoinbaseTransaction(transaction);
     }
 
     @Override
-    public List<Hash> getPartialMerkleTree(final int transactionIndex) {
-        if (_merkleTree.isEmpty()) { return new MutableList<Hash>(); }
+    public List<Sha256Hash> getPartialMerkleTree(final int transactionIndex) {
+        if (_merkleTree.isEmpty()) { return new MutableList<Sha256Hash>(); }
         return _merkleTree.getPartialTree(transactionIndex);
     }
 
     @Override
     public ImmutableBlock asConst() {
         return new ImmutableBlock(this, _transactions);
+    }
+
+    @Override
+    public Integer getTransactionCount() {
+        return _transactions.getSize();
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        return blockDeflater.toJson(this);
     }
 }

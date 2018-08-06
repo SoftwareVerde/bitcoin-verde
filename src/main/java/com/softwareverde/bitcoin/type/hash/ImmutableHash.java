@@ -10,22 +10,20 @@ public class ImmutableHash extends ImmutableOverflowingByteArray implements Hash
     }
 
     protected ImmutableHash(final byte[] bytes) {
-        super(new byte[SHA_256_BYTE_COUNT]);
-        ByteUtil.setBytes(_bytes, bytes);
+        super(bytes);
     }
 
     public ImmutableHash() {
-        super(new byte[SHA_256_BYTE_COUNT]);
+        super(new byte[0]);
     }
 
     public ImmutableHash(final Hash hash) {
-        super(new byte[SHA_256_BYTE_COUNT]);
-        ByteUtil.setBytes(_bytes, hash.getBytes());
+        super(hash);
     }
 
     @Override
     public Hash toReversedEndian() {
-        return new MutableHash(ByteUtil.reverseEndian(_bytes));
+        return MutableHash.wrap(ByteUtil.reverseEndian(_bytes));
     }
 
     @Override

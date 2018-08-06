@@ -1,8 +1,15 @@
 package com.softwareverde.bitcoin.block.header;
 
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
+
+import java.math.BigDecimal;
 
 public class BlockHeaderDeflater {
     public static class BlockHeaderByteData {
@@ -36,7 +43,7 @@ public class BlockHeaderDeflater {
             byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
         }
 
-        ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode());
+        ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode().getBytes());
 
         final byte[] nonceBytes = ByteUtil.longToBytes(blockHeader.getNonce());
         for (int i=0; i<byteData.nonce.length; ++i) {
@@ -46,10 +53,10 @@ public class BlockHeaderDeflater {
         return byteData;
     }
 
-    public byte[] toBytes(final BlockHeader blockHeader) {
+    public ByteArray toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
         final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
@@ -59,5 +66,37 @@ public class BlockHeaderDeflater {
 
     public BlockHeaderByteData toByteData( final BlockHeader blockHeader) {
         return _createByteData(blockHeader);
+    }
+
+    public Json toJson(final BlockHeader blockHeader) {
+        final Json json = new Json();
+
+        json.put("hash", blockHeader.getHash());
+        json.put("previousBlockHash", blockHeader.getPreviousBlockHash());
+        json.put("merkleRoot", blockHeader.getMerkleRoot());
+        json.put("version", blockHeader.getVersion());
+
+        { // Timestamp Json...
+            final Long timestamp = blockHeader.getTimestamp();
+
+            final Json timestampJson = new Json();
+            timestampJson.put("date", DateUtil.Utc.timestampToDatetimeString(timestamp * 1000L));
+            timestampJson.put("value", timestamp);
+            json.put("timestamp", timestampJson);
+        }
+
+        { // Difficulty Json...
+            final Difficulty difficulty = blockHeader.getDifficulty();
+
+            final Json difficultyJson = new Json();
+            difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, BigDecimal.ROUND_HALF_UP));
+            difficultyJson.put("value", difficulty.encode());
+            difficultyJson.put("mask", difficulty.getBytes());
+            json.put("difficulty", difficultyJson);
+        }
+
+        json.put("nonce", blockHeader.getNonce());
+
+        return json;
     }
 }

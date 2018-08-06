@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class DynamicValueOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
@@ -26,12 +27,10 @@ public class DynamicValueOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final MutableContext context) {
-        context.incrementCurrentLockingScriptIndex();
-
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
             case PUSH_STACK_SIZE: {
-                stack.push(Value.fromInteger(stack.getSize()));
+                stack.push(Value.fromInteger(stack.getSize().longValue()));
                 return true;
             }
 
@@ -49,26 +48,36 @@ public class DynamicValueOperation extends SubTypedOperation {
             }
 
             case COPY_2ND: {
-                stack.push(stack.peak(1));
+                final Value value = stack.peak(1);
+                stack.push(value);
                 return (! stack.didOverflow());
             }
 
             case COPY_2ND_THEN_1ST: {
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_3RD_THEN_2ND_THEN_1ST: {
-                stack.push(stack.peak(2));
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                final Value value2 = stack.peak(2);
+
+                stack.push(value2);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_4TH_THEN_3RD: {
-                stack.push(stack.peak(3));
-                stack.push(stack.peak(2));
+                final Value value2 = stack.peak(2);
+                final Value value3 = stack.peak(3);
+
+                stack.push(value3);
+                stack.push(value2);
                 return (! stack.didOverflow());
             }
 

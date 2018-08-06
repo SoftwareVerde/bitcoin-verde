@@ -1,17 +1,16 @@
 package com.softwareverde.jocl;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 import org.jocl.*;
 
 import static org.jocl.CL.*;
@@ -159,13 +158,13 @@ public class GpuSha256 {
 
     protected int _commandQueueIndex = 0;
 
-    public List<Hash> sha256(final List<? extends ByteArray> inputs) {
+    public List<Sha256Hash> sha256(final List<? extends ByteArray> inputs) {
         if (_isShutdown) {
             throw new IllegalStateException("GpuSha256 kernel has been shutdown for this instance. Be sure GpuSha256.getInstance() is called for a new reference after a call to SpuSha256.shutdown().");
         }
 
         final int inputsCount = inputs.getSize();
-        if (inputsCount == 0) { return new MutableList<Hash>(); }
+        if (inputsCount == 0) { return new MutableList<Sha256Hash>(); }
         final int byteCountPerInput;
         {
             final ByteArray byteArray = inputs.get(0);
@@ -227,14 +226,14 @@ public class GpuSha256 {
             clEnqueueReadBuffer(_commandQueues[commandQueueIndex], _clWriteBuffer, CL_TRUE, 0, Sizeof.cl_uint * writeBuffer.length, Pointer.to(writeBuffer), 0, null, null);
         }
 
-        final ImmutableListBuilder<Hash> listBuilder = new ImmutableListBuilder<Hash>(inputsCount);
+        final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<Sha256Hash>(inputsCount);
         for (int i=0; i<inputsCount; ++i) {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             for (int j = 0; j < integersPerHash; ++j) {
                 byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(writeBuffer[(i * integersPerHash) + j]), Endian.BIG);
             }
 
-            listBuilder.add(MutableHash.wrap(byteArrayBuilder.build()));
+            listBuilder.add(MutableSha256Hash.wrap(byteArrayBuilder.build()));
         }
         return listBuilder.build();
     }

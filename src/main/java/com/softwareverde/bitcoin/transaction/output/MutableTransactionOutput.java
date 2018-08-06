@@ -40,10 +40,7 @@ public class MutableTransactionOutput implements TransactionOutput {
 
     @Override
     public Json toJson() {
-        final Json json = new Json();
-        json.put("amount", _amount);
-        json.put("index", _index);
-        json.put("lockingScript", _lockingScript);
-        return json;
+        final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
+        return transactionOutputDeflater.toJson(this);
     }
 }

@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.type.key;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.address.CompressedAddress;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.address.Address;
-import com.softwareverde.bitcoin.type.address.AddressInflater;
-import com.softwareverde.bitcoin.type.address.CompressedAddress;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -30,7 +30,7 @@ public class PrivateKeyTests {
         final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey);
         final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
         final PublicKey publicKey = privateKey.getPublicKey();
-        final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
+        final PublicKey compressedPublicKey = publicKey.compress();
 
         // Assert
         TestUtil.assertEqual(expectedAddress, bitcoinAddress.getBytesWithChecksum());
@@ -61,7 +61,7 @@ public class PrivateKeyTests {
         final Address bitcoinAddress = addressInflater.fromPrivateKey(privateKey);
         final CompressedAddress compressedAddress = addressInflater.compressedFromPrivateKey(privateKey);
         final PublicKey publicKey = privateKey.getPublicKey();
-        final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
+        final PublicKey compressedPublicKey = publicKey.compress();
 
         // Assert
         TestUtil.assertEqual(expectedAddress, bitcoinAddress.getBytesWithChecksum());
@@ -83,7 +83,8 @@ public class PrivateKeyTests {
         final String expectedCompressedAddressString = "152sweTR1yQsihW88hStanc6EN9aiKX87C";
 
         final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
-        final PublicKey compressedPublicKey = privateKey.getCompressedPublicKey();
+        final PublicKey publicKey = privateKey.getPublicKey();
+        final PublicKey compressedPublicKey = publicKey.compress();
         final PublicKey decompressedPublicKey = compressedPublicKey.decompress();
 
         final AddressInflater addressInflater = new AddressInflater();

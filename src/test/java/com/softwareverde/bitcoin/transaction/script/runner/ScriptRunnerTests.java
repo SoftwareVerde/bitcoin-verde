@@ -5,8 +5,9 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -58,7 +59,7 @@ public class ScriptRunnerTests {
         ;
         final Transaction transaction1 = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionBytesString01));
 
-        Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1)));
+        Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
         final MutableContext context = new MutableContext();
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -71,8 +72,8 @@ public class ScriptRunnerTests {
         context.setTransactionInput(transactionInput);
         context.setTransactionOutput(transactionOutput);
 
-        final Script lockingScript = transactionOutput.getLockingScript();
-        final Script unlockingScript = transactionInput.getUnlockingScript();
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+        final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
         // Action
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
@@ -95,7 +96,7 @@ public class ScriptRunnerTests {
         final String transactionHexString = "0100000001BF9705FAE2004CC9072D7C6D73BC8F38A0A7C67DACEED5FC42E0D20AC8D898C0000000006B483045022100CB0093D91F09644065AC05424DE3DE709C90A9BC963945EE149EAA1CF7B13DA802200EFE508E68A5E2F9C3CBD851B66EB597803ACCDC2F45F07BFD5488DA476727FE0121039500311F6688A8C16A570853AC22230F4B1E0A551D8846550FE4AE56F9799E80FFFFFFFF0200E1F505000000001976A914C23E891A29D290DDB454EBF3456EEAEC56412AB988AC36F3C57E000000001976A914DB89750F929FBD94A8018767A49EF6FC6AC7E46888AC00000000";
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionHexString));
 
-        Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction)));
+        Assert.assertEquals(transactionHexString, HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
 
         final MutableContext context = new MutableContext();
         context.setTransaction(transaction);
@@ -109,8 +110,8 @@ public class ScriptRunnerTests {
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(transactionOutputBeingSpent);
 
-            final Script lockingScript = transactionOutputBeingSpent.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
+            final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);

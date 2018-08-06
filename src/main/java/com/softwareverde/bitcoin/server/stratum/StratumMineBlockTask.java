@@ -13,14 +13,12 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -29,6 +27,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class StratumMineBlockTask {
     final static Object _mutex = new Object();
@@ -147,8 +146,8 @@ public class StratumMineBlockTask {
         final Json partialMerkleTreeJson = new Json(true);
         { // Create the partialMerkleTree Json as little-endian hashes...
             final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
-            final List<Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
-            for (final Hash hash : partialMerkleTree) {
+            final List<Sha256Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
+            for (final Sha256Hash hash : partialMerkleTree) {
                 final String hashString = hash.toString();
                 partialMerkleTreeJson.add(_reverseEndian(hashString));
                 listBuilder.add(_reverseEndian(hashString));
@@ -158,7 +157,7 @@ public class StratumMineBlockTask {
         parametersJson.add(partialMerkleTreeJson);
 
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
-        parametersJson.add(HexUtil.toHexString(_prototypeBlock.getDifficulty().encode()));
+        parametersJson.add(_prototypeBlock.getDifficulty().encode());
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(timestamp)));
         parametersJson.add(true);
 
@@ -173,20 +172,20 @@ public class StratumMineBlockTask {
     }
 
     public void setBlockVersion(final String stratumBlockVersion) {
-        final Integer blockVersion = ByteUtil.bytesToInteger(HexUtil.hexStringToByteArray(stratumBlockVersion));
+        final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
         _prototypeBlock.setVersion(blockVersion);
     }
 
-    public void setBlockVersion(final Integer blockVersion) {
+    public void setBlockVersion(final Long blockVersion) {
         _prototypeBlock.setVersion(blockVersion);
     }
 
     public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
-        final Hash previousBlockHash = MutableHash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
+        final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
         _prototypeBlock.setPreviousBlockHash(previousBlockHash);
     }
 
-    public void setPreviousBlockHash(final Hash previousBlockHash) {
+    public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         _prototypeBlock.setPreviousBlockHash(previousBlockHash);
     }
 

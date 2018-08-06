@@ -1,16 +1,17 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
 
 public class ImmutableTransactionInput implements TransactionInput, Const {
 
-    protected final ImmutableHash _previousOutputTransactionHash;
+    protected final ImmutableSha256Hash _previousOutputTransactionHash;
     protected final Integer _previousOutputIndex;
     protected final UnlockingScript _unlockingScript;
-    protected final Long _sequenceNumber;
+    protected final SequenceNumber _sequenceNumber;
 
     public ImmutableTransactionInput(final TransactionInput transactionInput) {
         _previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash().asConst();
@@ -20,7 +21,7 @@ public class ImmutableTransactionInput implements TransactionInput, Const {
     }
 
     @Override
-    public ImmutableHash getPreviousOutputTransactionHash() {
+    public ImmutableSha256Hash getPreviousOutputTransactionHash() {
         return _previousOutputTransactionHash;
     }
 
@@ -35,7 +36,7 @@ public class ImmutableTransactionInput implements TransactionInput, Const {
     }
 
     @Override
-    public Long getSequenceNumber() {
+    public SequenceNumber getSequenceNumber() {
         return _sequenceNumber;
     }
 
@@ -46,11 +47,7 @@ public class ImmutableTransactionInput implements TransactionInput, Const {
 
     @Override
     public Json toJson() {
-        final Json json = new Json();
-        json.put("previousOutputTransactionHash", _previousOutputTransactionHash);
-        json.put("previousOutputIndex", _previousOutputIndex);
-        json.put("unlockingScript", _unlockingScript);
-        json.put("sequenceNumber", _sequenceNumber);
-        return json;
+        final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
+        return transactionInputDeflater.toJson(this);
     }
 }

@@ -1,21 +1,21 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Const;
 
 public class TransactionOutputIdentifier implements Const {
     protected final BlockChainSegmentId _blockChainSegmentId;
-    protected final Hash _transactionHash;
+    protected final Sha256Hash _transactionHash;
     protected final Integer _outputIndex;
 
-    public TransactionOutputIdentifier(final BlockChainSegmentId blockChainSegmentId, final Hash transactionHash, final Integer outputIndex) {
+    public TransactionOutputIdentifier(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash, final Integer outputIndex) {
         _blockChainSegmentId = blockChainSegmentId;
         _transactionHash = transactionHash.asConst();
         _outputIndex = outputIndex;
     }
 
-    public Hash getTransactionHash() {
+    public Sha256Hash getTransactionHash() {
         return _transactionHash;
     }
 

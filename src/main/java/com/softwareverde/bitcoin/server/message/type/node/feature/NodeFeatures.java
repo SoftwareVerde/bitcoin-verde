@@ -1,20 +1,38 @@
 package com.softwareverde.bitcoin.server.message.type.node.feature;
 
+import com.softwareverde.util.Util;
+
 public class NodeFeatures {
-    public static class Flags {
-        public static Long NONE                         = (long) (0x00 << 0x00);
-        public static Long BLOCKCHAIN_ENABLED           = (long) (0x01 << 0x00);
-        public static Long GETUTXO_PROTOCOL_ENABLED     = (long) (0x01 << 0x01);
-        public static Long BLOOM_CONNECTIONS_ENABLED    = (long) (0x01 << 0x02);
-        // public static Long UNUSED                       = (long) (0x01 << 0x03);
-        public static Long XTHIN_PROTOCOL_ENABLED       = (long) (0x01 << 0x04);
-        public static Long BITCOIN_CASH_ENABLED         = (long) (0x01 << 0x05);
+    public enum Feature {
+        NONE                                            ((long) (0x00 << 0x00)),
+        BLOCKCHAIN_ENABLED                              ((long) (0x01 << 0x00)),
+        GETUTXO_PROTOCOL_ENABLED                        ((long) (0x01 << 0x01)),
+        BLOOM_CONNECTIONS_ENABLED                       ((long) (0x01 << 0x02)),
+        UNUSED                                          ((long) (0x01 << 0x03)),
+        XTHIN_PROTOCOL_ENABLED                          ((long) (0x01 << 0x04)),
+        BITCOIN_CASH_ENABLED                            ((long) (0x01 << 0x05));
+
+        public final Long value;
+
+        Feature(final Long flag) {
+            this.value = flag;
+        }
+
+        public static Feature fromString(final String string) {
+            for (final Feature feature : Feature.values()) {
+                if (Util.areEqual(string.toLowerCase(), feature.toString().toLowerCase())) {
+                    return feature;
+                }
+            }
+
+            return null;
+        }
     }
 
     private Long _value;
 
     public NodeFeatures() {
-        _value = Flags.NONE;
+        _value = Feature.NONE.value;
     }
 
     public NodeFeatures(final Long value) {
@@ -33,12 +51,16 @@ public class NodeFeatures {
         _value = (_value | nodeFeatureFlag);
     }
 
-    public Boolean hasFeatureFlagEnabled(final Long nodeFeatureFlag) {
-        if (Flags.NONE.equals(nodeFeatureFlag)) {
-            return (_value.equals(Flags.NONE));
+    public void enableFeature(final Feature feature) {
+        _value = (_value | feature.value);
+    }
+
+    public Boolean hasFeatureFlagEnabled(final Feature feature) {
+        if (Util.areEqual(Feature.NONE.value, feature.value)) {
+            return (Util.areEqual(_value, Feature.NONE.value));
         }
 
-        return ( ((int) (_value & nodeFeatureFlag)) > 0 );
+        return ( ((int) (_value & feature.value)) > 0 );
     }
 
     public Long getFeatureFlags() {
@@ -46,6 +68,6 @@ public class NodeFeatures {
     }
 
     public void clear() {
-        _value = Flags.NONE;
+        _value = Feature.NONE.value;
     }
 }

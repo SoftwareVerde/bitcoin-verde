@@ -1,23 +1,23 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class DataHash {
     private final DataHashType _dataHashType;
-    private final Hash _objectHash;
+    private final Sha256Hash _objectHash;
 
-    public DataHash(final DataHashType dataHashType, final Hash objectHash) {
+    public DataHash(final DataHashType dataHashType, final Sha256Hash objectHash) {
         _dataHashType = dataHashType;
 
-        if (objectHash instanceof ImmutableHash) {
+        if (objectHash instanceof ImmutableSha256Hash) {
             _objectHash = objectHash;
         }
         else {
-            _objectHash = new ImmutableHash(objectHash);
+            _objectHash = new ImmutableSha256Hash(objectHash);
         }
     }
 
@@ -25,7 +25,7 @@ public class DataHash {
         return _dataHashType;
     }
 
-    public Hash getObjectHash() {
+    public Sha256Hash getObjectHash() {
         return _objectHash;
     }
 

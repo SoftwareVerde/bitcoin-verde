@@ -4,9 +4,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.type.merkleroot.ImmutableMerkleRoot;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -55,9 +54,9 @@ public class MerkleTreeTests {
         return MutableMerkleRoot.wrap(tree.get(tree.size() - 1));
     }
 
-    private MerkleRoot _calculateSpvMerkle(final Integer transactionIndex, final Item baseItem, final List<Hash> items) {
+    private MerkleRoot _calculateSpvMerkle(final Integer transactionIndex, final Item baseItem, final List<Sha256Hash> items) {
         byte[] hash0 = baseItem.getHash().getBytes();
-        for (final Hash hash1 : items) {
+        for (final Sha256Hash hash1 : items) {
             byte[] leftBytes = ByteUtil.reverseEndian(hash0);
             byte[] rightBytes = ByteUtil.reverseEndian(hash1.getBytes());
             hash0 = ByteUtil.reverseEndian(hashTwice(leftBytes, rightBytes));
@@ -71,7 +70,7 @@ public class MerkleTreeTests {
         public Item(final int value) { _value = value; }
 
         @Override
-        public Hash getHash() {
+        public Sha256Hash getHash() {
             return MutableMerkleRoot.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(_value)));
         }
 
@@ -133,7 +132,7 @@ public class MerkleTreeTests {
         }
 
         // Action
-        final List<Hash> partialMerkleTree = merkleTree.getPartialTree(transactionIndex);
+        final List<Sha256Hash> partialMerkleTree = merkleTree.getPartialTree(transactionIndex);
         final MerkleRoot spvMerkle = _calculateSpvMerkle(transactionIndex, newItem, partialMerkleTree);
 
         // Assert
@@ -313,14 +312,14 @@ public class MerkleTreeTests {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(IoUtil.getResource("/blocks/00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523")));
-        Assert.assertEquals(MutableHash.fromHexString("0E0ABB91667C0BB906E9ED8BBBFB5876FCCB707C2D9E7DAB3603B57F41EC431F"), block.getTransactions().get(0).getHash());
-        Assert.assertEquals(MutableHash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957"), block.getTransactions().get(1).getHash());
+        Assert.assertEquals(MutableSha256Hash.fromHexString("0E0ABB91667C0BB906E9ED8BBBFB5876FCCB707C2D9E7DAB3603B57F41EC431F"), block.getTransactions().get(0).getHash());
+        Assert.assertEquals(MutableSha256Hash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957"), block.getTransactions().get(1).getHash());
 
-        final Hash expectedBlockHash = MutableHash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
+        final Sha256Hash expectedBlockHash = MutableSha256Hash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
         final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("C5997D1CAD40AFEC154AA99B8988E97B1F113D8076357A77572455574765A533");
 
         // Action
-        final Hash blockHash = block.getHash();
+        final Sha256Hash blockHash = block.getHash();
         final MerkleRoot merkleRoot = block.getMerkleRoot();
 
         // Assert
