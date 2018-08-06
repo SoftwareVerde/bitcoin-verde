@@ -54,7 +54,6 @@ public class BlockChainDatabaseManager {
     }
 
     public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
-
         /*
             Each fork creates 2 new BlockChainSegments.
                 Segment 0: Contains the blocks before the fork, but excluding any blocks from either side of the fork.
@@ -130,21 +129,23 @@ public class BlockChainDatabaseManager {
                 blockDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
-                // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
-                final BlockChainSegmentId genesisBlockChainSegmentId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
-                    new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
-                        .setParameter(newBlockId)
-                        .setParameter(newBlockId)
-                        .setParameter(0)
-                        .setParameter(1)
-                ));
+                final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(newBlockId);
+                if (blockChainSegmentId == null) { // If this block is not already assigned a blockChainSegment, create a new one...
+                    // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
+                    final BlockChainSegmentId genesisBlockChainSegmentId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
+                        new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+                            .setParameter(newBlockId)
+                            .setParameter(newBlockId)
+                            .setParameter(0)
+                            .setParameter(1)
+                    ));
 
-                // 2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChain's id.
-                blockDatabaseManager.setBlockChainSegmentId(newBlockId, genesisBlockChainSegmentId);
+                    // 2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChain's id.
+                    blockDatabaseManager.setBlockChainSegmentId(newBlockId, genesisBlockChainSegmentId);
+                }
             }
         }
         else { // 3. Else (the block is contentious)...
-
             final Long previousBlockBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(previousBlockId);
 
             final BlockId refactoredChainHeadBlockId;

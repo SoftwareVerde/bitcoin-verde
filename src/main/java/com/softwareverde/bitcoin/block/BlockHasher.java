@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class BlockHasher {
     protected final BlockHeaderDeflater _blockHeaderDeflater = new BlockHeaderDeflater();
@@ -15,8 +16,8 @@ public class BlockHasher {
     }
 
     public Sha256Hash calculateBlockHash(final BlockHeader blockHeader) {
-        final byte[] serializedByteData = _blockHeaderDeflater.toBytes(blockHeader);
-        return _calculateDoubleHash(serializedByteData);
+        final ByteArray serializedByteData = _blockHeaderDeflater.toBytes(blockHeader);
+        return _calculateDoubleHash(serializedByteData.getBytes());
     }
 
     public Sha256Hash calculateBlockHash(final byte[] blockHeaderBytes) {

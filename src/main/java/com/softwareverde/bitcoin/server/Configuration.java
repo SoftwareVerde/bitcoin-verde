@@ -45,9 +45,22 @@ public class Configuration {
         public Integer getTrustedBlockHeight() { return _trustedBlockHeight; }
     }
 
+    public static class ExplorerProperties {
+        private Integer _port;
+        private String _rootDirectory;
+        private String _bitcoinRpcUrl;
+        private Integer _bitcoinRpcPort;
+
+        public Integer getPort() { return _port; }
+        public String getRootDirectory() { return _rootDirectory; }
+        public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
+        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+    }
+
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
+    private ExplorerProperties _explorerProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -99,6 +112,21 @@ public class Configuration {
         _serverProperties._trustedBlockHeight = Util.parseInt(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
     }
 
+    private void _loadExplorerProperties() {
+        final Integer port = Util.parseInt(_properties.getProperty("explorer.port", "8080"));
+        final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "www");
+        final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+
+        final ExplorerProperties explorerProperties = new ExplorerProperties();
+        explorerProperties._port = port;
+        explorerProperties._rootDirectory = rootDirectory;
+        explorerProperties._bitcoinRpcUrl = bitcoinRpcUrl;
+        explorerProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        _explorerProperties = explorerProperties;
+    }
+
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
@@ -110,8 +138,10 @@ public class Configuration {
 
         _loadServerProperties();
 
+        _loadExplorerProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
+    public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
 }

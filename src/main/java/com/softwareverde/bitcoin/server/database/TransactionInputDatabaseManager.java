@@ -23,6 +23,8 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.Util;
 
 public class TransactionInputDatabaseManager {
+    public static final Sha256Hash COINBASE_PREVIOUS_OUTPUT_TRANSACTION_HASH = new ImmutableSha256Hash();
+
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected TransactionOutputId _findPreviousTransactionOutputId(final BlockChainSegmentId blockChainSegmentId, final TransactionInput transactionInput) throws DatabaseException {
@@ -63,7 +65,19 @@ public class TransactionInputDatabaseManager {
 
     protected TransactionInputId _insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
 
-        final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+        final TransactionOutputId previousTransactionOutputId;
+        {
+            if (Util.areEqual(COINBASE_PREVIOUS_OUTPUT_TRANSACTION_HASH, transactionInput.getPreviousOutputTransactionHash())) {
+                previousTransactionOutputId = null;
+            }
+            else {
+                previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+                if (previousTransactionOutputId == null) {
+                    throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + blockChainSegmentId + " " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
+                }
+            }
+        }
+
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
         final Long transactionInputIdLong = _databaseConnection.executeSql(
@@ -81,7 +95,7 @@ public class TransactionInputDatabaseManager {
         return transactionInputId;
     }
 
-    public Long _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+    protected Long _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
         return _databaseConnection.executeSql(
             new Query("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)")
                 .setParameter(transactionInputId)
@@ -89,9 +103,9 @@ public class TransactionInputDatabaseManager {
         );
     }
 
-    public List<Long> _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
+    protected List<Long> _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionInputIds.getSize(), unlockingScripts.getSize())) {
-            throw new RuntimeException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getSize must equal unlockingScripts.getSize");
+            throw new DatabaseException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getSize must equal unlockingScripts.getSize");
         }
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)");
@@ -139,7 +153,19 @@ public class TransactionInputDatabaseManager {
             final List<TransactionInput> transactionInputs = allTransactionInputs.get(i);
 
             for (final TransactionInput transactionInput : transactionInputs) {
-                final TransactionOutputId previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+                final TransactionOutputId previousTransactionOutputId;
+                {
+                    if (Util.areEqual(COINBASE_PREVIOUS_OUTPUT_TRANSACTION_HASH, transactionInput.getPreviousOutputTransactionHash())) {
+                        previousTransactionOutputId = null;
+                    }
+                    else {
+                        previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+                        if (previousTransactionOutputId == null) {
+                            throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + blockChainSegmentId + " " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
+                        }
+                    }
+                }
+
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
                 unlockingScripts.add(unlockingScript);
 

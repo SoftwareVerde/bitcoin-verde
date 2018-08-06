@@ -186,7 +186,7 @@ public class StratumModule {
 
                                     if (blockHeader.isValid()) {
                                         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
-                                        Logger.log("Valid Block: "+ HexUtil.toHexString(blockHeaderDeflater.toBytes(blockHeader)));
+                                        Logger.log("Valid Block: "+ blockHeaderDeflater.toBytes(blockHeader));
 
                                         final BlockDeflater blockDeflater = new BlockDeflater();
                                         final Block block = stratumMineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);

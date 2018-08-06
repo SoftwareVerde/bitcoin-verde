@@ -2,9 +2,10 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -42,7 +43,7 @@ public class BlockHeaderDeflater {
             byteData.timestamp[(byteData.timestamp.length - i) - 1] = timestampBytes[(timestampBytes.length - i) - 1];
         }
 
-        ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode());
+        ByteUtil.setBytes(byteData.difficulty, blockHeader.getDifficulty().encode().getBytes());
 
         final byte[] nonceBytes = ByteUtil.longToBytes(blockHeader.getNonce());
         for (int i=0; i<byteData.nonce.length; ++i) {
@@ -52,10 +53,10 @@ public class BlockHeaderDeflater {
         return byteData;
     }
 
-    public byte[] toBytes(final BlockHeader blockHeader) {
+    public ByteArray toBytes(final BlockHeader blockHeader) {
         final BlockHeaderByteData blockHeaderByteData = _createByteData(blockHeader);
         final ByteArrayBuilder byteArrayBuilder = _serializeByteData(blockHeaderByteData);
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public ByteArrayBuilder toByteArrayBuilder(final BlockHeader blockHeader) {
@@ -89,7 +90,8 @@ public class BlockHeaderDeflater {
 
             final Json difficultyJson = new Json();
             difficultyJson.put("ratio", difficulty.getDifficultyRatio().setScale(2, BigDecimal.ROUND_HALF_UP));
-            difficultyJson.put("value", HexUtil.toHexString(difficulty.encode()));
+            difficultyJson.put("value", difficulty.encode());
+            difficultyJson.put("mask", difficulty.getBytes());
             json.put("difficulty", difficultyJson);
         }
 

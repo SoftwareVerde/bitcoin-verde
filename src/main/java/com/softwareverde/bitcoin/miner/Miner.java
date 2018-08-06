@@ -121,7 +121,7 @@ public class Miner {
                                 }
                             }
 
-                            blockHeaderBytesList.add(MutableByteArray.wrap(blockHeaderDeflater.toBytes(mutableBlock)));
+                            blockHeaderBytesList.add(blockHeaderDeflater.toBytes(mutableBlock));
                         }
 
                         final List<Sha256Hash> blockHashes = gpuSha256.sha256(gpuSha256.sha256(blockHeaderBytesList));

@@ -97,7 +97,7 @@ CREATE TABLE nodes (
     timestamp bigint unsigned NOT NULL DEFAULT UNIX_TIMESTAMP(),
     last_handshake_timestamp bigint unsigned NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY nodes_uq (ip, port)
+    UNIQUE KEY nodes_uq (host, port)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_features (

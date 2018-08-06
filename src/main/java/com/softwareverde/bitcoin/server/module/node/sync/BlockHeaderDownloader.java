@@ -30,7 +30,7 @@ public class BlockHeaderDownloader {
     protected Long _blockHeaderCount = 0L;
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
 
-    volatile boolean _shouldStop = false;
+    protected volatile boolean _shouldStop = false;
 
     protected Boolean _hasGenesisBlockHeader() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -79,10 +79,13 @@ public class BlockHeaderDownloader {
                             break;
                         }
 
-                        TransactionUtil.startTransaction(databaseConnection);
-                        final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
-                        blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-                        TransactionUtil.commitTransaction(databaseConnection);
+                        final BlockId blockId;
+                        synchronized (BlockDatabaseManager.MUTEX) {
+                            TransactionUtil.startTransaction(databaseConnection);
+                            blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+                            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+                            TransactionUtil.commitTransaction(databaseConnection);
+                        }
 
                         if (blockId == null) {
                             Logger.log("Error storing BlockHeader: " + blockHash);

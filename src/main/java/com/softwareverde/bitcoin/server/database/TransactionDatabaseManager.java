@@ -194,8 +194,8 @@ public class TransactionDatabaseManager {
     public TransactionId insertTransaction(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
         final TransactionId transactionId = _insertTransaction(blockId, transaction);
 
-        _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
         _insertTransactionOutputs(transactionId, transaction);
+        _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
 
         return transactionId;
     }
@@ -302,6 +302,7 @@ public class TransactionDatabaseManager {
             final Sha256Hash expectedTransactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
             if (! Util.areEqual(expectedTransactionHash, transaction.getHash())) {
                 Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                Logger.log(transaction.toJson());
                 return null;
             }
         }

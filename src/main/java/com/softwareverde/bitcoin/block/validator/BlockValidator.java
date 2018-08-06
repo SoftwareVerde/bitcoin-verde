@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.block.validator;
 import com.softwareverde.bitcoin.bip.Bip34;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -80,6 +81,8 @@ public class BlockValidator {
             }
         };
 
+        // TODO: The total expenditures are validated at the block-level, but it's not checked at the transaction-level...
+        // TODO: Validate that the transactionInputs' transactionOutputs have not already been spent and are not being spent twice...
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
 
@@ -150,7 +153,6 @@ public class BlockValidator {
             unlockedInputsValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
         }
 
-
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
         final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();
 
@@ -189,7 +191,7 @@ public class BlockValidator {
 
         { // Validate coinbase amount...
             final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
-            final Long maximumCreatedCoinsAmount = ((50 * Transaction.SATOSHIS_PER_BITCOIN) >> (blockHeight / 210000));
+            final Long maximumCreatedCoinsAmount = BlockHeader.calculateBlockReward(blockHeight);
 
             final Long maximumCoinbaseValue = (maximumCreatedCoinsAmount + totalTransactionFees);
 

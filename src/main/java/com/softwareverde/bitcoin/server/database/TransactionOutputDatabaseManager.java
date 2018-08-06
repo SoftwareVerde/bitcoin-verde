@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -17,7 +18,6 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 public class TransactionOutputDatabaseManager {
@@ -54,7 +54,7 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputId;
     }
 
-    public void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
+    protected void _insertLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
@@ -77,7 +77,7 @@ public class TransactionOutputDatabaseManager {
         );
     }
 
-    public void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
+    protected void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionOutputIds.getSize(), lockingScripts.getSize())) {
             throw new RuntimeException("TransactionOutputDatabaseManager::_insertLockingScripts -- transactionOutputIds.getSize must equal lockingScripts.getSize");
         }
@@ -182,6 +182,17 @@ public class TransactionOutputDatabaseManager {
 
     public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         return _findTransactionOutput(transactionId, transactionOutputIndex);
+    }
+
+    public TransactionOutputId findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+
+        final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
+        if (transactionId == null) { return null; }
+
+        final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIndex);
+        return transactionOutputId;
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {

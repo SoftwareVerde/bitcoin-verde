@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script;
 
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -59,6 +60,18 @@ public class ScriptDeflater {
 
         final Json json = new Json();
         json.put("bytes", scriptByteArray);
+
+        final ScriptType scriptType;
+        {
+            if (script instanceof LockingScript) {
+                final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                scriptType = scriptPatternMatcher.getScriptType((LockingScript) script);
+            }
+            else {
+                scriptType = ScriptType.UNKNOWN;
+            }
+        }
+        json.put("scriptType", scriptType);
 
         final Json operationsJson;
         final List<Operation> operations = script.getOperations();

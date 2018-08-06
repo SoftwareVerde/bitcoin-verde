@@ -12,7 +12,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.timer.Timer;
 
 public class BlockHeaderValidator {
@@ -58,7 +57,7 @@ public class BlockHeaderValidator {
 
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
             if (!difficultyIsCorrect) {
-                Logger.log("Invalid difficulty for block. Required: " + HexUtil.toHexString(calculatedRequiredDifficulty.encode()) + " Found: " + HexUtil.toHexString(blockHeader.getDifficulty().encode()));
+                Logger.log("Invalid difficulty for block. Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
                 return false;
             }
         }

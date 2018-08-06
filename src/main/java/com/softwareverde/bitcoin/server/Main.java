@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.server.module.AddressModule;
 import com.softwareverde.bitcoin.server.module.DatabaseModule;
 import com.softwareverde.bitcoin.server.module.MinerModule;
 import com.softwareverde.bitcoin.server.module.StratumModule;
-import com.softwareverde.bitcoin.server.module.node.AddressMigrationModule;
+import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
@@ -30,6 +30,23 @@ public class Main {
         _printError("\tModule: NODE");
         _printError("\tArguments: <Configuration File>");
         _printError("\tDescription: Connects to a remote node and begins downloading and validating the block chain.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: EXPLORER");
+        _printError("\tArguments:");
+        _printError("\tDescription: Starts a web server that provides an interface to explore the block chain.");
+        _printError("\t\tThe explorer does not synchronize with the network, therefore NODE should be executed beforehand or in parallel.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: WALLET");
+        _printError("\tArguments:");
+        _printError("\tDescription: Provides a GUI to send and receive funds.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
         _printError("\t----------------");
@@ -102,11 +119,7 @@ public class Main {
                 NodeModule.execute(configurationFile);
             } break;
 
-            case "WALLET": {
-                VerdeWallet.launch(VerdeWallet.class, _arguments);
-            } break;
-
-            case "MIGRATION": {
+            case "EXPLORER": {
                 if (_arguments.length != 2) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
@@ -114,7 +127,11 @@ public class Main {
                 }
 
                 final String configurationFile = _arguments[1];
-                AddressMigrationModule.execute(configurationFile);
+                ExplorerModule.execute(configurationFile);
+            } break;
+
+            case "WALLET": {
+                VerdeWallet.launch(VerdeWallet.class, _arguments);
             } break;
 
             case "STRATUM": {
