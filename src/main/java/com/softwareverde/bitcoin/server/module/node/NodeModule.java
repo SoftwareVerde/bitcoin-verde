@@ -77,7 +77,7 @@ public class NodeModule {
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
-                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
                     commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);

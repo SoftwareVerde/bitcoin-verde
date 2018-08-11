@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -35,6 +36,7 @@ public class Configuration {
         private Integer _maxPeerCount;
         private Integer _maxBlockQueueSize;
         private Integer _trustedBlockHeight;
+        private Long _maxMemoryByteCount;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -43,6 +45,7 @@ public class Configuration {
         public Integer getMaxPeerCount() { return _maxPeerCount; }
         public Integer getMaxBlockQueueSize() { return _maxBlockQueueSize; }
         public Integer getTrustedBlockHeight() { return _trustedBlockHeight; }
+        public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
     }
 
     public static class ExplorerProperties {
@@ -110,6 +113,7 @@ public class Configuration {
         _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _serverProperties._maxBlockQueueSize = Util.parseInt(_properties.getProperty("bitcoin.maxBlockQueueSize", "56"));
         _serverProperties._trustedBlockHeight = Util.parseInt(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
+        _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
     }
 
     private void _loadExplorerProperties() {

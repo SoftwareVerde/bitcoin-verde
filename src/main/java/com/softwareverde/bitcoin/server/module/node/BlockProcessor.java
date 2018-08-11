@@ -66,7 +66,7 @@ public class BlockProcessor {
                 {
                     final int transactionCount = block.getTransactions().getSize();
                     Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps).");
-                    Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed());
+                    Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
                 }
 
                 final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
