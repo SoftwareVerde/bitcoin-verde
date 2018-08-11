@@ -11,6 +11,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
+import com.softwareverde.util.Util;
 
 public class DifficultyCalculator {
     protected final BlockDatabaseManager _blockDatabaseManager;
@@ -38,7 +39,7 @@ public class DifficultyCalculator {
                 return null;
             }
 
-            final Boolean isFirstBlock = (blockChainSegment.getBlockHeight() == 0);
+            final Boolean isFirstBlock = (Util.areEqual(blockHeader.getHash(), BlockHeader.GENESIS_BLOCK_HASH)); // (blockChainSegment.getBlockHeight() == 0);
             if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
             final Boolean requiresDifficultyEvaluation = (blockHeight % blockCountPerDifficultyAdjustment == 0);
