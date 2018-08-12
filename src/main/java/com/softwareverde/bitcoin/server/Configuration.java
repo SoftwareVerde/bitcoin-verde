@@ -60,10 +60,19 @@ public class Configuration {
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     }
 
+    public static class WalletProperties {
+        private String _bitcoinRpcUrl;
+        private Integer _bitcoinRpcPort;
+
+        public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
+        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+    }
+
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
     private ExplorerProperties _explorerProperties;
+    private WalletProperties _walletProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -131,6 +140,17 @@ public class Configuration {
         _explorerProperties = explorerProperties;
     }
 
+    private void _loadWalletProperties() {
+        final String bitcoinRpcUrl = _properties.getProperty("wallet.bitcoinRpcUrl", "");
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("wallet.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+
+        final WalletProperties walletProperties = new WalletProperties();
+        walletProperties._bitcoinRpcUrl = bitcoinRpcUrl;
+        walletProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        _walletProperties = walletProperties;
+    }
+
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
@@ -142,10 +162,14 @@ public class Configuration {
 
         _loadServerProperties();
 
+        _loadWalletProperties();
+
         _loadExplorerProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
+    public WalletProperties getWalletProperties() { return _walletProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
+
 }
