@@ -222,7 +222,7 @@ public class TransactionValidator {
             }
 
             if (outputToSpend == null) {
-                Logger.log("Transaction references non-existent output.");
+                Logger.log("Transaction references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
                 _logInvalidTransaction(transaction, context);
                 return false;
             }

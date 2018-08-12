@@ -35,6 +35,7 @@ public class Configuration {
         private SeedNodeProperties[] _seedNodeProperties;
         private Integer _maxPeerCount;
         private Integer _maxBlockQueueSize;
+        private Integer _maxThreadCount;
         private Integer _trustedBlockHeight;
         private Long _maxMemoryByteCount;
 
@@ -44,6 +45,7 @@ public class Configuration {
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
         public Integer getMaxPeerCount() { return _maxPeerCount; }
         public Integer getMaxBlockQueueSize() { return _maxBlockQueueSize; }
+        public Integer getMaxThreadCount() { return _maxThreadCount; }
         public Integer getTrustedBlockHeight() { return _trustedBlockHeight; }
         public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
     }
@@ -121,6 +123,7 @@ public class Configuration {
 
         _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _serverProperties._maxBlockQueueSize = Util.parseInt(_properties.getProperty("bitcoin.maxBlockQueueSize", "56"));
+        _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _serverProperties._trustedBlockHeight = Util.parseInt(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
     }

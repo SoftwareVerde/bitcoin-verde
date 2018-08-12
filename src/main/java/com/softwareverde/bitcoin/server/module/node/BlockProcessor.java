@@ -28,6 +28,7 @@ public class BlockProcessor {
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
+    protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
     public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
@@ -36,6 +37,10 @@ public class BlockProcessor {
         _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
 
         _medianBlockTime = medianBlockTime;
+    }
+
+    public void setMaxThreadCount(final Integer maxThreadCount) {
+        _maxThreadCount = maxThreadCount;
     }
 
     public void setTrustedBlockHeight(final Integer trustedBlockHeight) {
@@ -70,6 +75,7 @@ public class BlockProcessor {
                 }
 
                 final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
+                blockValidator.setMaxThreadCount(_maxThreadCount);
                 blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
                 final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
 

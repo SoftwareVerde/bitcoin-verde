@@ -158,6 +158,7 @@ public class NodeModule {
 
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
             final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
             _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
             _blockDownloader.setMaxQueueSize(maxQueueSize);
