@@ -53,9 +53,11 @@ CREATE TABLE transaction_outputs (
     transaction_id int unsigned NOT NULL,
     `index` int unsigned NOT NULL,
     amount bigint unsigned NOT NULL,
+    is_spent tinyint(1) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_ix (transaction_id) REFERENCES transactions (id)
+    FOREIGN KEY transaction_outputs_tx_id_ix (transaction_id) REFERENCES transactions (id),
+    INDEX transaction_outputs_spent_tx_id_ix (is_spent, transaction_id, `index`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_inputs (

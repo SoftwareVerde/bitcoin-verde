@@ -17,15 +17,18 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 public class TransactionOutputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
 
-    protected TransactionOutputId _findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+    protected TransactionOutputId _findTransactionOutput(final Boolean isSpent, final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?")
+            new Query("SELECT id FROM transaction_outputs WHERE is_spent = ? AND transaction_id = ? AND `index` = ?")
+                .setParameter(isSpent ? 1 : 0)
                 .setParameter(transactionId)
                 .setParameter(transactionOutputIndex)
         );
@@ -34,6 +37,18 @@ public class TransactionOutputDatabaseManager {
 
         final Row row = rows.get(0);
         return TransactionOutputId.wrap(row.getLong("id"));
+    }
+
+    /**
+     * Attempts to first find an unspent TransactionOutput that matches the TransactionId/Index combination.
+     *  If an unspent TransactionOutput is not found, the search is repeated for spent TransactionOutputs.
+     */
+    protected TransactionOutputId _findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+        final TransactionOutputId unspentTransactionOutputId = _findTransactionOutput(false, transactionId, transactionOutputIndex);
+        if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
+
+        final TransactionOutputId spentTransactionOutputId = _findTransactionOutput(true, transactionId, transactionOutputIndex);
+        return spentTransactionOutputId;
     }
 
     protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
@@ -197,5 +212,21 @@ public class TransactionOutputDatabaseManager {
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         return _getTransactionOutput(transactionOutputId);
+    }
+
+    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE transaction_outputs SET is_spent = 1 WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+    }
+
+    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
+        final Query batchedUpdateQuery = new BatchedUpdateQuery("UPDATE transaction_outputs SET is_spent = 1 WHERE id IN(?)");
+        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+            batchedUpdateQuery.setParameter(transactionOutputId);
+        }
+
+        _databaseConnection.executeSql(batchedUpdateQuery);
     }
 }
