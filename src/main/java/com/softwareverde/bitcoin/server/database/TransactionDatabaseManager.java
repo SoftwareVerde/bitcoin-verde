@@ -28,7 +28,7 @@ import com.softwareverde.util.Util;
 import java.util.Map;
 
 public class TransactionDatabaseManager {
-    public static final TransactionCache TRANSACTION_CACHE = new TransactionCache(4096);
+    public static final TransactionCache TRANSACTION_CACHE = new TransactionCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -79,10 +79,12 @@ public class TransactionDatabaseManager {
 
         { // Attempt to find in cache first...
             final Map<BlockId, TransactionId> cachedTransactionIds = TRANSACTION_CACHE.getCachedTransactionIds(transactionHash);
-            for (final BlockId blockId : cachedTransactionIds.keySet()) {
-                final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
-                if (blockIsConnectedToChain) {
-                    return cachedTransactionIds.get(blockId);
+            if (cachedTransactionIds != null) {
+                for (final BlockId blockId : cachedTransactionIds.keySet()) {
+                    final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+                    if (blockIsConnectedToChain) {
+                        return cachedTransactionIds.get(blockId);
+                    }
                 }
             }
         }

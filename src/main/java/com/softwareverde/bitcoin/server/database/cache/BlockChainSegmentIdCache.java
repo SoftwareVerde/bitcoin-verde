@@ -67,6 +67,9 @@ public class BlockChainSegmentIdCache {
     }
 
     public void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) {
+        final Timer timer = new Timer();
+        timer.start();
+
         synchronized (MUTEX) {
             if (_cache.containsKey(blockId)) {
                 final Integer index = _findIndex(blockId);
@@ -87,6 +90,9 @@ public class BlockChainSegmentIdCache {
     }
 
     public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) {
+        final Timer timer = new Timer();
+        timer.start();
+
         synchronized (MUTEX) {
             _cacheQueryCount += 1;
 

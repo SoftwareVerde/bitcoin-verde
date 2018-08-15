@@ -102,16 +102,16 @@ public class TransactionOutputDatabaseManager {
 
         final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
 
-        // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
-        final List<AddressId> addressIds;
-        {
-            final ImmutableListBuilder<AddressId> listBuilder = new ImmutableListBuilder<AddressId>(lockingScripts.getSize());
-            for (final LockingScript lockingScript : lockingScripts) {
-                final AddressId addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
-                listBuilder.add(addressId);
-            }
-            addressIds = listBuilder.build();
-        }
+        final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
+//        final List<AddressId> addressIds;
+//        {
+//            final ImmutableListBuilder<AddressId> listBuilder = new ImmutableListBuilder<AddressId>(lockingScripts.getSize());
+//            for (final LockingScript lockingScript : lockingScripts) {
+//                final AddressId addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
+//                listBuilder.add(addressId);
+//            }
+//            addressIds = listBuilder.build();
+//        }
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
