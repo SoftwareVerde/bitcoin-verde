@@ -12,11 +12,11 @@ public class BlockChainSegmentIdCache {
     protected final Integer _cacheMaxSize = 144;
     protected final java.util.HashMap<BlockId, BlockChainSegmentId> _cache = new java.util.HashMap<BlockId, BlockChainSegmentId>(_cacheMaxSize);
     protected final java.util.LinkedList<BlockId> _recentBlockIds = new java.util.LinkedList<BlockId>();
-    protected Integer _cacheSize = 0;
+    protected int _cacheSize = 0;
 
-    protected Integer _cacheQueryCount = 0;
-    protected Integer _cacheMissCount = 0;
-    protected Double _msSpentSearching = 0D;
+    protected int _cacheQueryCount = 0;
+    protected int _cacheMissCount = 0;
+    protected double _msSpentSearching = 0D;
 
     public void clear() {
         _recentBlockIds.clear();
@@ -106,6 +106,6 @@ public class BlockChainSegmentIdCache {
     }
 
     public void debug() {
-        Logger.log("BlockChainSegmentIdCache Miss/Queries: " + _cacheMissCount + "/" + _cacheQueryCount + " ("+ (_cacheMissCount.floatValue() / _cacheQueryCount.floatValue() * 100) +"% Miss) | Cache Size: " + _cacheSize + " | Time Spent Searching: " + _msSpentSearching);
+        Logger.log("BlockChainSegmentIdCache Miss/Queries: " + _cacheMissCount + "/" + _cacheQueryCount + " ("+ (( (float)_cacheMissCount) / ((float) _cacheQueryCount) * 100) +"% Miss) | Cache Size: " + _cacheSize + " | Time Spent Searching: " + _msSpentSearching);
     }
 }

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
@@ -87,9 +88,13 @@ public class BlockProcessor {
                 final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
                 blockValidationTimer.stop();
 
-                LoggingConnectionWrapper.printLogs();
-                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.debug();
-                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clearDebug();
+                { // Debug / Performance logging...
+                    LoggingConnectionWrapper.printLogs();
+                    BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.debug();
+                    BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clearDebug();
+                    TransactionDatabaseManager.TRANSACTION_CACHE.debug();
+                    TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+                }
 
                 if (blockIsValid) {
                     _medianBlockTime.addBlock(block);

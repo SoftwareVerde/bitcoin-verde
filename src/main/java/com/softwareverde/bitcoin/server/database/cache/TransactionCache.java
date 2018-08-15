@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.timer.Timer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,10 +19,17 @@ public class TransactionCache {
 
     protected int _itemCount = 0;
 
+    protected int _cacheQueryCount = 0;
+    protected int _cacheMissCount = 0;
+    protected double _msSpentSearching = 0D;
+
     /**
      * Reduces the items within the cache to at least one less than the _maxCachedItemCount.
      */
     protected void _reduceCachedItems() {
+        final Timer timer = new Timer();
+        timer.start();
+
         final List<Sha256Hash> transactionHashes = new ArrayList<Sha256Hash>(_cache.keySet());
 
         while (_itemCount >= _maxCachedItemCount) {
@@ -28,6 +37,15 @@ public class TransactionCache {
             final Map<BlockId, TransactionId> subMap = _cache.remove(transactionHash);
             _itemCount -= subMap.size();
         }
+
+        timer.stop();
+        _msSpentSearching += timer.getMillisecondsElapsed();
+    }
+
+    protected void _clearDebug() {
+        _cacheQueryCount = 0;
+        _cacheMissCount = 0;
+        _msSpentSearching = 0D;
     }
 
     public TransactionCache(final Integer maxCachedItemCount) {
@@ -37,7 +55,14 @@ public class TransactionCache {
     public void clear() {
         synchronized (_mutex) {
             _cache.clear();
+            _itemCount = 0;
+
+            _clearDebug();
         }
+    }
+
+    public void clearDebug() {
+        _clearDebug();
     }
 
     public void cacheTransactionId(final BlockId blockId, final TransactionId transactionId, final Sha256Hash sha256Hash) {
@@ -69,20 +94,58 @@ public class TransactionCache {
     }
 
     public TransactionId getCachedTransactionId(final BlockId blockId, final Sha256Hash transactionHash) {
-        synchronized (_mutex) {
-            final Map<BlockId, TransactionId> subMap = _cache.get(transactionHash);
-            if (subMap == null) { return null; }
+        final Timer timer = new Timer();
+        timer.start();
 
-            return subMap.get(blockId);
+        synchronized (_mutex) {
+            _cacheQueryCount += 1;
+
+            final Map<BlockId, TransactionId> subMap = _cache.get(transactionHash);
+            if (subMap == null) {
+                _cacheMissCount += 1;
+
+                timer.stop();
+                _msSpentSearching += timer.getMillisecondsElapsed();
+
+                return null;
+            }
+
+            final TransactionId transactionId = subMap.get(blockId);
+            timer.stop();
+            _msSpentSearching += timer.getMillisecondsElapsed();
+
+            return transactionId;
         }
     }
 
     public Map<BlockId, TransactionId> getCachedTransactionIds(final Sha256Hash transactionHash) {
-        synchronized (_mutex) {
-            final Map<BlockId, TransactionId> subMap = _cache.get(transactionHash);
-            if (subMap == null) { return new HashMap<BlockId, TransactionId>(); }
+        final Timer timer = new Timer();
+        timer.start();
 
-            return new HashMap<BlockId, TransactionId>(subMap);
+        synchronized (_mutex) {
+            _cacheQueryCount += 1;
+
+            final Map<BlockId, TransactionId> subMap = _cache.get(transactionHash);
+            if (subMap == null) {
+                _cacheMissCount += 1;
+
+                timer.stop();
+                _msSpentSearching += timer.getMillisecondsElapsed();
+                return new HashMap<BlockId, TransactionId>();
+            }
+
+            final Map<BlockId, TransactionId> cachedTransactionIds = new HashMap<BlockId, TransactionId>(subMap);
+            timer.stop();
+            _msSpentSearching += timer.getMillisecondsElapsed();
+            return cachedTransactionIds;
         }
+    }
+
+    public Integer getSize() {
+        return _cache.size();
+    }
+
+    public void debug() {
+        Logger.log("TransactionCache Miss/Queries: " + _cacheMissCount + "/" + _cacheQueryCount + " ("+ (((float) _cacheMissCount) / ((float) _cacheQueryCount) * 100) +"% Miss) | Cache Size: " + _cache.size() + " | Time Spent Searching: " + _msSpentSearching);
     }
 }

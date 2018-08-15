@@ -28,7 +28,7 @@ import com.softwareverde.util.Util;
 import java.util.Map;
 
 public class TransactionDatabaseManager {
-    protected static final TransactionCache TRANSACTION_CACHE = new TransactionCache(1024);
+    public static final TransactionCache TRANSACTION_CACHE = new TransactionCache(4096);
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -76,10 +76,6 @@ public class TransactionDatabaseManager {
      */
     protected TransactionId _getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-
-//        final Boolean blockChainSegmentExists = blockChainDatabaseManager.blockChainSegmentExists(blockChainSegmentId);
-//        if (! blockChainSegmentExists) { return null; }
 
         { // Attempt to find in cache first...
             final Map<BlockId, TransactionId> cachedTransactionIds = TRANSACTION_CACHE.getCachedTransactionIds(transactionHash);
@@ -97,15 +93,22 @@ public class TransactionDatabaseManager {
         );
         if (rows.isEmpty()) { return null; }
 
+        TransactionId matchedTransactionId = null;
         for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
-            if (blockIsConnectedToChain) {
-                return TransactionId.wrap(row.getLong("id"));
+
+            TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transactionHash); // Cache all of the found TransactionIds for this hash, even if they're not on this BlockChainSegment...
+
+            if (matchedTransactionId == null) {
+                final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+                if (blockIsConnectedToChain) {
+                    matchedTransactionId = TransactionId.wrap(row.getLong("id"));
+                }
             }
         }
 
-        return null;
+        return matchedTransactionId;
     }
 
     /**
