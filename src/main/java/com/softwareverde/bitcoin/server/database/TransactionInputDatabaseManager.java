@@ -35,13 +35,16 @@ public class TransactionInputDatabaseManager {
 
         final TransactionId previousOutputTransactionId;
         {
-            final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
-            if (uncommittedPreviousOutputTransactionId != null) {
-                previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
+            // NOTE: Searching for transactions that spend outputs from the same block appear to be less common than transactions that spend outputs from a previous block.
+            //  Therefore, despite finding uncommitted Transactions being a simpler (logically) lookup, it is often unnecessary, so the more common (but complicated) case is attempted first.
+
+            final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
+            if (committedPreviousOutputTransactionId != null) {
+                previousOutputTransactionId = committedPreviousOutputTransactionId;
             }
             else {
-                final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
-                previousOutputTransactionId = committedPreviousOutputTransactionId;
+                final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
+                previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
             }
         }
         if (previousOutputTransactionId == null) { return null; }

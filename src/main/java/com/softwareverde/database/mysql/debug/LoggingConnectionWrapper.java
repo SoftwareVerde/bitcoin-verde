@@ -23,10 +23,45 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
         super(connection);
     }
 
+    public static void reset() {
+        synchronized (mutex) {
+            queryValues.clear();
+            queryCounts.clear();
+            queryCount = 0L;
+        }
+    }
+
+    public static void printLogs() {
+        synchronized (mutex) {
+            _printLogs();
+        }
+    }
+
     protected static final Object mutex = new Object();
     protected static final Map<String, Double> queryValues = new HashMap<String, Double>();
     protected static final Map<String, Long> queryCounts = new HashMap<String, Long>();
     protected static long queryCount = 0L;
+
+    protected static void _printLogs() {
+        Logger.log("");
+        for (final String queryString : queryValues.keySet()) {
+            final Double qsDuration = queryValues.get(queryString);
+            final Long qsCount = queryCounts.get(queryString);
+
+            final String displayedQueryString;
+            {
+                if (queryString.length() > 128) {
+                    displayedQueryString = queryString.substring(0, 128);
+                }
+                else {
+                    displayedQueryString = queryString;
+                }
+            }
+
+            Logger.log(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + displayedQueryString);
+        }
+        Logger.log("");
+    }
 
     protected void _log(final Query query, final Double duration) {
         synchronized (mutex) {
@@ -40,13 +75,7 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
 
         synchronized (mutex) {
             if ( (queryCount % 100000L) == 0L ) {
-                Logger.log("");
-                for (final String queryString : queryValues.keySet()) {
-                    final Double qsDuration = queryValues.get(queryString);
-                    final Long qsCount = queryCounts.get(queryString);
-                    Logger.log(String.format("%.2f", qsDuration) + " - " + qsCount + " (" + (qsDuration / qsCount.floatValue()) + ") " + queryString);
-                }
-                Logger.log("");
+                _printLogs();
             }
 
             queryCount += 1L;

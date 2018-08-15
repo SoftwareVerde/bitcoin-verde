@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -100,7 +101,17 @@ public class TransactionOutputDatabaseManager {
         final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)");
 
         final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
-        final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
+
+        // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
+        final List<AddressId> addressIds;
+        {
+            final ImmutableListBuilder<AddressId> listBuilder = new ImmutableListBuilder<AddressId>(lockingScripts.getSize());
+            for (final LockingScript lockingScript : lockingScripts) {
+                final AddressId addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
+                listBuilder.add(addressId);
+            }
+            addressIds = listBuilder.build();
+        }
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
@@ -60,6 +61,8 @@ public class BlockProcessor {
                 final Timer storeBlockTimer = new Timer();
                 final Timer updateBlockChainsTimer = new Timer();
 
+                LoggingConnectionWrapper.reset();
+
                 storeBlockTimer.start();
                 final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
                 storeBlockTimer.stop();
@@ -71,18 +74,22 @@ public class BlockProcessor {
                 {
                     final int transactionCount = block.getTransactions().getSize();
                     Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps).");
-                    Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
+                    // Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
                 }
 
                 final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
                 blockValidator.setMaxThreadCount(_maxThreadCount);
                 blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-                final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+                final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
                 final Timer blockValidationTimer = new Timer();
                 blockValidationTimer.start();
                 final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
                 blockValidationTimer.stop();
+
+                LoggingConnectionWrapper.printLogs();
+                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.debug();
+                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clearDebug();
 
                 if (blockIsValid) {
                     _medianBlockTime.addBlock(block);

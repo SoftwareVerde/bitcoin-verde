@@ -6,15 +6,18 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.util.Util;
 
 public class BlockChainSegmentCache {
-    protected final Object _cacheMutex = new Object();
+    public final Object MUTEX = new Object();
+
     protected BlockChainSegment _cachedBlockChainSegment = new CachedBlockChainSegment(BlockChainSegmentId.wrap(0L));
 
     public void clear() {
-        _cachedBlockChainSegment = new CachedBlockChainSegment(BlockChainSegmentId.wrap(0L));
+        synchronized (MUTEX) {
+            _cachedBlockChainSegment = new CachedBlockChainSegment(BlockChainSegmentId.wrap(0L));
+        }
     }
 
     public BlockChainSegment loadCachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) {
-        synchronized (_cacheMutex) {
+        synchronized (MUTEX) {
             if (Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId)) {
                 return _cachedBlockChainSegment;
             }
@@ -24,19 +27,19 @@ public class BlockChainSegmentCache {
     }
 
     public Boolean isCached(final BlockChainSegmentId blockChainSegmentId) {
-        synchronized (_cacheMutex) {
+        synchronized (MUTEX) {
             return Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId);
         }
     }
 
     public void cacheBlockChainSegment(final BlockChainSegment blockChainSegment) {
-        synchronized (_cacheMutex) {
+        synchronized (MUTEX) {
             _cachedBlockChainSegment = blockChainSegment;
         }
     }
 
     public void updateCachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId, final BlockId newBlockId) {
-        synchronized (_cacheMutex) {
+        synchronized (MUTEX) {
             if (Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId)) {
                 final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(_cachedBlockChainSegment);
                 cachedBlockChainSegment.setHeadBlockId(newBlockId);
@@ -48,7 +51,7 @@ public class BlockChainSegmentCache {
     }
 
     public void updateCachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId, final BlockId newBlockId, final Long newBlockHeight, final Integer blockCountDelta) {
-        synchronized (_cacheMutex) {
+        synchronized (MUTEX) {
             if (Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId)) {
                 final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(_cachedBlockChainSegment);
                 cachedBlockChainSegment.setHeadBlockId(newBlockId);

@@ -261,7 +261,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 { // Add extra transaction metadata...
                     if (isFullBlock) {
                         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+                        final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
                         final Json transactionsJson = blockJson.get("transactions");
 
@@ -308,7 +308,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+            final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(mainBlockChainSegmentId, transactionHash);
             if (transactionId == null) {

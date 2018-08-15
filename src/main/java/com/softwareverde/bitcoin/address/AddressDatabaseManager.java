@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.address;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
@@ -63,11 +62,10 @@ public class AddressDatabaseManager {
 
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
 
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
 
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-        final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+        final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
         final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<SpendableTransactionOutput>(rows.size());
 
@@ -152,20 +150,24 @@ public class AddressDatabaseManager {
 
         final String addressString = address.toBase58CheckEncoded();
 
+        {
+            final AddressId addressId = AddressId.wrap(_databaseConnection.executeSql(
+                new Query("INSERT IGNORE INTO addresses (address) VALUES (?)")
+                    .setParameter(addressString)
+            ));
+
+            if ( (addressId != null) && (addressId.longValue() > 0) ) {
+                return addressId;
+            }
+        }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM addresses WHERE address = ?")
                 .setParameter(addressString)
         );
 
-        if (! rows.isEmpty()) {
-            final Row row = rows.get(0);
-            return AddressId.wrap(row.getLong("id"));
-        }
-
-        return AddressId.wrap(_databaseConnection.executeSql(
-            new Query("INSERT INTO addresses (address) VALUES (?)")
-                .setParameter(addressString)
-        ));
+        final Row row = rows.get(0);
+        return AddressId.wrap(row.getLong("id"));
     }
 
     static class DuplicateAddress extends AddressId {
@@ -185,7 +187,7 @@ public class AddressDatabaseManager {
         final AddressId INVALID = AddressId.wrap(-1L);
         final AddressId DUPLICATE = AddressId.wrap(-2L);
 
-        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO addresses (address) VALUES (?)");
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
 
         final Set<String> newAddresses = new HashSet<String>(lockingScripts.getSize());
 

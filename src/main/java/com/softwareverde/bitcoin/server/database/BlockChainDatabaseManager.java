@@ -36,19 +36,6 @@ public class BlockChainDatabaseManager {
         return blockChainSegment;
     }
 
-    protected BlockChainSegmentId _getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, block_chain_segment_id FROM blocks WHERE id = ?")
-                .setParameter(blockId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("block_chain_segment_id"));
-        return blockChainSegmentId;
-    }
-
     public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
@@ -113,7 +100,7 @@ public class BlockChainDatabaseManager {
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         final Boolean newBlockIsContentiousBlock = (blockDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
 
-        final BlockChainSegmentId previousBlockChainSegmentId = _getBlockChainSegmentId(previousBlockId);
+        final BlockChainSegmentId previousBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(previousBlockId);
         if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
@@ -129,7 +116,7 @@ public class BlockChainDatabaseManager {
                 blockDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
-                final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(newBlockId);
+                final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(newBlockId);
                 if (blockChainSegmentId == null) { // If this block is not already assigned a blockChainSegment, create a new one...
                     // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
                     final BlockChainSegmentId genesisBlockChainSegmentId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
@@ -239,12 +226,4 @@ public class BlockChainDatabaseManager {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);
     }
 
-    public BlockChainSegment getBlockChainSegment(final BlockId blockId) throws DatabaseException {
-        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
-        return _inflateBlockChainSegmentFromId(blockChainSegmentId);
-    }
-
-    public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        return _getBlockChainSegmentId(blockId);
-    }
 }

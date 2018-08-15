@@ -148,7 +148,7 @@ public class BlockHeaderDownloader {
                         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
                         blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
 
-                        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+                        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
                         final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
                         if (! blockHeaderIsValid) {
                             Logger.log("Invalid BlockHeader: " + blockHeader.getHash());
