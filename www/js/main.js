@@ -158,7 +158,7 @@ class Ui {
         $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toLocaleString());
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
 
-        const transactions = block.transactions;
+        const transactions = (block.transactions || []);
         for (let i = 0; i < transactions.length; i += 1) {
             const transaction = transactions[i];
             const transactionUi = Ui.inflateTransaction(transaction);

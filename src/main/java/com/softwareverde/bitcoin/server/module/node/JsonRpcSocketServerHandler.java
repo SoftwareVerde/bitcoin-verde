@@ -102,10 +102,23 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         { // Process TransactionInputs...
             Integer transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+                final TransactionOutputId previousTransactionOutputId;
+                {
+                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    if (previousOutputTransactionHash != null) {
+                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+
+                        if (previousTransactionOutputId == null) {
+                            Logger.log("NOTICE: Error calculating fee for Transaction: " + transactionHashString);
+                        }
+                    }
+                    else {
+                        previousTransactionOutputId = null;
+                    }
+                }
+
                 if (previousTransactionOutputId == null) {
-                    Logger.log("Error calculating fee for Transaction: " + transactionHashString);
                     transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
                 }
 
@@ -150,7 +163,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                         final LockingScript lockingScript = transactionOutput.getLockingScript();
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                        addressString = address.toBase58CheckEncoded();
+                        addressString = (address != null ? address.toBase58CheckEncoded() : null);
                     }
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);

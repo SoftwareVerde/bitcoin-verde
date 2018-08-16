@@ -48,6 +48,8 @@ public class NodeModule {
         nodeModule.loop();
     }
 
+    protected final Boolean _shouldWarmUpCache = false;
+
     protected final Configuration _configuration;
     protected final Environment _environment;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
@@ -214,40 +216,42 @@ public class NodeModule {
     }
 
     public void loop() {
-        Logger.log("[Warming Cache]");
-        try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-            { // Warm Up AddressDatabaseManager Cache...
-                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
-                );
-                for (final Row row : rows) {
-                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
-                    final String address = row.getString("address");
-                    addressDatabaseManager.getAddressId(address);
+        if (_shouldWarmUpCache) {
+            Logger.log("[Warming Cache]");
+            try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
+                { // Warm Up AddressDatabaseManager Cache...
+                    final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
+                    );
+                    for (final Row row : rows) {
+                        final AddressId addressId = AddressId.wrap(row.getLong("id"));
+                        final String address = row.getString("address");
+                        addressDatabaseManager.getAddressId(address);
+                    }
+
+                    AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
                 }
 
-                AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
-            }
-
-            { // Warm Up TransactionDatabaseManager Cache...
-                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-                final java.util.List<Row> rows = databaseConnection.query(
+                { // Warm Up TransactionDatabaseManager Cache...
+                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+                    final java.util.List<Row> rows = databaseConnection.query(
                         new Query("SELECT id, block_id, hash FROM transactions WHERE block_id IS NOT NULL ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
-                );
-                for (final Row row : rows) {
-                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                    final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-                    final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
-                    transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
-                }
+                    );
+                    for (final Row row : rows) {
+                        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                        final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+                        final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+                        transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
+                    }
 
-                TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+                    TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+                }
             }
-        }
-        catch (final DatabaseException exception) {
-            Logger.log(exception);
-            BitcoinUtil.exitFailure();
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                BitcoinUtil.exitFailure();
+            }
         }
 
         _nodeManager.startNodeMaintenanceThread();
