@@ -226,6 +226,8 @@ public class NodeModule {
                     final String address = row.getString("address");
                     addressDatabaseManager.getAddressId(address);
                 }
+
+                AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
             }
 
             { // Warm Up TransactionDatabaseManager Cache...
@@ -239,6 +241,8 @@ public class NodeModule {
                     final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
                     transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
                 }
+
+                TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
             }
         }
         catch (final DatabaseException exception) {

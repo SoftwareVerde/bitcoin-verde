@@ -193,7 +193,11 @@ public class TransactionDatabaseManager {
 
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getSize());
         for (int i = 0; i < transactions.getSize(); ++i) {
-            transactionIds.add(TransactionId.wrap(firstTransactionId + i));
+            final Transaction transaction = transactions.get(i);
+            final TransactionId transactionId = TransactionId.wrap(firstTransactionId + i);
+
+            transactionIds.add(transactionId);
+            TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
         }
         return transactionIds;
     }
