@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -94,6 +95,9 @@ public class BlockProcessor {
                     BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clearDebug();
                     TransactionDatabaseManager.TRANSACTION_CACHE.debug();
                     TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+
+                    AddressDatabaseManager.ADDRESS_CACHE.debug();
+                    AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
                 }
 
                 if (blockIsValid) {

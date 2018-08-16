@@ -12,7 +12,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 public class BlockChainDatabaseManager {
-    protected static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
+    public static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 

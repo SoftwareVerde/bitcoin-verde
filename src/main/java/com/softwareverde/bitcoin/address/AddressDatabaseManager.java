@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -24,6 +25,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class AddressDatabaseManager {
+    public static final AddressIdCache ADDRESS_CACHE = new AddressIdCache();
+
     protected final MysqlDatabaseConnection _databaseConnection;
 
     public static class SpendableTransactionOutput {
@@ -150,6 +153,11 @@ public class AddressDatabaseManager {
 
         final String addressString = address.toBase58CheckEncoded();
 
+        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+        if (cachedAddressId != null) {
+            return cachedAddressId;
+        }
+
         {
             final AddressId addressId = AddressId.wrap(_databaseConnection.executeSql(
                 new Query("INSERT IGNORE INTO addresses (address) VALUES (?)")
@@ -157,6 +165,7 @@ public class AddressDatabaseManager {
             ));
 
             if ( (addressId != null) && (addressId.longValue() > 0) ) {
+                ADDRESS_CACHE.cacheAddressId(addressId, addressString);
                 return addressId;
             }
         }
@@ -167,7 +176,11 @@ public class AddressDatabaseManager {
         );
 
         final Row row = rows.get(0);
-        return AddressId.wrap(row.getLong("id"));
+        final AddressId addressId = AddressId.wrap(row.getLong("id"));
+
+        ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+
+        return addressId;
     }
 
     static class DuplicateAddress extends AddressId {
@@ -207,16 +220,26 @@ public class AddressDatabaseManager {
 
             final String addressString = address.toBase58CheckEncoded();
 
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id FROM addresses WHERE address = ?")
-                    .setParameter(addressString)
-            );
-
-            if (! rows.isEmpty()) {
-                final Row row = rows.get(0);
-                final AddressId addressId = AddressId.wrap(row.getLong("id"));
-                addressIds.add(addressId);
+            final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+            if (cachedAddressId != null) {
+                addressIds.add(cachedAddressId);
                 continue;
+            }
+            else {
+                final java.util.List<Row> rows = _databaseConnection.query(
+                    new Query("SELECT id FROM addresses WHERE address = ?")
+                        .setParameter(addressString)
+                );
+
+                if (! rows.isEmpty()) {
+                    final Row row = rows.get(0);
+                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
+                    addressIds.add(addressId);
+
+                    ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+
+                    continue;
+                }
             }
 
             if (newAddresses.contains(addressString)) {
@@ -249,14 +272,23 @@ public class AddressDatabaseManager {
             }
             else if (Util.areEqual(addressId, DUPLICATE)) {
                 final DuplicateAddress duplicateAddress = (DuplicateAddress) addressId;
-                final java.util.List<Row> rows = _databaseConnection.query(
-                    new Query("SELECT id FROM addresses WHERE address = ?")
-                        .setParameter(duplicateAddress.addressString)
-                );
 
-                final Row row = rows.get(0);
-                final AddressId duplicateAddressId = AddressId.wrap(row.getLong("id"));
-                addressIds.set(i, duplicateAddressId);
+                final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(duplicateAddress.addressString);
+                if (cachedAddressId != null) {
+                    addressIds.set(i, cachedAddressId);
+                }
+                else {
+                    final java.util.List<Row> rows = _databaseConnection.query(
+                        new Query("SELECT id FROM addresses WHERE address = ?")
+                            .setParameter(duplicateAddress.addressString)
+                    );
+
+                    final Row row = rows.get(0);
+                    final AddressId duplicateAddressId = AddressId.wrap(row.getLong("id"));
+                    addressIds.set(i, duplicateAddressId);
+
+                    ADDRESS_CACHE.cacheAddressId(duplicateAddressId, duplicateAddress.addressString);
+                }
             }
             else if (addressId == null) {
                 addressIds.set(i, AddressId.wrap(nextAddressId));
@@ -279,16 +311,25 @@ public class AddressDatabaseManager {
         return AddressId.wrap(row.getLong("address_id"));
     }
 
-    public AddressId getAddressId(final String address) throws DatabaseException {
+    public AddressId getAddressId(final String addressString) throws DatabaseException {
+        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+        if (cachedAddressId != null) {
+            return cachedAddressId;
+        }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM addresses WHERE address = ?")
-                .setParameter(address)
+                .setParameter(addressString)
         );
 
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return AddressId.wrap(row.getLong("id"));
+        final AddressId addressId = AddressId.wrap(row.getLong("id"));
+
+        ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+
+        return addressId;
     }
 
     public List<SpendableTransactionOutput> getSpendableTransactionOutputs(final AddressId addressId) throws DatabaseException {

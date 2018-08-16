@@ -1,9 +1,15 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
+import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
@@ -14,8 +20,13 @@ import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.debug.DebugEmbeddedMysqlDatabase;
@@ -121,15 +132,6 @@ public class NodeModule {
             _nodeInitializer = new NodeInitializer(queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
         }
 
-
-        for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
-            final String host = seedNodeProperties.getAddress();
-            final Integer port = seedNodeProperties.getPort();
-
-            final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-            _nodeManager.addNode(node);
-        }
-
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
@@ -212,9 +214,50 @@ public class NodeModule {
     }
 
     public void loop() {
+        Logger.log("[Warming Cache]");
+        try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
+            { // Warm Up AddressDatabaseManager Cache...
+                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
+                );
+                for (final Row row : rows) {
+                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
+                    final String address = row.getString("address");
+                    addressDatabaseManager.getAddressId(address);
+                }
+            }
+
+            { // Warm Up TransactionDatabaseManager Cache...
+                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+                final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT id, block_id, hash FROM transactions WHERE block_id IS NOT NULL ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
+                );
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+                    final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+                    transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
+                }
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            BitcoinUtil.exitFailure();
+        }
+
         _nodeManager.startNodeMaintenanceThread();
 
         Logger.log("[Server Online]");
+
+        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+        for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
+            final String host = seedNodeProperties.getAddress();
+            final Integer port = seedNodeProperties.getPort();
+
+            final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
+            _nodeManager.addNode(node);
+        }
 
         if (_jsonRpcSocketServer != null) {
             _jsonRpcSocketServer.start();

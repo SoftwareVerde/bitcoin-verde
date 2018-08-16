@@ -18,6 +18,13 @@ public class SortUtil {
         }
     };
 
+    public static final Comparator<String> stringComparator = new Comparator<String>() {
+        @Override
+        public int compare(final String o1, final String o2) {
+            return o1.compareTo(o2);
+        }
+    };
+
     // NOTE: InsertionSort is efficient for resorting nearly-sorted lists...
     public static <T> void insertionSort(final List<T> list, final Comparator<T> comparator) {
         final int n = list.size();

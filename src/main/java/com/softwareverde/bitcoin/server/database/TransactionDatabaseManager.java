@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.cache.TransactionCache;
+import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -28,7 +28,7 @@ import com.softwareverde.util.Util;
 import java.util.Map;
 
 public class TransactionDatabaseManager {
-    public static final TransactionCache TRANSACTION_CACHE = new TransactionCache();
+    public static final TransactionIdCache TRANSACTION_CACHE = new TransactionIdCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -142,7 +142,11 @@ public class TransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return TransactionId.wrap(row.getLong("id"));
+        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+
+        TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transactionHash);
+
+        return transactionId;
     }
 
     protected void _updateTransaction(final TransactionId transactionId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
@@ -155,6 +159,8 @@ public class TransactionDatabaseManager {
                 .setParameter(lockTime.getValue())
                 .setParameter(transactionId)
         );
+
+        TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
     }
 
     protected TransactionId _insertTransaction(final BlockId blockId, final Transaction transaction) throws DatabaseException {
