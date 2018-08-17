@@ -29,6 +29,8 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
@@ -203,6 +205,72 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
     }
 
+    // Requires GET:    [blockHeight=null], [maxBlockCount=10]
+    protected void _getBlockHeaders(final Json parameters, final Json response) {
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+            final Long startingBlockHeight;
+            {
+                final String blockHeightString = parameters.getString("blockHeight");
+                if (Util.isInt(blockHeightString)) {
+                    startingBlockHeight = parameters.getLong("blockHeight");
+                }
+                else {
+                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                    startingBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                }
+            }
+
+            final Integer maxBlockCount;
+            if (parameters.hasKey("maxBlockCount")) {
+                maxBlockCount = parameters.getInteger("maxBlockCount");
+            }
+            else {
+                maxBlockCount = 10;
+            }
+
+            final Json blockHeadersJson = new Json(true);
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM blocks WHERE block_height <= ? ORDER BY block_height DESC LIMIT " + maxBlockCount)
+                    .setParameter(startingBlockHeight)
+            );
+            for (final Row row : rows) {
+                final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+                final Json blockJson;
+                {
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    blockJson = blockHeader.toJson();
+                }
+
+                { // Include Extra Block Metadata...
+                    final Boolean isFullBlock = false;
+                    final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+
+                    blockJson.put("height", blockHeight);
+                    blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
+                    // blockJson.put("byteCount", (isFullBlock ? blockHeader.getByteCount() : null));
+                    blockJson.put("transactionCount", transactionCount);
+                    blockJson.put("byteCount", null);
+                }
+
+                blockHeadersJson.add(blockJson);
+            }
+
+            response.put("blockHeaders", blockHeadersJson);
+
+            response.put("wasSuccess", 1);
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
+    }
+
     protected void _getBlock(final Json parameters, final Json response) {
         if (! parameters.hasKey("hash")) {
             response.put("errorMessage", "Missing parameters. Required: hash");
@@ -221,8 +289,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
             if (blockId == null) {
@@ -266,9 +334,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 { // Include Extra Block Metadata...
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+
                     blockJson.put("height", blockHeight);
                     blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
                     blockJson.put("byteCount", (isFullBlock ? blockData.getByteCount() : null));
+                    blockJson.put("transactionCount", transactionCount);
                 }
 
                 { // Add extra transaction metadata...
@@ -551,6 +622,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
+                            case "BLOCK_HEADERS": {
+                                _getBlockHeaders(parameters, response);
+                            } break;
+
                             case "BLOCK": {
                                 _getBlock(parameters, response);
                             } break;

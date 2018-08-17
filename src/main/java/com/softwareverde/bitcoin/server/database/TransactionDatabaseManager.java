@@ -335,4 +335,16 @@ public class TransactionDatabaseManager {
         final Row row = rows.get(0);
         return BlockId.wrap(row.getLong("block_id"));
     }
+
+    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT block_id, COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+        final Row row = rows.get(0);
+
+        return row.getInteger("transaction_count");
+    }
 }
