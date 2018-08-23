@@ -3,11 +3,13 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
+import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
@@ -15,7 +17,9 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
+import com.softwareverde.json.Json;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -33,6 +37,45 @@ public class HistoricTransactionsTests {
         Integer transactionInputIndex;
         String lockingScriptBytes;
         String unlockingScriptBytes;
+    }
+
+    public static Json toBitcoinjTestCase(final TestConfig testConfig) {
+        final Context context = initContext(testConfig);
+        return toBitcoinjTestCase(context);
+    }
+
+    public static Json toBitcoinjTestCase(final Context context) {
+        // ["[[[prevout hash, prevout index, prevout scriptPubKey], [input 2], ...],"], ["serializedTransaction, verifyFlags]"],
+        final Json json = new Json(true);
+
+        { // Transaction Output...
+            final Json transactionInputsJson = new Json(true);
+
+            final TransactionInput transactionInput = context.getTransactionInput();
+            final TransactionOutput transactionOutput = context.getTransactionOutput();
+            final LockingScript lockingScript = transactionOutput.getLockingScript();
+            final String lockingScriptString = (new ScriptDeflater()).toStandardString(lockingScript);
+
+            final Json txInputJson = new Json(true);
+            txInputJson.add(transactionInput.getPreviousOutputTransactionHash());
+            txInputJson.add(transactionInput.getPreviousOutputIndex());
+            txInputJson.add(lockingScriptString);
+            transactionInputsJson.add(txInputJson);
+
+            json.add(Json.parse(transactionInputsJson.toString().toLowerCase()));
+        }
+
+        { // Transaction Data...
+            final Transaction transaction = context.getTransaction();
+            final ByteArray transactionBytes = (new TransactionDeflater().toBytes(transaction));
+            json.add(transactionBytes);
+        }
+
+        { // Validation Flags...
+            json.add("P2SH");
+        }
+
+        return json;
     }
 
     public static Context initContext(final TestConfig testConfig) {
@@ -625,6 +668,46 @@ public class HistoricTransactionsTests {
         testConfig.transactionInputIndex = 0;
         testConfig.lockingScriptBytes = "A9143AE52DBC43C884EF43211A43082D01A0091EF1E387";
         testConfig.unlockingScriptBytes = "483045022100AC4319CF798AB10D864AD5F206CD405B7A15957EEF2B0094AB24FFCF2C28FBFB022012053C8142D9E4F832D85C6CE7DBA82D44D011C7713FB584771FB8770DA97C0C012102C8662AAA171B5C98FEF66C02138165F600C7C5743380686958E395EDF8EB36BF47304402202FEEDC3B54CD87868406E93EE650742B61CE39162D70B6FDE5A805FD40A56C900220015970A2FC874C32EDFCD6341981D35E5B019A14B17662E00F49E363DB72B93C014CD22102FB6827937707BF432D85B094BC180AB93394EE013B3ECAAFA04B9135E3AB6E50AD74926404162C5658B15167762103DB22E387923AD0552E1C4A4355324313AF85926D4266C0EAA86F02EB1E01B2D28763AC67762102C8662AAA171B5C98FEF66C02138165F600C7C5743380686958E395EDF8EB36BF886E6B6B0064AB05636F6E643175AC687664756C6C6E6B6BAB05636F6E643275AC687664756C6C6E6B6BAB05636F6E643375AC687664756C6C6E6B6BAB05636F6E643475AC687664756C6C6E6B6BAB05636F6E643575AC686868";
+
+        runScripts(testConfig);
+    }
+
+    @Test
+    public void should_verify_transaction_DFF40F79CEF322369D1D7AB9DC20F71A75DD333DC30EB2D77C08DAFDBD1A7E86_0() {
+        // NOTE: This is a transaction included in the first Bitcoin Cash block. It has a different transaction signature hashing algorithm...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0200000001A81CDA1AAA250C43B2B5A7E782898D6B41EB1638C3042EF39B139280FB9E47FE000000006B483045022100CD990173DED4ABE8761E28F1FB31FC395434C49A7B90E3B4BEBCC79F988C91EC02206783B794ADA488A11A8B694EC129D863EBECBF9646C1E5B55F16652F1FF069E541210304143552E66475C8500C8A54565A4FB2C8586C9861C6FFA63D402BBBC54ACA64FFFFFFFF0280969800000000001976A91408C82CB3A87AA92967E2F4DEC86F97F5B84CF11288AC24773B05000000001976A91427C8CE6010408CC9B9AE36BF5378A9BFB24BB45088AC00000000";
+        testConfig.transactionInputBytes = "A81CDA1AAA250C43B2B5A7E782898D6B41EB1638C3042EF39B139280FB9E47FE000000006B483045022100CD990173DED4ABE8761E28F1FB31FC395434C49A7B90E3B4BEBCC79F988C91EC02206783B794ADA488A11A8B694EC129D863EBECBF9646C1E5B55F16652F1FF069E541210304143552E66475C8500C8A54565A4FB2C8586C9861C6FFA63D402BBBC54ACA64FFFFFFFF";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "00E1F505000000001976A9145638F9A56D28AAD91177A1B545F394EF4255459A88AC";
+        testConfig.blockHeight = 478559L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "76A9145638F9A56D28AAD91177A1B545F394EF4255459A88AC";
+        testConfig.unlockingScriptBytes = "483045022100CD990173DED4ABE8761E28F1FB31FC395434C49A7B90E3B4BEBCC79F988C91EC02206783B794ADA488A11A8B694EC129D863EBECBF9646C1E5B55F16652F1FF069E541210304143552E66475C8500C8A54565A4FB2C8586C9861C6FFA63D402BBBC54ACA64";
+
+        // Median Block Time:	1501591048
+        // Network Time:		1534795151
+
+        runScripts(testConfig);
+    }
+
+    @Test
+    public void should_verify_transaction_A799F7599DF6A6A1CF5A00ECF18F1FB8FBC09F496F787776BBD0B12FE1A347B1_0() {
+        // NOTE: This is a transaction included in the first Bitcoin Cash block. It has a different transaction signature hashing algorithm...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "02000000017435AF4428E056A31F9F0770F6EFD51E436F4C4A2656C6DE26CD899E91FB7CCF980000006A47304402207355974732A5FF208ECE92948A4B3F4EADF92E24C3BF09F4D137541F309C18D502207A73DCBD83E909F6CF25BB17C8744A3167FF159D04371034EA62632926317E08412103E634ADE750834E03E8FD378956562ED39DB8C7B9B3DB8C43A1DB32A41DAD00E2FFFFFFFF02905F0100000000001976A914D4DE1D3A25C6AAF06F619534F9E5849BD0F132C788ACA0860100000000001976A9142C3D0D50A098DF240D725CFBF4D82E04E42FCB5F88AC00000000";
+        testConfig.transactionInputBytes = "7435AF4428E056A31F9F0770F6EFD51E436F4C4A2656C6DE26CD899E91FB7CCF980000006A47304402207355974732A5FF208ECE92948A4B3F4EADF92E24C3BF09F4D137541F309C18D502207A73DCBD83E909F6CF25BB17C8744A3167FF159D04371034EA62632926317E08412103E634ADE750834E03E8FD378956562ED39DB8C7B9B3DB8C43A1DB32A41DAD00E2FFFFFFFF";
+        testConfig.transactionOutputIndex = 152;
+        testConfig.transactionOutputBytes = "400D0300000000001976A91433345F36287BF3BF7FBC3A30FA4E74C99064851788AC";
+        testConfig.blockHeight = 478559L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "76A91433345F36287BF3BF7FBC3A30FA4E74C99064851788AC";
+        testConfig.unlockingScriptBytes = "47304402207355974732A5FF208ECE92948A4B3F4EADF92E24C3BF09F4D137541F309C18D502207A73DCBD83E909F6CF25BB17C8744A3167FF159D04371034EA62632926317E08412103E634ADE750834E03E8FD378956562ED39DB8C7B9B3DB8C43A1DB32A41DAD00E2";
+
+        // Median Block Time:	1501591048
+        // Network Time:		1534795151
 
         runScripts(testConfig);
     }

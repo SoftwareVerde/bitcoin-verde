@@ -124,8 +124,8 @@ public class SignatureContext {
         return true;
     }
 
-    public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {
-        return _previousTransactionOutputsBeingSpent.get(index);
+    public TransactionOutput getTransactionOutputBeingSpent(final Integer inputIndex) {
+        return _previousTransactionOutputsBeingSpent.get(inputIndex);
     }
 
     public Integer getLastCodeSeparatorIndex(final Integer index) {
@@ -142,5 +142,9 @@ public class SignatureContext {
 
     public List<ByteArray> getBytesToExcludeFromScript() {
         return _bytesToExcludeFromScript;
+    }
+
+    public Boolean shouldUseBitcoinCashSigningAlgorithm() {
+        return _hashType.isBitcoinCashType();
     }
 }
