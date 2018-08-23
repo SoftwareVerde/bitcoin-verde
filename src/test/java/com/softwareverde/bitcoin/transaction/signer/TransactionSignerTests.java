@@ -57,7 +57,7 @@ public class TransactionSignerTests {
         transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true));
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true), 0L);
         signatureContext.setShouldSignInputScript(0, true, transactionOutputBeingSpent);
         signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 
@@ -80,6 +80,7 @@ public class TransactionSignerTests {
         final ScriptRunner scriptRunner = new ScriptRunner();
         final MutableContext context = new MutableContext();
         context.setTransaction(transaction);
+        context.setBlockHeight(0L);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int inputIndex=0; inputIndex<transactionInputs.getSize(); ++inputIndex) {

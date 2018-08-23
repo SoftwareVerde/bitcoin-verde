@@ -31,7 +31,7 @@ public class SignatureContextGenerator {
     }
 
     public SignatureContext createContextForEntireTransaction(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction) throws DatabaseException {
-        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true));
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true), Long.MAX_VALUE);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
