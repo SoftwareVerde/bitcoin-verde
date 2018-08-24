@@ -226,4 +226,38 @@ public class BlockChainDatabaseManager {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);
     }
 
+    public BlockChainSegmentId getHeadBlockChainSegmentId() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM block_chain_segments ORDER BY block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockChainSegmentId.wrap(row.getLong("id"));
+    }
+
+    public BlockChainSegmentId getHeadBlockChainSegmentIdConnectedToBlockChainSegmentId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final BlockChainSegment blockChainSegment = _inflateBlockChainSegmentFromId(blockChainSegmentId);
+        if (blockChainSegment == null) { return null; }
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM block_chain_segments ORDER BY block_height DESC")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockId blockId = blockChainSegment.getHeadBlockId();
+
+        for (final Row row : rows) {
+            final BlockChainSegmentId headBlockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("id"));
+            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId);
+
+            if (blockIsConnectedToChain) {
+                return headBlockChainSegmentId;
+            }
+        }
+
+        return blockChainSegmentId;
+    }
+
 }
