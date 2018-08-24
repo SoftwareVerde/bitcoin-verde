@@ -71,6 +71,7 @@ public class ScriptRunnerTests {
         context.setTransactionInputIndex(0);
         context.setTransactionInput(transactionInput);
         context.setTransactionOutput(transactionOutput);
+        context.setBlockHeight(0L);
 
         final LockingScript lockingScript = transactionOutput.getLockingScript();
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -109,6 +110,7 @@ public class ScriptRunnerTests {
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);
             context.setTransactionOutput(transactionOutputBeingSpent);
+            context.setBlockHeight(0L);
 
             final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();

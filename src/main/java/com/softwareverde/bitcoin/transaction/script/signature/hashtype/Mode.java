@@ -8,7 +8,8 @@ public enum Mode {
     SIGNATURE_HASH_SINGLE((byte) 0x03);
 
     public static Mode fromByte(final byte value) {
-        switch (value) {
+        final byte valueMask = 0x0F;
+        switch (value & valueMask) {
             case 0x01: { return SIGNATURE_HASH_ALL; }
             case 0x02: { return SIGNATURE_HASH_NONE; }
             case 0x03: { return SIGNATURE_HASH_SINGLE; }

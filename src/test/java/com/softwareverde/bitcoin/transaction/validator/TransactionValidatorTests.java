@@ -170,7 +170,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -213,7 +213,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -256,7 +256,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action

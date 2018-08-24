@@ -1,17 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.signature.hashtype;
 
 public class HashType {
-    protected static final byte BITCOIN_CASH_FLAG = 0x40;
+    protected static final byte ANYONE_CAN_PAY_FLAG = (byte) 0x80;
+    protected static final byte BITCOIN_CASH_FLAG = (byte) 0x40;
 
     public static HashType fromByte(final byte b) {
-        final byte signBitMask = ((byte) 0x80);
-        final byte hashTypeBitMask = ((byte) 0x0F);
-
-        final Boolean shouldSignOnlyOneInput = ((b & signBitMask) == signBitMask);
-        final byte hashTypeByte = (byte) (b & hashTypeBitMask);
-
-        final Mode mode = Mode.fromByte(hashTypeByte);
-        return new HashType(b, mode, (! shouldSignOnlyOneInput));
+        return new HashType(b);
     }
 
     protected final byte _value; // NOTE: The raw byte provided to HashType.fromByte() is needed in order to verify
@@ -20,15 +14,24 @@ public class HashType {
     protected final Mode _mode;
     protected final Boolean _shouldSignOtherInputs; // Bitcoin calls this "ANYONECANPAY" (_shouldSignOtherInputs being false indicates anyone can pay)...
 
-    protected HashType(final byte value, final Mode mode, final Boolean shouldSignOtherInputs) {
+    protected HashType(final byte value) {
+        final Boolean shouldSignOnlyOneInput = ((value & 0x80) != 0x00);
         _value = value;
-        _mode = mode;
-        _shouldSignOtherInputs = shouldSignOtherInputs;
+        _mode = Mode.fromByte(value);
+        _shouldSignOtherInputs = (! shouldSignOnlyOneInput);
     }
 
-    public HashType(final Mode mode, final Boolean shouldSignOtherInputs) {
-        final byte signBitMask = (shouldSignOtherInputs ? (byte) 0x00 : (byte) 0x80);
-        _value = (byte) (signBitMask | mode.getValue() | BITCOIN_CASH_FLAG);
+    public HashType(final Mode mode, final Boolean shouldSignOtherInputs, final Boolean useBitcoinCash) {
+        {
+            byte value = mode.getValue();
+            if (! shouldSignOtherInputs) {
+                value |= ANYONE_CAN_PAY_FLAG;
+            }
+            if (useBitcoinCash) {
+                value |= BITCOIN_CASH_FLAG;
+            }
+            _value = value;
+        }
 
         _mode = mode;
         _shouldSignOtherInputs = shouldSignOtherInputs;
