@@ -38,27 +38,4 @@ public class BlockChainSegmentCache {
         }
     }
 
-    public void updateCachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId, final BlockId newBlockId) {
-        synchronized (MUTEX) {
-            if (Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId)) {
-                final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(_cachedBlockChainSegment);
-                cachedBlockChainSegment.setHeadBlockId(newBlockId);
-                cachedBlockChainSegment.setBlockHeight(cachedBlockChainSegment.getBlockHeight() + 1);
-                cachedBlockChainSegment.setBlockCount(cachedBlockChainSegment.getBlockCount() + 1);
-                _cachedBlockChainSegment = cachedBlockChainSegment;
-            }
-        }
-    }
-
-    public void updateCachedBlockChainSegment(final BlockChainSegmentId blockChainSegmentId, final BlockId newBlockId, final Long newBlockHeight, final Integer blockCountDelta) {
-        synchronized (MUTEX) {
-            if (Util.areEqual(_cachedBlockChainSegment.getId(), blockChainSegmentId)) {
-                final CachedBlockChainSegment cachedBlockChainSegment = new CachedBlockChainSegment(_cachedBlockChainSegment);
-                cachedBlockChainSegment.setHeadBlockId(newBlockId);
-                cachedBlockChainSegment.setBlockHeight(newBlockHeight);
-                cachedBlockChainSegment.setBlockCount(cachedBlockChainSegment.getBlockCount() - blockCountDelta);
-                _cachedBlockChainSegment = cachedBlockChainSegment;
-            }
-        }
-    }
 }

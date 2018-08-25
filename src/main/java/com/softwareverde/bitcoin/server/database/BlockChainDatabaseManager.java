@@ -105,7 +105,7 @@ public class BlockChainDatabaseManager {
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
                 // 2.1.1 Update the blockChain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-                BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId);
+                BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
                 _databaseConnection.executeSql(
                     new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
                         .setParameter(newBlockId)
@@ -163,7 +163,7 @@ public class BlockChainDatabaseManager {
             // 3.2 Update/revert the baseBlockChain.
             //  The head_block_id should point to the previousBlock.
             //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-            BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId, previousBlockBlockHeight, refactoredChainBlockCount);
+            BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
             _databaseConnection.executeSql(
                 new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
                     .setParameter(previousBlockId)
@@ -192,6 +192,7 @@ public class BlockChainDatabaseManager {
                         .setParameter(previousBlockChainSegmentId)
                         .setParameter(previousBlockBlockHeight)
                 );
+                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate BlockChainSegmentId cache after update...
             }
 
             // 3.4 Create a new block chain to house the newBlock (and its future children)...
