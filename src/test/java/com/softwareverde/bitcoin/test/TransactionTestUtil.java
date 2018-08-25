@@ -73,22 +73,34 @@ public class TransactionTestUtil {
             final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             if (Util.areEqual(previousOutputTransactionHash, new ImmutableSha256Hash())) { continue; }
 
-            Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
+            final TransactionId transactionId;
+            final java.util.List<Row> transactionRows = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(previousOutputTransactionHash));
+            if (transactionRows.isEmpty()) {
+                Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
 
-            final TransactionId transactionId = TransactionId.wrap(databaseConnection.executeSql(
-                new Query("INSERT INTO transactions (hash, block_id, version, lock_time) VALUES (?, ?, ?, ?)")
-                    .setParameter(previousOutputTransactionHash)
-                    .setParameter(_getGenesisBlockId(blockChainSegmentId, databaseConnection))
-                    .setParameter(Transaction.VERSION)
-                    .setParameter(LockTime.MIN_TIMESTAMP.getValue())
-            ));
+                transactionId = TransactionId.wrap(databaseConnection.executeSql(
+                    new Query("INSERT INTO transactions (hash, block_id, version, lock_time) VALUES (?, ?, ?, ?)")
+                        .setParameter(previousOutputTransactionHash)
+                        .setParameter(_getGenesisBlockId(blockChainSegmentId, databaseConnection))
+                        .setParameter(Transaction.VERSION)
+                        .setParameter(LockTime.MIN_TIMESTAMP.getValue())
+                ));
+            }
+            else {
+                transactionId = TransactionId.wrap(transactionRows.get(0).getLong("id"));
+            }
 
-            databaseConnection.executeSql(
-                new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
-                    .setParameter(transactionId)
-                    .setParameter(transactionInput.getPreviousOutputIndex())
-                    .setParameter(Long.MAX_VALUE)
-            );
+            final java.util.List<Row> transactionOutputRows = databaseConnection.query(new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?").setParameter(transactionId).setParameter(transactionInput.getPreviousOutputIndex()));
+            if (transactionOutputRows.isEmpty()) {
+                Logger.log("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
+
+                databaseConnection.executeSql(
+                    new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
+                        .setParameter(transactionId)
+                        .setParameter(transactionInput.getPreviousOutputIndex())
+                        .setParameter(Long.MAX_VALUE)
+                );
+            }
         }
     }
 }
