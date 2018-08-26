@@ -10,6 +10,9 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -63,6 +66,34 @@ public class BlockValidatorTests extends IntegrationTest {
         }
     }
 
+    private class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
+
+        @Override
+        public MedianBlockTime subset(final Integer blockCount) {
+            return new ImmutableMedianBlockTime(Long.MAX_VALUE);
+        }
+
+        @Override
+        public BlockHeader getBlockHeader(final Integer indexFromTip) {
+            return new MutableMedianBlockTimeTests.FakeBlockHeader(Long.MAX_VALUE);
+        }
+
+        @Override
+        public ImmutableMedianBlockTime asConst() {
+            return new ImmutableMedianBlockTime(Long.MAX_VALUE);
+        }
+
+        @Override
+        public Long getCurrentTimeInSeconds() {
+            return Long.MAX_VALUE;
+        }
+
+        @Override
+        public Long getCurrentTimeInMilliSeconds() {
+            return Long.MAX_VALUE;
+        }
+    }
+
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
         try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockInflater blockInflater = new BlockInflater();
@@ -112,7 +143,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
@@ -153,7 +184,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
@@ -208,7 +239,7 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         final BlockChainSegmentId genesisBlockChainSegmentId;
         {
@@ -276,7 +307,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
 
