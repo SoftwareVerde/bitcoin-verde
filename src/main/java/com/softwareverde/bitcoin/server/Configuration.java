@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -34,7 +35,9 @@ public class Configuration {
         private SeedNodeProperties[] _seedNodeProperties;
         private Integer _maxPeerCount;
         private Integer _maxBlockQueueSize;
+        private Integer _maxThreadCount;
         private Integer _trustedBlockHeight;
+        private Long _maxMemoryByteCount;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -42,7 +45,9 @@ public class Configuration {
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
         public Integer getMaxPeerCount() { return _maxPeerCount; }
         public Integer getMaxBlockQueueSize() { return _maxBlockQueueSize; }
+        public Integer getMaxThreadCount() { return _maxThreadCount; }
         public Integer getTrustedBlockHeight() { return _trustedBlockHeight; }
+        public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
     }
 
     public static class ExplorerProperties {
@@ -57,10 +62,19 @@ public class Configuration {
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     }
 
+    public static class WalletProperties {
+        private String _bitcoinRpcUrl;
+        private Integer _bitcoinRpcPort;
+
+        public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
+        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+    }
+
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
     private ExplorerProperties _explorerProperties;
+    private WalletProperties _walletProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -109,7 +123,9 @@ public class Configuration {
 
         _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _serverProperties._maxBlockQueueSize = Util.parseInt(_properties.getProperty("bitcoin.maxBlockQueueSize", "56"));
+        _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _serverProperties._trustedBlockHeight = Util.parseInt(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
+        _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
     }
 
     private void _loadExplorerProperties() {
@@ -127,6 +143,17 @@ public class Configuration {
         _explorerProperties = explorerProperties;
     }
 
+    private void _loadWalletProperties() {
+        final String bitcoinRpcUrl = _properties.getProperty("wallet.bitcoinRpcUrl", "");
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("wallet.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+
+        final WalletProperties walletProperties = new WalletProperties();
+        walletProperties._bitcoinRpcUrl = bitcoinRpcUrl;
+        walletProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        _walletProperties = walletProperties;
+    }
+
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
@@ -138,10 +165,14 @@ public class Configuration {
 
         _loadServerProperties();
 
+        _loadWalletProperties();
+
         _loadExplorerProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
+    public WalletProperties getWalletProperties() { return _walletProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
+
 }

@@ -29,6 +29,8 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
@@ -102,10 +104,23 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         { // Process TransactionInputs...
             Integer transactionInputIndex = 0;
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+                final TransactionOutputId previousTransactionOutputId;
+                {
+                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    if (previousOutputTransactionHash != null) {
+                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+                        previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+
+                        if (previousTransactionOutputId == null) {
+                            Logger.log("NOTICE: Error calculating fee for Transaction: " + transactionHashString);
+                        }
+                    }
+                    else {
+                        previousTransactionOutputId = null;
+                    }
+                }
+
                 if (previousTransactionOutputId == null) {
-                    Logger.log("Error calculating fee for Transaction: " + transactionHashString);
                     transactionFee = null; // Abort calculating the transaction fee but continue with the rest of the processing...
                 }
 
@@ -150,7 +165,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                         final LockingScript lockingScript = transactionOutput.getLockingScript();
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         final Address address = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
-                        addressString = address.toBase58CheckEncoded();
+                        addressString = (address != null ? address.toBase58CheckEncoded() : null);
                     }
 
                     final Json transactionOutputJson = transactionJson.get("outputs").get(transactionOutputIndex);
@@ -190,6 +205,72 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         return blockDatabaseManager.getBlockHeightForBlockId(blockId);
     }
 
+    // Requires GET:    [blockHeight=null], [maxBlockCount=10]
+    protected void _getBlockHeaders(final Json parameters, final Json response) {
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+            final Long startingBlockHeight;
+            {
+                final String blockHeightString = parameters.getString("blockHeight");
+                if (Util.isInt(blockHeightString)) {
+                    startingBlockHeight = parameters.getLong("blockHeight");
+                }
+                else {
+                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                    startingBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                }
+            }
+
+            final Integer maxBlockCount;
+            if (parameters.hasKey("maxBlockCount")) {
+                maxBlockCount = parameters.getInteger("maxBlockCount");
+            }
+            else {
+                maxBlockCount = 10;
+            }
+
+            final Json blockHeadersJson = new Json(true);
+            final java.util.List<Row> rows = databaseConnection.query(
+                new Query("SELECT id FROM blocks WHERE block_height <= ? ORDER BY block_height DESC LIMIT " + maxBlockCount)
+                    .setParameter(startingBlockHeight)
+            );
+            for (final Row row : rows) {
+                final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+                final Json blockJson;
+                {
+                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    blockJson = blockHeader.toJson();
+                }
+
+                { // Include Extra Block Metadata...
+                    final Boolean isFullBlock = false;
+                    final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+
+                    blockJson.put("height", blockHeight);
+                    blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
+                    // blockJson.put("byteCount", (isFullBlock ? blockHeader.getByteCount() : null));
+                    blockJson.put("transactionCount", transactionCount);
+                    blockJson.put("byteCount", null);
+                }
+
+                blockHeadersJson.add(blockJson);
+            }
+
+            response.put("blockHeaders", blockHeadersJson);
+
+            response.put("wasSuccess", 1);
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
+    }
+
     protected void _getBlock(final Json parameters, final Json response) {
         if (! parameters.hasKey("hash")) {
             response.put("errorMessage", "Missing parameters. Required: hash");
@@ -208,8 +289,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
             if (blockId == null) {
@@ -253,15 +334,18 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 { // Include Extra Block Metadata...
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+
                     blockJson.put("height", blockHeight);
                     blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
                     blockJson.put("byteCount", (isFullBlock ? blockData.getByteCount() : null));
+                    blockJson.put("transactionCount", transactionCount);
                 }
 
                 { // Add extra transaction metadata...
                     if (isFullBlock) {
                         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+                        final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
                         final Json transactionsJson = blockJson.get("transactions");
 
@@ -308,7 +392,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final BlockChainSegmentId mainBlockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+            final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(mainBlockChainSegmentId, transactionHash);
             if (transactionId == null) {
@@ -538,6 +622,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 switch (method.toUpperCase()) {
                     case "GET": {
                         switch (query.toUpperCase()) {
+                            case "BLOCK_HEADERS": {
+                                _getBlockHeaders(parameters, response);
+                            } break;
+
                             case "BLOCK": {
                                 _getBlock(parameters, response);
                             } break;

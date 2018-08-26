@@ -12,7 +12,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 public class BlockChainDatabaseManager {
-    protected static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
+    public static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -34,19 +34,6 @@ public class BlockChainDatabaseManager {
         BLOCK_CHAIN_SEGMENT_CACHE.cacheBlockChainSegment(blockChainSegment);
 
         return blockChainSegment;
-    }
-
-    protected BlockChainSegmentId _getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, block_chain_segment_id FROM blocks WHERE id = ?")
-                .setParameter(blockId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("block_chain_segment_id"));
-        return blockChainSegmentId;
     }
 
     public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
@@ -113,12 +100,12 @@ public class BlockChainDatabaseManager {
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         final Boolean newBlockIsContentiousBlock = (blockDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
 
-        final BlockChainSegmentId previousBlockChainSegmentId = _getBlockChainSegmentId(previousBlockId);
+        final BlockChainSegmentId previousBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(previousBlockId);
         if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
                 // 2.1.1 Update the blockChain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-                BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId);
+                BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
                 _databaseConnection.executeSql(
                     new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
                         .setParameter(newBlockId)
@@ -129,7 +116,7 @@ public class BlockChainDatabaseManager {
                 blockDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
-                final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(newBlockId);
+                final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(newBlockId);
                 if (blockChainSegmentId == null) { // If this block is not already assigned a blockChainSegment, create a new one...
                     // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
                     final BlockChainSegmentId genesisBlockChainSegmentId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
@@ -176,7 +163,7 @@ public class BlockChainDatabaseManager {
             // 3.2 Update/revert the baseBlockChain.
             //  The head_block_id should point to the previousBlock.
             //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-            BLOCK_CHAIN_SEGMENT_CACHE.updateCachedBlockChainSegment(previousBlockChainSegmentId, newBlockId, previousBlockBlockHeight, refactoredChainBlockCount);
+            BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
             _databaseConnection.executeSql(
                 new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
                     .setParameter(previousBlockId)
@@ -205,6 +192,7 @@ public class BlockChainDatabaseManager {
                         .setParameter(previousBlockChainSegmentId)
                         .setParameter(previousBlockBlockHeight)
                 );
+                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate BlockChainSegmentId cache after update...
             }
 
             // 3.4 Create a new block chain to house the newBlock (and its future children)...
@@ -239,12 +227,38 @@ public class BlockChainDatabaseManager {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);
     }
 
-    public BlockChainSegment getBlockChainSegment(final BlockId blockId) throws DatabaseException {
-        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
-        return _inflateBlockChainSegmentFromId(blockChainSegmentId);
+    public BlockChainSegmentId getHeadBlockChainSegmentId() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM block_chain_segments ORDER BY block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockChainSegmentId.wrap(row.getLong("id"));
     }
 
-    public BlockChainSegmentId getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
-        return _getBlockChainSegmentId(blockId);
+    public BlockChainSegmentId getHeadBlockChainSegmentIdConnectedToBlockChainSegmentId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final BlockChainSegment blockChainSegment = _inflateBlockChainSegmentFromId(blockChainSegmentId);
+        if (blockChainSegment == null) { return null; }
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM block_chain_segments ORDER BY block_height DESC")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockId blockId = blockChainSegment.getHeadBlockId();
+
+        for (final Row row : rows) {
+            final BlockChainSegmentId headBlockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("id"));
+            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId);
+
+            if (blockIsConnectedToChain) {
+                return headBlockChainSegmentId;
+            }
+        }
+
+        return blockChainSegmentId;
     }
+
 }

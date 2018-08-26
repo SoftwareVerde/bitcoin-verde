@@ -45,9 +45,9 @@ public class VerdeWallet extends Application {
             while (! Thread.interrupted()) {
                 if (_jsonSocket == null) {
                     try {
-                        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-                        final String host = "localhost";
-                        final Integer port = serverProperties.getBitcoinRpcPort();
+                        final Configuration.WalletProperties walletProperties = _configuration.getWalletProperties();
+                        final String host = walletProperties.getBitcoinRpcUrl();
+                        final Integer port = walletProperties.getBitcoinRpcPort();
 
                         final Socket tcpSocket = new Socket(host, port);
                         _jsonSocket = new JsonSocket(tcpSocket);

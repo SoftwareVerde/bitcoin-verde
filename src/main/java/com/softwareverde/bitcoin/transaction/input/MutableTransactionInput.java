@@ -8,7 +8,7 @@ import com.softwareverde.json.Json;
 
 public class MutableTransactionInput implements TransactionInput {
 
-    protected Sha256Hash _previousOutputTransactionHash = new MutableSha256Hash();
+    protected Sha256Hash _previousOutputTransactionHash = Sha256Hash.EMPTY_HASH;
     protected Integer _previousOutputIndex = 0;
     protected UnlockingScript _unlockingScript = UnlockingScript.EMPTY_SCRIPT;
     protected SequenceNumber _sequenceNumber = SequenceNumber.MAX_SEQUENCE_NUMBER;

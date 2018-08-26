@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.cache.TransactionCache;
+import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -28,7 +28,7 @@ import com.softwareverde.util.Util;
 import java.util.Map;
 
 public class TransactionDatabaseManager {
-    protected static final TransactionCache TRANSACTION_CACHE = new TransactionCache(1024);
+    public static final TransactionIdCache TRANSACTION_CACHE = new TransactionIdCache();
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -76,17 +76,15 @@ public class TransactionDatabaseManager {
      */
     protected TransactionId _getTransactionIdFromHash(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-
-//        final Boolean blockChainSegmentExists = blockChainDatabaseManager.blockChainSegmentExists(blockChainSegmentId);
-//        if (! blockChainSegmentExists) { return null; }
 
         { // Attempt to find in cache first...
             final Map<BlockId, TransactionId> cachedTransactionIds = TRANSACTION_CACHE.getCachedTransactionIds(transactionHash);
-            for (final BlockId blockId : cachedTransactionIds.keySet()) {
-                final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
-                if (blockIsConnectedToChain) {
-                    return cachedTransactionIds.get(blockId);
+            if (cachedTransactionIds != null) {
+                for (final BlockId blockId : cachedTransactionIds.keySet()) {
+                    final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+                    if (blockIsConnectedToChain) {
+                        return cachedTransactionIds.get(blockId);
+                    }
                 }
             }
         }
@@ -97,15 +95,22 @@ public class TransactionDatabaseManager {
         );
         if (rows.isEmpty()) { return null; }
 
+        TransactionId matchedTransactionId = null;
         for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
-            if (blockIsConnectedToChain) {
-                return TransactionId.wrap(row.getLong("id"));
+
+            TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transactionHash); // Cache all of the found TransactionIds for this hash, even if they're not on this BlockChainSegment...
+
+            if (matchedTransactionId == null) {
+                final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+                if (blockIsConnectedToChain) {
+                    matchedTransactionId = TransactionId.wrap(row.getLong("id"));
+                }
             }
         }
 
-        return null;
+        return matchedTransactionId;
     }
 
     /**
@@ -137,7 +142,11 @@ public class TransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return TransactionId.wrap(row.getLong("id"));
+        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+
+        TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transactionHash);
+
+        return transactionId;
     }
 
     protected void _updateTransaction(final TransactionId transactionId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
@@ -150,6 +159,8 @@ public class TransactionDatabaseManager {
                 .setParameter(lockTime.getValue())
                 .setParameter(transactionId)
         );
+
+        TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
     }
 
     protected TransactionId _insertTransaction(final BlockId blockId, final Transaction transaction) throws DatabaseException {
@@ -182,7 +193,11 @@ public class TransactionDatabaseManager {
 
         final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getSize());
         for (int i = 0; i < transactions.getSize(); ++i) {
-            transactionIds.add(TransactionId.wrap(firstTransactionId + i));
+            final Transaction transaction = transactions.get(i);
+            final TransactionId transactionId = TransactionId.wrap(firstTransactionId + i);
+
+            transactionIds.add(transactionId);
+            TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
         }
         return transactionIds;
     }
@@ -319,5 +334,17 @@ public class TransactionDatabaseManager {
 
         final Row row = rows.get(0);
         return BlockId.wrap(row.getLong("block_id"));
+    }
+
+    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT block_id, COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+        final Row row = rows.get(0);
+
+        return row.getInteger("transaction_count");
     }
 }

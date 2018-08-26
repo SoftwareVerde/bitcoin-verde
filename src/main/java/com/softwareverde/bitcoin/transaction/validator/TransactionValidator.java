@@ -35,6 +35,8 @@ import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
 
 public class TransactionValidator {
+    protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
+
     protected final BlockChainDatabaseManager _blockChainDatabaseManager;
     protected final BlockDatabaseManager _blockDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
@@ -55,18 +57,21 @@ public class TransactionValidator {
 
         final Integer transactionInputIndex = context.getTransactionInputIndex();
 
-        Logger.log("\n------------");
-        Logger.log("Tx Hash:\t\t"           + transaction.getHash() + ( (transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("") ));
-        Logger.log("Tx Bytes:\t\t"          + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
-        Logger.log("Tx Input:\t\t"          + (transactionInput != null ? HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)) : null));
-        Logger.log("Tx Output:\t\t"         + ( (outputToSpend != null) ? (outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend))) : (null) ));
-        Logger.log("Block Height:\t\t"      + context.getBlockHeight());
-        Logger.log("Tx Input Index\t\t"     + transactionInputIndex);
-        Logger.log("Locking Script:\t\t"    + lockingScript);
-        Logger.log("Unlocking Script:\t"    + unlockingScript);
-        Logger.log("Median Block Time:\t"   + _medianBlockTime.getCurrentTimeInSeconds());
-        Logger.log("Network Time:\t\t"      + _networkTime.getCurrentTimeInSeconds());
-        Logger.log("\n------------\n");
+        synchronized (LOG_INVALID_TRANSACTION_MUTEX) {
+            // NOTE: These logging statements are synchronized since Transaction validation is multithreaded, and it is possible to have these log statements intermingle if multiple errors are found...
+            Logger.log("\n------------");
+            Logger.log("Tx Hash:\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
+            Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
+            Logger.log("Tx Input:\t\t" + (transactionInput != null ? HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)) : null));
+            Logger.log("Tx Output:\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend))) : (null)));
+            Logger.log("Block Height:\t\t" + context.getBlockHeight());
+            Logger.log("Tx Input Index\t\t" + transactionInputIndex);
+            Logger.log("Locking Script:\t\t" + lockingScript);
+            Logger.log("Unlocking Script:\t" + unlockingScript);
+            Logger.log("Median Block Time:\t" + _medianBlockTime.getCurrentTimeInSeconds());
+            Logger.log("Network Time:\t\t" + _networkTime.getCurrentTimeInSeconds());
+            Logger.log("\n------------\n");
+        }
     }
 
     protected Boolean _shouldValidateLockTime(final Transaction transaction) {
@@ -222,7 +227,7 @@ public class TransactionValidator {
             }
 
             if (outputToSpend == null) {
-                Logger.log("Transaction references non-existent output.");
+                Logger.log("Transaction references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
                 _logInvalidTransaction(transaction, context);
                 return false;
             }

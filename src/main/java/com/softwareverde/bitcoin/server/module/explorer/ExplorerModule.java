@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer;
 
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.BlocksApi;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.SearchApi;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.httpserver.DirectoryServlet;
@@ -52,6 +53,7 @@ public class ExplorerModule {
 
         { // Account Api
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));
+            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties));
         }
 
         { // Static Content

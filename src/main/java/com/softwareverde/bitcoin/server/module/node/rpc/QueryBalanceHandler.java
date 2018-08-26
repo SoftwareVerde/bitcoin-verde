@@ -28,7 +28,7 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final BlockChainSegmentId headChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
+            final BlockChainSegmentId headChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query(

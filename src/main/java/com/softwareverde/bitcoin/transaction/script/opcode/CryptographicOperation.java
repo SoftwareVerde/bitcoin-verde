@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.Bip55;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
@@ -7,6 +8,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
@@ -46,8 +48,17 @@ public class CryptographicOperation extends SubTypedOperation {
         final Integer codeSeparatorIndex = context.getScriptLastCodeSeparatorIndex();
         final Script currentScript = context.getCurrentScript();
 
+        final HashType hashType = scriptSignature.getHashType();
+
+        final Long blockHeight = context.getBlockHeight();
+        if (Bip55.isEnabled(blockHeight)) {
+            if (! hashType.isBitcoinCashType()) {
+                return false;
+            }
+        }
+
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, scriptSignature.getHashType());
+        final SignatureContext signatureContext = new SignatureContext(transaction, hashType, blockHeight);
         signatureContext.setInputIndexBeingSigned(transactionInputIndexBeingSigned);
         signatureContext.setShouldSignInputScript(transactionInputIndexBeingSigned, true, transactionOutputBeingSpent);
         signatureContext.setLastCodeSeparatorIndex(transactionInputIndexBeingSigned, codeSeparatorIndex);

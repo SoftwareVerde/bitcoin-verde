@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
@@ -115,12 +116,14 @@ public class TransactionValidatorTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId;
 
         { // Store the transaction output being spent by the transaction...
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
             final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
-            blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+            blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
             final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
+            TransactionTestUtil.makeFakeTransactionInsertable(blockChainSegmentId, previousTransaction, databaseConnection);
             transactionDatabaseManager.insertTransaction(blockChainSegmentId, storedBlock.blockId, previousTransaction);
         }
 
@@ -152,10 +155,11 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
-        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         transactionDatabaseManager.insertTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
@@ -166,7 +170,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -194,10 +198,11 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
-        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         transactionDatabaseManager.insertTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
@@ -208,7 +213,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
@@ -236,10 +241,11 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(storedBlock.block);
-        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         transactionDatabaseManager.insertTransaction(blockChainSegmentId, storedBlock.blockId, transactionToSpend);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
@@ -250,7 +256,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
         final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
-        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction);
+        final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action

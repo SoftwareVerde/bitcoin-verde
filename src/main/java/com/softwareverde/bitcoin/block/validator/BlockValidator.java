@@ -32,12 +32,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
-    protected static final Integer TOTAL_THREAD_COUNT = 4; // The total number of threads that will be spawned for each call to Validate.  NOTE: This number should be divisible by 2.
-
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
+
+    protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
     protected Boolean _validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block, final Long blockHeight) {
@@ -134,7 +134,7 @@ public class BlockValidator {
             }
         }
 
-        final Integer threadCount = (TOTAL_THREAD_COUNT / 2);
+        final Integer threadCount = (_maxThreadCount / 2);
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
@@ -218,6 +218,13 @@ public class BlockValidator {
         _databaseConnectionFactory = threadedConnectionsFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+    }
+
+    /**
+     *  Sets the total number of threads that will be spawned for each call to BlockValidator::Validate.  NOTE: This number should be divisible by 2.
+     */
+    public void setMaxThreadCount(final Integer maxThreadCount) {
+        _maxThreadCount = maxThreadCount;
     }
 
     public void setTrustedBlockHeight(final Integer trustedBlockHeight) {

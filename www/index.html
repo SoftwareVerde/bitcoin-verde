@@ -6,6 +6,7 @@
 
         <script src="/js/constants.js"></script>
         <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/core.js"></script>
         <script src="/js/main.js"></script>
 
         <title>Bitcoin Cash Block Explorer</title>
@@ -18,9 +19,9 @@
             </div>
             <div class="navigation">
                 <ul>
-                    <li>Home</li>
-                    <li>Blocks</li>
-                    <li>Status</li>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blocks/">Blocks</a></li>
+                    <li><a href="/status/">Status</a></li>
                 </ul>
             </div>
             <div class="search">
@@ -47,6 +48,7 @@
                     <div class="nonce"><label>Nonce</label><span class="value">0</span></div>
                     <div class="reward"><label>Block Reward</label><span class="value">50</span></div>
                     <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
+                    <div class="transaction-count"><label>Transaction Count</label><span class="value">0</span></div>
                 </div>
                 <div class="transactions"></div>
             </div>

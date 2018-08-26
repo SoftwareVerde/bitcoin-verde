@@ -1,0 +1,79 @@
+.block-header {
+    border-bottom: solid 1px rgba(0, 0, 0, 0.1);
+    display: block;
+    font-size: 0;
+}
+
+.block-header > div {
+    display: inline-block;
+    box-sizing: border-box;
+    border: none;
+    font-size: initial;
+    padding-left: 1em;
+    line-height: 2em;
+}
+
+#main {
+    margin-top: 1em;
+    margin-left: 2em;
+    margin-right: 2em;
+    margin-bottom: 1em;
+}
+
+#main > div.block:not(.table-header):nth-child(even) {
+    background-color: #FFFFFF;
+}
+
+.block-header .height {
+    width: 5%;
+}
+
+.block-header .hash {
+    width: 50%;
+}
+
+.block-header .timestamp {
+    width: 35%;
+}
+
+.block-header .transaction-count {
+    width: 10%;
+}
+
+#main > div:not(.table-header) .block-header label {
+    display: none;
+}
+
+#main .table-header label {
+    font-weight: bold;
+    line-height: 2em;
+}
+
+span.value:not(.fixed) {
+    font-size: 0.9em;
+}
+
+.block-header .difficulty {
+    display: none;
+}
+
+.block-header .previous-block-hash {
+    display: none;
+}
+
+.block-header .merkle-root {
+    display: none;
+}
+
+.block-header .nonce {
+    display: none;
+}
+
+.block-header .reward {
+    display: none;
+}
+
+.block-header .byte-count {
+    display: none;
+}
+

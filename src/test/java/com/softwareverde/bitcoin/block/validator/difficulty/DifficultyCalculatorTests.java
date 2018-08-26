@@ -38,7 +38,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final BlockId blockId = blockDatabaseManager.storeBlock(block);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
 
-        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
         // Action
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, block);

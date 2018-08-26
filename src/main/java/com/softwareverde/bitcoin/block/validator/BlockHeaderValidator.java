@@ -63,7 +63,7 @@ public class BlockHeaderValidator {
         }
 
         validateBlockTimer.stop();
-        Logger.log("Validated Block Header in "+ (validateBlockTimer.getMillisecondsElapsed()) + "ms.");
+        // Logger.log("Validated Block Header in "+ (validateBlockTimer.getMillisecondsElapsed()) + "ms.");
 
         return true;
     }

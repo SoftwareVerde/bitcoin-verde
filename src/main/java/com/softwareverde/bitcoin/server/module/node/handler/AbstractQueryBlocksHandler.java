@@ -54,8 +54,8 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
     }
 
     protected StartingBlock _getStartingBlock(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final BlockChainSegmentId blockChainSegmentId;
         final BlockId startingBlockId;
@@ -77,28 +77,26 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
                 }
             }
 
-            if (foundBlockId == null) {
+            if (foundBlockId != null) {
+                final BlockId desiredBlockId = blockDatabaseManager.getBlockIdFromHash(desiredBlockHash);
+                if (desiredBlockId != null) {
+                    blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(desiredBlockId);
+                }
+                else {
+                    final BlockChainSegmentId foundBlockBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(foundBlockId);
+                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentIdConnectedToBlockChainSegmentId(foundBlockBlockChainSegmentId);
+                }
+            }
+            else {
                 final Sha256Hash headBlockHash = blockDatabaseManager.getHeadBlockHash();
                 if (headBlockHash != null) {
                     final BlockId genesisBlockId = blockDatabaseManager.getBlockIdFromHash(Block.GENESIS_BLOCK_HASH);
                     foundBlockId = genesisBlockId;
-
-                    final BlockId headBlockHashId = blockDatabaseManager.getBlockIdFromHash(headBlockHash);
-                    blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockHashId);
+                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
                 }
                 else {
                     foundBlockId = null;
                     blockChainSegmentId = null;
-                }
-            }
-            else {
-                final BlockId desiredBlockId = blockDatabaseManager.getBlockIdFromHash(desiredBlockHash);
-                if (desiredBlockId != null) {
-                    blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(desiredBlockId);
-                }
-                else {
-                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    blockChainSegmentId = blockChainDatabaseManager.getBlockChainSegmentId(headBlockId);
                 }
             }
 

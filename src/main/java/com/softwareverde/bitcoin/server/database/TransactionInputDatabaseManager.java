@@ -35,13 +35,16 @@ public class TransactionInputDatabaseManager {
 
         final TransactionId previousOutputTransactionId;
         {
-            final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
-            if (uncommittedPreviousOutputTransactionId != null) {
-                previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
+            // NOTE: Searching for transactions that spend outputs from the same block appear to be less common than transactions that spend outputs from a previous block.
+            //  Therefore, despite finding uncommitted Transactions being a simpler (logically) lookup, it is often unnecessary, so the more common (but complicated) case is attempted first.
+
+            final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
+            if (committedPreviousOutputTransactionId != null) {
+                previousOutputTransactionId = committedPreviousOutputTransactionId;
             }
             else {
-                final TransactionId committedPreviousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, previousOutputTransactionHash);
-                previousOutputTransactionId = committedPreviousOutputTransactionId;
+                final TransactionId uncommittedPreviousOutputTransactionId = transactionDatabaseManager.getUncommittedTransactionIdFromHash(previousOutputTransactionHash);
+                previousOutputTransactionId = uncommittedPreviousOutputTransactionId;
             }
         }
         if (previousOutputTransactionId == null) { return null; }
@@ -86,6 +89,9 @@ public class TransactionInputDatabaseManager {
                 .setParameter(previousTransactionOutputId)
                 .setParameter(transactionInput.getSequenceNumber())
         );
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
 
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
         if (transactionInputId == null) { return null; }
@@ -146,6 +152,7 @@ public class TransactionInputDatabaseManager {
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, sequence_number) VALUES (?, ?, ?)");
 
         final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionIds.getSize() * 2);
+        final MutableList<TransactionOutputId> previousTransactionOutputIds = new MutableList<TransactionOutputId>(transactionIds.getSize() * 2);
 
         int transactionInputIdCount = 0;
         for (int i = 0; i < transactionIds.getSize(); ++i) {
@@ -169,6 +176,8 @@ public class TransactionInputDatabaseManager {
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
                 unlockingScripts.add(unlockingScript);
 
+                previousTransactionOutputIds.add(previousTransactionOutputId);
+
                 batchedInsertQuery.setParameter(transactionId);
                 batchedInsertQuery.setParameter(previousTransactionOutputId);
                 batchedInsertQuery.setParameter(transactionInput.getSequenceNumber());
@@ -187,6 +196,9 @@ public class TransactionInputDatabaseManager {
         }
 
         _insertUnlockingScripts(transactionInputIds, unlockingScripts);
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        transactionOutputDatabaseManager.markTransactionOutputsAsSpent(previousTransactionOutputIds);
 
         return transactionInputIds;
     }

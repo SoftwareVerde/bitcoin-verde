@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.bip.Bip55;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -14,6 +15,7 @@ import com.softwareverde.util.Util;
 public class SignatureContext {
     private final Transaction _transaction;
     private final HashType _hashType;
+    private final Long _blockHeight;
 
     private final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
     private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
@@ -23,9 +25,10 @@ public class SignatureContext {
     private Script _currentScript;
     private List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
 
-    public SignatureContext(final Transaction transaction, final HashType hashType) {
+    public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight) {
         _transaction = transaction;
         _hashType = hashType;
+        _blockHeight = blockHeight;
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i = 0; i < transactionInputs.getSize(); ++i) {
@@ -124,8 +127,8 @@ public class SignatureContext {
         return true;
     }
 
-    public TransactionOutput getTransactionOutputBeingSpent(final Integer index) {
-        return _previousTransactionOutputsBeingSpent.get(index);
+    public TransactionOutput getTransactionOutputBeingSpent(final Integer inputIndex) {
+        return _previousTransactionOutputsBeingSpent.get(inputIndex);
     }
 
     public Integer getLastCodeSeparatorIndex(final Integer index) {
@@ -142,5 +145,11 @@ public class SignatureContext {
 
     public List<ByteArray> getBytesToExcludeFromScript() {
         return _bytesToExcludeFromScript;
+    }
+
+    public Boolean shouldUseBitcoinCashSigningAlgorithm() {
+        if (! Bip55.isEnabled(_blockHeight)) { return false; }
+
+        return _hashType.isBitcoinCashType();
     }
 }
