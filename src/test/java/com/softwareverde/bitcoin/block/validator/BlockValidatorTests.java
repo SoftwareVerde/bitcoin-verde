@@ -26,6 +26,9 @@ import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.network.time.ImmutableNetworkTime;
@@ -230,18 +233,31 @@ public class BlockValidatorTests extends IntegrationTest {
             Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeBlockChainSegmentId, block1DoublePrime));
         }
 
-        final BlockChainSegmentId block2PrimeBlockChainSegmentId;
-        {
-            for (final Transaction transaction : block2Prime.getTransactions()) {
-                TransactionTestUtil.makeFakeTransactionInsertable(block1PrimeBlockChainSegmentId, transaction, databaseConnection);
-            }
-            final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime); // Should be an invalid block...
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
-            block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block2Id);
-        }
+        // TransactionInput 0:BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D should exist within the database,
+        //  however, it should exist only within a separate chain...
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT transaction_outputs.id FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.transaction_id WHERE transactions.hash = ? AND transaction_outputs.`index` = ?")
+                .setParameter("BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D")
+                .setParameter("0")
+        );
+        Assert.assertTrue(rows.size() > 0);
 
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, block2Prime);
+        final Boolean block2PrimeIsValid;
+        {
+            Boolean blockIsValid;
+            try {
+                final BlockChainSegmentId block2PrimeBlockChainSegmentId;
+                final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime); // Should be an invalid block...
+                blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
+                block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block2Id);
+                blockIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, block2Prime);
+            }
+            catch (final DatabaseException exception) {
+                blockIsValid = false;
+            }
+            block2PrimeIsValid = blockIsValid;
+        }
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
