@@ -50,10 +50,11 @@ public class DifficultyCalculator {
                 if (blockWithPreviousAdjustment == null) { return null; }
 
                 //  2. Get the current block timestamp.
+                final BlockHeader previousBlock;
                 final Long blockTimestamp;
                 {
                     final BlockId previousBlockId = _blockDatabaseManager.getBlockIdFromHash(blockHeader.getPreviousBlockHash());
-                    final BlockHeader previousBlock = _blockDatabaseManager.getBlockHeader(previousBlockId);
+                    previousBlock = _blockDatabaseManager.getBlockHeader(previousBlockId);
                     blockTimestamp = previousBlock.getTimestamp();
                 }
                 final Long previousBlockTimestamp = blockWithPreviousAdjustment.getTimestamp();
@@ -76,7 +77,7 @@ public class DifficultyCalculator {
                 final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
 
                 //  7. Multiply the difficulty by the bounded difficultyAdjustment.
-                final Difficulty newDifficulty = (blockWithPreviousAdjustment.getDifficulty().multiplyBy(1.0D / boundedDifficultyAdjustment));
+                final Difficulty newDifficulty = (previousBlock.getDifficulty().multiplyBy(1.0D / boundedDifficultyAdjustment));
 
                 //  8. The new difficulty cannot be less than the base difficulty.
                 final Difficulty minimumDifficulty = Difficulty.BASE_DIFFICULTY;
