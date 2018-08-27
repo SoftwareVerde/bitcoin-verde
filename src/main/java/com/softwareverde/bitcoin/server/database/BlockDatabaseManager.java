@@ -33,6 +33,37 @@ public class BlockDatabaseManager {
 
     public static final Object MUTEX = new Object();
 
+    /**
+     * Initializes a MedianBlockTime from the database.
+     *  NOTE: The headBlockHash is included within the MedianBlockTime.
+     */
+    protected static MutableMedianBlockTime _newInitializedMedianBlockTime(final MysqlDatabaseConnection databaseConnection, final Sha256Hash headBlockHash) throws DatabaseException {
+        // Initializes medianBlockTime with the N most recent blocks...
+
+        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTime.BLOCK_COUNT);
+
+        Sha256Hash blockHash = headBlockHash;
+        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            if (blockId == null) { break; }
+
+            final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+            blockHeadersInDescendingOrder.add(blockHeader);
+            blockHash = blockHeader.getPreviousBlockHash();
+        }
+
+        // Add the blocks to the MedianBlockTime in ascending order (lowest block-height is added first)...
+        for (int i = 0; i < blockHeadersInDescendingOrder.size(); ++i) {
+            final BlockHeader blockHeader = blockHeadersInDescendingOrder.get(blockHeadersInDescendingOrder.size() - i - 1);
+            medianBlockTime.addBlock(blockHeader);
+        }
+
+        return medianBlockTime;
+    }
+
     protected final MysqlDatabaseConnection _databaseConnection;
 
     public BlockDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
@@ -339,6 +370,46 @@ public class BlockDatabaseManager {
         return _getBlockChainSegmentId(previousBlockId);
     }
 
+    protected Sha256Hash _getHeadBlockHash() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+    }
+
+    protected Sha256Hash _getHeadBlockHeaderHash() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+    }
+
+    protected BlockId _getHeadBlockHeaderId() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
+
+    protected BlockId _getHeadBlockId() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("id"));
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _insertBlockHeader(blockHeader);
     }
@@ -400,48 +471,28 @@ public class BlockDatabaseManager {
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
     public Sha256Hash getHeadBlockHeaderHash() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return _getHeadBlockHeaderHash();
     }
 
     /**
      * Returns the BlockId of the block that has the tallest block-height.
      */
     public BlockId getHeadBlockHeaderId() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1"));
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("id"));
+        return _getHeadBlockHeaderId();
     }
 
     /**
      * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return _getHeadBlockHash();
     }
 
     /**
      * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
     public BlockId getHeadBlockId() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1"));
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("id"));
+        return _getHeadBlockId();
     }
 
     public BlockId getBlockIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
@@ -552,25 +603,46 @@ public class BlockDatabaseManager {
     }
 
     /**
+     * Returns the BlockId of the nth-parent, where n is the parentCount.
+     *  For instance, getAncestor(blockId, 0) returns blockId, and getAncestor(blockId, 1) returns blockId's parent.
+     */
+    public BlockId getAncestorBlockId(final BlockId blockId, final Integer parentCount) throws DatabaseException {
+        BlockId nextBlockId = blockId;
+        for (int i = 0; i < parentCount; ++i) {
+            final BlockHeader blockHeader = _inflateBlockHeader(nextBlockId);
+            nextBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
+        }
+        return nextBlockId;
+    }
+
+    /**
+     * Initializes a Mutable MedianBlockTime using only blocks that have been fully validated.
+     */
+    public MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException {
+        Sha256Hash blockHash = Util.coalesce(_getHeadBlockHash(), Block.GENESIS_BLOCK_HASH);
+        return _newInitializedMedianBlockTime(_databaseConnection, blockHash);
+    }
+
+    /**
+     * Initializes a Mutable MedianBlockTime using most recent block headers.
+     *  The significant difference between MutableMedianBlockTime.newInitializedMedianBlockHeaderTime and MutableMedianBlockTime.newInitializedMedianBlockTime
+     *  is that BlockHeaders are downloaded and validated more quickly than blocks; therefore when validating blocks
+     *  MutableMedianBlockTime.newInitializedMedianBlockTime should be used, not this function.
+     */
+    public MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException {
+        Sha256Hash blockHash = Util.coalesce(_getHeadBlockHeaderHash(), Block.GENESIS_BLOCK_HASH);
+        return _newInitializedMedianBlockTime(_databaseConnection, blockHash);
+    }
+
+    /**
      * Calculates the MedianBlockTime of the provided startingBlockId.
      * NOTE: startingBlockId is exclusive. The MedianBlockTime does NOT include the provided startingBlockId; instead,
      *  it includes the MedianBlockTime.BLOCK_COUNT (11) number of blocks before the startingBlockId.
      */
     public MedianBlockTime calculateMedianBlockTime(final BlockId startingBlockId) throws DatabaseException {
-        final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
         final BlockHeader startingBlock = _inflateBlockHeader(startingBlockId);
-
-        Sha256Hash blockHash = startingBlock.getPreviousBlockHash();
-        for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
-            final BlockId blockId = _getBlockIdFromHash(blockHash);
-            if (blockId == null) { break; }
-
-            final BlockHeader blockHeader = _inflateBlockHeader(blockId);
-            medianBlockTime.addBlock(blockHeader);
-            blockHash = blockHeader.getPreviousBlockHash();
-        }
-
-        return medianBlockTime;
+        final Sha256Hash blockHash = startingBlock.getPreviousBlockHash();
+        return _newInitializedMedianBlockTime(_databaseConnection, blockHash);
     }
 
 }

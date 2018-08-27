@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.bip.Bip55;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
@@ -13,16 +12,15 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 public class DifficultyCalculator {
+    protected final MysqlDatabaseConnection _databaseConnection;
     protected final BlockDatabaseManager _blockDatabaseManager;
-    protected final MedianBlockTimeWithBlocks _medianBlockTime;
 
-    public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection) {
+        _databaseConnection = databaseConnection;
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        _medianBlockTime = medianBlockTime;
     }
 
     public Difficulty calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader) {
@@ -96,14 +94,17 @@ public class DifficultyCalculator {
                 final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(previousBlockBlockId);
 
                 if (Bip55.isEnabled(blockHeight)) {
-                    // 00000000000000000012C195D050EDF9D2C0F7CAF733E959A8E38D60160194CA
-                    // Required: 18014735 Found: 18019902
-                    final BlockHeader tipBlockHeader = _medianBlockTime.getBlockHeader(0);
-                    final BlockHeader blockHeaderSixBlocksAgo = _medianBlockTime.getBlockHeader(6);
+                    final MedianBlockTime medianBlockTime = _blockDatabaseManager.calculateMedianBlockTime(blockId);
+                    final BlockId sixthParentBlockId = _blockDatabaseManager.getAncestorBlockId(blockId, 6);
+                    final MedianBlockTime medianBlockTimeForSixthBlock = _blockDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
                     final Long secondsInTwelveHours = 43200L;
 
-                    if (tipBlockHeader.getTimestamp() - blockHeaderSixBlocksAgo.getTimestamp() > secondsInTwelveHours) {
+                    if (medianBlockTime == null || medianBlockTimeForSixthBlock == null) {
+                        Logger.log("Unable to calculate difficulty for block: " + blockHeader.getHash());
+                        return null;
+                    }
 
+                    if (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeForSixthBlock.getCurrentTimeInSeconds() > secondsInTwelveHours) {
                         final Difficulty emergencyDifficulty;
                         {
                             Difficulty newDifficulty = headBlockHeader.getDifficulty().multiplyBy(1.25D);

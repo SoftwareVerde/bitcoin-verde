@@ -48,7 +48,7 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseConnection, _medianBlockTime);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseConnection);
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, blockHeader);
             if (calculatedRequiredDifficulty == null) {
                 Logger.log("Unable to calculate required difficulty for block: " + blockChainSegmentId + " " + blockHeader.getHash());
