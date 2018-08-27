@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -16,7 +16,7 @@ import com.softwareverde.util.timer.Timer;
 
 public class BlockHeaderValidator {
     protected final NetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
+    protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected Boolean _validateBlockHeader(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader, final Long blockHeight) {
@@ -68,7 +68,7 @@ public class BlockHeaderValidator {
         return true;
     }
 
-    public BlockHeaderValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public BlockHeaderValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnection = databaseConnection;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;

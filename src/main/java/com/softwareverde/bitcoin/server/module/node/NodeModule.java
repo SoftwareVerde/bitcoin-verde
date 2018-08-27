@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
 import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
@@ -149,11 +150,8 @@ public class NodeModule {
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    newMedianBlockTime = MutableMedianBlockTime.newInitializedMedianBlockTime(databaseConnection);
-                    if (newMedianBlockTime == null) {
-                        Logger.log("Error initializing MedianBlockTime.");
-                        BitcoinUtil.exitFailure();
-                    }
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                    newMedianBlockTime = blockDatabaseManager.initializeMedianBlockTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
@@ -175,11 +173,8 @@ public class NodeModule {
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    newMedianBlockTime = MutableMedianBlockTime.newInitializedMedianBlockHeaderTime(databaseConnection);
-                    if (newMedianBlockTime == null) {
-                        Logger.log("Error initializing MedianBlockTime.");
-                        BitcoinUtil.exitFailure();
-                    }
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                    newMedianBlockTime = blockDatabaseManager.initializeMedianBlockHeaderTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);

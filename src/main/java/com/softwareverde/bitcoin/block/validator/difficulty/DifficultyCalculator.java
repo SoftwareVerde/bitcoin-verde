@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
+import com.softwareverde.bitcoin.bip.Bip55;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -14,19 +14,17 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
 
 public class DifficultyCalculator {
+    protected final MysqlDatabaseConnection _databaseConnection;
     protected final BlockDatabaseManager _blockDatabaseManager;
-    protected final BlockChainDatabaseManager _blockChainDatabaseManager;
 
     public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection) {
+        _databaseConnection = databaseConnection;
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
     }
 
     public Difficulty calculateRequiredDifficulty(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader) {
         final Integer blockCountPerDifficultyAdjustment = 2016;
         try {
-            final BlockChainSegment blockChainSegment = _blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-
             final BlockId blockId = _blockDatabaseManager.getBlockIdFromHash(blockHeader.getHash());
             if (blockId == null) {
                 Logger.log("Unable to find BlockId from Hash: "+ blockHeader.getHash());
@@ -93,6 +91,35 @@ public class DifficultyCalculator {
                 if (previousBlockBlockId == null) { return null; }
 
                 final BlockHeader headBlockHeader = _blockDatabaseManager.getBlockHeader(previousBlockBlockId);
+
+                if (Bip55.isEnabled(blockHeight)) {
+                    final MedianBlockTime medianBlockTime = _blockDatabaseManager.calculateMedianBlockTime(blockId);
+                    final BlockId sixthParentBlockId = _blockDatabaseManager.getAncestorBlockId(blockId, 6);
+                    final MedianBlockTime medianBlockTimeForSixthBlock = _blockDatabaseManager.calculateMedianBlockTime(sixthParentBlockId);
+                    final Long secondsInTwelveHours = 43200L;
+
+                    if (medianBlockTime == null || medianBlockTimeForSixthBlock == null) {
+                        Logger.log("Unable to calculate difficulty for block: " + blockHeader.getHash());
+                        return null;
+                    }
+
+                    if (medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeForSixthBlock.getCurrentTimeInSeconds() > secondsInTwelveHours) {
+                        final Difficulty emergencyDifficulty;
+                        {
+                            Difficulty newDifficulty = headBlockHeader.getDifficulty().multiplyBy(1.25D);
+
+                            final Difficulty minimumDifficulty = Difficulty.BASE_DIFFICULTY;
+                            if (newDifficulty.isLessDifficultThan(minimumDifficulty)) {
+                                newDifficulty = minimumDifficulty;
+                            }
+                            emergencyDifficulty = newDifficulty;
+                        }
+
+                        Logger.log("Emergency Difficulty Adjustment: BlockHeight: " + blockHeight + " Original Difficulty: " + headBlockHeader.getDifficulty() + " New Difficulty: " + emergencyDifficulty);
+                        return emergencyDifficulty;
+                    }
+                }
+
                 return headBlockHeader.getDifficulty();
             }
         }

@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.database.cache;
 
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.util.Util;

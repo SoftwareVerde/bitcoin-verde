@@ -271,6 +271,75 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
+    protected void _getBlockHeader(final Json parameters, final Json response) {
+        if (! parameters.hasKey("hash")) {
+            response.put("errorMessage", "Missing parameters. Required: hash");
+            return;
+        }
+
+        final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
+
+        final String blockHashString = parameters.getString("hash");
+        final Sha256Hash blockHash = MutableSha256Hash.fromHexString(blockHashString);
+
+        if (blockHash == null) {
+            response.put("errorMessage", "Invalid block hash: " + blockHashString);
+            return;
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            if (blockId == null) {
+                response.put("errorMessage", "Block not found: " + blockHashString);
+                return;
+            }
+
+            final BlockHeader block;
+            final ByteArray blockData;
+            {
+                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                if (blockHeader == null) {
+                    response.put("errorMessage", "Could not inflate Block; it may be corrupted.");
+                    return;
+                }
+
+                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+
+                block = blockHeader;
+                blockData = blockHeaderDeflater.toBytes(blockHeader);
+            }
+
+            if (shouldReturnRawBlockData) {
+                response.put("block", HexUtil.toHexString(blockData.getBytes()));
+            }
+            else {
+                final Json blockJson = block.toJson();
+
+                { // Include Extra Block Metadata...
+                    final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+
+                    blockJson.put("height", blockHeight);
+                    blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
+                    blockJson.put("byteCount", null);
+                    blockJson.put("transactionCount", transactionCount);
+                }
+
+                response.put("block", blockJson);
+            }
+
+            response.put("wasSuccess", 1);
+        }
+        catch (final Exception exception) {
+            response.put("wasSuccess", 0);
+            response.put("errorMessage", exception.getMessage());
+        }
+    }
+
     protected void _getBlock(final Json parameters, final Json response) {
         if (! parameters.hasKey("hash")) {
             response.put("errorMessage", "Missing parameters. Required: hash");
@@ -628,6 +697,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "BLOCK": {
                                 _getBlock(parameters, response);
+                            } break;
+
+                            case "BLOCK_HEADER": {
+                                _getBlockHeader(parameters, response);
                             } break;
 
                             case "TRANSACTION": {
