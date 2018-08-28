@@ -7,6 +7,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -179,21 +182,39 @@ public class BlockDatabaseManager {
         );
     }
 
+    protected ChainWork _getChainWork(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, chain_work FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return ChainWork.fromHexString(row.getString("chain_work"));
+    }
+
     protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         final BlockId previousBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
         final Long previousBlockHeight = _getBlockHeightForBlockId(previousBlockId);
-        final Long blockHeight = (previousBlockHeight == null ? 0 : (previousBlockHeight + 1));
+        final Long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1));
+        final Difficulty difficulty = blockHeader.getDifficulty();
+
+        final BlockWork blockWork = difficulty.calculateWork();
+        final ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
+        final ChainWork chainWork = ChainWork.add(previousChainWork, blockWork);
 
         return BlockId.wrap(_databaseConnection.executeSql(
-            new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
                 .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
                 .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(blockHeader.getDifficulty().encode())
+                .setParameter(difficulty.encode())
                 .setParameter(blockHeader.getNonce())
+                .setParameter(chainWork)
         ));
     }
 
@@ -645,4 +666,7 @@ public class BlockDatabaseManager {
         return _newInitializedMedianBlockTime(_databaseConnection, blockHash);
     }
 
+    public ChainWork getChainWork(final BlockId blockId) throws DatabaseException {
+        return _getChainWork(blockId);
+    }
 }

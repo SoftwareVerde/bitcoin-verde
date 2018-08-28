@@ -343,4 +343,41 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Assert
         Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
     }
+
+    @Test
+    public void should_calculate_bitcoin_cash_difficulty_for_block_00000000000000000343E9875012F2062554C8752929892C82A0C0743AC7DCFD() throws Exception {
+//        // Setup
+//        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+//
+//        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+//        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+//
+//        final BlockHeader[] blockHeaders = _initBlocks3(479808L, databaseConnection);
+//
+//        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020C5F04B072B446E02EFE3231190BFE67E1883BDB3D58B5A00000000000000000063AF62061B439138245E2ED248100E0EF7B25E9192FCF2DC550209D0F3F9D715AF069959CC1D101846ADA54C"));
+//
+//        Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
+//        Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
+//
+//        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+//
+//        final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+//        databaseConnection.executeSql(
+//            new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+//                .setParameter(1L)
+//                .setParameter(blockHeaders.length + 3)
+//                .setParameter(479808L)
+//                .setParameter(479808L)
+//        );
+//        databaseConnection.executeSql(new Query("UPDATE blocks SET block_chain_segment_id = 1"));
+//        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(479808L).setParameter(blockHeader.getHash()));
+//
+//        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+//
+//        // Action
+//        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, blockHeader);
+//
+//        // Assert
+//        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
+    }
 }

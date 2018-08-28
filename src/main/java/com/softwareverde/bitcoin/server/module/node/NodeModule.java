@@ -3,6 +3,10 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ImmutableBlockWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
@@ -40,6 +44,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.timer.Timer;
 
 import java.io.File;
 
@@ -71,6 +76,44 @@ public class NodeModule {
         }
 
         return new Configuration(configurationFile);
+    }
+
+    protected void _warmUpCache() {
+        Logger.log("[Warming Cache]");
+        try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
+            { // Warm Up AddressDatabaseManager Cache...
+                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
+                );
+                for (final Row row : rows) {
+                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
+                    final String address = row.getString("address");
+                    addressDatabaseManager.getAddressId(address);
+                }
+
+                AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
+            }
+
+            { // Warm Up TransactionDatabaseManager Cache...
+                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, block_id, hash FROM transactions WHERE block_id IS NOT NULL ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
+                );
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+                    final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+                    transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
+                }
+
+                TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            BitcoinUtil.exitFailure();
+        }
     }
 
     protected NodeModule(final String configurationFilename) {
@@ -212,41 +255,7 @@ public class NodeModule {
 
     public void loop() {
         if (_shouldWarmUpCache) {
-            Logger.log("[Warming Cache]");
-            try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-                { // Warm Up AddressDatabaseManager Cache...
-                    final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
-                    final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
-                    );
-                    for (final Row row : rows) {
-                        final AddressId addressId = AddressId.wrap(row.getLong("id"));
-                        final String address = row.getString("address");
-                        addressDatabaseManager.getAddressId(address);
-                    }
-
-                    AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
-                }
-
-                { // Warm Up TransactionDatabaseManager Cache...
-                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-                    final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT id, block_id, hash FROM transactions WHERE block_id IS NOT NULL ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
-                    );
-                    for (final Row row : rows) {
-                        final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                        final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-                        final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
-                        transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
-                    }
-
-                    TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
-                }
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-                BitcoinUtil.exitFailure();
-            }
+            _warmUpCache();
         }
 
         _nodeManager.startNodeMaintenanceThread();

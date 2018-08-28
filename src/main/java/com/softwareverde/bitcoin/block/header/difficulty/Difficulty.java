@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -11,6 +12,7 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     byte[] BASE_DIFFICULTY_SIGNIFICAND = new byte[] { (byte) 0x00, (byte) 0xFF, (byte) 0xFF };
     ImmutableDifficulty BASE_DIFFICULTY = new ImmutableDifficulty(BASE_DIFFICULTY_SIGNIFICAND, BASE_DIFFICULTY_EXPONENT);
 
+
     Integer getExponent();
     byte[] getSignificand();
 
@@ -19,6 +21,8 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     BigDecimal getDifficultyRatio();
 
     Difficulty multiplyBy(final double difficultyAdjustment);
+
+    BlockWork calculateWork();
 
     ByteArray getBytes();
     ByteArray encode();

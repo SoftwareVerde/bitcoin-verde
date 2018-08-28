@@ -16,6 +16,7 @@ CREATE TABLE blocks (
     timestamp bigint unsigned NOT NULL,
     difficulty char(8) NOT NULL,
     nonce bigint unsigned NOT NULL,
+    chain_work char(64) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
     UNIQUE KEY block_hash_uq2 (block_chain_segment_id, block_height),

@@ -1,10 +1,7 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.gui.VerdeWallet;
-import com.softwareverde.bitcoin.server.module.AddressModule;
-import com.softwareverde.bitcoin.server.module.DatabaseModule;
-import com.softwareverde.bitcoin.server.module.MinerModule;
-import com.softwareverde.bitcoin.server.module.StratumModule;
+import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -172,6 +169,17 @@ public class Main {
                 final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
                 final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
                 MinerModule.execute(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
+            } break;
+
+            case "CHAIN_WORK": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                ChainWorkModule.execute(configurationFile);
             } break;
 
             default: {
