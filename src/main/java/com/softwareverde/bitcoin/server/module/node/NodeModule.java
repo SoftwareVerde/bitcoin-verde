@@ -3,10 +3,6 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
-import com.softwareverde.bitcoin.block.header.difficulty.work.ImmutableBlockWork;
-import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
@@ -44,7 +40,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.timer.Timer;
 
 import java.io.File;
 

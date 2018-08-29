@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
 import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
-import com.softwareverde.bitcoin.block.header.difficulty.work.ImmutableBlockWork;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;

@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
-import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
@@ -160,11 +159,16 @@ public class DifficultyCalculator {
         final ChainWork firstChainWork = _blockDatabaseManager.getChainWork(firstBlockId);
         final ChainWork lastChainWork = _blockDatabaseManager.getChainWork(lastBlockId);
 
-        final ChainWork workPerformed = ChainWork.subtract(lastChainWork, firstChainWork);
+        final BigInteger workPerformed;
+        {
+            final BigInteger firstChainWorkBigInteger = new BigInteger(firstChainWork.getBytes());
+            final BigInteger lastChainWorkBigInteger = new BigInteger(lastChainWork.getBytes());
+            workPerformed = lastChainWorkBigInteger.subtract(firstChainWorkBigInteger);
+        }
 
         final BigInteger projectedWork;
         {
-            projectedWork = new BigInteger(workPerformed.getBytes())
+            projectedWork = workPerformed
                 .multiply(BigInteger.valueOf(600L))
                 .divide(BigInteger.valueOf(timeSpan));
         }

@@ -34,22 +34,4 @@ public interface ChainWork extends Work {
         mutableChainWork.add(work1);
         return mutableChainWork;
     }
-
-    static MutableChainWork subtract(final Work work0, final Work work1) {
-        final MutableChainWork mutableChainWork = new MutableChainWork(work0);
-        mutableChainWork.subtract(work1);
-        return mutableChainWork;
-    }
-
-    static MutableChainWork multiply(final Work work, final Integer coefficient) {
-        final MutableChainWork mutableChainWork = new MutableChainWork(work);
-        mutableChainWork.multiply(coefficient);
-        return mutableChainWork;
-    }
-
-    static MutableChainWork divide(final Work work, final Long coefficient) {
-        final MutableChainWork mutableChainWork = new MutableChainWork(work);
-        mutableChainWork.divide(coefficient);
-        return mutableChainWork;
-    }
 }
