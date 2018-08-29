@@ -3,10 +3,21 @@ package com.softwareverde.bitcoin.block.header.difficulty.work;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.HexUtil;
 
+import java.math.BigInteger;
+
 public interface ChainWork extends Work {
     static MutableChainWork fromByteArray(final ByteArray byteArray) {
         if (byteArray.getByteCount() != 32) { return null; }
         return new MutableChainWork(byteArray);
+    }
+
+    static MutableChainWork fromBigInteger(final BigInteger bigInteger) {
+        final byte[] bytes = bigInteger.toByteArray();
+        final MutableChainWork mutableChainWork = new MutableChainWork();
+        for (int i = 0; i < bytes.length; ++i) {
+            mutableChainWork.set((32 - i -1), (bytes[bytes.length - i - 1]));
+        }
+        return mutableChainWork;
     }
 
     static MutableChainWork wrap(final byte[] bytes) {
@@ -21,6 +32,24 @@ public interface ChainWork extends Work {
     static MutableChainWork add(final Work work0, final Work work1) {
         final MutableChainWork mutableChainWork = new MutableChainWork(work0);
         mutableChainWork.add(work1);
+        return mutableChainWork;
+    }
+
+    static MutableChainWork subtract(final Work work0, final Work work1) {
+        final MutableChainWork mutableChainWork = new MutableChainWork(work0);
+        mutableChainWork.subtract(work1);
+        return mutableChainWork;
+    }
+
+    static MutableChainWork multiply(final Work work, final Integer coefficient) {
+        final MutableChainWork mutableChainWork = new MutableChainWork(work);
+        mutableChainWork.multiply(coefficient);
+        return mutableChainWork;
+    }
+
+    static MutableChainWork divide(final Work work, final Long coefficient) {
+        final MutableChainWork mutableChainWork = new MutableChainWork(work);
+        mutableChainWork.divide(coefficient);
         return mutableChainWork;
     }
 }

@@ -6,12 +6,11 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
+import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -24,7 +23,7 @@ import java.util.Comparator;
 
 public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
-    protected static final BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
+    protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
 
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final BlockDatabaseManager _blockDatabaseManager;
@@ -122,7 +121,8 @@ public class DifficultyCalculator {
         }
 
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
-            firstBlockHeaders[i] = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (blockHeight - 144L - i));
+            final Long parentBlockHeight = (blockHeight - 1);
+            firstBlockHeaders[i] = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
         }
 
         final Comparator<BlockHeader> sortBlockHeaderByTimestampAscending = new Comparator<BlockHeader>() {
@@ -155,11 +155,26 @@ public class DifficultyCalculator {
             }
         }
 
-        final Difficulty difficulty = blockHeader.getDifficulty();
-        final BlockWork blockWork = difficulty.calculateWork();
+        final BlockId firstBlockId = _blockDatabaseManager.getBlockIdFromHash(firstBlockHeader.getHash());
+        final BlockId lastBlockId = _blockDatabaseManager.getBlockIdFromHash(lastBlockHeader.getHash());
+        final ChainWork firstChainWork = _blockDatabaseManager.getChainWork(firstBlockId);
+        final ChainWork lastChainWork = _blockDatabaseManager.getChainWork(lastBlockId);
 
-        final BigInteger projectedWork = new BigInteger(blockWork.getBytes()).multiply(BigInteger.valueOf(600L)).divide(BigInteger.valueOf(timeSpan));
-        final BigInteger targetWork = MAX_WORK.subtract(projectedWork).divide(projectedWork);
+        final ChainWork workPerformed = ChainWork.subtract(lastChainWork, firstChainWork);
+
+        final BigInteger projectedWork;
+        {
+            projectedWork = new BigInteger(workPerformed.getBytes())
+                .multiply(BigInteger.valueOf(600L))
+                .divide(BigInteger.valueOf(timeSpan));
+        }
+
+        final BigInteger targetWork;
+        {
+            targetWork = TWO_RAISED_TO_256
+                .subtract(projectedWork)
+                .divide(projectedWork);
+        }
 
         final Difficulty newDifficulty = ImmutableDifficulty.fromBigInteger(targetWork);
 

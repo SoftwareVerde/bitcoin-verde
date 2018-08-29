@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"HELP\"\n" > out/run.sh
+echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"\$@\"\n" > out/run.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"EXPLORER\" \"conf/server.conf\"\n" > out/run-explorer.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"WALLET\" \"conf/server.conf\"\n" > out/run-wallet.sh
