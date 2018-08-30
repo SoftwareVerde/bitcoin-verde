@@ -124,15 +124,15 @@ public class DifficultyCalculator {
             firstBlockHeaders[i] = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
         }
 
-        final Comparator<BlockHeader> sortBlockHeaderByTimestampAscending = new Comparator<BlockHeader>() {
+        final Comparator<BlockHeader> sortBlockHeaderByTimestampDescending = new Comparator<BlockHeader>() {
             @Override
             public int compare(final BlockHeader o1, final BlockHeader o2) {
-                return (o1.getTimestamp().compareTo(o2.getTimestamp()));
+                return (o2.getTimestamp().compareTo(o1.getTimestamp()));
             }
         };
 
-        Arrays.sort(lastBlockHeaders, sortBlockHeaderByTimestampAscending);
-        Arrays.sort(firstBlockHeaders, sortBlockHeaderByTimestampAscending);
+        Arrays.sort(lastBlockHeaders, sortBlockHeaderByTimestampDescending);
+        Arrays.sort(firstBlockHeaders, sortBlockHeaderByTimestampDescending);
 
         final BlockHeader firstBlockHeader = firstBlockHeaders[1];
         final BlockHeader lastBlockHeader = lastBlockHeaders[1];
