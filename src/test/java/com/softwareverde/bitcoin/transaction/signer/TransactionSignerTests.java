@@ -89,7 +89,7 @@ public class TransactionSignerTests {
 
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutput(transactionOutputBeingSpent);
+            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
 
             final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();

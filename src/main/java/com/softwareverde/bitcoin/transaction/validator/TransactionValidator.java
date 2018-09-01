@@ -236,7 +236,7 @@ public class TransactionValidator {
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutput(outputToSpend);
+            context.setTransactionOutputBeingSpent(outputToSpend);
             context.setTransactionInputIndex(i);
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
