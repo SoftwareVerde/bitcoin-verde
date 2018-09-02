@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.Bip146;
+import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.bip.Bip55;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -207,7 +207,7 @@ public class DifficultyCalculator {
             final Boolean isFirstBlock = (Util.areEqual(blockHeader.getHash(), BlockHeader.GENESIS_BLOCK_HASH)); // (blockChainSegment.getBlockHeight() == 0);
             if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
-            if (Bip146.isEnabled(blockHeight)) {
+            if (HF20171113.isEnabled(blockHeight)) {
                 return _calculateNewBitcoinCashTarget(blockChainSegmentId, blockId, blockHeight, blockHeader);
             }
 
