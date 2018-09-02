@@ -54,8 +54,11 @@ public class BitwiseOperation extends SubTypedOperation {
             }
 
             case BITWISE_AND: {
-                final Value value0 = stack.pop();
+                // value0 value1 BITWISE_AND -> { value0 & value1 }
+                // { 0x00 } { 0x01 } BITWISE_AND -> { 0x00 }
+
                 final Value value1 = stack.pop();
+                final Value value0 = stack.pop();
 
                 final MutableByteArray byteValue0 = MutableByteArray.wrap(value0.getBytes());
                 final ByteArray byteValue1 = MutableByteArray.wrap(value1.getBytes());
@@ -76,8 +79,11 @@ public class BitwiseOperation extends SubTypedOperation {
             }
 
             case BITWISE_OR: {
-                final Value value0 = stack.pop();
+                // value0 value1 BITWISE_OR -> { value0 | value1 }
+                // { 0x00 } { 0x01 } BITWISE_OR -> { 0x01 }
+
                 final Value value1 = stack.pop();
+                final Value value0 = stack.pop();
 
                 final MutableByteArray byteValue0 = MutableByteArray.wrap(value0.getBytes());
                 final ByteArray byteValue1 = MutableByteArray.wrap(value1.getBytes());
@@ -98,8 +104,11 @@ public class BitwiseOperation extends SubTypedOperation {
             }
 
             case BITWISE_XOR: {
-                final Value value0 = stack.pop();
+                // value0 value1 BITWISE_XOR -> { value0 ^ value1 }
+                // { 0x01 } { 0x01 } BITWISE_XOR -> { 0x00 }
+
                 final Value value1 = stack.pop();
+                final Value value0 = stack.pop();
 
                 final MutableByteArray byteValue0 = MutableByteArray.wrap(value0.getBytes());
                 final ByteArray byteValue1 = MutableByteArray.wrap(value1.getBytes());

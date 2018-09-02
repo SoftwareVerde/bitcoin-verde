@@ -47,19 +47,20 @@ public enum Opcode {
     SWAP_1ST_2ND_WITH_3RD_4TH           (0x72),
 
     // STRING
-    STRING_CONCATENATE                  (0x7E, false),
-    STRING_SUBSTRING                    (0x7F, false),
-    STRING_LEFT                         (0x80, false),
-    STRING_RIGHT                        (0x81, false),
+    CONCATENATE                         (0x7E),
+    SPLIT                               (0x7F),
+    ENCODE_NUMBER                       (0x80),
+    DECODE_NUMBER                       (0x81),
     STRING_PUSH_LENGTH                  (0x82),
 
     // BITWISE
     BITWISE_INVERT                      (0x83, false),
-    BITWISE_AND                         (0x84, false),
-    BITWISE_OR                          (0x85, false),
-    BITWISE_XOR                         (0x86, false),
+    BITWISE_AND                         (0x84),
+    BITWISE_OR                          (0x85),
+    BITWISE_XOR                         (0x86),
     SHIFT_LEFT                          (0x98, false),
     SHIFT_RIGHT                         (0x99, false),
+
 
     // COMPARISON
     INTEGER_AND                         (0x9A),
@@ -87,8 +88,8 @@ public enum Opcode {
     ADD                                 (0x93),
     SUBTRACT                            (0x94),
     MULTIPLY                            (0x95, false),
-    DIVIDE                              (0x96, false),
-    MODULUS                             (0x97, false),
+    DIVIDE                              (0x96),
+    MODULUS                             (0x97),
     MIN                                 (0xA3),
     MAX                                 (0xA4),
 

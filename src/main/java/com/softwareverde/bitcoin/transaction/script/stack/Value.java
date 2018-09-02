@@ -33,13 +33,7 @@ public class Value extends ImmutableByteArray implements Const {
         final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
         final byte[] absValueBytes = ByteUtil.integerToBytes(absValue);
 
-        final boolean requiresSignPadding;
-        if (isNegative) {
-            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
-        }
-        else {
-            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
-        }
+        final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
 
         final byte[] bytes = new byte[(requiresSignPadding ? unsignedByteCount + 1 : unsignedByteCount)];
         ByteUtil.setBytes(bytes, ByteUtil.reverseEndian(absValueBytes));
