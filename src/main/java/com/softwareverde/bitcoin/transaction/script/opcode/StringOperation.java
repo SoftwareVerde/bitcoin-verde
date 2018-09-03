@@ -134,12 +134,13 @@ public class StringOperation extends SubTypedOperation {
                 final Value value = stack.pop();
 
                 final Integer byteCount = byteCountValue.asInteger();
-                final Integer valueAsInteger = value.asInteger();
+                final Long valueAsInteger = value.asLong();
+                final Value reinterpretedValue = Value.fromInteger(valueAsInteger);
 
-                final byte[] minimallyEncodedValue = Value.fromInteger(valueAsInteger.longValue()).getBytes();
+                final byte[] minimallyEncodedValue = ByteUtil.reverseEndian(reinterpretedValue.getBytes());
                 if (byteCount < minimallyEncodedValue.length) { return false; }
 
-                final Boolean isNegative = ( valueAsInteger < 0 );
+                final Boolean isNegative = (valueAsInteger < 0);
 
                 { // Remove the sign bit from the minimally encoded value...
                     if (minimallyEncodedValue.length > 0) {
@@ -153,7 +154,7 @@ public class StringOperation extends SubTypedOperation {
                     bytes[bytes.length - i - 1] = b;
                 }
 
-                if (isNegative) {
+                if ( (isNegative) && (byteCount > 0) ) {
                     bytes[0] |= (byte) 0x80;
                 }
 
