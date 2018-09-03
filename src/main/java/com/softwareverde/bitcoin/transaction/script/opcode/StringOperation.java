@@ -104,9 +104,8 @@ public class StringOperation extends SubTypedOperation {
                 return (! stack.didOverflow());
             }
 
-            case ENCODE_NUMBER: {
-                // TODO: Write tests for this implementation...
-
+            // Encodes a signed binary number into Bitcoin's MPI format.
+            case ENCODE_NUMBER: { // TODO: Write tests for this implementation...
                 // NOTE: Bitcoin Verde's internal representation is always big-endian.
                 // value ENCODE_NUMBER -> { minimum-encoded value }
                 // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
@@ -123,13 +122,12 @@ public class StringOperation extends SubTypedOperation {
                 return (! stack.didOverflow());
             }
 
-            case DECODE_NUMBER: {
-                // TODO: Write tests for this implementation...
-
+            // Decodes an MPI-encoded number into a signed byte array of specific size.
+            case DECODE_NUMBER: { // TODO: Write tests for this implementation...
                 // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
                 // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
                 // { 0x85 } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x05 }
-                // { 0x85 } { 0x05 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x00, 0x05 }
+                // { 0x85 } { 0x02 } DECODE_NUMBER -> { 0x80, 0x05 }
                 // { 0x80, 0xFF } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0xFF }
 
                 final Value byteCountValue = stack.pop();
@@ -138,24 +136,30 @@ public class StringOperation extends SubTypedOperation {
                 final Integer byteCount = byteCountValue.asInteger();
                 final Integer valueAsInteger = value.asInteger();
 
-                final byte[] valueBytes = value.getBytes();
+                final byte[] minimallyEncodedValue = Value.fromInteger(valueAsInteger.longValue()).getBytes();
+                if (byteCount < minimallyEncodedValue.length) { return false; }
 
-                final byte[] normalEncodedValue = Value.fromInteger(valueAsInteger.longValue()).getBytes();
-                if (byteCount < normalEncodedValue.length) { return false; }
+                final Boolean isNegative = ( valueAsInteger < 0 );
 
-                final Boolean isNegative = ( (valueBytes.length > 0) && ((valueBytes[0] & (byte) 0x80) == (byte) 0x80) );
+                { // Remove the sign bit from the minimally encoded value...
+                    if (minimallyEncodedValue.length > 0) {
+                        minimallyEncodedValue[0] &= 0x7F;
+                    }
+                }
 
                 final byte[] bytes = new byte[byteCount];
-                for (int i = 0; i < normalEncodedValue.length; ++i) {
-                    final byte b = normalEncodedValue[normalEncodedValue.length - i - 1];
+                for (int i = 0; i < minimallyEncodedValue.length; ++i) {
+                    final byte b = minimallyEncodedValue[minimallyEncodedValue.length - i - 1];
                     bytes[bytes.length - i - 1] = b;
                 }
 
-                if ( (isNegative) && (byteCount > 0) ) {
+                if (isNegative) {
                     bytes[0] |= (byte) 0x80;
                 }
 
-                stack.push(Value.fromBytes(bytes));
+                final byte[] littleEndianBytes = ByteUtil.reverseEndian(bytes);
+                final Value decodedValue = Value.fromBytes(littleEndianBytes);
+                stack.push(decodedValue);
 
                 return (! stack.didOverflow());
             }
