@@ -98,8 +98,8 @@ public class StringOperation extends SubTypedOperation {
                     bytes1[i] = valueBytes[index + i];
                 }
 
-                stack.push(Value.fromBytes(bytes1));
                 stack.push(Value.fromBytes(bytes0));
+                stack.push(Value.fromBytes(bytes1));
 
                 return (! stack.didOverflow());
             }
