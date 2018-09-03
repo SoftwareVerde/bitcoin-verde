@@ -105,12 +105,13 @@ public class StringOperation extends SubTypedOperation {
             }
 
             case ENCODE_NUMBER: {
-                // TODO: Validate this implementation...
+                // TODO: Write tests for this implementation...
 
+                // NOTE: Bitcoin Verde's internal representation is always big-endian.
                 // value ENCODE_NUMBER -> { minimum-encoded value }
                 // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
                 // { 0x00, 0x00, 0x00, 0x02 } ENCODE_NUMBER -> { 0x02 }
-                // { 0x05, 0x00, 0x80 } ENCODE_NUMBER -> { 0x05, 0x00, 0x80 }
+                // { 0x80, 0x00, 0x05 } ENCODE_NUMBER -> { 0x80, 0x00, 0x05 }
 
                 final Value value = stack.pop();
 
@@ -123,7 +124,7 @@ public class StringOperation extends SubTypedOperation {
             }
 
             case DECODE_NUMBER: {
-                // TODO: Validate this implementation...
+                // TODO: Write tests for this implementation...
 
                 // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
                 // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
@@ -150,7 +151,7 @@ public class StringOperation extends SubTypedOperation {
                     bytes[bytes.length - i - 1] = b;
                 }
 
-                if (isNegative) {
+                if ( (isNegative) && (byteCount > 0) ) {
                     bytes[0] |= (byte) 0x80;
                 }
 

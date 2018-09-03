@@ -24,6 +24,7 @@ public class Value extends ImmutableByteArray implements Const {
     //      MPI:            0x80FF00
     //      Signed Hex:     -0xFF00
     //      2's Complement: 0xFFFFFFFFFFFF0100
+    // The returned byte array is little-endian.
     protected static byte[] _longToBytes(final Long value) {
         if (value == 0L) { return new byte[0]; }
 
@@ -46,7 +47,7 @@ public class Value extends ImmutableByteArray implements Const {
 
     public static Value fromInteger(final Long longValue) {
         final byte[] bytes = _longToBytes(longValue);
-        return new Value(ByteUtil.reverseEndian(bytes));
+        return new Value(bytes);
     }
 
     public static Value fromBoolean(final Boolean booleanValue) {
@@ -60,7 +61,7 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     protected static boolean _isNegativeNumber(final byte[] bytes) {
-        final byte mostSignificantByte = bytes[bytes.length - 1];
+        final byte mostSignificantByte = bytes[0];
         return ( (mostSignificantByte & ((byte) 0x80)) != ((byte) 0x00) );
     }
 
@@ -75,9 +76,10 @@ public class Value extends ImmutableByteArray implements Const {
     public Integer asInteger() {
         if (_bytes.length == 0) { return 0; }
 
-        final boolean isNegative = _isNegativeNumber(_bytes);
-
         final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
+
+        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
+
         { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of an integer)
             bigEndianBytes[0] &= (byte) 0x7F;
         }
@@ -89,9 +91,10 @@ public class Value extends ImmutableByteArray implements Const {
     public Long asLong() {
         if (_bytes.length == 0) { return 0L; }
 
-        final boolean isNegative = _isNegativeNumber(_bytes);
-
         final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
+
+        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
+
         { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of a long)
             bigEndianBytes[0] &= (byte) 0x7F;
         }
