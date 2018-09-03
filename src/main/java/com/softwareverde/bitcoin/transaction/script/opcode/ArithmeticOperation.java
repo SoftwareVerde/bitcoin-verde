@@ -23,10 +23,6 @@ public class ArithmeticOperation extends SubTypedOperation {
         return new ArithmeticOperation(opcodeByte, opcode);
     }
 
-    protected static Boolean _didIntegerOverflow(final long value) {
-        return (value > Integer.MAX_VALUE || value < Integer.MIN_VALUE);
-    }
-
     protected ArithmeticOperation(final byte value, final Opcode opcode) {
         super(value, TYPE, opcode);
     }

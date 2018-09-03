@@ -749,4 +749,24 @@ public class HistoricTransactionsTests {
 
         runScripts(testConfig);
     }
+
+    @Test
+    public void should_verify_transaction_FBB2CBE350E9DDD6FC3CBA1A4C721DEB87083FC238DA40C8D63FA3011D99CFE9_0() {
+        // NOTE: This transaction uses ENCODE_NUMBER...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0200000001AED8BB86DD133D96AB93C2517B1A25C23B7D614F607C8F61B0E9B549A5D3878C000000001615008181818181818181818181818181818181810087FFFFFFFF0120680000000000001976A914F3CEA45002302FB8D7AFE0BAF3CC41F0D5EF759488AC00000000";
+        testConfig.transactionInputBytes = "AED8BB86DD133D96AB93C2517B1A25C23B7D614F607C8F61B0E9B549A5D3878C000000001615008181818181818181818181818181818181810087FFFFFFFF";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "A87B00000000000017A914A8C94BC7A012435D49BBD1398676CE65BD82CD4087";
+        testConfig.blockHeight = 530360L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A914A8C94BC7A012435D49BBD1398676CE65BD82CD4087";
+        testConfig.unlockingScriptBytes = "15008181818181818181818181818181818181810087";
+
+        // Median Block Time:   1526405443
+        // Network Time:        1535945129
+
+        runScripts(testConfig);
+    }
 }

@@ -110,10 +110,14 @@ public class StringOperation extends SubTypedOperation {
                 // value ENCODE_NUMBER -> { minimum-encoded value }
                 // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
                 // { 0x00, 0x00, 0x00, 0x02 } ENCODE_NUMBER -> { 0x02 }
+                // { 0x05, 0x00, 0x80 } ENCODE_NUMBER -> { 0x05, 0x00, 0x80 }
 
                 final Value value = stack.pop();
-                final Integer valueInteger = value.asInteger();
-                stack.push(Value.fromInteger(valueInteger.longValue()));
+
+                final Long valueInteger = value.asLong();
+                if (_didIntegerOverflow(valueInteger)) { return false; }
+
+                stack.push(Value.fromInteger(valueInteger));
 
                 return (! stack.didOverflow());
             }
@@ -138,7 +142,7 @@ public class StringOperation extends SubTypedOperation {
                 final byte[] normalEncodedValue = Value.fromInteger(valueAsInteger.longValue()).getBytes();
                 if (byteCount < normalEncodedValue.length) { return false; }
 
-                final Boolean isNegative = ( (valueBytes[0] & (byte) 0x80) == (byte) 0x80 );
+                final Boolean isNegative = ( (valueBytes.length > 0) && ((valueBytes[0] & (byte) 0x80) == (byte) 0x80) );
 
                 final byte[] bytes = new byte[byteCount];
                 for (int i = 0; i < normalEncodedValue.length; ++i) {

@@ -49,8 +49,8 @@ public enum Opcode {
     // STRING
     CONCATENATE                         (0x7E),
     SPLIT                               (0x7F),
-    ENCODE_NUMBER                       (0x80),
-    DECODE_NUMBER                       (0x81),
+    DECODE_NUMBER                       (0x80),
+    ENCODE_NUMBER                       (0x81),
     STRING_PUSH_LENGTH                  (0x82),
 
     // BITWISE

@@ -63,6 +63,10 @@ public abstract class Operation implements Const {
         }
     }
 
+    protected static Boolean _didIntegerOverflow(final long value) {
+        return (value > Integer.MAX_VALUE || value < Integer.MIN_VALUE);
+    }
+
     protected final byte _opcodeByte;
     protected final Type _type;
 
