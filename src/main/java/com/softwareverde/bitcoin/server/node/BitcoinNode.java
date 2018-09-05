@@ -26,6 +26,8 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.PingMessage;
@@ -33,6 +35,7 @@ import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -108,6 +111,7 @@ public class BitcoinNode extends Node {
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
+    protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
     protected NewBlockAnnouncementCallback _newBlockAnnouncementCallback;
 
@@ -154,6 +158,13 @@ public class BitcoinNode extends Node {
 
     @Override
     protected BitcoinAcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
+        if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
+            _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
+        }
+        else {
+            Logger.log("NOTICE: Invalid SynchronizeVersionMessage type provided to BitcoinNode._createAcknowledgeVersionMessage.");
+        }
+
         return new BitcoinAcknowledgeVersionMessage();
     }
 
@@ -470,7 +481,22 @@ public class BitcoinNode extends Node {
 
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
-        return (BitcoinNodeIpAddress) _localNodeIpAddress;
+        return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
+    }
+
+    @Override
+    public BitcoinNodeIpAddress getRemoteNodeIpAddress() {
+        final NodeIpAddress nodeIpAddress = super.getRemoteNodeIpAddress();
+        if (nodeIpAddress == null) { return null; }
+        if (_synchronizeVersionMessage == null) { return null; }
+
+        final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+
+        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress();
+        bitcoinNodeIpAddress.setIp(nodeIpAddress.getIp());
+        bitcoinNodeIpAddress.setPort(nodeIpAddress.getPort());
+        bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
+        return bitcoinNodeIpAddress;
     }
 
     @Override
