@@ -12,11 +12,13 @@ public class RequestTimeoutThread extends Thread {
 
     private final Container<Boolean> _didMessageTimeOut;
     private final NodeHealth _nodeHealth;
+    private final Container<NodeHealth.Request> _requestContainer;
     private final ReplayInvocation _replayInvocation;
 
-    public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final ReplayInvocation replayInvocation) {
+    public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final Container<NodeHealth.Request> requestContainer, final ReplayInvocation replayInvocation) {
         _didMessageTimeOut = didMessageTimeoutContainer;
         _nodeHealth = nodeHealth;
+        _requestContainer = requestContainer;
         _replayInvocation = replayInvocation;
 
         this.setName("Node Manager - Request Timeout Thread - " + this.getId());
@@ -32,7 +34,7 @@ public class RequestTimeoutThread extends Thread {
             _didMessageTimeOut.value = true;
         }
 
-        _nodeHealth.onMessageReceived(false);
+        _nodeHealth.onMessageReceived(_requestContainer.value);
         if (NodeManager.LOGGING_ENABLED) {
             Logger.log("P2P: NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
         }

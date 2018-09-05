@@ -170,7 +170,7 @@ public class BlockValidator {
         }
 
         validateBlockTimer.stop();
-        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms ("+ ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) +" tps).");
+        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms ("+ ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) +" tps). " + block.getHash());
 
         final Long totalTransactionFees;
         {

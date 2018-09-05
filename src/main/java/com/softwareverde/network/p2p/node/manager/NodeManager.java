@@ -469,11 +469,13 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
+        final Container<NodeHealth.Request> requestContainer = new Container<NodeHealth.Request>();
+
         final RequestTimeoutThread timeoutThread;
         final NodeApiInvocationCallback cancelRequestTimeout;
         {
             final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
-            timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, replayInvocation);
+            timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, requestContainer, replayInvocation);
 
             cancelRequestTimeout = new NodeApiInvocationCallback() {
                 @Override
@@ -483,15 +485,15 @@ public class NodeManager<NODE extends Node> {
                         didMessageTimeOut.value = false;
                     }
 
-                    nodeHealth.onMessageReceived(true);
+                    nodeHealth.onMessageReceived(requestContainer.value);
                     timeoutThread.interrupt();
                     return false;
                 }
             };
         }
 
+        requestContainer.value = nodeHealth.onMessageSent();
         timeoutThread.start();
-        nodeHealth.onMessageSent();
         nodeApiInvocation.run(selectedNode, cancelRequestTimeout);
     }
 

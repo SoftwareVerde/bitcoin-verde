@@ -7,7 +7,7 @@ import org.junit.Test;
 
 public class NodeHealthTests {
     private class FakeTime implements Time {
-        protected Long _timeMs = System.currentTimeMillis();
+        protected Long _timeMs = 0L; // System.currentTimeMillis();
 
         @Override
         public Long getCurrentTimeInSeconds() {
@@ -24,185 +24,136 @@ public class NodeHealthTests {
         }
     }
 
-    protected void _configureNodeHealth(final NodeHealth nodeHealth) {
-        nodeHealth.setHealthPerSecond(10);
-        nodeHealth.setHealthConsumedPerRequest(10);
-        nodeHealth.setMaxHealth(100);
-    }
-
     @Test
-    public void should_have_perfect_health_initially() {
+    public void should_have_full_health_initially() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(100, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH, nodeHealthValue);
     }
 
     @Test
-    public void should_decay_10_percent_after_recent_message() {
+    public void should_reduce_health_for_request() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent();
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(250L);
+        nodeHealth.onMessageReceived(request);
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(90, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH - 250L, nodeHealthValue.longValue());
     }
 
     @Test
-    public void should_decay_100_percent_on_first_message_failure() {
+    public void should_heal_after_duration_of_recent_requests() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageReceived(false);
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(250L);
+        nodeHealth.onMessageReceived(request);
+        fakeTime.advanceTimeInMilliseconds(250L);
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(0, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH, nodeHealthValue);
     }
 
     @Test
-    public void should_decay_50_percent_on_first_message_success_then_second_failure() {
+    public void should_heal_after_duration_of_recent_requests_2() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageReceived(true);
-        fakeTime.advanceTimeInMilliseconds(10_000L);
-        nodeHealth.onMessageReceived(false);
-        fakeTime.advanceTimeInMilliseconds(10_000L);
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(250L);
+        nodeHealth.onMessageReceived(request);
+        fakeTime.advanceTimeInMilliseconds(200L);
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(50, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH - 50L, nodeHealthValue.longValue());
     }
 
     @Test
-    public void should_regenerate_health_after_time() {
+    public void should_heal_after_duration_of_recent_requests_3() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(500L); // 95
-        nodeHealth.onMessageSent(); // 85
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        NodeHealth.Request request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(250L);
+        nodeHealth.onMessageReceived(request);
+        fakeTime.advanceTimeInMilliseconds(250L);
+
+        request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(250L);
+        nodeHealth.onMessageReceived(request);
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(85, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH - 250L, nodeHealthValue.longValue());
     }
 
     @Test
-    public void should_regenerate_health_after_time_2() {
+    public void should_not_heal_past_max_health() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent(); // 90
-        nodeHealth.onMessageSent(); // 80
-        nodeHealth.onMessageSent(); // 70
-        nodeHealth.onMessageSent(); // 60
-        fakeTime.advanceTimeInMilliseconds(1_000L); // 70
-        nodeHealth.onMessageSent(); // 60
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        fakeTime.advanceTimeInMilliseconds(200L);
+        nodeHealth.onMessageReceived(request);
+        fakeTime.advanceTimeInMilliseconds(250L);
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(60, nodeHealthValue.intValue());
+        Assert.assertEquals(NodeHealth.FULL_HEALTH, nodeHealthValue);
     }
 
     @Test
-    public void should_regenerate_health_after_time_3() {
+    public void should_not_account_for_requests_that_are_too_old() {
         // Setup
         final FakeTime fakeTime = new FakeTime();
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(1_000L); // 100
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(100L); // 91
-        nodeHealth.onMessageSent(); // 81
-        fakeTime.advanceTimeInMilliseconds(100L); // 82
-        nodeHealth.onMessageSent(); // 72
-        fakeTime.advanceTimeInMilliseconds(90L); // 72 (Nothing (Rounded Down))
-        nodeHealth.onMessageSent(); // 62
-        fakeTime.advanceTimeInMilliseconds(10L); // 73 (90ms remaining from previous calculation...)
 
         // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
+        { // Drop the nodeHealth to zero...
+            for (int i = 0; i < 1024; ++i) {
+                final NodeHealth.Request request = nodeHealth.onMessageSent();
+                fakeTime.advanceTimeInMilliseconds(100L);
+                nodeHealth.onMessageReceived(request);
+            }
+        }
+        Assert.assertEquals(0L, nodeHealth.calculateHealth().longValue());
+
+        fakeTime.advanceTimeInMilliseconds(1L); // The last request drops off, "restoring" 100 hp and actually restoring 1 hp...
+        Assert.assertEquals(101L, nodeHealth.calculateHealth().longValue());
+
+        fakeTime.advanceTimeInMilliseconds(50L); // Restores an additional 50 hp...
+
+        final Long nodeHealthValue = nodeHealth.calculateHealth();
 
         // Assert
-        Assert.assertEquals(63, nodeHealthValue.intValue());
-    }
-
-    @Test
-    public void should_disregard_old_failures() {
-        // Setup
-        final FakeTime fakeTime = new FakeTime();
-        final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(110L); // 91
-        nodeHealth.onMessageReceived(false); // 0
-        fakeTime.advanceTimeInMilliseconds(60_050L); // 100
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(110L); // 91
-        nodeHealth.onMessageReceived(true); // 91
-
-        // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
-
-        // Assert
-        Assert.assertEquals(91, nodeHealthValue.intValue());
-    }
-
-    @Test
-    public void should_disregard_old_failures_2() {
-        // Setup
-        final FakeTime fakeTime = new FakeTime();
-        final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
-        _configureNodeHealth(nodeHealth);
-
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(110L); // 91
-        nodeHealth.onMessageReceived(false); // 91 * 0.0F
-        fakeTime.advanceTimeInMilliseconds(60_050L); // 100
-        nodeHealth.onMessageSent(); // 90
-        fakeTime.advanceTimeInMilliseconds(110L); // 91
-        nodeHealth.onMessageReceived(false); // 91 * 0.0F
-        nodeHealth.onMessageSent(); // 81 * 0.0F
-        fakeTime.advanceTimeInMilliseconds(110L); // 82 * 0.0F
-        nodeHealth.onMessageReceived(true); // 82 * 0.5F
-
-        // Action
-        final Integer nodeHealthValue = nodeHealth.calculateHealth();
-
-        // Assert
-        Assert.assertEquals(41, nodeHealthValue.intValue());
+        Assert.assertEquals(151L, nodeHealthValue.longValue());
     }
 }
