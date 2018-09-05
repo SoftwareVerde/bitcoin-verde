@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -97,6 +98,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             public void onFailure() {
                 final Sha256Hash firstBlockHash = (blockHashes.isEmpty() ? null : blockHashes.get(0));
                 Logger.log("Request failed: BitcoinNodeManager.requestBlockHeader("+ firstBlockHash +")");
+
+                if (callback != null) {
+                    callback.onFailure();
+                }
             }
         });
     }
@@ -121,6 +126,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             @Override
             public void onFailure() {
                 Logger.log("Request failed: BitcoinNodeManager.requestBlockHashesAfter("+ blockHash +")");
+
+                if (callback != null) {
+                    callback.onFailure();
+                }
             }
         });
     }
@@ -145,6 +154,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             @Override
             public void onFailure() {
                 Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +")");
+
+                if (callback != null) {
+                    callback.onFailure();
+                }
             }
         });
     }

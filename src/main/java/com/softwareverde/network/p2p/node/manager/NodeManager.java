@@ -16,7 +16,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     /**
      * NodeApiInvocation.run() should invoke an Api Call on the provided Node.
@@ -342,6 +342,21 @@ public class NodeManager<NODE extends Node> {
 
     // NOTE: Requires Mutex Lock...
     protected NODE _selectBestNode() {
+        final List<NODE> nodes = _selectBestNodes(1);
+        if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
+
+        final NODE selectedNode = nodes.get(0);
+
+        if (LOGGING_ENABLED) {
+            final NodeHealth nodeHealth = _nodeHealthMap.get(selectedNode.getId());
+            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + nodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
+        }
+
+        return selectedNode;
+    }
+
+    // NOTE: Requires Mutex Lock...
+    protected List<NODE> _selectBestNodes(final Integer requestedNodeCount) {
         final java.util.List<NODE> activeNodes = _getActiveNodes();
 
         final Integer activeNodeCount = activeNodes.size();
@@ -354,14 +369,25 @@ public class NodeManager<NODE extends Node> {
         }
         Collections.sort(nodeHealthList, NodeHealth.COMPARATOR);
 
-        final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - 1);
-        final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
-
-        if (LOGGING_ENABLED) {
-            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + bestNodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + activeNodeCount + " / " + _nodes.size());
+        final Integer nodeCount;
+        {
+            if ( (requestedNodeCount >= _nodes.size()) || (requestedNodeCount < 0) ) {
+                nodeCount = _nodes.size();
+            }
+            else {
+                nodeCount = requestedNodeCount;
+            }
         }
 
-        return selectedNode;
+        final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
+        for (int i = 0; i < nodeCount; ++i) {
+            final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - i - 1);
+            final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
+
+            selectedNodes.add(selectedNode);
+        }
+
+        return selectedNodes;
     }
 
     // NOTE: Requires Mutex lock...

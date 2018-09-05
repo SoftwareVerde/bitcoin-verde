@@ -15,6 +15,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class NodeConnection {
+    public static Boolean LOGGING_ENABLED = false;
+
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
     }
@@ -31,7 +33,10 @@ public class NodeConnection {
                     (new Thread(_onDisconnectCallback)).start();
                 }
                 _socketUsedToBeConnected = false;
-                Logger.log("IO: NodeConnection: Connection lost.");
+
+                if (LOGGING_ENABLED) {
+                    Logger.log("IO: NodeConnection: Connection lost.");
+                }
             }
 
             Socket socket = null;
@@ -39,7 +44,9 @@ public class NodeConnection {
             int attemptCount = 0;
             while (true) {
                 if (attemptCount >= MAX_CONNECTION_ATTEMPTS) {
-                    Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached.");
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached.");
+                    }
                     break;
                 }
 
@@ -51,13 +58,17 @@ public class NodeConnection {
                     if (socket.isConnected()) { break; }
                 }
                 catch (final UnknownHostException exception) {
-                    Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _host + ":" + _port);
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _host + ":" + _port);
+                    }
                     break;
                 }
                 catch (final IOException e) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + (_host + ":" + _port) + ")");
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + (_host + ":" + _port) + ")");
+                    }
                     try { Thread.sleep(3000); } catch (final Exception exception) { break; }
                 }
             }
@@ -125,7 +136,9 @@ public class NodeConnection {
 
         final Boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
-            Logger.log("IO: NodeConnection: Connection established.");
+            if (LOGGING_ENABLED) {
+                Logger.log("IO: NodeConnection: Connection established.");
+            }
 
             _processOutboundMessageQueue();
 
@@ -134,7 +147,9 @@ public class NodeConnection {
             }
         }
         else {
-            Logger.log("IO: NodeConnection: Connection regained.");
+            if (LOGGING_ENABLED) {
+                Logger.log("IO: NodeConnection: Connection regained.");
+            }
             _processOutboundMessageQueue();
 
             if (_onReconnectCallback != null) {
@@ -261,7 +276,9 @@ public class NodeConnection {
 
     public void queueMessage(final ProtocolMessage message) {
         if (message instanceof BitcoinProtocolMessage) {
-            Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()) );
+            if (LOGGING_ENABLED) {
+                Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()));
+            }
         }
 
         (new Thread(new Runnable() {

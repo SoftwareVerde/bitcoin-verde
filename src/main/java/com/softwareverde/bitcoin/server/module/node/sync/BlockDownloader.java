@@ -26,7 +26,8 @@ public class BlockDownloader {
     protected final ConcurrentLinkedQueue<Block> _queuedBlocks = new ConcurrentLinkedQueue<Block>();
     protected final BlockProcessor _blockProcessor;
     protected final BlockValidatorThread _blockValidatorThread;
-    protected volatile Boolean _shouldContinue = true;
+    protected volatile Boolean _shouldContinue = false;
+    protected Boolean _isRunning = false;
 
     protected Boolean _hasGenesisBlock() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -73,7 +74,10 @@ public class BlockDownloader {
         final BitcoinNode.DownloadBlockCallback downloadBlockCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                if (! _shouldContinue) { return; }
+                if (! _shouldContinue) {
+                    _isRunning = false;
+                    return;
+                }
 
                 Logger.log("DOWNLOADED BLOCK: "+ block.getHash());
 
@@ -85,7 +89,11 @@ public class BlockDownloader {
                 lastBlockHash.value = block.getHash();
 
                 while (_queuedBlocks.size() >= _maxQueueSize) {
-                    if (! _shouldContinue) { return; }
+                    if (! _shouldContinue) {
+                        _isRunning = false;
+                        return;
+                    }
+
                     try { Thread.sleep(500L); } catch (final Exception exception) { return; }
                 }
 
@@ -96,12 +104,21 @@ public class BlockDownloader {
                     _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
                 }
             }
+
+            @Override
+            public void onFailure() {
+                _isRunning = false;
+                _shouldContinue = false;
+            }
         };
 
         getBlocksHashesAfterCallback.value = new BitcoinNode.QueryCallback() {
             @Override
             public void onResult(final List<Sha256Hash> blockHashes) {
-                if (! _shouldContinue) { return; }
+                if (! _shouldContinue) {
+                    _isRunning = false;
+                    return;
+                }
 
                 availableBlockHashes.addAll(blockHashes);
 
@@ -109,12 +126,19 @@ public class BlockDownloader {
                     _nodeManager.requestBlock(availableBlockHashes.remove(0), downloadBlockCallback);
                 }
             }
+
+            @Override
+            public void onFailure() {
+                _isRunning = false;
+                _shouldContinue = false;
+            }
         };
 
         _nodeManager.requestBlockHashesAfter(lastBlockHash.value, getBlocksHashesAfterCallback.value);
     }
 
     public void start() {
+        _isRunning = true;
         _shouldContinue = true;
         _blockValidatorThread.start();
 
@@ -133,6 +157,12 @@ public class BlockDownloader {
 
                     _downloadAllBlocks();
                 }
+
+                @Override
+                public void onFailure() {
+                    _isRunning = false;
+                    _shouldContinue = false;
+                }
             });
         }
         else {
@@ -143,8 +173,10 @@ public class BlockDownloader {
     public void stop() {
         _shouldContinue = false;
         _blockValidatorThread.stop();
-//        _blockValidatorThread.interrupt();
-//        try { _blockValidatorThread.join(); } catch (final Exception exception) { }
+    }
+
+    public Boolean isRunning() {
+        return (_isRunning && _shouldContinue);
     }
 
     public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() {

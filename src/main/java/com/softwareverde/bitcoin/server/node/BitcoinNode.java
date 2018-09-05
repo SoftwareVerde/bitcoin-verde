@@ -42,9 +42,15 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public interface QueryCallback extends Callback<List<Sha256Hash>> { }
-    public interface DownloadBlockCallback extends Callback<Block> { }
-    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
+    public static Boolean LOGGING_ENABLED = false;
+
+    public interface FailableCallback {
+        default void onFailure() { }
+    }
+    public interface QueryCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
+    public interface DownloadBlockCallback extends Callback<Block>, FailableCallback { }
+    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
+    public interface NewBlockAnnouncementCallback extends Callback<Block>, FailableCallback { }
 
     public interface QueryBlocksCallback {
         void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
@@ -73,18 +79,22 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
+    protected static <U, T, S extends Callback<U>> Boolean _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
         final Set<S> callbackSet = callbackMap.remove(key);
-        if (callbackSet == null) { return; }
+        if ( (callbackSet == null) || (callbackSet.isEmpty()) ) { return false; }
 
         for (final S callback : callbackSet) {
             callback.onResult(value);
         }
+
+        return true;
     }
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
+
+    protected NewBlockAnnouncementCallback _newBlockAnnouncementCallback;
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
@@ -145,7 +155,9 @@ public class BitcoinNode extends Node {
 
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
-                Logger.log("Received: "+ message.getCommand());
+                if (LOGGING_ENABLED) {
+                    Logger.log("Received: " + message.getCommand());
+                }
 
                 _lastMessageReceivedTimestamp = System.currentTimeMillis();
 
@@ -313,7 +325,16 @@ public class BitcoinNode extends Node {
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
-        _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
+        final Boolean wasExpected = _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
+
+        if (! wasExpected) {
+            if (_newBlockAnnouncementCallback != null) {
+                _newBlockAnnouncementCallback.onResult(block);
+            }
+            else {
+                Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
+            }
+        }
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
@@ -411,6 +432,10 @@ public class BitcoinNode extends Node {
 
     public void setRequestDataCallback(final RequestDataCallback requestDataCallback) {
         _requestDataMessageCallback = requestDataCallback;
+    }
+
+    public void setNewBlockAnnouncementCallback(final NewBlockAnnouncementCallback newBlockAnnouncementCallback) {
+        _newBlockAnnouncementCallback = newBlockAnnouncementCallback;
     }
 
     public Boolean newBlocksViaHeadersIsEnabled() {

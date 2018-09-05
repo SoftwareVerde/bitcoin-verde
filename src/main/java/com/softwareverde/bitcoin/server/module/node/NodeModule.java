@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
@@ -142,8 +143,8 @@ public class NodeModule {
                     // commandLineArguments.addArgument("--general_log=1");
                 }
 
-                databaseInstance = new DebugEmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
-                // databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
+                // databaseInstance = new DebugEmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
+                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
@@ -166,23 +167,7 @@ public class NodeModule {
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
         _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory);
 
-        {
-            final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
-            final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
-            final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory);
-            _nodeInitializer = new NodeInitializer(queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
-        }
-
-        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
-        _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
-            @Override
-            public void run(final BinarySocket binarySocket) {
-                Logger.log("New Connection: " + binarySocket);
-                final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
-                _nodeManager.addNode(node);
-            }
-        });
-
+        final BlockProcessor blockProcessor;
         { // Initialize BlockDownloader...
             final MutableMedianBlockTime medianBlockTime;
             {
@@ -199,12 +184,60 @@ public class NodeModule {
             }
 
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
             blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
             _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
             _blockDownloader.setMaxQueueSize(maxQueueSize);
         }
+
+        {
+            final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback = new BitcoinNode.NewBlockAnnouncementCallback() {
+                @Override
+                public void onResult(final Block block) {
+                    Logger.log("New Block Announced: " + block.getHash());
+
+                    if (_blockDownloader.isRunning()) {
+                        Logger.log("Ignoring new block while syncing: " + block.getHash());
+                        return;
+                    }
+
+                    final Boolean parentBlockExists;
+                    try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        final Sha256Hash parentBlockHash = block.getPreviousBlockHash();
+                        final BlockDatabaseManager databaseManager = new BlockDatabaseManager(databaseConnection);
+                        final BlockId parentBlockId = databaseManager.getBlockIdFromHash(parentBlockHash);
+                        parentBlockExists = (parentBlockId != null);
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.log(exception);
+                        return;
+                    }
+
+                    if (parentBlockExists) {
+                        blockProcessor.processBlock(block);
+                    }
+                    else {
+                        _blockDownloader.start();
+                    }
+                }
+            };
+
+            final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
+            final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
+            final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory);
+            _nodeInitializer = new NodeInitializer(newBlockAnnouncementCallback, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+        }
+
+        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+        _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
+            @Override
+            public void run(final BinarySocket binarySocket) {
+                Logger.log("New Connection: " + binarySocket);
+                final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
+                _nodeManager.addNode(node);
+            }
+        });
 
         { // Initialize BlockHeaderDownloader...
             final MutableMedianBlockTime medianBlockTime;
