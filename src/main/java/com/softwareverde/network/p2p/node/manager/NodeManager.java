@@ -67,7 +67,7 @@ public class NodeManager<NODE extends Node> {
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
-    protected final MutableNetworkTime _networkTime = new MutableNetworkTime();
+    protected final MutableNetworkTime _networkTime;
 
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
@@ -449,11 +449,12 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory) {
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime) {
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
+        _networkTime = networkTime;
     }
 
     public void addNode(final NODE node) {

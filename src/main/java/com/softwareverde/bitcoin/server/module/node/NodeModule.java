@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
@@ -13,9 +12,7 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
 import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.module.node.handler.QueryBlockHeadersHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
@@ -31,7 +28,6 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.debug.DebugEmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
@@ -40,7 +36,9 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
+import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Container;
 
 import java.io.File;
 
@@ -63,6 +61,7 @@ public class NodeModule {
     protected final BlockHeaderDownloader _blockHeaderDownloader;
 
     protected final NodeInitializer _nodeInitializer;
+    protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
         final File configurationFile =  new File(configurationFilename);
@@ -164,9 +163,6 @@ public class NodeModule {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
-        final Integer maxPeerCount = serverProperties.getMaxPeerCount();
-        _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory);
-
         final BlockProcessor blockProcessor;
         { // Initialize BlockDownloader...
             final MutableMedianBlockTime medianBlockTime;
@@ -183,51 +179,35 @@ public class NodeModule {
                 medianBlockTime = newMedianBlockTime;
             }
 
-            final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            blockProcessor = new BlockProcessor(databaseConnectionFactory, _nodeManager, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor = new BlockProcessor(databaseConnectionFactory, _mutableNetworkTime, medianBlockTime, _readUncommittedDatabaseConnectionPool);
             blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
-            _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
-            _blockDownloader.setMaxQueueSize(maxQueueSize);
         }
 
-        {
-            final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback = new BitcoinNode.NewBlockAnnouncementCallback() {
-                @Override
-                public void onResult(final Block block) {
-                    Logger.log("New Block Announced: " + block.getHash());
+        final Container<BlockDownloader> blockDownloaderContainer = new Container<BlockDownloader>();
 
-                    if (_blockDownloader.isRunning()) {
-                        Logger.log("Ignoring new block while syncing: " + block.getHash());
-                        return;
-                    }
-
-                    final Boolean parentBlockExists;
-                    try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                        final Sha256Hash parentBlockHash = block.getPreviousBlockHash();
-                        final BlockDatabaseManager databaseManager = new BlockDatabaseManager(databaseConnection);
-                        final BlockId parentBlockId = databaseManager.getBlockIdFromHash(parentBlockHash);
-                        parentBlockExists = (parentBlockId != null);
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.log(exception);
-                        return;
-                    }
-
-                    if (parentBlockExists) {
-                        blockProcessor.processBlock(block);
-                    }
-                    else {
-                        _blockDownloader.start();
-                    }
-                }
-            };
-
+        { // Initialize NodeInitializer...
+            final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
+            final Container<BlockProcessor> blockProcessorContainer = new Container<BlockProcessor>(blockProcessor);
+            final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback = new NewBlockAnnouncementHandler(databaseConnectionFactory, blockProcessorContainer, blockDownloaderContainer);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory);
-            _nodeInitializer = new NodeInitializer(newBlockAnnouncementCallback, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, newBlockAnnouncementCallback, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
         }
+
+        { // Initialize NodeManager...
+            final Integer maxPeerCount = serverProperties.getMaxPeerCount();
+            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer);
+        }
+
+        { // Initialize BlockDownloader...
+            final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
+            _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
+            _blockDownloader.setMaxQueueSize(maxQueueSize);
+            blockDownloaderContainer.value = _blockDownloader;
+        }
+
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {

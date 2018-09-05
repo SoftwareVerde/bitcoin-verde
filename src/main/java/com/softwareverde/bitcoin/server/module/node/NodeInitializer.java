@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.network.socket.BinarySocket;
 
 public class NodeInitializer {
+    protected final BitcoinNode.SynchronizationStatusHandler _synchronizationStatusHandler;
     protected final BitcoinNode.NewBlockAnnouncementCallback _newBlockAnnouncementCallback;
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
     protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
@@ -13,9 +14,11 @@ public class NodeInitializer {
         node.setQueryBlocksCallback(_queryBlocksCallback);
         node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         node.setRequestDataCallback(_requestDataCallback);
+        node.setSynchronizationStatusHandler(_synchronizationStatusHandler);
     }
 
-    public NodeInitializer(final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
+    public NodeInitializer(final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler, final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
+        _synchronizationStatusHandler = synchronizationStatusHandler;
         _newBlockAnnouncementCallback = newBlockAnnouncementCallback;
         _queryBlocksCallback = queryBlocksCallback;
         _queryBlockHeadersCallback = queryBlockHeadersCallback;
@@ -32,5 +35,9 @@ public class NodeInitializer {
         final BitcoinNode node = new BitcoinNode(binarySocket);
         _initializeNode(node);
         return node;
+    }
+
+    public void initializeNode(final BitcoinNode bitcoinNode) {
+        _initializeNode(bitcoinNode);
     }
 }

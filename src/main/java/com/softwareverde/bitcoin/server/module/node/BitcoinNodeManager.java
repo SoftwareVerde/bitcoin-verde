@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -15,9 +14,17 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
+import com.softwareverde.network.time.MutableNetworkTime;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final NodeInitializer _nodeInitializer;
+
+    @Override
+    protected void _initNode(final BitcoinNode node) {
+        super._initNode(node);
+        _nodeInitializer.initializeNode(node);
+    }
 
     @Override
     protected void _onAllNodesDisconnected() {
@@ -72,9 +79,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
-        super(maxNodeCount, new BitcoinNodeFactory());
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer) {
+        super(maxNodeCount, new BitcoinNodeFactory(), networkTime);
         _databaseConnectionFactory = databaseConnectionFactory;
+        _nodeInitializer = nodeInitializer;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {

@@ -52,6 +52,19 @@ public class BitcoinNode extends Node {
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
     public interface NewBlockAnnouncementCallback extends Callback<Block>, FailableCallback { }
 
+    public interface SynchronizationStatusHandler {
+        Boolean isReadyForTransactions();
+        Integer getCurrentBlockHeight();
+    }
+
+    public static SynchronizationStatusHandler DEFAULT_STATUS_CALLBACK = new SynchronizationStatusHandler() {
+        @Override
+        public Boolean isReadyForTransactions() { return false; }
+
+        @Override
+        public Integer getCurrentBlockHeight() { return 0; }
+    };
+
     public interface QueryBlocksCallback {
         void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
@@ -90,6 +103,8 @@ public class BitcoinNode extends Node {
         return true;
     }
 
+    protected SynchronizationStatusHandler _synchronizationStatusHandler = DEFAULT_STATUS_CALLBACK;
+
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
@@ -118,6 +133,9 @@ public class BitcoinNode extends Node {
     @Override
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
+
+        synchronizeVersionMessage.setRelayIsEnabled(_synchronizationStatusHandler.isReadyForTransactions());
+        synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatusHandler.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
             final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
@@ -314,6 +332,10 @@ public class BitcoinNode extends Node {
 
                     continue;
                 }
+                else {
+                    final Sha256Hash transactionHash = objectHashes.get(0);
+                    // Logger.log("Received TX: " + transactionHash);
+                }
             }
 
             _executeAndClearCallbacks(_queryRequests, dataHashType, objectHashes);
@@ -420,6 +442,10 @@ public class BitcoinNode extends Node {
         final Sha256Hash firstBlockHash = blockHashes.get(0);
         _storeInMapSet(_downloadBlockHeadersRequests, firstBlockHash, downloadBlockHeaderCallback);
         _requestBlockHeaders(blockHashes);
+    }
+
+    public void setSynchronizationStatusHandler(final SynchronizationStatusHandler synchronizationStatusHandler) {
+        _synchronizationStatusHandler = synchronizationStatusHandler;
     }
 
     public void setQueryBlocksCallback(final QueryBlocksCallback queryBlocksCallback) {

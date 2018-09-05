@@ -25,21 +25,21 @@ public class BlockProcessor {
     protected final RotatingQueue<Integer> _transactionsPerBlock = new RotatingQueue<Integer>(100);
     protected final Container<Float> _averageBlocksPerSecond = new Container<Float>(0F);
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
+    protected final NetworkTime _networkTime;
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
-    protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
-    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
+    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
-        _nodeManager = nodeManager;
         _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
 
         _medianBlockTime = medianBlockTime;
+        _networkTime = networkTime;
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -51,8 +51,6 @@ public class BlockProcessor {
     }
 
     public Boolean processBlock(final Block block) {
-        final NetworkTime networkTime = _nodeManager.getNetworkTime();
-
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             synchronized (BlockDatabaseManager.MUTEX) {
                 TransactionUtil.startTransaction(databaseConnection);
@@ -79,7 +77,7 @@ public class BlockProcessor {
                     // Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
                 }
 
-                final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, networkTime, _medianBlockTime);
+                final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, _networkTime, _medianBlockTime);
                 blockValidator.setMaxThreadCount(_maxThreadCount);
                 blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
                 final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
