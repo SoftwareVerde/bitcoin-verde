@@ -18,6 +18,7 @@ import com.softwareverde.util.Util;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+// TODO: This class does not currently recover gracefully after receiving an invalid block and will continue to download blocks that are missing a valid parent...
 public class BlockDownloader {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final BitcoinNodeManager _nodeManager;
@@ -138,6 +139,8 @@ public class BlockDownloader {
     }
 
     public void start() {
+        if (_isRunning && _shouldContinue) { return; }
+
         _isRunning = true;
         _shouldContinue = true;
         _blockValidatorThread.start();
@@ -181,5 +184,9 @@ public class BlockDownloader {
 
     public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() {
         return _blockProcessor.getStatisticsContainer();
+    }
+
+    public void submitBlock(final Block block) {
+        _queuedBlocks.add(block);
     }
 }

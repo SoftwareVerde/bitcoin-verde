@@ -188,8 +188,7 @@ public class NodeModule {
 
         { // Initialize NodeInitializer...
             final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
-            final Container<BlockProcessor> blockProcessorContainer = new Container<BlockProcessor>(blockProcessor);
-            final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback = new NewBlockAnnouncementHandler(databaseConnectionFactory, blockProcessorContainer, blockDownloaderContainer);
+            final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback = new NewBlockAnnouncementHandler(databaseConnectionFactory, blockDownloaderContainer);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory);

@@ -102,8 +102,7 @@ public class BitcoinNode extends Node {
         for (final S callback : callbackSet) {
             callback.onResult(value);
         }
-
-        return true;
+        return (value != null);
     }
 
     protected SynchronizationStatusHandler _synchronizationStatusHandler = DEFAULT_STATUS_CALLBACK;
@@ -329,12 +328,24 @@ public class BitcoinNode extends Node {
                         @Override
                         public void onResult(final Block block) {
                             final Set<BlockHashQueryCallback> blockHashQueryCallbackSet = _queryRequests.get(dataHashType);
-                            if (blockHashQueryCallbackSet == null) { return; }
 
-                            for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
-                                if (block.getPreviousBlockHash().equals(blockHashQueryCallback.afterBlockHash)) {
-                                    blockHashQueryCallbackSet.remove(blockHashQueryCallback);
-                                    blockHashQueryCallback.onResult(objectHashes);
+                            Boolean queryResponseWasRequested = false;
+                            if (blockHashQueryCallbackSet != null) {
+                                for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
+                                    if (block.getPreviousBlockHash().equals(blockHashQueryCallback.afterBlockHash)) {
+                                        blockHashQueryCallbackSet.remove(blockHashQueryCallback);
+                                        blockHashQueryCallback.onResult(objectHashes);
+                                        queryResponseWasRequested = true;
+                                    }
+                                }
+                            }
+
+                            if (! queryResponseWasRequested) {
+                                if (_newBlockAnnouncementCallback != null) {
+                                    _newBlockAnnouncementCallback.onResult(block);
+                                }
+                                else {
+                                    Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
                                 }
                             }
                         }
@@ -358,16 +369,7 @@ public class BitcoinNode extends Node {
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
-        final Boolean wasExpected = _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
-
-        if (! wasExpected) {
-            if (_newBlockAnnouncementCallback != null) {
-                _newBlockAnnouncementCallback.onResult(block);
-            }
-            else {
-                Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
-            }
-        }
+        _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {

@@ -40,4 +40,9 @@ public class DataHash {
 
         return byteArrayBuilder.build();
     }
+
+    @Override
+    public String toString() {
+        return (_dataHashType + ":" + _objectHash);
+    }
 }

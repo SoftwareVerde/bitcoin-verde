@@ -15,6 +15,7 @@ public class NodeInitializer {
         node.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         node.setRequestDataCallback(_requestDataCallback);
         node.setSynchronizationStatusHandler(_synchronizationStatusHandler);
+        node.setNewBlockAnnouncementCallback(_newBlockAnnouncementCallback);
     }
 
     public NodeInitializer(final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler, final BitcoinNode.NewBlockAnnouncementCallback newBlockAnnouncementCallback, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {

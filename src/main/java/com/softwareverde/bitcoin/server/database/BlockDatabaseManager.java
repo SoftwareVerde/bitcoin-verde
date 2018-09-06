@@ -431,6 +431,17 @@ public class BlockDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
+    protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return 0; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("transaction_count");
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         return _insertBlockHeader(blockHeader);
     }
@@ -524,15 +535,16 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
-    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
-                .setParameter(blockId)
-        );
-        if (rows.isEmpty()) { return 0; }
+    public Boolean isBlockSynchronized(final Sha256Hash blockHash) throws DatabaseException {
+        final BlockId blockId = _getBlockIdFromHash(blockHash);
+        if (blockId == null) { return false; }
 
-        final Row row = rows.get(0);
-        return row.getInteger("transaction_count");
+        final Integer transactionCount = _getTransactionCount(blockId);
+        return (transactionCount > 0);
+    }
+
+    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
+        return _getTransactionCount(blockId);
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {

@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
@@ -53,10 +54,17 @@ public class BlockProcessor {
     public Boolean processBlock(final Block block) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             synchronized (BlockDatabaseManager.MUTEX) {
-                TransactionUtil.startTransaction(databaseConnection);
-
                 final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+                final Sha256Hash blockHash = block.getHash();
+                final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
+                if (blockIsSynchronized) {
+                    Logger.log("Skipping known block: " + blockHash);
+                    return false;
+                }
+
+                TransactionUtil.startTransaction(databaseConnection);
 
                 final Timer storeBlockTimer = new Timer();
                 final Timer updateBlockChainsTimer = new Timer();
