@@ -50,7 +50,9 @@ public class BinarySocket extends Socket {
                     if (this.isInterrupted()) { break; }
                 }
                 catch (final Exception exception) {
-                    Logger.log(exception);
+                    if (LOGGING_ENABLED) {
+                        Logger.log(exception);
+                    }
                     break;
                 }
             }

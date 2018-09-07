@@ -38,6 +38,7 @@ public class Configuration {
         private Integer _maxThreadCount;
         private Integer _trustedBlockHeight;
         private Long _maxMemoryByteCount;
+        private Boolean _shouldSkipNetworking;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -48,6 +49,7 @@ public class Configuration {
         public Integer getMaxThreadCount() { return _maxThreadCount; }
         public Integer getTrustedBlockHeight() { return _trustedBlockHeight; }
         public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
+        public Boolean skipNetworking() { return _shouldSkipNetworking; }
     }
 
     public static class ExplorerProperties {
@@ -126,6 +128,7 @@ public class Configuration {
         _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _serverProperties._trustedBlockHeight = Util.parseInt(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        _serverProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
     }
 
     private void _loadExplorerProperties() {

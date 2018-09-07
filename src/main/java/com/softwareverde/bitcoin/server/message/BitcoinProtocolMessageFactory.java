@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMess
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessageInflater;
@@ -40,6 +41,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_RESPONSE, new QueryResponseMessageInflater());
         _commandInflaterMap.put(MessageType.BLOCK, new BlockMessageInflater());
+        _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
     }

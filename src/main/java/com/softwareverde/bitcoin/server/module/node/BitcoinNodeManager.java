@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -179,5 +180,35 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public void requestBlockHeadersAfter(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
         _requestBlockHeaders(blockHashes, callback);
+    }
+
+    public void requestTransactions(final List<Sha256Hash> transactionHashes, final BitcoinNode.DownloadTransactionCallback callback) {
+        if (transactionHashes.isEmpty()) { return; }
+
+        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+            @Override
+            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+                bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
+                    @Override
+                    public void onResult(final Transaction result) {
+                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
+                        if (requestTimedOut) { return; }
+
+                        if (callback != null) {
+                            callback.onResult(result);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
+
+                if (callback != null) {
+                    callback.onFailure();
+                }
+            }
+        });
     }
 }

@@ -16,18 +16,18 @@ import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockM
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
+import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.PingMessage;
@@ -53,7 +53,10 @@ public class BitcoinNode extends Node {
     public interface QueryCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
     public interface DownloadBlockCallback extends Callback<Block>, FailableCallback { }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
-    public interface NewBlockAnnouncementCallback extends Callback<Block>, FailableCallback { }
+    public interface DownloadTransactionCallback extends Callback<Transaction>, FailableCallback { }
+
+    public interface BlockAnnouncementCallback extends Callback<Block> { }
+    public interface TransactionsAnnouncementCallback extends Callback<List<Sha256Hash>> { }
 
     public interface SynchronizationStatusHandler {
         Boolean isReadyForTransactions();
@@ -95,14 +98,13 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static <U, T, S extends Callback<U>> Boolean _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
+    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
         final Set<S> callbackSet = callbackMap.remove(key);
-        if ( (callbackSet == null) || (callbackSet.isEmpty()) ) { return false; }
+        if ( (callbackSet == null) || (callbackSet.isEmpty()) ) { return; }
 
         for (final S callback : callbackSet) {
             callback.onResult(value);
         }
-        return (value != null);
     }
 
     protected SynchronizationStatusHandler _synchronizationStatusHandler = DEFAULT_STATUS_CALLBACK;
@@ -112,12 +114,14 @@ public class BitcoinNode extends Node {
     protected RequestDataCallback _requestDataMessageCallback = null;
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
-    protected NewBlockAnnouncementCallback _newBlockAnnouncementCallback;
+    protected BlockAnnouncementCallback _blockAnnouncementCallback;
+    protected TransactionsAnnouncementCallback _transactionsAnnouncementCallback;
 
     protected final Map<DataHashType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<DataHashType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
     protected final Map<DataHashType, Set<DataHash>> _availableDataHashes = new HashMap<DataHashType, Set<DataHash>>();
+    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
 
@@ -224,6 +228,10 @@ public class BitcoinNode extends Node {
 
                     case BLOCK: {
                         _onBlockMessageReceived((BlockMessage) message);
+                    } break;
+
+                    case TRANSACTION: {
+                        _onTransactionMessageReceived((TransactionMessage) message);
                     } break;
 
                     case BLOCK_HEADERS: {
@@ -341,8 +349,9 @@ public class BitcoinNode extends Node {
                             }
 
                             if (! queryResponseWasRequested) {
-                                if (_newBlockAnnouncementCallback != null) {
-                                    _newBlockAnnouncementCallback.onResult(block);
+                                final BlockAnnouncementCallback blockAnnouncementCallback = _blockAnnouncementCallback;
+                                if (blockAnnouncementCallback != null) {
+                                    blockAnnouncementCallback.onResult(block);
                                 }
                                 else {
                                     Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
@@ -354,9 +363,14 @@ public class BitcoinNode extends Node {
 
                     continue;
                 }
-                else {
-                    final Sha256Hash transactionHash = objectHashes.get(0);
-                    // Logger.log("Received TX: " + transactionHash);
+                else if (dataHashType == DataHashType.TRANSACTION) {
+                    final TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
+                    if (transactionsAnnouncementCallback != null) {
+                        transactionsAnnouncementCallback.onResult(objectHashes);
+                    }
+                    else {
+                        Logger.log("NOTICE: No handler set for TransactionsAnnouncementCallback.");
+                    }
                 }
             }
 
@@ -370,6 +384,13 @@ public class BitcoinNode extends Node {
 
         final Sha256Hash blockHash = block.getHash();
         _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
+    }
+
+    protected void _onTransactionMessageReceived(final TransactionMessage transactionMessage) {
+        final Transaction transaction = transactionMessage.getTransaction();
+
+        final Sha256Hash transactionHash = transaction.getHash();
+        _executeAndClearCallbacks(_downloadTransactionRequests, transactionHash, transaction);
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
@@ -439,6 +460,14 @@ public class BitcoinNode extends Node {
         _queueMessage(requestBlockHeadersMessage);
     }
 
+    protected void _requestTransactions(final List<Sha256Hash> transactionHashes) {
+        final RequestDataMessage requestTransactionMessage = new RequestDataMessage();
+        for (final Sha256Hash transactionHash: transactionHashes) {
+            requestTransactionMessage.addInventoryItem(new DataHash(DataHashType.TRANSACTION, transactionHash));
+        }
+        _queueMessage(requestTransactionMessage);
+    }
+
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
@@ -457,6 +486,15 @@ public class BitcoinNode extends Node {
         _requestBlockHeaders(blockHashes);
     }
 
+    public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
+        if (transactionHashes.isEmpty()) { return; }
+
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            _storeInMapSet(_downloadTransactionRequests, transactionHash, downloadTransactionCallback);
+        }
+        _requestTransactions(transactionHashes);
+    }
+
     public void setSynchronizationStatusHandler(final SynchronizationStatusHandler synchronizationStatusHandler) {
         _synchronizationStatusHandler = synchronizationStatusHandler;
     }
@@ -473,8 +511,12 @@ public class BitcoinNode extends Node {
         _requestDataMessageCallback = requestDataCallback;
     }
 
-    public void setNewBlockAnnouncementCallback(final NewBlockAnnouncementCallback newBlockAnnouncementCallback) {
-        _newBlockAnnouncementCallback = newBlockAnnouncementCallback;
+    public void setBlockAnnouncementCallback(final BlockAnnouncementCallback blockAnnouncementCallback) {
+        _blockAnnouncementCallback = blockAnnouncementCallback;
+    }
+
+    public void setTransactionsAnnouncementCallback(final TransactionsAnnouncementCallback transactionsAnnouncementCallback) {
+        _transactionsAnnouncementCallback = transactionsAnnouncementCallback;
     }
 
     public Boolean newBlocksViaHeadersIsEnabled() {

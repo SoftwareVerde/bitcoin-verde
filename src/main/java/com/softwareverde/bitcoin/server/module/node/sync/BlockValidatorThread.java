@@ -51,11 +51,12 @@ public class BlockValidatorThread {
                 final Boolean isValidBlock = _blockProcessor.processBlock(block);
                 timer.stop();
 
-                Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()) + " ("+ String.format("%.2f", (block.getTransactionCount() / timer.getMillisecondsElapsed() * 1000L)) +" tps) | " + DateUtil.timestampToDatetimeString(block.getTimestamp() * 1000L));
-
                 if (! isValidBlock) {
                     Logger.log("Invalid block: " + block.getHash());
                     _invalidBlockCallback.onInvalidBlock(block);
+                }
+                else {
+                    Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()) + " (" + String.format("%.2f", (block.getTransactionCount() / timer.getMillisecondsElapsed() * 1000L)) + " tps) | " + DateUtil.timestampToDatetimeString(block.getTimestamp() * 1000L));
                 }
             }
             else {

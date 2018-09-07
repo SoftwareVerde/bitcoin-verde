@@ -244,9 +244,13 @@ public class BlockValidator {
 
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _networkTime, _medianBlockTime);
             final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(blockChainSegmentId, block, blockHeight);
-            if (! headerIsValid) { return false; }
+            if (! headerIsValid) {
+                Logger.log("Invalid block. Header invalid.");
+                return false;
+            }
         }
         catch (final DatabaseException databaseException) {
+            Logger.log("Error encountered validating block:");
             Logger.log(databaseException);
             return false;
         }

@@ -9,7 +9,7 @@ public enum MessageType {
 
     QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"),
     REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
-    REQUEST_DATA("getdata"), BLOCK("block"),
+    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"),
 
     NOT_FOUND("notfound"), ERROR("reject"),
 

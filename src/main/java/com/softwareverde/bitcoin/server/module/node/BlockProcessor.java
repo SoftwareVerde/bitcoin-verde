@@ -159,10 +159,10 @@ public class BlockProcessor {
             }
         }
         catch (final Exception exception) {
+            Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());
             Logger.log(exception);
         }
 
-        Logger.log("Invalid block: "+ block.getHash());
         return false;
     }
 

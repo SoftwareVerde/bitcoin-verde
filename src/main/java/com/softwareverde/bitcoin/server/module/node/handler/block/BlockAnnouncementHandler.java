@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.handler;
+package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -12,11 +12,11 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 
-public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnouncementCallback {
+public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCallback {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final Container<BlockSynchronizer> _blockDownloader;
 
-    public NewBlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
+    public BlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _blockDownloader = blockDownloader;
     }

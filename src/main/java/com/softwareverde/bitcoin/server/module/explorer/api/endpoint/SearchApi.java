@@ -14,7 +14,7 @@ import com.softwareverde.socket.SocketConnection;
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class SearchApi extends ExplorerApiEndpoint {
-    public static final Long RPC_DURATION_TIMEOUT_MS = 15000L;
+    public static final Long RPC_DURATION_TIMEOUT_MS = 90000L;
 
     private static class SearchResult extends ApiResult {
         public enum ObjectType {

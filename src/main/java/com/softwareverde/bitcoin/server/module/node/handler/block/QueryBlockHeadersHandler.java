@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.handler;
+package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactio
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
+import com.softwareverde.bitcoin.server.module.node.handler.AbstractQueryBlocksHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;

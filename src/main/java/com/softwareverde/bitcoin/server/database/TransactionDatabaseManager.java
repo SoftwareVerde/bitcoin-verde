@@ -90,7 +90,7 @@ public class TransactionDatabaseManager {
         }
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, block_id FROM transactions WHERE hash = ?")
+            new Query("SELECT id, block_id FROM transactions WHERE hash = ? AND block_id IS NOT NULL")
                 .setParameter(HexUtil.toHexString(transactionHash.getBytes()))
         );
         if (rows.isEmpty()) { return null; }
@@ -173,7 +173,11 @@ public class TransactionDatabaseManager {
                 .setParameter(lockTime.getValue())
         ));
 
-        TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
+        final Boolean shouldCacheTransaction = (blockId != null);
+        if (shouldCacheTransaction) {
+            TRANSACTION_CACHE.cacheTransactionId(blockId, transactionId, transaction.getHash());
+        }
+
         return transactionId;
     }
 
@@ -224,6 +228,10 @@ public class TransactionDatabaseManager {
         // TODO: Bulk-inserting does not validate the order of the transactions (inputs may be (incorrectly) spending outputs that are in this batch, but not in the correct order).  Consider asserting that the order of the transactions is correct.
     }
 
+    /**
+     * Returns all transactionIds matching the hash.
+     *  This search includes uncommitted transactions, transactions in the mempool, and confirmed transactions.
+     */
     public List<TransactionId> getTransactionIdsFromHash(final Sha256Hash transactionHash) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transactions WHERE hash = ?")
@@ -261,13 +269,35 @@ public class TransactionDatabaseManager {
     }
 
     /**
-     * Attempts to find the transaction that matches transactionHash that has not been committed to a block.
+     * Attempts to find the transaction that matches transactionHash whose block has not been committed to a BlockChainSegment.
      *  This function is intended to be used when the blockId is not known.
-     *  Only uncommitted transactions (i.e. transactions have not been assigned a block or ones that associated to the block
-     *  that is currently being stored...) are included in the search.
+     *  Only uncommitted transactions (i.e. transactions have been assigned to the block that is currently being stored...) are included in the search.
      */
     public TransactionId getUncommittedTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+        // TODO: Attempt to remove this function, and have methods using this use TransactionDatabaseManager:getTransactionIdFromHash(BlockId, Sha256Hash) instead...
         return _getUncommittedTransactionIdFromHash(transactionHash);
+    }
+
+    public TransactionId getTransactionIdFromMemoryPool(final Sha256Hash transactionHash) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transactions WHERE hash = ? AND block_id IS NULL")
+                .setParameter(transactionHash)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionId.wrap(row.getLong("id"));
+    }
+
+    public TransactionId insertTransactionIntoMemoryPool(final Transaction transaction) throws DatabaseException {
+        final TransactionId transactionId = _insertTransaction(null, transaction);
+        _insertTransactionOutputs(transactionId, transaction);
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+
+        _insertTransactionInputs(blockChainSegmentId, transactionId, transaction);
+        return transactionId;
     }
 
     public TransactionId getTransactionIdFromHash(final BlockId blockId, final Sha256Hash transactionHash) throws DatabaseException {

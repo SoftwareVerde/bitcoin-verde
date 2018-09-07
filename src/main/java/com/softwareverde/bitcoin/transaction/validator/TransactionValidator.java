@@ -44,7 +44,11 @@ public class TransactionValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
+    protected Boolean _shouldLogInvalidTransactions = true;
+
     protected void _logInvalidTransaction(final Transaction transaction, final Context context) {
+        if (! _shouldLogInvalidTransactions) { return; }
+
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         final TransactionInputDeflater transactionInputDeflater = new TransactionInputDeflater();
         final TransactionOutputDeflater transactionOutputDeflater = new TransactionOutputDeflater();
@@ -171,6 +175,10 @@ public class TransactionValidator {
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+    }
+
+    public void setLoggingEnabled(final Boolean shouldLogInvalidTransactions) {
+        _shouldLogInvalidTransactions = shouldLogInvalidTransactions;
     }
 
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction) {
