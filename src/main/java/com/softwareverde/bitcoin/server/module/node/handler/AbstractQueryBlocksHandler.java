@@ -84,7 +84,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
                 }
                 else {
                     final BlockChainSegmentId foundBlockBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(foundBlockId);
-                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentIdConnectedToBlockChainSegmentId(foundBlockBlockChainSegmentId);
+                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentIdOfBlockChainSegment(foundBlockBlockChainSegmentId);
                 }
             }
             else {

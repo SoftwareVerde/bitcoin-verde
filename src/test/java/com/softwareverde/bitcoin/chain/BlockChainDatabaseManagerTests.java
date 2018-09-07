@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.chain;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -1036,6 +1037,40 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
             Assert.assertEquals(block1Prime.getHash().toString(), blockHashContainingSpentTransaction);
         }
+    }
+
+    @Test
+    public void should_not_increment_chain_block_height_when_processing_a_previously_processed_block() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+
+        blockDatabaseManager.storeBlock(genesisBlock);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
+
+        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+
+        Assert.assertEquals(0, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
+
+        blockDatabaseManager.storeBlock(block1);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
+
+        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
+
+        // Action
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
+
+        // Assert
+        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
     }
 
     @Test

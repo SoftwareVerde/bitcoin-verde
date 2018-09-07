@@ -6,10 +6,12 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.cache.BlockChainSegmentCache;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 
 public class BlockChainDatabaseManager {
     public static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
@@ -212,6 +214,18 @@ public class BlockChainDatabaseManager {
     }
 
     public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
+        final Sha256Hash blockHash = newBlock.getHash();
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+        if (blockId == null) {
+            Logger.log("NOTICE: Unable to update BlockChainSegment for block: " + blockHash);
+            return;
+        }
+
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        if (blockChainSegmentId != null) { return; }
+
         _updateBlockChainsForNewBlock(newBlock);
     }
 
@@ -229,7 +243,7 @@ public class BlockChainDatabaseManager {
         return BlockChainSegmentId.wrap(row.getLong("id"));
     }
 
-    public BlockChainSegmentId getHeadBlockChainSegmentIdConnectedToBlockChainSegmentId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+    public BlockChainSegmentId getHeadBlockChainSegmentIdOfBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         final BlockChainSegment blockChainSegment = _inflateBlockChainSegmentFromId(blockChainSegmentId);
         if (blockChainSegment == null) { return null; }
 
