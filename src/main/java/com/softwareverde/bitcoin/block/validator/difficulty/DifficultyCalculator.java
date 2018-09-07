@@ -226,7 +226,7 @@ public class DifficultyCalculator {
             final BlockHeader previousBlockHeader = _blockDatabaseManager.getBlockHeader(previousBlockBlockId);
             return previousBlockHeader.getDifficulty();
         }
-        catch (final DatabaseException exception) { exception.printStackTrace(); }
+        catch (final DatabaseException exception) { Logger.log(exception); }
 
         return null;
     }

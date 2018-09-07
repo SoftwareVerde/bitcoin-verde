@@ -212,9 +212,7 @@ public class BlockChainDatabaseManager {
     }
 
     public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
-        synchronized (BlockDatabaseManager.MUTEX) {
-            _updateBlockChainsForNewBlock(newBlock);
-        }
+        _updateBlockChainsForNewBlock(newBlock);
     }
 
     public BlockChainSegment getBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {

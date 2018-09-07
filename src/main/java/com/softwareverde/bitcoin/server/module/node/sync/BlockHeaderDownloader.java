@@ -44,6 +44,43 @@ public class BlockHeaderDownloader {
         }
     }
 
+    protected Boolean _storeBlockHeader(final BlockHeader blockHeader, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final Sha256Hash blockHash = blockHeader.getHash();
+
+        if (! blockHeader.isValid()) {
+            Logger.log("Invalid BlockHeader: " + blockHash);
+            return false;
+        }
+
+        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        synchronized (BlockDatabaseManager.MUTEX) {
+            TransactionUtil.startTransaction(databaseConnection);
+            final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+
+            if (blockId == null) {
+                Logger.log("Error storing BlockHeader: " + blockHash);
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
+            }
+
+            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+
+            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+            if (! blockHeaderIsValid) {
+                Logger.log("Invalid BlockHeader: " + blockHash);
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
+            }
+
+            TransactionUtil.commitTransaction(databaseConnection);
+            return true;
+        }
+    }
+
     protected void _downloadAllBlockHeaders() {
         final Sha256Hash resumeAfterHash;
         {
@@ -68,35 +105,18 @@ public class BlockHeaderDownloader {
                 Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
                     for (final BlockHeader blockHeader : blockHeaders) {
                         final Sha256Hash blockHash = blockHeader.getHash();
 
-                        if (! blockHeader.isValid()) {
-                            Logger.log("Invalid BlockHeader received: " + blockHash);
+                        final Boolean blockHeaderWasStored = _storeBlockHeader(blockHeader, databaseConnection);
+                        if (! blockHeaderWasStored) {
                             break;
                         }
 
-                        final BlockId blockId;
-                        synchronized (BlockDatabaseManager.MUTEX) {
-                            TransactionUtil.startTransaction(databaseConnection);
-                            blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
-                            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-                            TransactionUtil.commitTransaction(databaseConnection);
-                        }
-
-                        if (blockId == null) {
-                            Logger.log("Error storing BlockHeader: " + blockHash);
-                            break;
-                        }
-                        else {
-                            _blockHeaderCount += 1L;
-                            final Long now = System.currentTimeMillis();
-                            final Long millisecondsElapsed = (now - _startTime);
-                            _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
-                        }
+                        _blockHeaderCount += 1L;
+                        final Long now = System.currentTimeMillis();
+                        final Long millisecondsElapsed = (now - _startTime);
+                        _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
 
                         lastBlockHash.value = blockHash;
                     }
@@ -140,28 +160,7 @@ public class BlockHeaderDownloader {
                 if (! _hasGenesisBlockHeader()) {
                     // NOTE: Can happen if the NodeModule received GenesisBlock from another node...
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
-                        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-
-                        TransactionUtil.startTransaction(databaseConnection);
-                        final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
-                        blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-
-                        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-                        final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
-                        if (! blockHeaderIsValid) {
-                            Logger.log("Invalid BlockHeader: " + blockHeader.getHash());
-                            TransactionUtil.rollbackTransaction(databaseConnection);
-                            return;
-                        }
-
-                        TransactionUtil.commitTransaction(databaseConnection);
-
-                        if (blockId == null) {
-                            Logger.log("Error storing genesis block header.");
-                            return;
-                        }
+                        final Boolean genesisBlockWasStored = _storeBlockHeader(blockHeader, databaseConnection);
 
                         Logger.log("GENESIS STORED: " + blockHeader.getHash());
                     }
