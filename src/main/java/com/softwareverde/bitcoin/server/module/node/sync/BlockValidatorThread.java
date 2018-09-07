@@ -2,14 +2,23 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.timer.Timer;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-
 public class BlockValidatorThread {
-    protected final ConcurrentLinkedQueue<Block> _queuedBlocks;
+    public interface InvalidBlockCallback {
+        void onInvalidBlock(Block invalidBlock);
+    }
+
+    public static final InvalidBlockCallback IGNORE_INVALID_BLOCKS_CALLBACK = new InvalidBlockCallback() {
+        @Override
+        public void onInvalidBlock(final Block invalidBlock) { }
+    };
+
+    protected final InvalidBlockCallback _invalidBlockCallback;
+    protected final BlockQueue _queuedBlocks;
     protected final BlockProcessor _blockProcessor;
     protected Thread _thread = null;
     protected volatile Boolean _shouldContinue = true;
@@ -24,25 +33,29 @@ public class BlockValidatorThread {
         _thread.setPriority(Thread.MAX_PRIORITY);
     }
 
-    public BlockValidatorThread(final ConcurrentLinkedQueue<Block> queuedBlocks, final BlockProcessor blockProcessor) {
+    public BlockValidatorThread(final BlockQueue queuedBlocks, final BlockProcessor blockProcessor, final InvalidBlockCallback invalidBlockCallback) {
         _queuedBlocks = queuedBlocks;
         _blockProcessor = blockProcessor;
+        _invalidBlockCallback = invalidBlockCallback;
     }
 
     protected void _execute() {
         final Thread originalThread = _thread;
 
         while (_shouldContinue) {
-            final Block block = _queuedBlocks.poll();
+            final Block block = _queuedBlocks.getNextBlock();
             if (block != null) {
                 final Timer timer = new Timer();
+
                 timer.start();
                 final Boolean isValidBlock = _blockProcessor.processBlock(block);
                 timer.stop();
+
                 Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()) + " ("+ String.format("%.2f", (block.getTransactionCount() / timer.getMillisecondsElapsed() * 1000L)) +" tps) | " + DateUtil.timestampToDatetimeString(block.getTimestamp() * 1000L));
 
                 if (! isValidBlock) {
                     Logger.log("Invalid block: " + block.getHash());
+                    _invalidBlockCallback.onInvalidBlock(block);
                 }
             }
             else {

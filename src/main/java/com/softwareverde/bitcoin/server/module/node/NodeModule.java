@@ -16,7 +16,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.*;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -57,7 +57,7 @@ public class NodeModule {
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
-    protected final BlockDownloader _blockDownloader;
+    protected final BlockSynchronizer _blockSynchronizer;
     protected final BlockHeaderDownloader _blockHeaderDownloader;
 
     protected final NodeInitializer _nodeInitializer;
@@ -164,7 +164,7 @@ public class NodeModule {
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
         final BlockProcessor blockProcessor;
-        { // Initialize BlockDownloader...
+        { // Initialize BlockSynchronizer...
             final MutableMedianBlockTime medianBlockTime;
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
@@ -184,7 +184,7 @@ public class NodeModule {
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
         }
 
-        final Container<BlockDownloader> blockDownloaderContainer = new Container<BlockDownloader>();
+        final Container<BlockSynchronizer> blockDownloaderContainer = new Container<BlockSynchronizer>();
 
         { // Initialize NodeInitializer...
             final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
@@ -200,11 +200,11 @@ public class NodeModule {
             _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer);
         }
 
-        { // Initialize BlockDownloader...
+        { // Initialize BlockSynchronizer...
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            _blockDownloader = new BlockDownloader(databaseConnectionFactory, _nodeManager, blockProcessor);
-            _blockDownloader.setMaxQueueSize(maxQueueSize);
-            blockDownloaderContainer.value = _blockDownloader;
+            _blockSynchronizer = new BlockSynchronizer(databaseConnectionFactory, _nodeManager, blockProcessor);
+            _blockSynchronizer.setMaxQueueSize(maxQueueSize);
+            blockDownloaderContainer.value = _blockSynchronizer;
         }
 
 
@@ -236,12 +236,12 @@ public class NodeModule {
             _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, _nodeManager, medianBlockTime);
         }
 
-        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = _blockDownloader.getStatisticsContainer();
+        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = _blockSynchronizer.getStatisticsContainer();
         statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
 
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
-            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader);
+            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockSynchronizer);
             final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
             final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory);
 
@@ -289,7 +289,7 @@ public class NodeModule {
         _socketServer.start();
         Logger.log("[Listening For Connections]");
 
-        _blockDownloader.start();
+        _blockSynchronizer.start();
         Logger.log("[Started Syncing Blocks]");
 
         _blockHeaderDownloader.start();
@@ -300,7 +300,7 @@ public class NodeModule {
         }
 
         _blockHeaderDownloader.stop();
-        _blockDownloader.stop();
+        _blockSynchronizer.stop();
         _nodeManager.stopNodeMaintenanceThread();
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();

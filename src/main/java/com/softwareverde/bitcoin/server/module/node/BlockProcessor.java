@@ -61,7 +61,7 @@ public class BlockProcessor {
                 final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
                 if (blockIsSynchronized) {
                     Logger.log("Skipping known block: " + blockHash);
-                    return false;
+                    return true;
                 }
 
                 TransactionUtil.startTransaction(databaseConnection);

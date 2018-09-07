@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
@@ -14,9 +14,9 @@ import com.softwareverde.util.Container;
 
 public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnouncementCallback {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
-    protected final Container<BlockDownloader> _blockDownloader;
+    protected final Container<BlockSynchronizer> _blockDownloader;
 
-    public NewBlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockDownloader> blockDownloader) {
+    public NewBlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _blockDownloader = blockDownloader;
     }
@@ -26,9 +26,9 @@ public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnounce
         final Sha256Hash blockHash = block.getHash();
 
         Logger.log("New Block Announced: " + blockHash);
-        final BlockDownloader blockDownloader = _blockDownloader.value;
+        final BlockSynchronizer blockSynchronizer = _blockDownloader.value;
 
-        if (blockDownloader.isRunning()) {
+        if (blockSynchronizer.isRunning()) {
             Logger.log("Ignoring new block while syncing: " + blockHash);
             return;
         }
@@ -53,10 +53,10 @@ public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnounce
         }
 
         if (parentBlockExists) {
-            blockDownloader.submitBlock(block);
+            blockSynchronizer.submitBlock(block);
         }
         else {
-            blockDownloader.start();
+            blockSynchronizer.start();
         }
     }
 }
