@@ -36,11 +36,7 @@ public class BlockChainDatabaseManager {
         return blockChainSegment;
     }
 
-    public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
-        _databaseConnection = databaseConnection;
-    }
-
-    public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
+    protected void _updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
         /*
             Each fork creates 2 new BlockChainSegments.
                 Segment 0: Contains the blocks before the fork, but excluding any blocks from either side of the fork.
@@ -211,17 +207,15 @@ public class BlockChainDatabaseManager {
         }
     }
 
-//    public Boolean blockChainSegmentExists(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-//        final Boolean isCached = BLOCK_CHAIN_SEGMENT_CACHE.isCached(blockChainSegmentId);
-//        if (isCached) { return true; }
-//
-//        final java.util.List<Row> rows = _databaseConnection.query(
-//            new Query("SELECT id FROM block_chain_segments WHERE id = ?")
-//                .setParameter(blockChainSegmentId)
-//        );
-//
-//        return (! rows.isEmpty());
-//    }
+    public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+        _databaseConnection = databaseConnection;
+    }
+
+    public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
+        synchronized (BlockDatabaseManager.MUTEX) {
+            _updateBlockChainsForNewBlock(newBlock);
+        }
+    }
 
     public BlockChainSegment getBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         return _inflateBlockChainSegmentFromId(blockChainSegmentId);
