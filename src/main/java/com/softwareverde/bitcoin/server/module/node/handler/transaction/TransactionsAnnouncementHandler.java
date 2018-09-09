@@ -20,6 +20,11 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionsAnnouncementHandler implements BitcoinNode.TransactionsAnnouncementCallback {
+    public static final BitcoinNode.TransactionsAnnouncementCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionsAnnouncementCallback() {
+        @Override
+        public void onResult(final List<Sha256Hash> result) { }
+    };
+
     protected final BitcoinNode _bitcoinNode;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final NetworkTime _networkTime;

@@ -147,7 +147,7 @@ public class TransactionsPane extends GridPane {
                                     for (AddressDatabaseManager.SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
                                         final TransactionId transactionId = spendableTransactionOutput.getTransactionId();
 
-                                        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHashFromTransactionId(transactionId);
+                                        final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
                                         final String transactionHashString = transactionHash.toString();
 
                                         final String transactionDateString;

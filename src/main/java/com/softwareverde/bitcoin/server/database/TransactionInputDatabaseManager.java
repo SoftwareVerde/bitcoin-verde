@@ -67,7 +67,6 @@ public class TransactionInputDatabaseManager {
     }
 
     protected TransactionInputId _insertTransactionInput(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-
         final TransactionOutputId previousTransactionOutputId;
         {
             if (Util.areEqual(COINBASE_PREVIOUS_OUTPUT_TRANSACTION_HASH, transactionInput.getPreviousOutputTransactionHash())) {
@@ -101,15 +100,23 @@ public class TransactionInputDatabaseManager {
         return transactionInputId;
     }
 
-    protected Long _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
-        return _databaseConnection.executeSql(
+    protected void _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+        _databaseConnection.executeSql(
             new Query("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)")
                 .setParameter(transactionInputId)
                 .setParameter(unlockingScript.getBytes().getBytes())
         );
     }
 
-    protected List<Long> _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
+    protected void _updateUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE unlocking_scripts SET script = ? WHERE transaction_input_id = ?")
+                .setParameter(unlockingScript.getBytes().getBytes())
+                .setParameter(transactionInputId)
+        );
+    }
+
+    protected void _insertUnlockingScripts(final List<TransactionInputId> transactionInputIds, final List<UnlockingScript> unlockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionInputIds.getSize(), unlockingScripts.getSize())) {
             throw new DatabaseException("TransactionInputDatabaseManager::_insertUnlockingScripts -- transactionInputIds.getSize must equal unlockingScripts.getSize");
         }
@@ -123,16 +130,7 @@ public class TransactionInputDatabaseManager {
             batchedInsertQuery.setParameter(unlockingScript.getBytes().getBytes());
         }
 
-        final Long firstUnlockingScriptId = _databaseConnection.executeSql(batchedInsertQuery);
-        if (firstUnlockingScriptId == null) { return null; }
-
-        final MutableList<Long> unlockingScriptIds = new MutableList<Long>(transactionInputIds.getSize());
-        for (int i = 0 ; i < transactionInputIds.getSize(); ++i) {
-            final Long unlockingScriptId = (firstUnlockingScriptId + i);
-            unlockingScriptIds.add(unlockingScriptId);
-        }
-
-        return unlockingScriptIds;
+        _databaseConnection.executeSql(batchedInsertQuery);
     }
 
     public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
@@ -257,5 +255,79 @@ public class TransactionInputDatabaseManager {
 
     public TransactionOutputId findPreviousTransactionOutputId(final BlockChainSegmentId blockChainSegmentId, final TransactionInput transactionInput) throws DatabaseException {
         return _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+    }
+
+    public List<TransactionInputId> getTransactionInputIds(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
+
+        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
+            transactionInputIds.add(transactionInputId);
+        }
+
+        return transactionInputIds;
+    }
+
+    public void updateTransactionInput(final TransactionInputId transactionInputId, final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
+        final TransactionOutputId previousTransactionOutputId;
+        {
+            if (Util.areEqual(COINBASE_PREVIOUS_OUTPUT_TRANSACTION_HASH, transactionInput.getPreviousOutputTransactionHash())) {
+                previousTransactionOutputId = null;
+            }
+            else {
+                previousTransactionOutputId = _findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+                if (previousTransactionOutputId == null) {
+                    throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + blockChainSegmentId + " " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
+                }
+            }
+        }
+
+        final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE transaction_inputs SET transaction_id = ?, previous_transaction_output_id = ?, sequence_number = ? WHERE id = ?")
+                .setParameter(transactionId)
+                .setParameter(previousTransactionOutputId)
+                .setParameter(transactionInput.getSequenceNumber())
+                .setParameter(transactionInputId)
+        );
+
+        // NOTE: The original PreviousTransactionOutputId should not be unmarked because it is possible it is still being spent by another transaction.
+        //  While keeping this TransactionOutput marked as spent may lead to an unspent TransactionOutput being marked as spent it is fairly safe
+        //  since this method is a performance improvement more so than a true representation of state.
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
+
+        _updateUnlockingScript(transactionInputId, unlockingScript);
+    }
+
+    public void deleteTransactionInput(final TransactionInputId transactionInputId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM unlocking_scripts WHERE transaction_input_id = ?")
+                .setParameter(transactionInputId)
+        );
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM transaction_inputs WHERE id = ?")
+                .setParameter(transactionInputId)
+        );
+    }
+
+    public List<TransactionInputId> getTransactionInputIdsSpendingTransactionOutput(final TransactionOutputId transactionOutputId) throws  DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_inputs WHERE previous_transaction_output_id = ?")
+                .setParameter(transactionOutputId)
+        );
+
+        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
+            transactionInputIds.add(transactionInputId);
+        }
+        return transactionInputIds;
     }
 }

@@ -7,6 +7,13 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionAnnouncementHandlerFactory implements NodeInitializer.TransactionsAnnouncementCallbackFactory {
+    public static final TransactionAnnouncementHandlerFactory IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY = new TransactionAnnouncementHandlerFactory(null, null, null) {
+        @Override
+        public BitcoinNode.TransactionsAnnouncementCallback createTransactionsAnnouncementCallback(final BitcoinNode bitcoinNode) {
+            return TransactionsAnnouncementHandler.IGNORE_NEW_TRANSACTIONS_HANDLER;
+        }
+    };
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;

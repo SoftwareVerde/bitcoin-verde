@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.Comparator;
 
 public class DifficultyCalculator {
+    public static Boolean LOGGING_ENABLED = false;
+
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
 
@@ -50,19 +52,25 @@ public class DifficultyCalculator {
         }
         final Long previousBlockTimestamp = blockWithPreviousAdjustment.getTimestamp();
 
-        Logger.log(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
-        Logger.log(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
+        if (LOGGING_ENABLED) {
+            Logger.log(DateUtil.Utc.timestampToDatetimeString(blockTimestamp * 1000L));
+            Logger.log(DateUtil.Utc.timestampToDatetimeString(previousBlockTimestamp * 1000L));
+        }
 
         //  3. Calculate the difference between the network-time and the time of the 2015th-parent block ("secondsElapsed"). (NOTE: 2015 instead of 2016 due to protocol bug.)
         final Long secondsElapsed = (blockTimestamp - previousBlockTimestamp);
-        Logger.log("2016 blocks in "+ secondsElapsed + " ("+ (secondsElapsed/60F/60F/24F) +" days)");
+        if (LOGGING_ENABLED) {
+            Logger.log("2016 blocks in " + secondsElapsed + " (" + (secondsElapsed / 60F / 60F / 24F) + " days)");
+        }
 
         //  4. Calculate the desired two-weeks elapse-time ("secondsInTwoWeeks").
         final Long secondsInTwoWeeks = 2L * 7L * 24L * 60L * 60L; // <Week Count> * <Days / Week> * <Hours / Day> * <Minutes / Hour> * <Seconds / Minute>
 
         //  5. Calculate the difficulty adjustment via (secondsInTwoWeeks / secondsElapsed) ("difficultyAdjustment").
         final double difficultyAdjustment = (secondsInTwoWeeks.doubleValue() / secondsElapsed.doubleValue());
-        Logger.log("Adjustment: "+ difficultyAdjustment);
+        if (LOGGING_ENABLED) {
+            Logger.log("Adjustment: " + difficultyAdjustment);
+        }
 
         //  6. Bound difficultyAdjustment between [4, 0.25].
         final double boundedDifficultyAdjustment = (Math.min(4D, Math.max(0.25D, difficultyAdjustment)));
@@ -103,7 +111,9 @@ public class DifficultyCalculator {
                 return minimumDifficulty;
             }
 
-            Logger.log("Emergency Difficulty Adjustment: BlockHeight: " + blockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
+            if (LOGGING_ENABLED) {
+                Logger.log("Emergency Difficulty Adjustment: BlockHeight: " + blockHeight + " Original Difficulty: " + previousBlockHeader.getDifficulty() + " New Difficulty: " + newDifficulty);
+            }
             return newDifficulty;
         }
 

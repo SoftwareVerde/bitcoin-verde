@@ -13,6 +13,11 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 
 public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCallback {
+    public static final BitcoinNode.BlockAnnouncementCallback IGNORE_NEW_BLOCKS_HANDLER = new BitcoinNode.BlockAnnouncementCallback() {
+        @Override
+        public void onResult(final Block result) { }
+    };
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final Container<BlockSynchronizer> _blockDownloader;
 

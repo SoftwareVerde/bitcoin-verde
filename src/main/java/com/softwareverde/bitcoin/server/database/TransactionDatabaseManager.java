@@ -12,9 +12,11 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -25,7 +27,10 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class TransactionDatabaseManager {
     public static final TransactionIdCache TRANSACTION_CACHE = new TransactionIdCache();
@@ -206,6 +211,59 @@ public class TransactionDatabaseManager {
         return transactionIds;
     }
 
+    protected MutableTransaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long version = row.getLong("version");
+        final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+
+        final MutableTransaction transaction = new MutableTransaction();
+
+        transaction.setVersion(version);
+        transaction.setLockTime(lockTime);
+
+        // TODO: Move query to TransactionInputDatabaseManager...
+        final java.util.List<Row> transactionInputRows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
+                .setParameter(transactionId)
+        );
+        for (final Row transactionInputRow : transactionInputRows) {
+            final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputRow.getLong("id"));
+            final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+            transaction.addTransactionInput(transactionInput);
+        }
+
+        // TODO: Move query to TransactionOutputDatabaseManager...
+        final java.util.List<Row> transactionOutputRows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
+                .setParameter(transactionId)
+        );
+        for (final Row transactionOutputRow : transactionOutputRows) {
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
+            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+            transaction.addTransactionOutput(transactionOutput);
+        }
+
+        { // Validate inflated transaction hash...
+            final Sha256Hash expectedTransactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+            if (! Util.areEqual(expectedTransactionHash, transaction.getHash())) {
+                Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                Logger.log(transaction.toJson());
+                return null;
+            }
+        }
+
+        return transaction;
+    }
+
     public TransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
@@ -257,7 +315,7 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
-    public Sha256Hash getTransactionHashFromTransactionId(final TransactionId transactionId) throws DatabaseException {
+    public Sha256Hash getTransactionHash(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, hash FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
@@ -305,54 +363,36 @@ public class TransactionDatabaseManager {
     }
 
     public MutableTransaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        return _inflateTransaction(transactionId);
+    }
 
+    public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT * FROM transactions WHERE id = ?")
-                .setParameter(transactionId)
+            new Query("SELECT id FROM transactions WHERE block_id = ? ORDER BY id ASC")
+                .setParameter(blockId)
         );
-        if (rows.isEmpty()) { return null; }
 
-        final Row row = rows.get(0);
-        final Long version = row.getLong("version");
-        final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
 
-        final MutableTransaction transaction = new MutableTransaction();
-
-        transaction.setVersion(version);
-        transaction.setLockTime(lockTime);
-
-        final java.util.List<Row> transactionInputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
-                .setParameter(transactionId)
+    public List<Transaction> getTransaction(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transactions WHERE block_id = ? ORDER BY id ASC")
+                .setParameter(blockId)
         );
-        for (final Row transactionInputRow : transactionInputRows) {
-            final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputRow.getLong("id"));
-            final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
-            transaction.addTransactionInput(transactionInput);
-        }
 
-        final java.util.List<Row> transactionOutputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
-                .setParameter(transactionId)
-        );
-        for (final Row transactionOutputRow : transactionOutputRows) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
-            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
-            transaction.addTransactionOutput(transactionOutput);
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Transaction transaction = _inflateTransaction(transactionId);
+            listBuilder.add(transaction);
         }
-
-        { // Validate inflated transaction hash...
-            final Sha256Hash expectedTransactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
-            if (! Util.areEqual(expectedTransactionHash, transaction.getHash())) {
-                Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
-                Logger.log(transaction.toJson());
-                return null;
-            }
-        }
-
-        return transaction;
+        return listBuilder.build();
     }
 
     public BlockId getBlockId(final TransactionId transactionId) throws DatabaseException {
@@ -376,5 +416,105 @@ public class TransactionDatabaseManager {
         final Row row = rows.get(0);
 
         return row.getInteger("transaction_count");
+    }
+
+    public void updateTransaction(final TransactionId transactionId, final BlockId blockId, final Transaction transaction) throws DatabaseException {
+        _updateTransaction(transactionId, blockId, transaction);
+
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
+
+        { // Process TransactionOutputs....
+            final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+
+            final HashMap<Integer, TransactionOutput> transactionOutputMap = new HashMap<Integer, TransactionOutput>();
+            {
+                for (final TransactionOutput transactionOutput : transactionOutputs) {
+                    transactionOutputMap.put(transactionOutput.getIndex(), transactionOutput);
+                }
+            }
+
+            final Set<Integer> processedTransactionOutputIndexes = new TreeSet<Integer>();
+            for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+                final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final Boolean transactionOutputExistsInUpdatedTransaction = transactionOutputMap.containsKey(transactionOutputIndex);
+                if (transactionOutputExistsInUpdatedTransaction) {
+                    transactionOutputDatabaseManager.updateTransactionOutput(transactionOutputId, transactionId, transactionOutput);
+                    processedTransactionOutputIndexes.add(transactionOutputIndex);
+                }
+                else {
+                    transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+                }
+            }
+
+            for (final TransactionOutput transactionOutput : transactionOutputs) {
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final Boolean transactionOutputHasBeenProcessed = processedTransactionOutputIndexes.contains(transactionOutputIndex);
+                if (!transactionOutputHasBeenProcessed) {
+                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+                }
+            }
+        }
+
+        { // Process TransactionInputs....
+            final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+
+            final HashMap<TransactionOutputIdentifier, TransactionInput> transactionInputMap = new HashMap<TransactionOutputIdentifier, TransactionInput>();
+            {
+                for (final TransactionInput transactionInput : transactionInputs) {
+                    final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                    transactionInputMap.put(transactionOutputIdentifier, transactionInput);
+                }
+            }
+
+            final Set<TransactionOutputIdentifier> processedTransactionInputIndexes = new TreeSet<TransactionOutputIdentifier>();
+            for (final TransactionInputId transactionInputId : transactionInputIds) {
+                final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final Boolean transactionInputExistsInUpdatedTransaction = transactionInputMap.containsKey(transactionOutputIdentifier);
+                if (transactionInputExistsInUpdatedTransaction) {
+                    transactionInputDatabaseManager.updateTransactionInput(transactionInputId, blockChainSegmentId, transactionId, transactionInput);
+                    processedTransactionInputIndexes.add(transactionOutputIdentifier);
+                }
+                else {
+                    transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
+                }
+            }
+
+            for (final TransactionInput transactionInput : transactionInputs) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final Boolean transactionInputHasBeenProcessed = processedTransactionInputIndexes.contains(transactionOutputIdentifier);
+                if (! transactionInputHasBeenProcessed) {
+                    transactionInputDatabaseManager.insertTransactionInput(blockChainSegmentId, transactionId, transactionInput);
+                }
+            }
+        }
+    }
+
+    public void deleteTransaction(final TransactionId transactionId) throws DatabaseException {
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+        for (final TransactionInputId transactionInputId : transactionInputIds) {
+            transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
+        }
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+            transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+        }
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM transactions WHERE id = ?")
+                .setParameter(transactionId)
+        );
     }
 }

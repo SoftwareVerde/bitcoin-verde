@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -73,7 +74,6 @@ public class TransactionOutputDatabaseManager {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
-
         final AddressId addressId;
         if (scriptType != ScriptType.UNKNOWN) {
             final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
@@ -89,6 +89,28 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionOutputId)
                 .setParameter(lockingScript.getBytes().getBytes())
                 .setParameter(addressId)
+        );
+    }
+
+    protected void _updateLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+        final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+
+        final AddressId addressId;
+        if (scriptType != ScriptType.UNKNOWN) {
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection);
+            addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
+        }
+        else {
+            addressId = null;
+        }
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE locking_scripts SET type = ?, script = ?, address_id = ? WHERE transaction_output_id = ?")
+                .setParameter(scriptType)
+                .setParameter(lockingScript.getBytes().getBytes())
+                .setParameter(addressId)
+                .setParameter(transactionOutputId)
         );
     }
 
@@ -158,6 +180,13 @@ public class TransactionOutputDatabaseManager {
         mutableTransactionOutput.setAmount(transactionOutputRow.getLong("amount"));
         mutableTransactionOutput.setLockingScript(lockingScript);
         return mutableTransactionOutput;
+    }
+
+    protected Boolean _isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputId);
+        final Boolean transactionOutputIsSpent = (! transactionInputIds.isEmpty());
+        return transactionOutputIsSpent;
     }
 
     public TransactionOutputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
@@ -238,5 +267,55 @@ public class TransactionOutputDatabaseManager {
         }
 
         _databaseConnection.executeSql(batchedUpdateQuery);
+    }
+
+    public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
+
+        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+            transactionOutputIds.add(transactionOutputId);
+        }
+
+        return transactionOutputIds;
+    }
+
+    public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE transaction_outputs SET transaction_id = ?, `index` = ?, amount = ? WHERE id = ?")
+                .setParameter(transactionId)
+                .setParameter(transactionOutput.getIndex())
+                .setParameter(transactionOutput.getAmount())
+                .setParameter(transactionOutputId)
+        );
+
+        _updateLockingScript(transactionOutputId, lockingScript);
+    }
+
+    public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        return _isTransactionOutputSpent(transactionOutputId);
+    }
+
+    public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        final Boolean transactionOutputWasSpent = _isTransactionOutputSpent(transactionOutputId);
+        if (transactionOutputWasSpent) {
+            throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
+        }
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM locking_scripts WHERE transaction_output_id = ?")
+                .setParameter(transactionOutputId)
+        );
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
     }
 }

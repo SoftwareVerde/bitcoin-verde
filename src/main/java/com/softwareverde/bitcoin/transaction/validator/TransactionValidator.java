@@ -235,7 +235,7 @@ public class TransactionValidator {
             }
 
             if (outputToSpend == null) {
-                Logger.log("Transaction references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                Logger.log("Transaction " + transaction.getHash() + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
                 _logInvalidTransaction(transaction, context);
                 return false;
             }

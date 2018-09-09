@@ -37,6 +37,7 @@ public class BlockValidator {
     protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
 
+    protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
@@ -170,7 +171,9 @@ public class BlockValidator {
         }
 
         validateBlockTimer.stop();
-        Logger.log("Validated "+ transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms ("+ ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) +" tps). " + block.getHash());
+        if (_shouldLogValidBlocks) {
+            Logger.log("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+        }
 
         final Long totalTransactionFees;
         {
@@ -256,5 +259,9 @@ public class BlockValidator {
         }
 
         return _validateBlock(blockChainSegmentId, block, blockHeight);
+    }
+
+    public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {
+        _shouldLogValidBlocks = shouldLogValidBlocks;
     }
 }

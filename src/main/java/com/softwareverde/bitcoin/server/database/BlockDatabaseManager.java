@@ -31,6 +31,10 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
+import java.util.HashMap;
+import java.util.Set;
+import java.util.TreeSet;
+
 public class BlockDatabaseManager {
     public static final BlockChainSegmentIdCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentIdCache();
 
@@ -680,5 +684,56 @@ public class BlockDatabaseManager {
 
     public ChainWork getChainWork(final BlockId blockId) throws DatabaseException {
         return _getChainWork(blockId);
+    }
+
+    public void repairBlock(final Block block) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+
+        final Sha256Hash blockHash = block.getHash();
+        final BlockId blockId = _getBlockIdFromHash(blockHash);
+        if (blockId == null) {
+            Logger.log("Block not found: " + blockHash);
+            return;
+        }
+
+        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
+
+        _updateBlockHeader(blockId, block);
+
+        final Set<Sha256Hash> updatedTransactions = new TreeSet<Sha256Hash>();
+        { // Remove transactions that do not exist in the updated block, and update ones that do not exist...
+            final HashMap<Sha256Hash, Transaction> existingTransactionHashes = new HashMap<Sha256Hash, Transaction>(block.getTransactionCount());
+            for (final Transaction transaction : block.getTransactions()) {
+                existingTransactionHashes.put(transaction.getHash(), transaction);
+            }
+
+            final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
+
+            for (final TransactionId transactionId : transactionIds) {
+                final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+
+                final Boolean transactionExistsInUpdatedBlock = existingTransactionHashes.containsKey(transactionHash);
+
+                if (transactionExistsInUpdatedBlock) {
+                    final Transaction transaction = existingTransactionHashes.get(transactionHash);
+                    Logger.log("Updating Transaction: " + transactionHash + " Id: " + transactionId);
+                    transactionDatabaseManager.updateTransaction(transactionId, blockId, transaction);
+                    updatedTransactions.add(transactionHash);
+                }
+                else {
+                    Logger.log("Deleting Transaction: " + transactionHash + " Id: " + transactionId);
+                    transactionDatabaseManager.deleteTransaction(transactionId);
+                }
+            }
+        }
+
+        for (final Transaction transaction : block.getTransactions()) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final Boolean transactionHasBeenProcessed = updatedTransactions.contains(transactionHash);
+            if (transactionHasBeenProcessed) { continue; }
+
+            Logger.log("Inserting Transaction: " + transactionHash);
+            transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
+        }
     }
 }

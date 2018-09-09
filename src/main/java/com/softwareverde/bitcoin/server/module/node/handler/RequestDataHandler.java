@@ -17,6 +17,11 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeConnection;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
+    public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
+        @Override
+        public void run(final List<DataHash> dataHashes, final NodeConnection nodeConnection) { }
+    };
+
     protected final MysqlDatabaseConnectionFactory _connectionFactory;
 
     public RequestDataHandler(final MysqlDatabaseConnectionFactory connectionFactory) {

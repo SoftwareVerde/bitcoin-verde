@@ -194,11 +194,11 @@ public class NodeModule {
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
         }
 
-        final Container<BlockSynchronizer> blockDownloaderContainer = new Container<BlockSynchronizer>();
+        final Container<BlockSynchronizer> blockSynchronizerContainer = new Container<BlockSynchronizer>();
 
         { // Initialize NodeInitializer...
             final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
-            final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback = new BlockAnnouncementHandler(databaseConnectionFactory, blockDownloaderContainer);
+            final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback = new BlockAnnouncementHandler(databaseConnectionFactory, blockSynchronizerContainer);
             final TransactionAnnouncementHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionAnnouncementHandlerFactory(databaseConnectionFactory, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory);
@@ -215,7 +215,7 @@ public class NodeModule {
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
             _blockSynchronizer = new BlockSynchronizer(databaseConnectionFactory, _nodeManager, blockProcessor);
             _blockSynchronizer.setMaxQueueSize(maxQueueSize);
-            blockDownloaderContainer.value = _blockSynchronizer;
+            blockSynchronizerContainer.value = _blockSynchronizer;
         }
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
