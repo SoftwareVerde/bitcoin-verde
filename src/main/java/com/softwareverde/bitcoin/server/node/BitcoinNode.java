@@ -468,6 +468,14 @@ public class BitcoinNode extends Node {
         _queueMessage(requestTransactionMessage);
     }
 
+    public void findBestChain(final List<Sha256Hash> blockHashes, final QueryCallback queryCallback) {
+        final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+        for (final Sha256Hash blockHash : blockHashes) {
+            queryBlocksMessage.addBlockHeaderHash(blockHash);
+        }
+        _queueMessage(queryBlocksMessage);
+    }
+
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
         _storeInMapSet(_queryRequests, DataHashType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);

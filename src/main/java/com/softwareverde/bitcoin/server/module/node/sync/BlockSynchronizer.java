@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
@@ -8,6 +11,7 @@ import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -204,7 +208,50 @@ public class BlockSynchronizer {
 
             @Override
             public void onFailure() {
-                _onFailure();
+                final List<Sha256Hash> blockFinderHashes;
+                {
+                    MutableList<Sha256Hash> blockHashes = null;
+                    try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                        final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
+                        final Long maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+
+                        blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue() + 10));
+                        int blockHeightStep = 1;
+                        for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
+                            final BlockId blockId = blockDatabaseManager.getBlockIdAtHeight(headBlockChainSegmentId, blockHeight);
+                            final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
+
+                            blockHashes.add(blockHash);
+
+                            if (blockHashes.getSize() >= 10) {
+                                blockHeightStep *= 2;
+                            }
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.log(exception);
+                        _onFailure();
+                        return;
+                    }
+                    blockFinderHashes = blockHashes;
+                }
+
+                _nodeManager.findBestChain(blockFinderHashes, new BitcoinNode.QueryCallback() {
+                    @Override
+                    public void onResult(final List<Sha256Hash> blockHashes) {
+                        for (final Sha256Hash blockHash : blockHashes) {
+                            Logger.log(blockHash);
+                        }
+                        _onBlockHashesDownloaded(blockHashes);
+                    }
+
+                    @Override
+                    public void onFailure() {
+                        _onFailure();
+                    }
+                });
             }
         };
 

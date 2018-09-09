@@ -736,4 +736,22 @@ public class BlockDatabaseManager {
             transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
         }
     }
+
+    public BlockId getBlockIdAtHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE block_height = ?")
+                .setParameter(blockHeight)
+        );
+
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+            final Boolean blockIsConnectedToChain = _isBlockConnectedToChain(blockId, blockChainSegmentId);
+            if (blockIsConnectedToChain) {
+                return blockId;
+            }
+        }
+
+        return null;
+    }
 }
