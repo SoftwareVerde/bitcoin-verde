@@ -41,6 +41,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -325,52 +326,54 @@ public class BitcoinNode extends Node {
             final List<Sha256Hash> objectHashes = dataHashesMap.get(dataHashType);
             if (objectHashes.isEmpty()) { continue; }
 
-            {   // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
+            if (dataHashType == DataHashType.BLOCK) {
+                // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
                 //  in order to tie the callback to the response, the first block within the response is requested.
                 //  If the downloaded Block's previousBlockHash matchesByte the requestAfter BlockHash, then the response is
                 //  assumed to be for that callback's request.
 
-                if (dataHashType == DataHashType.BLOCK) {
-                    final Sha256Hash blockHash = objectHashes.get(0);
-                    _storeInMapSet(_downloadBlockRequests, blockHash, new DownloadBlockCallback() {
-                        @Override
-                        public void onResult(final Block block) {
-                            final Set<BlockHashQueryCallback> blockHashQueryCallbackSet = _queryRequests.get(dataHashType);
+                final Sha256Hash blockHash = objectHashes.get(0);
 
-                            Boolean queryResponseWasRequested = false;
-                            if (blockHashQueryCallbackSet != null) {
-                                for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
-                                    if (block.getPreviousBlockHash().equals(blockHashQueryCallback.afterBlockHash)) {
-                                        blockHashQueryCallbackSet.remove(blockHashQueryCallback);
-                                        blockHashQueryCallback.onResult(objectHashes);
-                                        queryResponseWasRequested = true;
-                                    }
-                                }
-                            }
+                _storeInMapSet(_downloadBlockRequests, blockHash, new DownloadBlockCallback() {
+                    @Override
+                    public void onResult(final Block block) {
+                        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
 
-                            if (! queryResponseWasRequested) {
-                                final BlockAnnouncementCallback blockAnnouncementCallback = _blockAnnouncementCallback;
-                                if (blockAnnouncementCallback != null) {
-                                    blockAnnouncementCallback.onResult(block);
-                                }
-                                else {
-                                    Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
+                        final Set<BlockHashQueryCallback> blockHashQueryCallbackSet = _queryRequests.get(dataHashType);
+
+                        Boolean queryResponseWasRequested = false;
+                        if (blockHashQueryCallbackSet != null) {
+                            for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
+                                if (Util.areEqual(previousBlockHash, blockHashQueryCallback.afterBlockHash)) {
+                                    blockHashQueryCallbackSet.remove(blockHashQueryCallback);
+                                    blockHashQueryCallback.onResult(objectHashes);
+                                    queryResponseWasRequested = true;
                                 }
                             }
                         }
-                    });
-                    _requestBlock(blockHash); // TODO: Convert to _requestBlockHeader(blockHash);
 
-                    continue;
+                        if (! queryResponseWasRequested) {
+                            final BlockAnnouncementCallback blockAnnouncementCallback = _blockAnnouncementCallback;
+                            if (blockAnnouncementCallback != null) {
+                                blockAnnouncementCallback.onResult(block);
+                            }
+                            else {
+                                Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
+                            }
+                        }
+                    }
+                });
+                _requestBlock(blockHash); // TODO: Convert to _requestBlockHeader(blockHash);
+
+                continue;
+            }
+            else if (dataHashType == DataHashType.TRANSACTION) {
+                final TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
+                if (transactionsAnnouncementCallback != null) {
+                    transactionsAnnouncementCallback.onResult(objectHashes);
                 }
-                else if (dataHashType == DataHashType.TRANSACTION) {
-                    final TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
-                    if (transactionsAnnouncementCallback != null) {
-                        transactionsAnnouncementCallback.onResult(objectHashes);
-                    }
-                    else {
-                        Logger.log("NOTICE: No handler set for TransactionsAnnouncementCallback.");
-                    }
+                else {
+                    Logger.log("NOTICE: No handler set for TransactionsAnnouncementCallback.");
                 }
             }
 
@@ -468,11 +471,14 @@ public class BitcoinNode extends Node {
         _queueMessage(requestTransactionMessage);
     }
 
-    public void findBestChain(final List<Sha256Hash> blockHashes, final QueryCallback queryCallback) {
+    public void detectFork(final List<Sha256Hash> blockHashes) {
+        final Integer blockHashesCount = blockHashes.getSize();
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
-        for (final Sha256Hash blockHash : blockHashes) {
+        for (int i = 0; i < blockHashesCount; ++i) {
+            final Sha256Hash blockHash = blockHashes.get(blockHashesCount - i - 1);
             queryBlocksMessage.addBlockHeaderHash(blockHash);
         }
+
         _queueMessage(queryBlocksMessage);
     }
 

@@ -16,10 +16,11 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestDataCallback _requestDataCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
+        bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatusHandler);
+
         bitcoinNode.setQueryBlocksCallback(_queryBlocksCallback);
         bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         bitcoinNode.setRequestDataCallback(_requestDataCallback);
-        bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatusHandler);
         bitcoinNode.setBlockAnnouncementCallback(_blockAnnouncementCallback);
 
         final BitcoinNode.TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);

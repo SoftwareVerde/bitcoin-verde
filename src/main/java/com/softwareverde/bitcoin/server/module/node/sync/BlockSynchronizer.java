@@ -101,7 +101,11 @@ public class BlockSynchronizer {
         final Sha256Hash nextBlockHash;
         final Sha256Hash lastBlockHash;
         synchronized (_mutex) {
-            if (! Util.areEqual(_lastBlockHash, previousBlockHash)) { return; } // Ignore blocks sent out of order... NOTE: BlockSynchronizer::_restartBlockDownload depends on this logic.
+            if (_lastBlockHash != null) {
+                if (! Util.areEqual(_lastBlockHash, previousBlockHash)) {
+                    return; // Ignore blocks sent out of order... NOTE: BlockSynchronizer::_restartBlockDownload depends on this logic.
+                }
+            }
 
             _queuedBlocks.addBlock(block);
 
@@ -164,7 +168,7 @@ public class BlockSynchronizer {
     }
 
     protected void _restartBlockDownload() {
-        // NOTE: Any currently-pending requests will be completed but ignored since BlockSynchronizer::_clear resets BlockSynchronizer._lastBlockHash...
+        // NOTE: Any currently-pending requests will be completed but ignored since BlockSynchronizer::_startDownloadingBlocks resets BlockSynchronizer._lastBlockHash...
         _clear();
         _startDownloadingBlocks();
     }
@@ -208,6 +212,8 @@ public class BlockSynchronizer {
 
             @Override
             public void onFailure() {
+                _onFailure(); // End the regular block synchronization process, then trigger a forkDetection...
+
                 final List<Sha256Hash> blockFinderHashes;
                 {
                     MutableList<Sha256Hash> blockHashes = null;
@@ -238,20 +244,7 @@ public class BlockSynchronizer {
                     blockFinderHashes = blockHashes;
                 }
 
-                _nodeManager.findBestChain(blockFinderHashes, new BitcoinNode.QueryCallback() {
-                    @Override
-                    public void onResult(final List<Sha256Hash> blockHashes) {
-                        for (final Sha256Hash blockHash : blockHashes) {
-                            Logger.log(blockHash);
-                        }
-                        _onBlockHashesDownloaded(blockHashes);
-                    }
-
-                    @Override
-                    public void onFailure() {
-                        _onFailure();
-                    }
-                });
+                _nodeManager.detectFork(blockFinderHashes);
             }
         };
 

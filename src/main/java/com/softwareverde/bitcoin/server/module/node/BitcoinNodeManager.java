@@ -115,28 +115,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
-    public void findBestChain(final List<Sha256Hash> blockHashes, final BitcoinNode.QueryCallback callback) {
+    public void detectFork(final List<Sha256Hash> blockHashes) {
         this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
             @Override
             public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                bitcoinNode.findBestChain(blockHashes, new BitcoinNode.QueryCallback() {
-                    @Override
-                    public void onResult(final List<Sha256Hash> result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
-
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                if (callback != null) {
-                    callback.onFailure();
-                }
+                bitcoinNode.detectFork(blockHashes);
             }
         });
     }
