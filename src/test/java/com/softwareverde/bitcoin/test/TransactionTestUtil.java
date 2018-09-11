@@ -59,7 +59,7 @@ public class TransactionTestUtil {
         return genesisBlockId;
     }
 
-    public static void makeFakeTransactionInsertable(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
 
         // Ensure that all of the Transaction's TransactionInput's have outputs that exist...

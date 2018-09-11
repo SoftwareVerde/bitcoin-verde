@@ -66,8 +66,6 @@ public class BlockHeaderDownloader {
                 return false;
             }
 
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-
             final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
             final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
             if (! blockHeaderIsValid) {

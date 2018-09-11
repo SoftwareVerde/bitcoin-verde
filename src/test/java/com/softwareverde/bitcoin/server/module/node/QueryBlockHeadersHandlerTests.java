@@ -114,7 +114,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      */
     protected Block[] _initScenario() throws Exception {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockInflater blockInflater = new BlockInflater();
 
@@ -124,7 +123,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (final String blockData : blockDatas) {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             blockDatabaseManager.insertBlock(block);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             blocks[i] = block;
             i += 1;
         }
@@ -150,17 +148,14 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      */
     protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockInflater blockInflater = new BlockInflater();
 
         final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
         blockDatabaseManager.insertBlock(block5);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block5);
 
         final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
         blockDatabaseManager.insertBlock(forkedBlock0);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(forkedBlock0);
 
         final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
         {
@@ -169,7 +164,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             forkedBlock1 = mutableBlock;
         }
         blockDatabaseManager.insertBlock(forkedBlock1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(forkedBlock1);
 
         final Block[] newBlocks = new Block[blocks.length + 3];
         for (int i = 0; i < blocks.length; ++i) {
@@ -371,10 +365,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
             final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
             blockDatabaseManager.insertBlock(mutableBlock);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(mutableBlock);
 
             extraChildEPrimeBlock = mutableBlock;
         }
