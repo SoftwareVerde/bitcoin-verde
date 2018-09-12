@@ -359,16 +359,16 @@ public class BlockDatabaseManager {
             final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(queriedBlockChainSegmentId);
             if (blockChainSegment == null) { break; }
 
-            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
-            final long upperBound = (blockChainSegment.getBlockHeight());
-            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
+            final long lowerBoundHeight = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount() + 1);
+            final long upperBoundHeight = (blockChainSegment.getBlockHeight());
+            if (lowerBoundHeight <= blockHeight && blockHeight <= upperBoundHeight) {
                 final BlockId blockIdAtChainSegmentAndHeight = _getBlockIdAtBlockHeight(queriedBlockChainSegmentId, blockHeight);
                 return (Util.areEqual(blockId, blockIdAtChainSegmentAndHeight));
             }
 
             final BlockId nextBlockId;
             {
-                if (blockHeight < lowerBound) {
+                if (blockHeight < lowerBoundHeight) {
                     nextBlockId = blockChainSegment.getTailBlockId();
                 }
                 else {

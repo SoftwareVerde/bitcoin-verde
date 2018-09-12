@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -364,5 +365,58 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
         // Assert
         Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
+    }
+
+    @Test
+    public void should_store_block_if_input_exist_on_prior_block_chain_segment_after_fork() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+        final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
+        final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+
+        final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+        final Block fakeBlock7;
+        {
+            final MutableBlock mutableBlock = new MutableBlock(customBlock6);
+            mutableBlock.setPreviousBlockHash(customBlock6.getHash());
+            mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
+            mutableBlock.clearTransactions();
+            mutableBlock.addTransaction(block5.getCoinbaseTransaction());
+            fakeBlock7 = mutableBlock;
+        }
+
+        // This block is valid to store (although the proof of work is invalid). It contains a transaction that spends
+        //  an input that is a part of the same chain, but a different blockChainSegment...
+        final Block fakeBlock7Prime;
+        {
+            final TransactionInflater transactionInflater = new TransactionInflater();
+            final Transaction transactionSpendingBlock6Coinbase = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D53000000008A47304402205AF3B0D44912D11484ACAFE9409B76D1682A6BDF86EAC17056B8AD6F9FEDF47502205D844BFC1F93F9C5B4BD7D45C426CE56B6BA7E4EFAB5433189ACBAF5403C61F70141046C1D8C923D8ADFCEA711BE28A9BF7E2981632AAC789AEF95D7402B9225784AD93661700AB5474EFFDD7D5BEA6100904D3F1B3BE2017E2A18971DD8904B522020FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+
+            final MutableBlock mutableBlock = new MutableBlock(fakeBlock7);
+            mutableBlock.setPreviousBlockHash(customBlock6.getHash());
+            mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
+            mutableBlock.clearTransactions();
+            mutableBlock.addTransaction(block5.getCoinbaseTransaction());
+            mutableBlock.addTransaction(transactionSpendingBlock6Coinbase);
+            fakeBlock7Prime = mutableBlock;
+        }
+
+        for (final Block block : new Block[]{ genesisBlock, block1, block2, block3, block4, block5, customBlock6, fakeBlock7 }) {
+            blockDatabaseManager.storeBlock(block);
+        }
+
+        // Action
+        final BlockId blockId = blockDatabaseManager.storeBlock(fakeBlock7Prime);
+
+        // Assert
+        Assert.assertNotNull(blockId);
     }
 }
