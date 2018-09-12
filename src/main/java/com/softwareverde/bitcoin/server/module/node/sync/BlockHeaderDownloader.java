@@ -53,7 +53,6 @@ public class BlockHeaderDownloader {
         }
 
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
         synchronized (BlockDatabaseManager.MUTEX) {

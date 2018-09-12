@@ -120,18 +120,24 @@ public class DifficultyCalculator {
         return previousBlockHeader.getDifficulty();
     }
 
-    protected Difficulty _calculateNewBitcoinCashTarget(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Long blockHeight, final BlockHeader blockHeader) throws DatabaseException {
+    protected Difficulty _calculateNewBitcoinCashTarget(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Long blockHeight) throws DatabaseException {
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3];
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3];
 
         for (int i = 0; i < lastBlockHeaders.length; ++i) {
             final BlockId ancestorBlockId = _blockDatabaseManager.getAncestorBlockId(blockId, (i + 1));
-            lastBlockHeaders[i] = _blockDatabaseManager.getBlockHeader(ancestorBlockId);
+            final BlockHeader blockHeader = _blockDatabaseManager.getBlockHeader(ancestorBlockId);
+            if (blockHeader == null) { return null; }
+
+            lastBlockHeaders[i] = blockHeader;
         }
 
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
             final Long parentBlockHeight = (blockHeight - 1);
-            firstBlockHeaders[i] = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
+            final BlockHeader blockHeader = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
+            if (blockHeader == null) { return null; }
+
+            firstBlockHeaders[i] = blockHeader;
         }
 
         final Comparator<BlockHeader> sortBlockHeaderByTimestampDescending = new Comparator<BlockHeader>() {
@@ -218,7 +224,7 @@ public class DifficultyCalculator {
             if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
             if (HF20171113.isEnabled(blockHeight)) {
-                return _calculateNewBitcoinCashTarget(blockChainSegmentId, blockId, blockHeight, blockHeader);
+                return _calculateNewBitcoinCashTarget(blockChainSegmentId, blockId, blockHeight);
             }
 
             final Boolean requiresDifficultyEvaluation = (blockHeight % BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT == 0);

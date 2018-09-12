@@ -131,7 +131,6 @@ public class BlockChainDatabaseManager {
             }
         }
         else { // 3. Else (the block is contentious)...
-Logger.log("3. Else (the block is contentious)...");
             final Long previousBlockBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(previousBlockId);
 
             final BlockId refactoredChainHeadBlockId;
@@ -163,8 +162,6 @@ Logger.log("3. Else (the block is contentious)...");
             //  The head_block_id should point to the previousBlock.
             //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
             BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
-Logger.log("3.2 Update/revert the baseBlockChain.");
-Logger.log("UPDATE block_chain_segments SET head_block_id = "+previousBlockId+", block_height = "+previousBlockBlockHeight+", block_count = (block_count - "+refactoredChainBlockCount+") WHERE id = " + previousBlockChainSegmentId);
             _databaseConnection.executeSql(
                 new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
                     .setParameter(previousBlockId)
@@ -178,8 +175,6 @@ Logger.log("UPDATE block_chain_segments SET head_block_id = "+previousBlockId+",
                 //  The tail_block_id of this chain should be set to the head_block_id of the baseChain.
                 //  The block_count should be the number of refactored blocks (which excludes the head block of the baseChain).
                 //  The block_height is the total number of blocks below this chain and all connected chains; this is equivalent to the original block height for this chain before it was refactored.
-Logger.log("3.3.1 Create a new block chain to house all of the already-existing blocks after the previousBlock.");
-Logger.log("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES ("+refactoredChainHeadBlockId+", "+refactoredChainTailBlockId+", "+refactoredChainBlockHeight+", "+refactoredChainBlockCount+")");
                 final Long refactoredBlockChainSegmentId = _databaseConnection.executeSql(
                     new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
                         .setParameter(refactoredChainHeadBlockId)
@@ -189,8 +184,6 @@ Logger.log("INSERT INTO block_chain_segments (head_block_id, tail_block_id, bloc
                 );
 
                 // 3.3.2 Update the refactoredBlocks to belong to the new refactoredBlockChain.
-Logger.log("3.3.2 Update the refactoredBlocks to belong to the new refactoredBlockChain.");
-Logger.log("UPDATE blocks SET block_chain_segment_id = "+refactoredBlockChainSegmentId+" WHERE block_chain_segment_id = "+previousBlockChainSegmentId+" AND block_height > "+previousBlockBlockHeight);
                 _databaseConnection.executeSql(
                     new Query("UPDATE blocks SET block_chain_segment_id = ? WHERE block_chain_segment_id = ? AND block_height > ?")
                         .setParameter(refactoredBlockChainSegmentId)
@@ -203,8 +196,6 @@ Logger.log("UPDATE blocks SET block_chain_segment_id = "+refactoredBlockChainSeg
             // 3.4 Create a new block chain to house the newBlock (and its future children)...
             //  Set its head_block_id to the new block, and its tail_block_id to the previousBlockId (the head_block_id of the baseChain).
             //  Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
-Logger.log("3.4 Create a new block chain to house the newBlock (and its future children)...");
-Logger.log("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES ("+newBlockId+", "+previousBlockId+", "+(previousBlockBlockHeight + 1)+", "+1+")");
             final BlockChainSegmentId newChainId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
                 new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
                     .setParameter(newBlockId)
@@ -214,8 +205,6 @@ Logger.log("INSERT INTO block_chain_segments (head_block_id, tail_block_id, bloc
             ));
 
             // 3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.
-Logger.log("3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.");
-Logger.log(newBlockId+" -> "+newChainId);
             blockDatabaseManager.setBlockChainSegmentId(newBlockId, newChainId);
         }
     }
