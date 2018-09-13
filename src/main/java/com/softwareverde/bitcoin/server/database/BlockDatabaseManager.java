@@ -359,16 +359,16 @@ public class BlockDatabaseManager {
             final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(queriedBlockChainSegmentId);
             if (blockChainSegment == null) { break; }
 
-            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
-            final long upperBound = (blockChainSegment.getBlockHeight());
-            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
+            final long lowerBoundHeight = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount() + 1);
+            final long upperBoundHeight = (blockChainSegment.getBlockHeight());
+            if (lowerBoundHeight <= blockHeight && blockHeight <= upperBoundHeight) {
                 final BlockId blockIdAtChainSegmentAndHeight = _getBlockIdAtBlockHeight(queriedBlockChainSegmentId, blockHeight);
                 return (Util.areEqual(blockId, blockIdAtChainSegmentAndHeight));
             }
 
             final BlockId nextBlockId;
             {
-                if (blockHeight < lowerBound) {
+                if (blockHeight < lowerBoundHeight) {
                     nextBlockId = blockChainSegment.getTailBlockId();
                 }
                 else {
@@ -446,8 +446,22 @@ public class BlockDatabaseManager {
         return row.getInteger("transaction_count");
     }
 
+    protected Integer _getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
+                .setParameter(blockId)
+        );
+
+        return (rows.size());
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        return _insertBlockHeader(blockHeader);
+        final BlockId blockId = _insertBlockHeader(blockHeader);
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+
+        return blockId;
     }
 
     public void updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -462,7 +476,12 @@ public class BlockDatabaseManager {
             return existingBlockId;
         }
 
-        return _insertBlockHeader(blockHeader);
+        final BlockId blockId = _insertBlockHeader(blockHeader);
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+
+        return blockId;
     }
 
     /**
@@ -477,7 +496,10 @@ public class BlockDatabaseManager {
         final BlockId blockId;
         if (existingBlockId == null) {
             blockId = _insertBlockHeader(block);
-            blockChainSegmentId = _getParentBlockChainSegmentId(block);
+
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+            blockChainSegmentId = _getBlockChainSegmentId(blockId);
         }
         else {
             // _updateBlockHeader(existingBlockId, block);
@@ -497,7 +519,10 @@ public class BlockDatabaseManager {
      */
     public BlockId insertBlock(final Block block) throws DatabaseException {
         final BlockId blockId = _insertBlockHeader(block);
-        final BlockChainSegmentId blockChainSegmentId = _getParentBlockChainSegmentId(block);
+
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
+        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
 
         _insertBlockTransactions(blockChainSegmentId, blockId, block);
         return blockId;
@@ -552,12 +577,7 @@ public class BlockDatabaseManager {
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE previous_block_id = ?")
-                .setParameter(blockId)
-        );
-
-        return (rows.size());
+        return _getBlockDirectDescendantCount(blockId);
     }
 
     public void setBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
@@ -570,30 +590,6 @@ public class BlockDatabaseManager {
 
     public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
         return _getBlockHeightForBlockId(blockId);
-    }
-
-    public BlockHeader findBlockAtBlockHeight(final BlockChainSegmentId startingBlockChainSegmentId, final Long blockHeight) throws DatabaseException {
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-
-        BlockChainSegmentId blockChainSegmentId = startingBlockChainSegmentId;
-        while (true) {
-            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-            if (blockChainSegment == null) { break; }
-
-            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
-            final long upperBound = (blockChainSegment.getBlockHeight());
-            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
-                final BlockId blockId = _getBlockIdAtBlockHeight(blockChainSegmentId, blockHeight);
-                return _inflateBlockHeader(blockId);
-            }
-
-            final BlockId nextBlockId = blockChainSegment.getTailBlockId();
-            final BlockChainSegmentId nextBlockChainSegmentId = _getBlockChainSegmentId(nextBlockId);
-            if (blockChainSegmentId.equals(nextBlockChainSegmentId)) { break; }
-
-            blockChainSegmentId = nextBlockChainSegmentId;
-        }
-        return null;
     }
 
     public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
@@ -735,5 +731,23 @@ public class BlockDatabaseManager {
             Logger.log("Inserting Transaction: " + transactionHash);
             transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
         }
+    }
+
+    public BlockId getBlockIdAtHeight(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE block_height = ?")
+                .setParameter(blockHeight)
+        );
+
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+            final Boolean blockIsConnectedToChain = _isBlockConnectedToChain(blockId, blockChainSegmentId);
+            if (blockIsConnectedToChain) {
+                return blockId;
+            }
+        }
+
+        return null;
     }
 }

@@ -115,6 +115,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
+    public void detectFork(final List<Sha256Hash> blockHashes) {
+        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+            @Override
+            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+                bitcoinNode.detectFork(blockHashes);
+            }
+        });
+    }
+
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback callback) {
         this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
             @Override

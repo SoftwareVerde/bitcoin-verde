@@ -66,17 +66,12 @@ public class BlockProcessor {
         TransactionUtil.startTransaction(databaseConnection);
 
         final Timer storeBlockTimer = new Timer();
-        final Timer updateBlockChainsTimer = new Timer();
 
         LoggingConnectionWrapper.reset();
 
         storeBlockTimer.start();
         final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
         storeBlockTimer.stop();
-
-        updateBlockChainsTimer.start();
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-        updateBlockChainsTimer.stop();
 
         {
             final int transactionCount = block.getTransactions().getSize();
@@ -114,7 +109,7 @@ public class BlockProcessor {
             final Float averageBlocksPerSecond;
             final Float averageTransactionsPerSecond;
             synchronized (_statisticsMutex) {
-                _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed() + updateBlockChainsTimer.getMillisecondsElapsed()));
+                _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed()));
                 _transactionsPerBlock.add(blockTransactionCount);
 
                 final Integer blockCount = _blocksPerSecond.size();

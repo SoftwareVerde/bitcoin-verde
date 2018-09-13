@@ -138,7 +138,8 @@ public class BlockValidator {
             }
         }
 
-        final Integer threadCount = (_maxThreadCount / 2);
+        final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
+        // TODO: Synchronize the totalExpenditureValidationTaskSpawner before executing unlockedInputsValidationTaskSpawner if threadCount is 1...
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
