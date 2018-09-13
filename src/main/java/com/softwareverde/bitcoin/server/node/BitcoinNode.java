@@ -141,7 +141,10 @@ public class BitcoinNode extends Node {
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
 
-        synchronizeVersionMessage.setRelayIsEnabled(_synchronizationStatusHandler.isReadyForTransactions());
+        // synchronizeVersionMessage.setRelayIsEnabled(_synchronizationStatusHandler.isReadyForTransactions());
+        synchronizeVersionMessage.setRelayIsEnabled(true);  // NOTE: It appears that other nodes are smart enough to not send
+                                                            // transactions until the Node's broadcasted blockHeight is synchronized...
+
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatusHandler.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
