@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 
 public class ShutdownHandler implements JsonRpcSocketServerHandler.ShutdownHandler {
     protected final Thread _mainThread;

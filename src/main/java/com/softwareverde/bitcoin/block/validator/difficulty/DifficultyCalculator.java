@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.bip.Bip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;

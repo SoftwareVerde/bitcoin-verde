@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.gui.VerdeWallet;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
-import com.softwareverde.bitcoin.server.module.ChainValidationModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
