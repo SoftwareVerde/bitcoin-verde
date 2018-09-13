@@ -39,7 +39,8 @@ public class DifficultyCalculator {
 
         //  1. Get the block that is 2016 blocks behind the head block of this chain.
         final long previousBlockHeight = (blockHeight - BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT); // NOTE: This is 2015 blocks worth of time (not 2016) because of a bug in Satoshi's implementation and is now part of the protocol definition.
-        final BlockHeader blockWithPreviousAdjustment = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, previousBlockHeight);
+        final BlockId blockId = _blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, previousBlockHeight);
+        final BlockHeader blockWithPreviousAdjustment = _blockDatabaseManager.getBlockHeader(blockId);
         if (blockWithPreviousAdjustment == null) { return null; }
 
         //  2. Get the current block timestamp.
@@ -134,9 +135,10 @@ public class DifficultyCalculator {
 
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
             final Long parentBlockHeight = (blockHeight - 1);
-            final BlockHeader blockHeader = _blockDatabaseManager.findBlockAtBlockHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
-            if (blockHeader == null) { return null; }
+            final BlockId blockHeaderId = _blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
+            if (blockHeaderId == null) { return null; }
 
+            final BlockHeader blockHeader = _blockDatabaseManager.getBlockHeader(blockHeaderId);
             firstBlockHeaders[i] = blockHeader;
         }
 

@@ -592,30 +592,6 @@ public class BlockDatabaseManager {
         return _getBlockHeightForBlockId(blockId);
     }
 
-    public BlockHeader findBlockAtBlockHeight(final BlockChainSegmentId startingBlockChainSegmentId, final Long blockHeight) throws DatabaseException {
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
-
-        BlockChainSegmentId blockChainSegmentId = startingBlockChainSegmentId;
-        while (true) {
-            final BlockChainSegment blockChainSegment = blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId);
-            if (blockChainSegment == null) { break; }
-
-            final long lowerBound = (blockChainSegment.getBlockHeight() - blockChainSegment.getBlockCount());
-            final long upperBound = (blockChainSegment.getBlockHeight());
-            if (lowerBound <= blockHeight && blockHeight <= upperBound) {
-                final BlockId blockId = _getBlockIdAtBlockHeight(blockChainSegmentId, blockHeight);
-                return _inflateBlockHeader(blockId);
-            }
-
-            final BlockId nextBlockId = blockChainSegment.getTailBlockId();
-            final BlockChainSegmentId nextBlockChainSegmentId = _getBlockChainSegmentId(nextBlockId);
-            if (blockChainSegmentId.equals(nextBlockChainSegmentId)) { break; }
-
-            blockChainSegmentId = nextBlockChainSegmentId;
-        }
-        return null;
-    }
-
     public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
         final BlockHeader blockHeader = _blockHeaderFromDatabaseConnection(blockId);
 

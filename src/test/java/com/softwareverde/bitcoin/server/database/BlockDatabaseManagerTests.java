@@ -419,4 +419,40 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         // Assert
         Assert.assertNotNull(blockId);
     }
+
+    @Test
+    public void should_find_block_at_height_across_block_chain_segments() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+        final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
+
+        for (final Block block : new Block[]{ genesisBlock, block1, block2, block3, block2Prime, block3Prime }) {
+            blockDatabaseManager.storeBlock(block);
+        }
+
+        final BlockChainSegmentId blockChainSegmentId1 = BlockChainSegmentId.wrap(1L); // Blocks 0 and 1...
+        final BlockChainSegmentId blockChainSegmentId2 = BlockChainSegmentId.wrap(2L); // Blocks 2 and 3...
+        final BlockChainSegmentId blockChainSegmentId3 = BlockChainSegmentId.wrap(3L); // Blocks 2' and 3'...
+
+        final BlockId expectedBlockId1 = blockDatabaseManager.getBlockIdFromHash(block3.getHash());
+        final BlockId expectedBlockId2 = blockDatabaseManager.getBlockIdFromHash(block3Prime.getHash());
+
+        // Action
+        final BlockId blockId1 = blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId2, 3L);
+        final BlockId blockId2 = blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId3, 3L);
+
+        // Assert
+        Assert.assertEquals(expectedBlockId1, blockId1);
+        Assert.assertEquals(expectedBlockId2, blockId2);
+    }
 }
