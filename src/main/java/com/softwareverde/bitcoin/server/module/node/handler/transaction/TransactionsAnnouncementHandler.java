@@ -20,6 +20,8 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionsAnnouncementHandler implements BitcoinNode.TransactionsAnnouncementCallback {
+    public static final Object MUTEX = new Object();
+
     public static final BitcoinNode.TransactionsAnnouncementCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionsAnnouncementCallback() {
         @Override
         public void onResult(final List<Sha256Hash> result) { }
@@ -71,16 +73,18 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
                     final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
-                    TransactionUtil.startTransaction(databaseConnection);
-                    final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
-                    if (transactionIsValid) {
-                        final TransactionId transactionId = transactionDatabaseManager.insertTransactionIntoMemoryPool(transaction);
-                        TransactionUtil.commitTransaction(databaseConnection);
-                        Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
-                    }
-                    else {
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        Logger.log("Invalid Transaction: "+ transactionHash);
+                    synchronized (MUTEX) {
+                        TransactionUtil.startTransaction(databaseConnection);
+                        final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
+                        if (transactionIsValid) {
+                            final TransactionId transactionId = transactionDatabaseManager.insertTransactionIntoMemoryPool(transaction);
+                            TransactionUtil.commitTransaction(databaseConnection);
+                            Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
+                        }
+                        else {
+                            TransactionUtil.rollbackTransaction(databaseConnection);
+                            Logger.log("Invalid Transaction: " + transactionHash);
+                        }
                     }
                 }
                 catch (final DatabaseException exception) {

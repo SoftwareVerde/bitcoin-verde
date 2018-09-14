@@ -647,8 +647,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final Json nodeJson = new Json();
 
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
-            nodeJson.put("host", nodeIpAddress.getIp().toString());
-            nodeJson.put("port", nodeIpAddress.getPort());
+            nodeJson.put("host", (nodeIpAddress != null ? nodeIpAddress.getIp() : null));
+            nodeJson.put("port", (nodeIpAddress != null ? nodeIpAddress.getPort() : null));
 
             nodeListJson.add(nodeJson);
         }
