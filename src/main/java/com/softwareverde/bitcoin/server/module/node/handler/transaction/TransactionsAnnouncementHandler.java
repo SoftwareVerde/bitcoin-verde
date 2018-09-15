@@ -73,6 +73,9 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
                     final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
+                    // TODO: Ensure transactionOutput is unspent...
+                    // TODO: Add transaction to memory, but not to the database, if the utxo it's spending is has not been seen yet...
+
                     synchronized (MUTEX) {
                         TransactionUtil.startTransaction(databaseConnection);
                         final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
