@@ -18,6 +18,10 @@ import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
+    public static class BanCriteria {
+        public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 3;
+    }
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final NodeInitializer _nodeInitializer;
 
@@ -56,11 +60,37 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
+    protected void _onNodeDisconnected(final BitcoinNode node) {
+        super._onNodeDisconnected(node);
+
+        final Boolean handshakeIsComplete = node.handshakeIsComplete();
+        if (! handshakeIsComplete) {
+            final String host = node.getHost();
+
+            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+                final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForHost(host);
+                if (failedConnectionCount >= BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT) {
+                    Logger.log("Banning Node: " + node.getHost() + " - Too many failed connection attempts.");
+                    nodeDatabaseManager.setIsBanned(host, true);
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+            }
+        }
+    }
+
+    @Override
     protected void _addNode(final BitcoinNode node) {
-        super._addNode(node);
+        final String host = node.getHost();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            final Boolean isBanned = nodeDatabaseManager.isBanned(host);
+            if (isBanned) { return; }
+
+            super._addNode(node);
             nodeDatabaseManager.storeNode(node);
         }
         catch (final DatabaseException databaseException) {

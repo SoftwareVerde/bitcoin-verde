@@ -98,7 +98,9 @@ CREATE TABLE nodes (
     host varchar(255) NOT NULL,
     port int unsigned NOT NULL,
     timestamp bigint unsigned NOT NULL DEFAULT UNIX_TIMESTAMP(),
+    connection_count int unsigned NOT NULL DEFAULT 1,
     last_handshake_timestamp bigint unsigned NULL,
+    is_banned tinyint(1) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY nodes_uq (host, port)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

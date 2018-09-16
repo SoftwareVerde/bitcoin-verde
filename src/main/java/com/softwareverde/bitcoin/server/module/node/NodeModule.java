@@ -219,10 +219,31 @@ public class NodeModule {
             blockSynchronizerContainer.value = _blockSynchronizer;
         }
 
+        final BanFilter banFilter = new BanFilter() {
+            @Override
+            public Boolean isBanned(final String host) {
+                try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+                    final Boolean isBanned = nodeDatabaseManager.isBanned(host);
+                    return isBanned;
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    return false;
+                }
+            }
+        };
+
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
+                final Boolean isBanned = banFilter.isBanned(binarySocket.getHost());
+                if (isBanned) {
+                    binarySocket.close();
+                    return;
+                }
+
                 Logger.log("New Connection: " + binarySocket);
                 final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
                 _nodeManager.addNode(node);

@@ -258,7 +258,6 @@ public class BitcoinNode extends Node {
                     case ENABLE_COMPACT_BLOCKS: {
                         final EnableCompactBlocksMessage enableCompactBlocksMessage = (EnableCompactBlocksMessage) message;
                         _compactBlocksVersion = (enableCompactBlocksMessage.isEnabled() ? enableCompactBlocksMessage.getVersion() : null);
-                        Logger.log("Compact Blocks Version: " + _compactBlocksVersion);
                     } break;
 
                     default: {
