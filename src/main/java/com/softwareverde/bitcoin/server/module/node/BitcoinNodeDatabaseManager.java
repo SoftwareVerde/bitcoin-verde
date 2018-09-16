@@ -243,11 +243,20 @@ public class BitcoinNodeDatabaseManager {
      * Marks all nodes at the Node's host as banned/unbanned--regardless of their port.
      */
     public void setIsBanned(final String host, final Boolean isBanned) throws DatabaseException {
-        _databaseConnection.executeSql(
-            new Query("UPDATE hosts SET is_banned = ? WHERE host = ?")
-                .setParameter((isBanned ? 1 : 0))
-                .setParameter(host)
-        );
+        if (isBanned) {
+            final Long now = _systemTime.getCurrentTimeInSeconds();
+            _databaseConnection.executeSql(
+                new Query("UPDATE hosts SET is_banned = 1, banned_timestamp = ? WHERE host = ?")
+                    .setParameter(now)
+                    .setParameter(host)
+            );
+        }
+        else {
+            _databaseConnection.executeSql(
+                new Query("UPDATE hosts SET is_banned = 0 WHERE host = ?")
+                    .setParameter(host)
+            );
+        }
     }
 
     public Boolean isBanned(final String host) throws DatabaseException {

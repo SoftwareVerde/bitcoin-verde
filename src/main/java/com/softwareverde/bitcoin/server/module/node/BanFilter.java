@@ -51,6 +51,8 @@ public class BanFilter {
     }
 
     public void banHost(final String host) {
+        Logger.log("Banning Node: " + host);
+
         try {
             final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);

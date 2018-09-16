@@ -97,7 +97,7 @@ CREATE TABLE hosts (
     id int unsigned NOT NULL AUTO_INCREMENT,
     host varchar(255) NOT NULL,
     is_banned tinyint(1) unsigned NOT NULL DEFAULT 0,
-    last_banned_timestamp bigint unsigned NULL,
+    banned_timestamp bigint unsigned NULL,
     PRIMARY KEY (id),
     UNIQUE KEY hosts_uq (host)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
