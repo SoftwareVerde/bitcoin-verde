@@ -74,7 +74,6 @@ public class SocketServer<T extends Socket> {
                 if (! connection.isConnected()) {
                     _connections.remove(socketIndex);
                     disconnectedSockets.add(connection);
-                    Logger.log("Marking socket as disconnected: "+ socketIndex);
                 }
                 else {
                     socketIndex += 1;
@@ -83,7 +82,6 @@ public class SocketServer<T extends Socket> {
         }
 
         for (final T disconnectedSocket : disconnectedSockets) {
-            Logger.log("Purging disconnected socket.");
             _onDisconnect(disconnectedSocket);
         }
     }

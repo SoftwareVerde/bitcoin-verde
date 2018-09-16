@@ -93,16 +93,26 @@ CREATE TABLE unlocking_scripts (
     FOREIGN KEY unlocking_scripts_input_id_ix (transaction_input_id) REFERENCES transaction_inputs (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-CREATE TABLE nodes (
+CREATE TABLE hosts (
     id int unsigned NOT NULL AUTO_INCREMENT,
     host varchar(255) NOT NULL,
+    is_banned tinyint(1) unsigned NOT NULL DEFAULT 0,
+    last_banned_timestamp bigint unsigned NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY hosts_uq (host)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE nodes (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    host_id int unsigned NOT NULL,
     port int unsigned NOT NULL,
-    timestamp bigint unsigned NOT NULL DEFAULT UNIX_TIMESTAMP(),
+    first_seen_timestamp bigint unsigned NOT NULL,
+    last_seen_timestamp bigint unsigned NOT NULL,
     connection_count int unsigned NOT NULL DEFAULT 1,
     last_handshake_timestamp bigint unsigned NULL,
-    is_banned tinyint(1) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
-    UNIQUE KEY nodes_uq (host, port)
+    UNIQUE KEY nodes_uq (host_id, port),
+    FOREIGN KEY nodes_host_id_ix (host_id) REFERENCES hosts (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_features (

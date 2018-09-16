@@ -66,6 +66,7 @@ public class NodeModule {
     protected final BlockHeaderDownloader _blockHeaderDownloader;
 
     protected final NodeInitializer _nodeInitializer;
+    protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
 
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
@@ -165,8 +166,11 @@ public class NodeModule {
 
         _environment = new Environment(database);
 
+
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
         _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
+
+        _banFilter = new BanFilter(databaseConnectionFactory);
 
         final MutableMedianBlockTime medianBlockTime;
         final MutableMedianBlockTime medianBlockHeaderTime;
@@ -209,7 +213,7 @@ public class NodeModule {
 
         { // Initialize NodeManager...
             final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
-            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer);
+            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer, _banFilter);
         }
 
         { // Initialize BlockSynchronizer...
@@ -219,27 +223,21 @@ public class NodeModule {
             blockSynchronizerContainer.value = _blockSynchronizer;
         }
 
-        final BanFilter banFilter = new BanFilter() {
-            @Override
-            public Boolean isBanned(final String host) {
-                try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-                    final Boolean isBanned = nodeDatabaseManager.isBanned(host);
-                    return isBanned;
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    return false;
-                }
-            }
-        };
-
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final Boolean isBanned = banFilter.isBanned(binarySocket.getHost());
+                final String host = binarySocket.getHost();
+
+                final Boolean isBanned = _banFilter.isHostBanned(host);
                 if (isBanned) {
+                    binarySocket.close();
+                    return;
+                }
+
+                final Boolean shouldBan = _banFilter.shouldBanHost(host);
+                if (shouldBan) {
+                    _banFilter.banHost(host);
                     binarySocket.close();
                     return;
                 }
@@ -328,6 +326,7 @@ public class NodeModule {
         _nodeManager.stopNodeMaintenanceThread();
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();
+        _banFilter.close();
 
         if (_jsonRpcSocketServer != null) {
             _jsonRpcSocketServer.stop();

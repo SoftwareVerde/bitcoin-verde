@@ -136,7 +136,10 @@ public class TransactionValidator {
                 final BlockId blockIdContainingOutputBeingSpent;
                 {
                     final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
+                    if (transactionId == null) { return false; }
+
                     blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
+                    if (blockIdContainingOutputBeingSpent == null) { return false; }
                 }
 
                 if (sequenceNumber.getType() == SequenceNumberType.SECONDS_ELAPSED) {
@@ -147,7 +150,9 @@ public class TransactionValidator {
 
                     final Boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
                     if (! sequenceNumberIsValid) {
-                        Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
+                        if (_shouldLogInvalidTransactions) {
+                            Logger.log("(Elapsed) Sequence Number Invalid: " + secondsElapsed + " < " + requiredSecondsElapsed);
+                        }
                         return false;
                     }
                 }
@@ -158,7 +163,9 @@ public class TransactionValidator {
 
                     final Boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
                     if (! sequenceNumberIsValid) {
-                        Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " < " + requiredBlockCount);
+                        if (_shouldLogInvalidTransactions) {
+                            Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " < " + requiredBlockCount);
+                        }
                         return false;
                     }
                 }
@@ -194,7 +201,9 @@ public class TransactionValidator {
             if (shouldValidateLockTime) {
                 final Boolean lockTimeIsValid = _validateTransactionLockTime(context);
                 if (! lockTimeIsValid) {
-                    Logger.log("Invalid LockTime for Tx.");
+                    if (_shouldLogInvalidTransactions) {
+                        Logger.log("Invalid LockTime for Tx.");
+                    }
                     _logInvalidTransaction(transaction, context);
                     return false;
                 }
@@ -206,7 +215,9 @@ public class TransactionValidator {
                 try {
                     final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockChainSegmentId, transaction, blockHeight);
                     if (! sequenceNumbersAreValid) {
-                        Logger.log("Transaction SequenceNumber validation failed.");
+                        if (_shouldLogInvalidTransactions) {
+                            Logger.log("Transaction SequenceNumber validation failed.");
+                        }
                         _logInvalidTransaction(transaction, context);
                         return false;
                     }
@@ -235,7 +246,9 @@ public class TransactionValidator {
             }
 
             if (outputToSpend == null) {
-                Logger.log("Transaction " + transaction.getHash() + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                if (_shouldLogInvalidTransactions) {
+                    Logger.log("Transaction " + transaction.getHash() + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                }
                 _logInvalidTransaction(transaction, context);
                 return false;
             }
@@ -249,7 +262,9 @@ public class TransactionValidator {
 
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
             if (! inputIsUnlocked) {
-                Logger.log("Transaction failed to verify.");
+                if (_shouldLogInvalidTransactions) {
+                    Logger.log("Transaction failed to verify.");
+                }
                 _logInvalidTransaction(transaction, context);
                 return false;
             }

@@ -82,11 +82,11 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                         if (transactionIsValid) {
                             final TransactionId transactionId = transactionDatabaseManager.insertTransactionIntoMemoryPool(transaction);
                             TransactionUtil.commitTransaction(databaseConnection);
-                            Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
+                            // Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
                         }
                         else {
                             TransactionUtil.rollbackTransaction(databaseConnection);
-                            Logger.log("Invalid Transaction: " + transactionHash);
+                            // Logger.log("Invalid Transaction: " + transactionHash);
                         }
                     }
                 }

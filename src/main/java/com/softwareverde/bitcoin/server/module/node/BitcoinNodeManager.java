@@ -24,6 +24,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final NodeInitializer _nodeInitializer;
+    protected final BanFilter _banFilter;
 
     @Override
     protected void _initNode(final BitcoinNode node) {
@@ -67,16 +68,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         if (! handshakeIsComplete) {
             final String host = node.getHost();
 
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-                final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForHost(host);
-                if (failedConnectionCount >= BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT) {
-                    Logger.log("Banning Node: " + node.getHost() + " - Too many failed connection attempts.");
-                    nodeDatabaseManager.setIsBanned(host, true);
-                }
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
+            if (_banFilter.shouldBanHost(host)) {
+                _banFilter.banHost(host);
             }
         }
     }
@@ -110,10 +103,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer) {
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter) {
         super(maxNodeCount, new BitcoinNodeFactory(), networkTime);
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeInitializer = nodeInitializer;
+        _banFilter = banFilter;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
