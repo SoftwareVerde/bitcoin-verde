@@ -13,7 +13,8 @@ public enum MessageType {
 
     NOT_FOUND("notfound"), ERROR("reject"),
 
-    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders");
+    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
+    ENABLE_COMPACT_BLOCKS("sendcmpct");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

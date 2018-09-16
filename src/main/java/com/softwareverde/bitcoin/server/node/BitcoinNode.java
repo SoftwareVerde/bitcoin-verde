@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
@@ -124,6 +125,7 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
+    protected Integer _compactBlocksVersion = null;
 
     @Override
     protected BitcoinPingMessage _createPingMessage() {
@@ -251,6 +253,12 @@ public class BitcoinNode extends Node {
 
                     case ENABLE_NEW_BLOCKS_VIA_HEADERS: {
                         _announceNewBlocksViaHeadersIsEnabled = true;
+                    } break;
+
+                    case ENABLE_COMPACT_BLOCKS: {
+                        final EnableCompactBlocksMessage enableCompactBlocksMessage = (EnableCompactBlocksMessage) message;
+                        _compactBlocksVersion = (enableCompactBlocksMessage.isEnabled() ? enableCompactBlocksMessage.getVersion() : null);
+                        Logger.log("Compact Blocks Version: " + _compactBlocksVersion);
                     } break;
 
                     default: {

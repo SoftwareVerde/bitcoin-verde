@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHeadersMessageInflater;
@@ -44,6 +45,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
+        _commandInflaterMap.put(MessageType.ENABLE_COMPACT_BLOCKS, new EnableCompactBlocksMessageInflater());
     }
 
     @Override

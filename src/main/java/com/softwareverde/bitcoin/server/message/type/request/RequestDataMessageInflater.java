@@ -8,8 +8,6 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHas
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
-    public static final Integer HASH_BYTE_COUNT = 32;
-
     @Override
     public RequestDataMessage fromBytes(final byte[] bytes) {
         final DataHashInflater dataHashInflater = new DataHashInflater();
