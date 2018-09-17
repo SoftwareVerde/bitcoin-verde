@@ -6,12 +6,12 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class DataHash {
-    private final DataHashType _dataHashType;
+public class InventoryItem {
+    private final InventoryItemType _inventoryItemType;
     private final Sha256Hash _objectHash;
 
-    public DataHash(final DataHashType dataHashType, final Sha256Hash objectHash) {
-        _dataHashType = dataHashType;
+    public InventoryItem(final InventoryItemType inventoryItemType, final Sha256Hash objectHash) {
+        _inventoryItemType = inventoryItemType;
 
         if (objectHash instanceof ImmutableSha256Hash) {
             _objectHash = objectHash;
@@ -21,8 +21,8 @@ public class DataHash {
         }
     }
 
-    public DataHashType getDataHashType() {
-        return _dataHashType;
+    public InventoryItemType getInventoryItemType() {
+        return _inventoryItemType;
     }
 
     public Sha256Hash getObjectHash() {
@@ -33,7 +33,7 @@ public class DataHash {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 
         final byte[] inventoryTypeBytes = new byte[4];
-        ByteUtil.setBytes(inventoryTypeBytes, ByteUtil.integerToBytes(_dataHashType.getValue()));
+        ByteUtil.setBytes(inventoryTypeBytes, ByteUtil.integerToBytes(_inventoryItemType.getValue()));
 
         byteArrayBuilder.appendBytes(inventoryTypeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(_objectHash.getBytes(), Endian.LITTLE);
@@ -43,6 +43,6 @@ public class DataHash {
 
     @Override
     public String toString() {
-        return (_dataHashType + ":" + _objectHash);
+        return (_inventoryItemType + ":" + _objectHash);
     }
 }

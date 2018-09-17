@@ -17,7 +17,7 @@ public class BloomFilterTests {
         // Setup
         final Double falsePositiveRate = 0.001D;
         final Integer itemCount = 1024;
-        final BloomFilter bloomFilter = new BloomFilter(itemCount, falsePositiveRate);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, falsePositiveRate);
 
         for (int i = 0; i < itemCount; ++i) {
             final ByteArray item = MutableByteArray.wrap(ByteUtil.longToBytes((long) i));
@@ -42,7 +42,7 @@ public class BloomFilterTests {
     public void should_calculate_false_positive_rate() {
         // Setup
         final Integer itemCount = (1024 * 32);
-        final BloomFilter bloomFilter = new BloomFilter(itemCount, 0.01D);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
 
         // Action
         for (int i = 0; i < (itemCount * 1.5); ++i) {
@@ -62,7 +62,7 @@ public class BloomFilterTests {
     public void should_create_deserialize_to_the_same_filter_as_bitcoin_core() {
         // Setup
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
-        final BloomFilter bloomFilter = new BloomFilter(3, 0L, 0.01D);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(3, 0.01D, 0L);
 
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("99108AD8ED9BB6274D3980BAB5A85C048F0950C8")));
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B5A2C786D9EF4658287CED5914B37A1B4AA32EEE")));
@@ -83,7 +83,29 @@ public class BloomFilterTests {
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
         final Integer itemCount = (32 * 1024 * 1024 / 256);
-        final BloomFilter bloomFilter = new BloomFilter(itemCount, 0.01D);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
+
+        for (int i = 0; i < itemCount; ++i) {
+            final ByteArray item = MutableByteArray.wrap(ByteUtil.longToBytes(i));
+            bloomFilter.addItem(item);
+        }
+
+        // Action
+        final ByteArray deflatedBloomFilter = bloomFilterDeflater.toBytes(bloomFilter);
+        final BloomFilter inflatedBloomFilter = bloomFilterInflater.fromBytes(deflatedBloomFilter);
+
+        // Assert
+        Assert.assertEquals(bloomFilter, inflatedBloomFilter);
+    }
+
+    @Test
+    public void should_inflate_and_deflate_bloom_filter_with_unsigned_int_nonce() {
+        // Setup
+        final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+        final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
+
+        final Integer itemCount = (32 * 1024 * 1024 / 256);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D, Long.MAX_VALUE);
 
         for (int i = 0; i < itemCount; ++i) {
             final ByteArray item = MutableByteArray.wrap(ByteUtil.longToBytes(i));

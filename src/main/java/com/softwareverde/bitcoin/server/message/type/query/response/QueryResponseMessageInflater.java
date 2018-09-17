@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.message.type.query.response;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashType;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
@@ -26,9 +26,9 @@ public class QueryResponseMessageInflater extends BitcoinProtocolMessageInflater
             final Integer inventoryTypeCode = byteArrayReader.readInteger(4, Endian.LITTLE);
             final Sha256Hash objectHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(HASH_BYTE_COUNT, Endian.LITTLE));
 
-            final DataHashType dataType = DataHashType.fromValue(inventoryTypeCode);
-            final DataHash dataHash = new DataHash(dataType, objectHash);
-            queryResponseMessage.addInventoryItem(dataHash);
+            final InventoryItemType dataType = InventoryItemType.fromValue(inventoryTypeCode);
+            final InventoryItem inventoryItem = new InventoryItem(dataType, objectHash);
+            queryResponseMessage.addInventoryItem(inventoryItem);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }

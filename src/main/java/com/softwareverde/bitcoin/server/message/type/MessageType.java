@@ -14,7 +14,10 @@ public enum MessageType {
     NOT_FOUND("notfound"), ERROR("reject"),
 
     ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
-    ENABLE_COMPACT_BLOCKS("sendcmpct");
+    ENABLE_COMPACT_BLOCKS("sendcmpct"),
+
+    REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
+    REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

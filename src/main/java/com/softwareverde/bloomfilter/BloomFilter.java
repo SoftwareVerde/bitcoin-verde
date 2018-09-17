@@ -1,68 +1,44 @@
 package com.softwareverde.bloomfilter;
 
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
 
-public class BloomFilter {
-    private static final Double LN_2 = Math.log(2);
-    private static final Double LN_2_SQUARED = (Math.pow(LN_2, 2));
+public interface BloomFilter extends Constable<ImmutableBloomFilter> {
+    Integer MAX_ITEM_COUNT = Integer.MAX_VALUE;
+    Integer MAX_FUNCTION_COUNT = Integer.MAX_VALUE;
 
-    protected final MutableByteArray _bytes;
-    protected final Long _nonce;
-    protected final Integer _hashFunctionCount;
+    Long getNonce();
+    Integer getHashFunctionCount();
+    ByteArray getBytes();
+    Boolean containsItem(ByteArray item);
 
-    protected static Integer _calculateByteCount(final Integer maxItemCount, final Double falsePositiveRate) {
-        return (int) ( (-1 / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8 );
-    }
-    protected static Integer _calculateFunctionCount(final Integer byteCount, final Integer maxItemCount) {
-        return (int) ((byteCount * 8 * LN_2) / maxItemCount);
-    }
+    /**
+     * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
+     */
+    Float getFalsePositiveRate(Integer elementCount);
+    Float getFalsePositiveRate();
 
-    public BloomFilter(final Integer maxItemCount, final Long nonce, final Double falsePositiveRate) {
-        final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
-        _bytes = new MutableByteArray(byteCount);
-        _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
-        _nonce = nonce;
-    }
+    @Override
+    ImmutableBloomFilter asConst();
 
-    public BloomFilter(final Integer maxItemCount, final Double falsePositiveRate) {
-        final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
-        _bytes = new MutableByteArray(byteCount);
-        _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
-        _nonce = (long) (Math.random() * Long.MAX_VALUE);
-    }
+    @Override
+    boolean equals(Object object);
 
-    public BloomFilter(final ByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
-        _bytes = new MutableByteArray(byteArray);
-        _hashFunctionCount = hashFunctionCount;
-        _nonce = nonce;
-    }
+    @Override
+    int hashCode();
+}
 
-    public Long getNonce() { return _nonce; }
-    public Integer getHashFunctionCount() { return _hashFunctionCount; }
-    public ByteArray getBytes() { return _bytes; }
-
-    public void addItem(final ByteArray item) {
-        final Integer byteCount = _bytes.getByteCount();
+class BloomFilterCore {
+    public static Boolean containsItem(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final ByteArray item) {
+        final Integer byteCount = bytes.getByteCount();
         final Integer bitCount = (byteCount * 8);
 
-        for (int i = 0; i < _hashFunctionCount; ++i) {
-            final Long hash = BitcoinUtil.murmurHash(_nonce, i, item);
+        for (int i = 0; i < hashFunctionCount; ++i) {
+            final Long hash = BitcoinUtil.murmurHash(nonce, i, item);
             final Integer index = (int) (hash % bitCount);
-            _bytes.setBit(index, true);
-        }
-    }
-
-    public Boolean containsItem(final ByteArray item) {
-        final Integer byteCount = _bytes.getByteCount();
-        final Integer bitCount = (byteCount * 8);
-
-        for (int i = 0; i < _hashFunctionCount; ++i) {
-            final Long hash = BitcoinUtil.murmurHash(_nonce, i, item);
-            final Integer index = (int) (hash % bitCount);
-            final Boolean isSet = _bytes.getBit(index);
+            final Boolean isSet = bytes.getBit(index);
 
             if (! isSet) {
                 return false;
@@ -72,46 +48,44 @@ public class BloomFilter {
         return true;
     }
 
-    public void clear() {
-        for (int i = 0; i < _bytes.getByteCount(); ++i) {
-            _bytes.set(i, (byte) 0x00);
-        }
+    public static Float getFalsePositiveRate(final ByteArray bytes, final Integer hashFunctionCount, final Integer elementCount) {
+        final Integer bitCount = (bytes.getByteCount() * 8);
+        final Float exponent = ( (-1.0F * hashFunctionCount * elementCount) / bitCount );
+        return ( (float) Math.pow(1.0F - Math.pow(Math.E, exponent), hashFunctionCount) );
     }
 
-    /**
-     * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
-     */
-    public Float getFalsePositiveRate(final Integer elementCount) {
-        final Integer bitCount = (_bytes.getByteCount() * 8);
-        final Float exponent = ( (-1.0F * _hashFunctionCount * elementCount) / bitCount );
-        return ( (float) Math.pow(1.0F - Math.pow(Math.E, exponent), _hashFunctionCount) );
-    }
-
-    public Float getFalsePositiveRate() {
-        final Integer byteCount = _bytes.getByteCount();
+    public static Float getFalsePositiveRate(final ByteArray bytes, final Integer hashFunctionCount) {
+        final Integer byteCount = bytes.getByteCount();
         final Integer bitCount = (byteCount * 8);
         int setBitCount = 0;
         for (int i = 0; i < byteCount; ++i) {
-            final byte b = _bytes.getByte(i);
+            final byte b = bytes.getByte(i);
             setBitCount += Integer.bitCount(b & 0xFF);
         }
 
         final Integer unsetBitCount = (bitCount - setBitCount);
         final Float unsetBitCountRatio = (unsetBitCount.floatValue() / bitCount.floatValue());
-        return ( (float) Math.pow(1.0F - unsetBitCountRatio, _hashFunctionCount) );
+        return ( (float) Math.pow(1.0F - unsetBitCountRatio, hashFunctionCount) );
     }
 
-    @Override
-    public boolean equals(final Object object) {
+    public static boolean equals(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final Object object) {
         if (object == null) { return false; }
         if (! (object instanceof BloomFilter)) { return false; }
 
         final BloomFilter bloomFilter = (BloomFilter) object;
-        return Util.areEqual(_bytes, bloomFilter._bytes);
+
+        if (! Util.areEqual(hashFunctionCount, bloomFilter.getHashFunctionCount())) {
+            return false;
+        }
+
+        if (! Util.areEqual(nonce, bloomFilter.getNonce())) {
+            return false;
+        }
+
+        return Util.areEqual(bytes, bloomFilter.getBytes());
     }
 
-    @Override
-    public int hashCode() {
-        return _bytes.hashCode();
+    public static int hashCode(final ByteArray bytes) {
+        return bytes.hashCode();
     }
 }

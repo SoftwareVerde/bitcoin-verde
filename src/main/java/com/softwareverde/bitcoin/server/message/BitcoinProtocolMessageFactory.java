@@ -16,6 +16,10 @@ import com.softwareverde.bitcoin.server.message.type.query.response.block.header
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.thin.block.ExtraThinBlockMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.thin.request.block.RequestExtraThinBlockMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.thin.request.transaction.RequestExtraThinTransactionsMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessageInflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -46,6 +50,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_COMPACT_BLOCKS, new EnableCompactBlocksMessageInflater());
+        _commandInflaterMap.put(MessageType.REQUEST_EXTRA_THIN_BLOCK, new RequestExtraThinBlockMessageInflater());
+        _commandInflaterMap.put(MessageType.EXTRA_THIN_BLOCK, new ExtraThinBlockMessageInflater());
+        _commandInflaterMap.put(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS, new RequestExtraThinTransactionsMessageInflater());
+        _commandInflaterMap.put(MessageType.THIN_TRANSACTIONS, new ThinTransactionsMessageInflater());
     }
 
     @Override

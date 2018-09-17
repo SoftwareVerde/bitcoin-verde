@@ -28,11 +28,11 @@ public class MurmurHashUtil {
         return ( (x << r) | (x >>> (32 - r)) );
     }
 
-    public static long hashVersion3x86_32(final long nonce, final int functionIdentifier, final ByteArray object) {
+    public static long hashVersion3x86_32(final long nonce, final int hashNum, final ByteArray object) {
         final int c1 = 0xCC9E2D51;
         final int c2 = 0x1B873593;
 
-        int h1 = (int) (functionIdentifier * 0xFBA4C795L + nonce);
+        int h1 = (int) (hashNum * 0xFBA4C795L + nonce); // TODO: Ensure other clients handle integer overflow the same way when initializing h1...
 
         final int objectByteCount = object.getByteCount();
 

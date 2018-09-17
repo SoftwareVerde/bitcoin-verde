@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.bloomfilter;
 
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.bytearray.Endian;
@@ -9,8 +9,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class BloomFilterInflater {
     public static final Integer MAX_BYTE_COUNT = (32 * 1024 * 1024);
 
-    public BloomFilter fromBytes(final ByteArray byteArray) {
-        final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);
+    protected MutableBloomFilter _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final Integer bloomFilterByteCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (bloomFilterByteCount > MAX_BYTE_COUNT) { return null; }
 
@@ -26,6 +25,17 @@ public class BloomFilterInflater {
             bloomFilterBytes.setBit(bitcoinBloomFilterIndex, bit);
         }
 
-        return new BloomFilter(bloomFilterBytes, hashFunctionCount, nonce);
+        if (byteArrayReader.didOverflow()) { return null; }
+
+        return new MutableBloomFilter(bloomFilterBytes, hashFunctionCount, nonce);
+    }
+
+    public MutableBloomFilter fromBytes(final ByteArray byteArray) {
+        final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray);
+        return _fromByteArrayReader(byteArrayReader);
+    }
+
+    public MutableBloomFilter fromBytes(final ByteArrayReader byteArrayReader) {
+        return _fromByteArrayReader(byteArrayReader);
     }
 }

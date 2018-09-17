@@ -30,7 +30,6 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
     public void onResult(final Block block) {
         final Sha256Hash blockHash = block.getHash();
 
-        Logger.log("New Block Announced: " + blockHash);
         final BlockSynchronizer blockSynchronizer = _blockDownloader.value;
 
         if (blockSynchronizer.isRunning()) {
@@ -44,7 +43,6 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
 
             final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
             if (blockIsSynchronized) {
-                Logger.log("Already aware of announced block: " + blockHash);
                 return;
             }
 
@@ -58,9 +56,11 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
         }
 
         if (parentBlockExists) {
+            Logger.log("New Block Announced: " + blockHash);
             blockSynchronizer.submitBlock(block);
         }
         else {
+            Logger.log("New (Orphaned) Block Announced: " + blockHash + " (Restarting blockSynchronizer...)");
             blockSynchronizer.start();
         }
     }

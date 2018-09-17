@@ -1,31 +1,34 @@
-package com.softwareverde.bitcoin.server.message.type.request;
+package com.softwareverde.bitcoin.server.message.type.thin.request.block;
 
+import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.bloomfilter.BloomFilter;
 
-public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
+public class RequestExtraThinBlockMessageInflater extends BitcoinProtocolMessageInflater {
     @Override
-    public RequestDataMessage fromBytes(final byte[] bytes) {
+    public RequestExtraThinBlockMessage fromBytes(final byte[] bytes) {
         final InventoryItemInflater inventoryItemInflater = new InventoryItemInflater();
+        final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
-        final RequestDataMessage inventoryMessage = new RequestDataMessage();
+        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = new RequestExtraThinBlockMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.REQUEST_DATA);
         if (protocolMessageHeader == null) { return null; }
 
-        final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
-        for (int i=0; i<inventoryCount; ++i) {
-            final InventoryItem inventoryItem = inventoryItemInflater.fromBytes(byteArrayReader);
-            inventoryMessage.addInventoryItem(inventoryItem);
-        }
+        final InventoryItem inventoryItem = inventoryItemInflater.fromBytes(byteArrayReader);
+        requestExtraThinBlockMessage.setInventoryItem(inventoryItem);
+
+        final BloomFilter bloomFilter = bloomFilterInflater.fromBytes(byteArrayReader);
+        requestExtraThinBlockMessage.setBloomFilter(bloomFilter);
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return inventoryMessage;
+        return requestExtraThinBlockMessage;
     }
 }
