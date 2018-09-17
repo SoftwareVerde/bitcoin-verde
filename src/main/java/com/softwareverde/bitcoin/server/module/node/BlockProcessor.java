@@ -57,7 +57,7 @@ public class BlockProcessor {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
         final Sha256Hash blockHash = block.getHash();
-        final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
+        final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
         if (blockIsSynchronized) {
             Logger.log("Skipping known block: " + blockHash);
             return true;

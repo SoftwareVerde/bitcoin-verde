@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.network.socket.BinarySocket;
 
@@ -8,7 +9,7 @@ public class NodeInitializer {
         BitcoinNode.TransactionsAnnouncementCallback createTransactionsAnnouncementCallback(BitcoinNode bitcoinNode);
     }
 
-    protected final BitcoinNode.SynchronizationStatusHandler _synchronizationStatusHandler;
+    protected final SynchronizationStatus _synchronizationStatus;
     protected final BitcoinNode.BlockAnnouncementCallback _blockAnnouncementCallback;
     protected final TransactionsAnnouncementCallbackFactory _transactionsAnnouncementCallbackFactory;
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
@@ -16,7 +17,7 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestDataCallback _requestDataCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
-        bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatusHandler);
+        bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
 
         bitcoinNode.setQueryBlocksCallback(_queryBlocksCallback);
         bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
@@ -27,8 +28,8 @@ public class NodeInitializer {
         bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
     }
 
-    public NodeInitializer(final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler, final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
-        _synchronizationStatusHandler = synchronizationStatusHandler;
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
+        _synchronizationStatus = synchronizationStatus;
         _blockAnnouncementCallback = blockAnnouncementCallback;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
         _queryBlocksCallback = queryBlocksCallback;

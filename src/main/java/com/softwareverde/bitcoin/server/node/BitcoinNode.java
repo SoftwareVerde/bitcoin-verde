@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
@@ -71,12 +72,13 @@ public class BitcoinNode extends Node {
     public interface BlockAnnouncementCallback extends Callback<Block> { }
     public interface TransactionsAnnouncementCallback extends Callback<List<Sha256Hash>> { }
 
-    public interface SynchronizationStatusHandler {
-        Boolean isReadyForTransactions();
-        Integer getCurrentBlockHeight();
-    }
+    public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
+        @Override
+        public State getState() { return State.ONLINE; }
 
-    public static SynchronizationStatusHandler DEFAULT_STATUS_CALLBACK = new SynchronizationStatusHandler() {
+        @Override
+        public Boolean isBlockChainSynchronized() { return false; }
+
         @Override
         public Boolean isReadyForTransactions() { return false; }
 
@@ -119,7 +121,7 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static class ThinBlockParameters {
+    public static class ThinBlockParameters {
         public final BlockHeader blockHeader;
         public final List<Sha256Hash> transactionHashes;
         public final List<Transaction> transactions;
@@ -131,7 +133,7 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static class ExtraThinBlockParameters {
+    public static class ExtraThinBlockParameters {
         public final BlockHeader blockHeader;
         public final List<ByteArray> transactionHashes;
         public final List<Transaction> transactions;
@@ -152,7 +154,7 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected SynchronizationStatusHandler _synchronizationStatusHandler = DEFAULT_STATUS_CALLBACK;
+    protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
@@ -198,7 +200,7 @@ public class BitcoinNode extends Node {
         synchronizeVersionMessage.setRelayIsEnabled(true);  // NOTE: It appears that other nodes are smart enough to not send
                                                             // transactions until the Node's broadcasted blockHeight is synchronized...
 
-        synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatusHandler.getCurrentBlockHeight());
+        synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
             final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
@@ -666,8 +668,8 @@ public class BitcoinNode extends Node {
         _requestThinBlock(blockHash, knownTransactionsFilter);
     }
 
-    public void requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
-        _storeInMapSet(_downloadThinBlockRequests, blockHash, downloadThinBlockCallback);
+    public void requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback) {
+        _storeInMapSet(_downloadExtraThinBlockRequests, blockHash, downloadThinBlockCallback);
         _requestExtraThinBlock(blockHash, knownTransactionsFilter);
     }
 
@@ -700,8 +702,8 @@ public class BitcoinNode extends Node {
         _requestTransactions(transactionHashes);
     }
 
-    public void setSynchronizationStatusHandler(final SynchronizationStatusHandler synchronizationStatusHandler) {
-        _synchronizationStatusHandler = synchronizationStatusHandler;
+    public void setSynchronizationStatusHandler(final SynchronizationStatus synchronizationStatus) {
+        _synchronizationStatus = synchronizationStatus;
     }
 
     public void setQueryBlocksCallback(final QueryBlocksCallback queryBlocksCallback) {
@@ -730,6 +732,13 @@ public class BitcoinNode extends Node {
 
     public Boolean newBlocksViaHeadersIsEnabled() {
         return _announceNewBlocksViaHeadersIsEnabled;
+    }
+
+    public Boolean supportsExtraThinBlocks() {
+        if (_synchronizeVersionMessage == null) { return false; }
+
+        final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+        return nodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
     }
 
     @Override

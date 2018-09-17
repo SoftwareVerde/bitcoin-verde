@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
 import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.BlockAnnouncementHandler;
@@ -201,8 +202,10 @@ public class NodeModule {
 
         final Container<BlockSynchronizer> blockSynchronizerContainer = new Container<BlockSynchronizer>();
 
+        final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
+        final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseConnectionFactory);
+
         { // Initialize NodeInitializer...
-            final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
             final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback = new BlockAnnouncementHandler(databaseConnectionFactory, blockSynchronizerContainer);
             final TransactionAnnouncementHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionAnnouncementHandlerFactory(databaseConnectionFactory, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory);
@@ -213,12 +216,12 @@ public class NodeModule {
 
         { // Initialize NodeManager...
             final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
-            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer, _banFilter);
+            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler);
         }
 
         { // Initialize BlockSynchronizer...
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            _blockSynchronizer = new BlockSynchronizer(databaseConnectionFactory, _nodeManager, blockProcessor);
+            _blockSynchronizer = new BlockSynchronizer(databaseConnectionFactory, _nodeManager, blockProcessor, synchronizationStatusHandler);
             _blockSynchronizer.setMaxQueueSize(maxQueueSize);
             blockSynchronizerContainer.value = _blockSynchronizer;
         }
@@ -261,7 +264,7 @@ public class NodeModule {
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort);
 
-            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, statisticsContainer);
+            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, synchronizationStatusHandler, statisticsContainer);
             rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
             rpcSocketServerHandler.setNodeHandler(nodeHandler);
             rpcSocketServerHandler.setQueryBalanceHandler(queryBalanceHandler);

@@ -41,7 +41,7 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
+            final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
             if (blockIsSynchronized) {
                 return;
             }

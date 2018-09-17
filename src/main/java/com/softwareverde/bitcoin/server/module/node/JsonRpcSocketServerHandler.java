@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
@@ -67,6 +68,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected final Environment _environment;
+    protected final SynchronizationStatus _synchronizationStatus;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageBlockHeadersPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
@@ -179,8 +181,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         transactionJson.put("fee", transactionFee);
     }
 
-    public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
+    public JsonRpcSocketServerHandler(final Environment environment, final SynchronizationStatus synchronizationStatus, final StatisticsContainer statisticsContainer) {
         _environment = environment;
+        _synchronizationStatus = synchronizationStatus;
 
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
@@ -541,13 +544,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
             }
 
-            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
-
-            final Integer secondsInAnHour = (60 * 60);
-            final Boolean isSyncing = (secondsBehind > secondsInAnHour);
+//            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
+//            final Integer secondsInAnHour = (60 * 60);
+//            final Boolean isSyncing = (secondsBehind > secondsInAnHour);
 
             response.put("wasSuccess", 1);
-            response.put("status", (isSyncing ? "SYNCHRONIZING" : "ONLINE"));
+            response.put("status", _synchronizationStatus.getState());
 
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
             final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);

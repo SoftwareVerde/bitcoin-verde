@@ -564,7 +564,7 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
-    public Boolean isBlockSynchronized(final Sha256Hash blockHash) throws DatabaseException {
+    public Boolean blockExists(final Sha256Hash blockHash) throws DatabaseException {
         final BlockId blockId = _getBlockIdFromHash(blockHash);
         if (blockId == null) { return false; }
 

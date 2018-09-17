@@ -1,12 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
+import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -18,6 +23,8 @@ import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
+    public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
+
     public static class BanCriteria {
         public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 3;
     }
@@ -25,6 +32,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
+    protected final MemoryPoolEnquirer _memoryPoolEnquirer;
+    protected final SynchronizationStatus _synchronizationStatusHandler;
 
     @Override
     protected void _initNode(final BitcoinNode node) {
@@ -103,11 +112,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter) {
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler) {
         super(maxNodeCount, new BitcoinNodeFactory(), networkTime);
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeInitializer = nodeInitializer;
         _banFilter = banFilter;
+        _memoryPoolEnquirer = memoryPoolEnquirer;
+        _synchronizationStatusHandler = synchronizationStatusHandler;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
@@ -180,17 +191,73 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
             @Override
             public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+                final Runnable downloadTraditionalBlock = new Runnable() {
                     @Override
-                    public void onResult(final Block result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
+                    public void run() {
+                        bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
+                            @Override
+                            public void onResult(final Block result) {
+                                final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
+                                if (requestTimedOut) { return; }
 
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
+                                if (callback != null) {
+                                    callback.onResult(result);
+                                }
+                            }
+                        });
                     }
-                });
+                };
+
+                final Boolean shouldRequestThinBlock;
+                {
+                    if (! bitcoinNode.supportsExtraThinBlocks()) {
+                        shouldRequestThinBlock = false;
+                    }
+                    else if (! _synchronizationStatusHandler.isBlockChainSynchronized()) {
+                        shouldRequestThinBlock = false;
+                    }
+                    else {
+                        final Integer memoryPoolTransactionCount = _memoryPoolEnquirer.getMemoryPoolTransactionCount();
+                        shouldRequestThinBlock = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
+                    }
+                }
+
+                if (shouldRequestThinBlock) {
+                    final BloomFilter bloomFilter = _memoryPoolEnquirer.getBloomFilter(blockHash);
+                    bitcoinNode.requestThinBlock(blockHash, bloomFilter, new BitcoinNode.DownloadThinBlockCallback() { // TODO: Consider using ExtraThinBlocks... Unsure if the potential round-trip on a TransactionHash collision is worth it, though.
+                        @Override
+                        public void onResult(final BitcoinNode.ThinBlockParameters extraThinBlockParameters) {
+                            final BlockHeader blockHeader = extraThinBlockParameters.blockHeader;
+                            final List<Sha256Hash> transactionHashes = extraThinBlockParameters.transactionHashes;
+                            final List<Transaction> transactions = extraThinBlockParameters.transactions;
+
+                            final ThinBlockAssembler thinBlockAssembler = new ThinBlockAssembler(_memoryPoolEnquirer);
+
+                            final AssembleThinBlockResult assembleThinBlockResult = thinBlockAssembler.assembleThinBlock(blockHeader, transactionHashes, transactions);
+                            if (! assembleThinBlockResult.wasSuccessful()) {
+                                bitcoinNode.requestThinTransactions(blockHash, assembleThinBlockResult.missingTransactions, new BitcoinNode.DownloadThinTransactionsCallback() {
+                                    @Override
+                                    public void onResult(final List<Transaction> missingTransactions) {
+                                        final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
+                                        if (block == null) {
+                                            // Fallback on downloading block traditionally...
+                                            downloadTraditionalBlock.run();
+                                        }
+                                        else {
+                                            callback.onResult(assembleThinBlockResult.block);
+                                        }
+                                    }
+                                });
+                            }
+                            else {
+                                callback.onResult(assembleThinBlockResult.block);
+                            }
+                        }
+                    });
+                }
+                else {
+                    downloadTraditionalBlock.run();
+                }
             }
 
             @Override

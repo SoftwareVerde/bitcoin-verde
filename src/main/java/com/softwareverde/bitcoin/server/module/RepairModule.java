@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
@@ -109,7 +110,7 @@ public class RepairModule {
 
         { // Initialize NodeInitializer...
             final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
-            final BitcoinNode.SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
+            final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory);
             final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
             final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
             final BitcoinNode.RequestDataCallback requestDataHandler = RequestDataHandler.IGNORE_REQUESTS_HANDLER;

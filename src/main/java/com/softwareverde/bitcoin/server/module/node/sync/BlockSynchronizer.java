@@ -3,10 +3,12 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -25,11 +27,14 @@ public class BlockSynchronizer {
     protected final BitcoinNodeManager _nodeManager;
 
     protected Integer _maxQueueSize = 1;
-    protected final BlockQueue _queuedBlocks = new BlockQueue();
+    protected final BlockQueue _blockQueue;
     protected final BlockProcessor _blockProcessor;
+    protected final SynchronizationStatusHandler _synchronizationStatusHandler;
     protected final BlockValidatorThread _blockValidatorThread;
+
     protected volatile Boolean _shouldContinue = false;
-    protected Boolean _isRunning = false;
+    protected volatile Boolean _isRunning = false;
+    protected volatile Boolean _isWaitingOnDownload = false;
 
     protected final Object _mutex = new Object();
     protected Sha256Hash _lastBlockHash;
@@ -106,13 +111,13 @@ public class BlockSynchronizer {
                 }
             }
 
-            _queuedBlocks.addBlock(block);
+            _blockQueue.addBlock(block);
 
-            Logger.log("Block Queue Size: " + _queuedBlocks.getSize() + " / " + _maxQueueSize);
+            Logger.log("Block Queue Size: " + _blockQueue.getSize() + " / " + _maxQueueSize);
 
             _lastBlockHash = blockHash;
 
-            while (_queuedBlocks.getSize() >= _maxQueueSize) {
+            while (_blockQueue.getSize() >= _maxQueueSize) {
                 if (! _shouldContinue) {
                     _isRunning = false;
                     return;
@@ -146,12 +151,15 @@ public class BlockSynchronizer {
     protected void _clear() {
         synchronized (_mutex) {
             _queuedBlockHashes.clear();
-            _queuedBlocks.clear();
+            _blockQueue.clear();
             _lastBlockHash = null;
         }
     }
 
     protected void _startDownloadingBlocks() {
+        _isWaitingOnDownload = true;
+        _synchronizationStatusHandler.setState(SynchronizationStatus.State.SYNCHRONIZING);
+
         final Sha256Hash lastKnownHash = _getHeadBlockHash();
 
         synchronized (_mutex) {
@@ -173,16 +181,35 @@ public class BlockSynchronizer {
     }
 
     protected void _onFailure() {
+        final Boolean wasWaitingOnDownload = _isWaitingOnDownload;
+
         _isRunning = false;
         _shouldContinue = false;
+        _isWaitingOnDownload = false;
+
+        if (wasWaitingOnDownload && _blockQueue.isEmpty()) {
+            _synchronizationStatusHandler.setState(SynchronizationStatus.State.WAITING_FOR_BLOCK);
+        }
 
         _clear();
     }
 
-    public BlockSynchronizer(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final BlockProcessor blockProcessor) {
+    public BlockSynchronizer(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final BlockProcessor blockProcessor, final SynchronizationStatusHandler synchronizationStatusHandler) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _nodeManager = nodeManager;
         _blockProcessor = blockProcessor;
+        _synchronizationStatusHandler = synchronizationStatusHandler;
+
+        final Runnable blockQueueEmptiedCallback = new Runnable() {
+            @Override
+            public void run() {
+                if (! _isWaitingOnDownload) {
+                    _synchronizationStatusHandler.setState(SynchronizationStatus.State.WAITING_FOR_BLOCK);
+                }
+            }
+        };
+
+        _blockQueue = new BlockQueue(blockQueueEmptiedCallback);
 
         final BlockValidatorThread.InvalidBlockCallback invalidBlockHandler = new BlockValidatorThread.InvalidBlockCallback() {
             @Override
@@ -247,7 +274,7 @@ public class BlockSynchronizer {
             }
         };
 
-        _blockValidatorThread = new BlockValidatorThread(_queuedBlocks, _blockProcessor, invalidBlockHandler);
+        _blockValidatorThread = new BlockValidatorThread(_blockQueue, _blockProcessor, invalidBlockHandler);
     }
 
     public void setMaxQueueSize(final Integer maxQueueSize) {
@@ -304,6 +331,8 @@ public class BlockSynchronizer {
     }
 
     public void submitBlock(final Block block) {
-        _queuedBlocks.addBlock(block);
+        // _synchronizationStatusHandler.setState(SynchronizationStatus.State.SYNCHRONIZING);
+
+        _blockQueue.addBlock(block);
     }
 }

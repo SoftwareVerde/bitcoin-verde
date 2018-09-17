@@ -13,6 +13,15 @@ import java.util.LinkedList;
 public class BlockQueue {
     protected final Object _mutex = new Object();
     protected final LinkedList<Block> _blocks = new LinkedList<Block>();
+    protected final Runnable _queueEmptiedCallback;
+
+    public BlockQueue() {
+        _queueEmptiedCallback = null;
+    }
+
+    public BlockQueue(final Runnable queueEmptiedCallback) {
+        _queueEmptiedCallback = queueEmptiedCallback;
+    }
 
     public Integer getSize() {
         synchronized (_mutex) {
@@ -40,6 +49,13 @@ public class BlockQueue {
             if (_blocks.isEmpty()) { return null; }
 
             final Block block = _blocks.removeFirst();
+
+            if (_blocks.isEmpty()) {
+                if (_queueEmptiedCallback != null) {
+                    (new Thread(_queueEmptiedCallback)).start();
+                }
+            }
+
             return block;
         }
     }
