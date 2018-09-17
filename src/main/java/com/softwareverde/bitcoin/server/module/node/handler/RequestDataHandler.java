@@ -36,9 +36,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
             for (final InventoryItem inventoryItem : dataHashes) {
-                switch (inventoryItem.getInventoryItemType()) {
+                switch (inventoryItem.getItemType()) {
                     case BLOCK: {
-                        final Sha256Hash blockHash = inventoryItem.getObjectHash();
+                        final Sha256Hash blockHash = inventoryItem.getItemHash();
                         final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
 
                         if (blockId == null) {
@@ -53,12 +53,12 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                     } break;
 
                     case TRANSACTION: {
-                        final Sha256Hash transactionHash = inventoryItem.getObjectHash();
-                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getInventoryItemType() + " : " + transactionHash);
+                        final Sha256Hash transactionHash = inventoryItem.getItemHash();
+                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType() + " : " + transactionHash);
                     } break;
 
                     default: {
-                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getInventoryItemType());
+                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType());
                     } break;
                 }
             }

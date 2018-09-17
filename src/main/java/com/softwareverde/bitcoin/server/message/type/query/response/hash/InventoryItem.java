@@ -21,11 +21,11 @@ public class InventoryItem {
         }
     }
 
-    public InventoryItemType getInventoryItemType() {
+    public InventoryItemType getItemType() {
         return _inventoryItemType;
     }
 
-    public Sha256Hash getObjectHash() {
+    public Sha256Hash getItemHash() {
         return _objectHash;
     }
 

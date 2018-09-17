@@ -30,8 +30,12 @@ import com.softwareverde.bitcoin.server.message.type.version.synchronize.Bitcoin
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ipv4;
@@ -60,6 +64,9 @@ public class BitcoinNode extends Node {
     public interface DownloadBlockCallback extends Callback<Block>, FailableCallback { }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
     public interface DownloadTransactionCallback extends Callback<Transaction>, FailableCallback { }
+    public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, FailableCallback { }
+    public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters>, FailableCallback { }
+    public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>>, FailableCallback { }
 
     public interface BlockAnnouncementCallback extends Callback<Block> { }
     public interface TransactionsAnnouncementCallback extends Callback<List<Sha256Hash>> { }
@@ -89,6 +96,14 @@ public class BitcoinNode extends Node {
         void run(List<InventoryItem> dataHashes, NodeConnection nodeConnection);
     }
 
+    public interface RequestExtraThinBlockCallback {
+        void run(Sha256Hash blockHash, BloomFilter bloomFilter, NodeConnection nodeConnection);
+    }
+
+    public interface RequestExtraThinTransactionCallback {
+        void run(Sha256Hash blockHash, List<ByteArray> transactionShortHashes, NodeConnection nodeConnection);
+    }
+
     protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
         public Sha256Hash afterBlockHash;
         public QueryCallback callback;
@@ -101,6 +116,30 @@ public class BitcoinNode extends Node {
         @Override
         public void onResult(final List<Sha256Hash> result) {
             this.callback.onResult(result);
+        }
+    }
+
+    protected static class ThinBlockParameters {
+        public final BlockHeader blockHeader;
+        public final List<Sha256Hash> transactionHashes;
+        public final List<Transaction> transactions;
+
+        public ThinBlockParameters(final BlockHeader blockHeader, List<Sha256Hash> transactionHashes, List<Transaction> transactions) {
+            this.blockHeader = blockHeader;
+            this.transactionHashes = transactionHashes;
+            this.transactions = transactions;
+        }
+    }
+
+    protected static class ExtraThinBlockParameters {
+        public final BlockHeader blockHeader;
+        public final List<ByteArray> transactionHashes;
+        public final List<Transaction> transactions;
+
+        public ExtraThinBlockParameters(final BlockHeader blockHeader, List<ByteArray> transactionHashes, List<Transaction> transactions) {
+            this.blockHeader = blockHeader;
+            this.transactionHashes = transactionHashes;
+            this.transactions = transactions;
         }
     }
 
@@ -118,6 +157,10 @@ public class BitcoinNode extends Node {
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
+
+    protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
+    protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
+
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
     protected BlockAnnouncementCallback _blockAnnouncementCallback;
@@ -128,6 +171,9 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
     protected final Map<InventoryItemType, Set<InventoryItem>> _availableDataHashes = new HashMap<InventoryItemType, Set<InventoryItem>>();
     protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
@@ -253,7 +299,7 @@ public class BitcoinNode extends Node {
                     } break;
 
                     case REQUEST_BLOCK_HEADERS: {
-                        _onQueryBlockHeadersReceived((RequestBlockHeadersMessage) message, _connection);
+                        _onQueryBlockHeadersMessageReceived((RequestBlockHeadersMessage) message, _connection);
                     } break;
 
                     case ENABLE_NEW_BLOCKS_VIA_HEADERS: {
@@ -266,28 +312,23 @@ public class BitcoinNode extends Node {
                     } break;
 
                     case REQUEST_EXTRA_THIN_BLOCK: {
-                        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = (RequestExtraThinBlockMessage) message;
-                        Logger.log("TODO: requestThinBlockMessage");
+                        _onRequestExtraThinBlockMessageReceived((RequestExtraThinBlockMessage) message, _connection);
                     } break;
 
                     case EXTRA_THIN_BLOCK: {
-                        final ExtraThinBlockMessage extraThinBlockMessage = (ExtraThinBlockMessage) message;
-                        Logger.log("TODO: extraThinBlockMessage");
+                        _onExtraThinBlockMessageReceived((ExtraThinBlockMessage) message);
                     } break;
 
                     case THIN_BLOCK: {
-                        final ThinBlockMessage thinBlockMessage = (ThinBlockMessage) message;
-                        Logger.log("TODO: thinBlockMessage");
+                        _onThinBlockMessageReceived((ThinBlockMessage) message);
                     } break;
 
                     case REQUEST_EXTRA_THIN_TRANSACTIONS: {
-                        final RequestExtraThinTransactionsMessage requestExtraThinTransactionsMessage = (RequestExtraThinTransactionsMessage) message;
-                        Logger.log("TODO: requestExtraThinTransactionsMessage");
+                        _onRequestExtraThinTransactionsMessageReceived((RequestExtraThinTransactionsMessage) message, _connection);
                     } break;
 
                     case THIN_TRANSACTIONS: {
-                        final ThinTransactionsMessage thinTransactionsMessage = (ThinTransactionsMessage) message;
-                        Logger.log("TODO: thinTransactionsMessage");
+                        _onThinTransactionsMessageReceived((ThinTransactionsMessage) message);
                     } break;
 
                     default: {
@@ -356,9 +397,9 @@ public class BitcoinNode extends Node {
 
         final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
-            final InventoryItemType inventoryItemType = inventoryItem.getInventoryItemType();
+            final InventoryItemType inventoryItemType = inventoryItem.getItemType();
             _storeInMapSet(_availableDataHashes, inventoryItemType, inventoryItem);
-            _storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getObjectHash());
+            _storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getItemHash());
         }
 
         for (final InventoryItemType inventoryItemType : dataHashesMap.keySet()) {
@@ -469,7 +510,7 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected void _onQueryBlockHeadersReceived(final RequestBlockHeadersMessage requestBlockHeadersMessage, final NodeConnection nodeConnection) {
+    protected void _onQueryBlockHeadersMessageReceived(final RequestBlockHeadersMessage requestBlockHeadersMessage, final NodeConnection nodeConnection) {
         final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
 
         if (queryBlockHeadersCallback != null) {
@@ -482,6 +523,67 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected void _onRequestExtraThinBlockMessageReceived(final RequestExtraThinBlockMessage requestExtraThinBlockMessage, final NodeConnection nodeConnection) {
+        final RequestExtraThinBlockCallback requestExtraThinBlockCallback = _requestExtraThinBlockCallback;
+
+        if (requestExtraThinBlockCallback != null) {
+            final InventoryItem inventoryItem = requestExtraThinBlockMessage.getInventoryItem();
+            if (inventoryItem.getItemType() != InventoryItemType.EXTRA_THIN_BLOCK) { return; }
+
+            final Sha256Hash blockHash = inventoryItem.getItemHash();
+            final BloomFilter bloomFilter = requestExtraThinBlockMessage.getBloomFilter();
+            requestExtraThinBlockCallback.run(blockHash, bloomFilter, nodeConnection);
+        }
+        else {
+            Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
+        }
+    }
+
+    protected void _onRequestExtraThinTransactionsMessageReceived(final RequestExtraThinTransactionsMessage requestExtraThinTransactionsMessage, final NodeConnection nodeConnection) {
+        final RequestExtraThinTransactionCallback requestExtraThinTransactionCallback = _requestExtraThinTransactionCallback;
+
+        if (requestExtraThinTransactionCallback != null) {
+            final Sha256Hash blockHash = requestExtraThinTransactionsMessage.getBlockHash();
+            final List<ByteArray> transactionShortHashes = requestExtraThinTransactionsMessage.getTransactionShortHashes();
+
+            requestExtraThinTransactionCallback.run(blockHash, transactionShortHashes, nodeConnection);
+        }
+        else {
+            Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
+        }
+    }
+
+    protected void _onThinBlockMessageReceived(final ThinBlockMessage blockMessage) {
+        final BlockHeader blockHeader = blockMessage.getBlockHeader();
+        final List<Sha256Hash> transactionHashes = blockMessage.getTransactionHashes();
+        final List<Transaction> transactions = blockMessage.getMissingTransactions();
+        final Boolean blockHeaderIsValid = blockHeader.isValid();
+
+        final ThinBlockParameters thinBlockParameters = new ThinBlockParameters(blockHeader, transactionHashes, transactions);
+
+        final Sha256Hash blockHash = blockHeader.getHash();
+        _executeAndClearCallbacks(_downloadThinBlockRequests, blockHash, (blockHeaderIsValid ? thinBlockParameters : null));
+    }
+
+    protected void _onExtraThinBlockMessageReceived(final ExtraThinBlockMessage blockMessage) {
+        final BlockHeader blockHeader = blockMessage.getBlockHeader();
+        final List<ByteArray> transactionHashes = blockMessage.getTransactionShortHashes();
+        final List<Transaction> transactions = blockMessage.getMissingTransactions();
+        final Boolean blockHeaderIsValid = blockHeader.isValid();
+
+        final ExtraThinBlockParameters extraThinBlockParameters = new ExtraThinBlockParameters(blockHeader, transactionHashes, transactions);
+
+        final Sha256Hash blockHash = blockHeader.getHash();
+        _executeAndClearCallbacks(_downloadExtraThinBlockRequests, blockHash, (blockHeaderIsValid ? extraThinBlockParameters : null));
+    }
+
+    protected void _onThinTransactionsMessageReceived(final ThinTransactionsMessage transactionsMessage) {
+        final Sha256Hash blockHash = transactionsMessage.getBlockHash();
+        final List<Transaction> transactions = transactionsMessage.getTransactions();
+
+        _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions);
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         queryBlocksMessage.addBlockHeaderHash(blockHash);
@@ -492,6 +594,34 @@ public class BitcoinNode extends Node {
         final RequestDataMessage requestDataMessage = new RequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
         _queueMessage(requestDataMessage);
+    }
+
+    protected void _requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
+        final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.COMPACT_BLOCK, blockHash);
+
+        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = new RequestExtraThinBlockMessage();
+        requestExtraThinBlockMessage.setInventoryItem(inventoryItem);
+        requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
+
+        _queueMessage(requestExtraThinBlockMessage);
+    }
+
+    protected void _requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
+        final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.EXTRA_THIN_BLOCK, blockHash);
+
+        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = new RequestExtraThinBlockMessage();
+        requestExtraThinBlockMessage.setInventoryItem(inventoryItem);
+        requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
+
+        _queueMessage(requestExtraThinBlockMessage);
+    }
+
+    protected void _requestThinTransactions(final Sha256Hash blockHash, final List<ByteArray> transactionShortHashes) {
+        final RequestExtraThinTransactionsMessage requestThinTransactionsMessage = new RequestExtraThinTransactionsMessage();
+        requestThinTransactionsMessage.setBlockHash(blockHash);
+        requestThinTransactionsMessage.setTransactionShortHashes(transactionShortHashes);
+
+        _queueMessage(requestThinTransactionsMessage);
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes) {
@@ -531,6 +661,28 @@ public class BitcoinNode extends Node {
         _requestBlock(blockHash);
     }
 
+    public void requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
+        _storeInMapSet(_downloadThinBlockRequests, blockHash, downloadThinBlockCallback);
+        _requestThinBlock(blockHash, knownTransactionsFilter);
+    }
+
+    public void requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
+        _storeInMapSet(_downloadThinBlockRequests, blockHash, downloadThinBlockCallback);
+        _requestExtraThinBlock(blockHash, knownTransactionsFilter);
+    }
+
+    public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
+        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getSize());
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
+            shortTransactionHashesBuilder.add(shortTransactionHash);
+        }
+        final List<ByteArray> shortTransactionHashes = shortTransactionHashesBuilder.build();
+
+        _storeInMapSet(_downloadThinTransactionsRequests, blockHash, downloadThinBlockCallback);
+        _requestThinTransactions(blockHash, shortTransactionHashes);
+    }
+
     public void requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
         if (blockHashes.isEmpty()) { return; }
 
@@ -562,6 +714,10 @@ public class BitcoinNode extends Node {
 
     public void setRequestDataCallback(final RequestDataCallback requestDataCallback) {
         _requestDataMessageCallback = requestDataCallback;
+    }
+
+    public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
+        _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
     }
 
     public void setBlockAnnouncementCallback(final BlockAnnouncementCallback blockAnnouncementCallback) {

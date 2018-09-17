@@ -6,7 +6,7 @@ public enum InventoryItemType {
     BLOCK(0x02),
     FILTERED_BLOCK(0x03),
     COMPACT_BLOCK(0x04),
-    XTHIN_BLOCK(0x05);
+    EXTRA_THIN_BLOCK(0x05);
 
     public static InventoryItemType fromValue(final int value) {
         for (final InventoryItemType inventoryItemType : InventoryItemType.values()) {

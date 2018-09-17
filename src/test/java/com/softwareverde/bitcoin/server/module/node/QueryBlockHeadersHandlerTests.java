@@ -225,7 +225,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         int i = blockOffset + 1;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getObjectHash());
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -265,7 +265,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         int i = blockOffset + 1;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getObjectHash());
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -305,7 +305,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         int i = blockOffset + 1;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getObjectHash());
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -345,7 +345,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         int i = blockOffset + 1;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getObjectHash());
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -393,7 +393,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(1, dataHashes.getSize());
 
-        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getObjectHash());
+        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getItemHash());
 
         fakeNodeConnection.disconnect();
     }

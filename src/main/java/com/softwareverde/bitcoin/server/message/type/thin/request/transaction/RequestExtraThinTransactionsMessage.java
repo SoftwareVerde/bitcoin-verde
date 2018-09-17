@@ -31,6 +31,10 @@ public class RequestExtraThinTransactionsMessage extends BitcoinProtocolMessage 
         _transactionShortHashes = transactionShortHashes.asConst();
     }
 
+    public List<ByteArray> getTransactionShortHashes() {
+        return _transactionShortHashes;
+    }
+
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
