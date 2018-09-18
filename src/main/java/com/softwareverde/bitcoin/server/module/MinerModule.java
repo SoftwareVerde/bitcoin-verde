@@ -46,7 +46,7 @@ public class MinerModule {
 
     public void run() {
         try {
-            final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_previousBlockHashString);
+            final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_previousBlockHashString);
             final AddressInflater addressInflater = new AddressInflater();
 
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);

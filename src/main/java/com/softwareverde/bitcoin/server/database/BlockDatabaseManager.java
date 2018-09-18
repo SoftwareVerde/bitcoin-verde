@@ -115,7 +115,7 @@ public class BlockDatabaseManager {
         else {
             final Row previousBlockRow = rows.get(0);
             final String hashString = previousBlockRow.getString("hash");
-            return MutableSha256Hash.fromHexString(hashString);
+            return Sha256Hash.fromHexString(hashString);
         }
     }
 
@@ -140,13 +140,13 @@ public class BlockDatabaseManager {
         final MutableBlockHeader blockHeader = new MutableBlockHeader();
         blockHeader.setPreviousBlockHash(previousBlockHash);
         blockHeader.setVersion(row.getLong("version"));
-        blockHeader.setMerkleRoot(MutableMerkleRoot.wrap(HexUtil.hexStringToByteArray(row.getString("merkle_root"))));
+        blockHeader.setMerkleRoot(MutableMerkleRoot.fromHexString(row.getString("merkle_root")));
         blockHeader.setTimestamp(row.getLong("timestamp"));
         blockHeader.setDifficulty(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty"))));
         blockHeader.setNonce(row.getLong("nonce"));
 
         { // Assert that the hashes match after inflation...
-            final Sha256Hash expectedHash = MutableSha256Hash.fromHexString(row.getString("hash"));
+            final Sha256Hash expectedHash = Sha256Hash.fromHexString(row.getString("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
             if (! Util.areEqual(expectedHash, actualHash)) {
                 throw new DatabaseException("Unable to inflate BlockHeader.");
@@ -156,15 +156,13 @@ public class BlockDatabaseManager {
         return blockHeader;
     }
 
-    protected void _insertBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final BlockId blockId, final Block block) throws DatabaseException {
+    protected void _insertBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
 
-        // for (final Transaction transaction : block.getTransactions()) {
-        //     transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
-        // }
-
-        final List<Transaction> transactions = block.getTransactions();
-        transactionDatabaseManager.insertTransactions(blockChainSegmentId, blockId, transactions);
+        for (final Transaction transaction : transactions) {
+            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
+            transactionDatabaseManager.associateTransactionToBlock(transactionId, blockId);
+        }
     }
 
     protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
@@ -174,10 +172,10 @@ public class BlockDatabaseManager {
 
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET hash = ?, previous_block_id = ?, block_height = ?, merkle_root = ?, version = ?, timestamp = ?, difficulty = ?, nonce = ? WHERE id = ?")
-                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
+                .setParameter(blockHeader.getHash())
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
+                .setParameter(blockHeader.getMerkleRoot())
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
                 .setParameter(blockHeader.getDifficulty().encode())
@@ -210,10 +208,10 @@ public class BlockDatabaseManager {
 
         return BlockId.wrap(_databaseConnection.executeSql(
             new Query("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-                .setParameter(HexUtil.toHexString(blockHeader.getHash().getBytes()))
+                .setParameter(blockHeader.getHash())
                 .setParameter(previousBlockId)
                 .setParameter(blockHeight)
-                .setParameter(HexUtil.toHexString(blockHeader.getMerkleRoot().getBytes()))
+                .setParameter(blockHeader.getMerkleRoot())
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
                 .setParameter(difficulty.encode())
@@ -267,15 +265,10 @@ public class BlockDatabaseManager {
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+        final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
 
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transactions WHERE block_id = ? ORDER BY id ASC")
-                .setParameter(blockId)
-        );
-
-        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(rows.size());
-        for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+        for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
             listBuilder.add(transaction);
         }
@@ -339,7 +332,7 @@ public class BlockDatabaseManager {
         // Since blockChainSegmentId is provided, the child along its chain is the blockId that shall be preferred...
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
-            if (_isBlockConnectedToChain(blockId, blockChainSegmentId)) {
+            if (_isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR)) {
                 return blockId;
             }
         }
@@ -348,7 +341,7 @@ public class BlockDatabaseManager {
         return null;
     }
 
-    protected Boolean _isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+    protected Boolean _isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId, final BlockRelationship blockRelationship) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
 
         final Long blockHeight = _getBlockHeightForBlockId(blockId);
@@ -369,9 +362,13 @@ public class BlockDatabaseManager {
             final BlockId nextBlockId;
             {
                 if (blockHeight < lowerBoundHeight) {
+                    if (blockRelationship == BlockRelationship.DESCENDANT) { return false; }
+
                     nextBlockId = blockChainSegment.getTailBlockId();
                 }
                 else {
+                    if (blockRelationship == BlockRelationship.ANCESTOR) { return false; }
+
                     final BlockId headBlockId = blockChainSegment.getHeadBlockId();
                     nextBlockId = _getChildBlockId(blockIdBlockChainSegmentId, headBlockId);
                     if (nextBlockId == null) { break; }
@@ -395,14 +392,26 @@ public class BlockDatabaseManager {
         return _getBlockChainSegmentId(previousBlockId);
     }
 
-    protected Sha256Hash _getHeadBlockHash() throws DatabaseException {
+
+    protected BlockId _getHeadBlockId() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1")
+            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.block_height DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return BlockId.wrap(row.getLong("id"));
+    }
+
+
+    protected Sha256Hash _getHeadBlockHash() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.block_height DESC LIMIT 1")
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return Sha256Hash.fromHexString(row.getString("hash"));
     }
 
     protected Sha256Hash _getHeadBlockHeaderHash() throws DatabaseException {
@@ -412,7 +421,7 @@ public class BlockDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return MutableSha256Hash.wrap(HexUtil.hexStringToByteArray(row.getString("hash")));
+        return Sha256Hash.fromHexString(row.getString("hash"));
     }
 
     protected BlockId _getHeadBlockHeaderId() throws DatabaseException {
@@ -423,27 +432,6 @@ public class BlockDatabaseManager {
 
         final Row row = rows.get(0);
         return BlockId.wrap(row.getLong("id"));
-    }
-
-    protected BlockId _getHeadBlockId() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.hash FROM blocks WHERE EXISTS (SELECT id FROM transactions WHERE blocks.id = transactions.block_id) ORDER BY blocks.block_height DESC LIMIT 1")
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("id"));
-    }
-
-    protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM transactions WHERE block_id = ?")
-                .setParameter(blockId)
-        );
-        if (rows.isEmpty()) { return 0; }
-
-        final Row row = rows.get(0);
-        return row.getInteger("transaction_count");
     }
 
     protected Integer _getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
@@ -490,24 +478,21 @@ public class BlockDatabaseManager {
      *  Transactions inserted on this chain are assumed to be a part of the parent's chain if the BlockHeader did not exist.
      */
     public BlockId storeBlock(final Block block) throws DatabaseException {
-        final BlockId existingBlockId = _getBlockIdFromHash(block.getHash());
+        final Sha256Hash blockHash = block.getHash();
+        final BlockId existingBlockId = _getBlockIdFromHash(blockHash);
 
-        final BlockChainSegmentId blockChainSegmentId;
         final BlockId blockId;
         if (existingBlockId == null) {
             blockId = _insertBlockHeader(block);
 
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
             blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-            blockChainSegmentId = _getBlockChainSegmentId(blockId);
         }
         else {
-            // _updateBlockHeader(existingBlockId, block);
-            blockChainSegmentId = _getBlockChainSegmentId(existingBlockId);
             blockId = existingBlockId;
         }
 
-        _insertBlockTransactions(blockChainSegmentId, blockId, block);
+        _insertBlockTransactions(blockId, block.getTransactions());
 
         return blockId;
     }
@@ -522,9 +507,8 @@ public class BlockDatabaseManager {
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-        final BlockChainSegmentId blockChainSegmentId = _getBlockChainSegmentId(blockId);
 
-        _insertBlockTransactions(blockChainSegmentId, blockId, block);
+        _insertBlockTransactions(blockId, block.getTransactions());
         return blockId;
     }
 
@@ -568,12 +552,9 @@ public class BlockDatabaseManager {
         final BlockId blockId = _getBlockIdFromHash(blockHash);
         if (blockId == null) { return false; }
 
-        final Integer transactionCount = _getTransactionCount(blockId);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+        final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
         return (transactionCount > 0);
-    }
-
-    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
-        return _getTransactionCount(blockId);
     }
 
     public Integer getBlockDirectDescendantCount(final BlockId blockId) throws DatabaseException {
@@ -624,11 +605,12 @@ public class BlockDatabaseManager {
      *               |
      *               A #1           Height: 0
      *
-     * Block C is a member of Chain #4.
+     * Block C is an ancestor of Chain #4.
+     * Block E is a descendant of Chain #1.
      *
      */
-    public Boolean isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        return _isBlockConnectedToChain(blockId, blockChainSegmentId);
+    public Boolean isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId, final BlockRelationship blockRelationship) throws DatabaseException {
+        return _isBlockConnectedToChain(blockId, blockChainSegmentId, blockRelationship);
     }
 
     public Sha256Hash getBlockHashFromId(final BlockId blockId) throws DatabaseException {
@@ -713,7 +695,7 @@ public class BlockDatabaseManager {
                 if (transactionExistsInUpdatedBlock) {
                     final Transaction transaction = existingTransactionHashes.get(transactionHash);
                     Logger.log("Updating Transaction: " + transactionHash + " Id: " + transactionId);
-                    transactionDatabaseManager.updateTransaction(transactionId, blockId, transaction);
+                    transactionDatabaseManager.updateTransaction(transaction);
                     updatedTransactions.add(transactionHash);
                 }
                 else {
@@ -729,7 +711,8 @@ public class BlockDatabaseManager {
             if (transactionHasBeenProcessed) { continue; }
 
             Logger.log("Inserting Transaction: " + transactionHash);
-            transactionDatabaseManager.insertTransaction(blockChainSegmentId, blockId, transaction);
+            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
+            if (transactionId == null) { throw new DatabaseException("Error inserting Transaction."); }
         }
     }
 
@@ -742,7 +725,7 @@ public class BlockDatabaseManager {
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
 
-            final Boolean blockIsConnectedToChain = _isBlockConnectedToChain(blockId, blockChainSegmentId);
+            final Boolean blockIsConnectedToChain = _isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
             if (blockIsConnectedToChain) {
                 return blockId;
             }

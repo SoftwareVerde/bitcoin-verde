@@ -89,4 +89,11 @@ public class ParallelledTaskSpawner<T, S> {
         }
         return listBuilder.build();
     }
+
+    public void abort() {
+        for (int i = 0; i < _validationTasks.getSize(); ++i) {
+            final ValidationTask<T, S> validationTask = _validationTasks.get(i);
+            validationTask.abort();
+        }
+    }
 }

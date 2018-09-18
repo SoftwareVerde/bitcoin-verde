@@ -315,7 +315,7 @@ public class MerkleTreeTests {
         Assert.assertEquals(MutableSha256Hash.fromHexString("0E0ABB91667C0BB906E9ED8BBBFB5876FCCB707C2D9E7DAB3603B57F41EC431F"), block.getTransactions().get(0).getHash());
         Assert.assertEquals(MutableSha256Hash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957"), block.getTransactions().get(1).getHash());
 
-        final Sha256Hash expectedBlockHash = MutableSha256Hash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
+        final Sha256Hash expectedBlockHash = Sha256Hash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
         final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("C5997D1CAD40AFEC154AA99B8988E97B1F113D8076357A77572455574765A533");
 
         // Action

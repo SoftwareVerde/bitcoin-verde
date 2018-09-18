@@ -37,16 +37,21 @@ public class ProtocolMessageTests {
             "00"                                // Relay Enabled
         ;
 
-        final NodeFeatures nodeFeatures = new NodeFeatures();
-        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        final NodeFeatures remoteNodeFeatures = new NodeFeatures();
+        remoteNodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
 
         final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
         remoteNodeIpAddress.setIp(Ipv4.parse("192.168.1.1"));
         remoteNodeIpAddress.setPort(8333);
-        remoteNodeIpAddress.setNodeFeatures(nodeFeatures);
+        remoteNodeIpAddress.setNodeFeatures(remoteNodeFeatures);
+
+        final NodeFeatures nodeFeatures = new NodeFeatures();
+        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
         synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
+        synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
 
         // Action
         final ByteArray serializedMessage = synchronizeVersionMessage.getBytes();

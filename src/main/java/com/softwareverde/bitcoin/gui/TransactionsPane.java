@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -143,6 +145,8 @@ public class TransactionsPane extends GridPane {
 
                                     final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
                                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+                                    final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
                                     for (AddressDatabaseManager.SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
                                         final TransactionId transactionId = spendableTransactionOutput.getTransactionId();
@@ -152,7 +156,7 @@ public class TransactionsPane extends GridPane {
 
                                         final String transactionDateString;
                                         {
-                                            final BlockId blockId = transactionDatabaseManager.getBlockId(transactionId);
+                                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionId);
                                             if (blockId == null) {
                                                 transactionDateString = "UNCONFIRMED";
                                             }

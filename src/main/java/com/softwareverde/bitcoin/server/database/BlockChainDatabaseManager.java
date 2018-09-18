@@ -257,7 +257,7 @@ public class BlockChainDatabaseManager {
 
         for (final Row row : rows) {
             final BlockChainSegmentId headBlockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("id"));
-            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId);
+            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANCESTOR);
 
             if (blockIsConnectedToChain) {
                 return headBlockChainSegmentId;

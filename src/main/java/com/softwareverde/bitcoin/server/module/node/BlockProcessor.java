@@ -94,7 +94,7 @@ public class BlockProcessor {
             // BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.debug();
             BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clearDebug();
             // TransactionDatabaseManager.TRANSACTION_CACHE.debug();
-            TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+            // TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
 
             // AddressDatabaseManager.ADDRESS_CACHE.debug();
             AddressDatabaseManager.ADDRESS_CACHE.clearDebug();

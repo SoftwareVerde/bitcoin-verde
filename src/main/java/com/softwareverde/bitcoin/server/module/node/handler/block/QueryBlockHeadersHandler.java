@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.AbstractQueryBlocksHandler;
@@ -32,6 +33,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
 
@@ -45,7 +47,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-                    final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
+                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
                     final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
                     blockHeaders.add(blockHeaderWithTransactionCount);
                 }

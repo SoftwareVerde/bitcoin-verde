@@ -5,15 +5,13 @@ import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTimeType;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
@@ -21,18 +19,19 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumberType;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 public class TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
@@ -41,6 +40,7 @@ public class TransactionValidator {
     protected final BlockDatabaseManager _blockDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
+    protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
@@ -91,17 +91,6 @@ public class TransactionValidator {
         return false;
     }
 
-    protected TransactionOutput _findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
-        final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-        final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
-        if (transactionId == null) { return null; }
-
-        final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionOutputIndex);
-        if (transactionOutputId == null) { return null; }
-
-        return _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
-    }
-
     protected Boolean _validateTransactionLockTime(final Context context) {
         final Transaction transaction = context.getTransaction();
         final Long blockHeight = context.getBlockHeight();
@@ -135,11 +124,22 @@ public class TransactionValidator {
 
                 final BlockId blockIdContainingOutputBeingSpent;
                 {
-                    final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash());
-                    if (transactionId == null) { return false; }
+                    final TransactionId previousOutputTransactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionInput.getPreviousOutputTransactionHash());
+                    if (previousOutputTransactionId == null) { return false; }
 
-                    blockIdContainingOutputBeingSpent = _transactionDatabaseManager.getBlockId(transactionId);
-                    if (blockIdContainingOutputBeingSpent == null) { return false; }
+                    BlockId parentBlockId = null;
+                    // final BlockChainSegmentId blockChainSegmentId = _blockDatabaseManager.getBlockChainSegmentId(blockId);
+                    final List<BlockId> previousTransactionBlockIds = _transactionDatabaseManager.getBlockIds(previousOutputTransactionId);
+                    for (final BlockId previousTransactionBlockId : previousTransactionBlockIds) {
+                        final Boolean isConnected = _blockDatabaseManager.isBlockConnectedToChain(previousTransactionBlockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+                        if (isConnected) {
+                            parentBlockId = previousTransactionBlockId;
+                            break;
+                        }
+                    }
+                    if (parentBlockId == null) { return false; }
+
+                    blockIdContainingOutputBeingSpent = parentBlockId;
                 }
 
                 if (sequenceNumber.getType() == SequenceNumberType.SECONDS_ELAPSED) {
@@ -180,6 +180,7 @@ public class TransactionValidator {
         _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
@@ -188,7 +189,13 @@ public class TransactionValidator {
         _shouldLogInvalidTransactions = shouldLogInvalidTransactions;
     }
 
+    protected void _logTransactionOutputNotFound(final Sha256Hash transactionHash, final TransactionInput transactionInput, final String extraMessage) {
+        Logger.log("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
+    }
+
     public Boolean validateTransactionInputsAreUnlocked(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction) {
+        final Sha256Hash transactionHash = transaction.getHash();
+
         final ScriptRunner scriptRunner = new ScriptRunner();
 
         final MutableContext context = new MutableContext();
@@ -230,44 +237,82 @@ public class TransactionValidator {
             }
         }
 
-        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        for (int i=0; i<transactionInputs.getSize(); ++i) {
-            final TransactionInput transactionInput = transactionInputs.get(i);
-            final TransactionOutputIdentifier unspentOutputToSpendIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-
-            final TransactionOutput outputToSpend;
-            try {
-                outputToSpend = _findTransactionOutput(unspentOutputToSpendIdentifier);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-                _logInvalidTransaction(transaction, context);
+        try {
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+            if (transactionId == null) {
+                Logger.log("Could not find transaction: " + transactionHash);
                 return false;
             }
 
-            if (outputToSpend == null) {
-                if (_shouldLogInvalidTransactions) {
-                    Logger.log("Transaction " + transaction.getHash() + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+            for (int i = 0; i < transactionInputs.getSize(); ++i) {
+                final TransactionInput transactionInput = transactionInputs.get(i);
+
+
+                final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final Integer transactionOutputBeingSpentIndex = transactionInput.getPreviousOutputIndex();
+
+                final TransactionId transactionOutputIdBeingSpentTransactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputBeingSpentTransactionHash);
+                if (transactionOutputIdBeingSpentTransactionId == null) {
+                    if (_shouldLogInvalidTransactions) {
+                        _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
+                    }
+                    return false;
                 }
-                _logInvalidTransaction(transaction, context);
-                return false;
-            }
 
-            final LockingScript lockingScript = outputToSpend.getLockingScript();
-            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
-
-            context.setTransactionInput(transactionInput);
-            context.setTransactionOutputBeingSpent(outputToSpend);
-            context.setTransactionInputIndex(i);
-
-            final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            if (! inputIsUnlocked) {
-                if (_shouldLogInvalidTransactions) {
-                    Logger.log("Transaction failed to verify.");
+                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, transactionOutputBeingSpentIndex);
+                if (transactionOutputIdBeingSpent == null) {
+                    if (_shouldLogInvalidTransactions) {
+                        _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");
+                    }
+                    return false;
                 }
-                _logInvalidTransaction(transaction, context);
-                return false;
+
+                { // Validate TransactionOutput exists on blockChainSegmentId...
+                    final BlockId blockIdContainingTransactionOutputBeingSpent = _transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionOutputIdBeingSpentTransactionId);
+                    if (blockIdContainingTransactionOutputBeingSpent == null) {
+                        if (_shouldLogInvalidTransactions) {
+                            _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutput does not exist on BlockChainSegmentId: " + blockChainSegmentId);
+                        }
+                        return false;
+                    }
+                }
+
+                { // Validate TransactionOutput hasn't already been spent...
+                    final List<TransactionInputId> spendingTransactionInputIds = _transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputIdBeingSpent);
+                    for (final TransactionInputId spendingTransactionInputId : spendingTransactionInputIds) {
+                        final TransactionId spendingTransactionInputIdTransactionId = _transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
+                        if (! Util.areEqual(spendingTransactionInputIdTransactionId, transactionId)) {
+                            if (_shouldLogInvalidTransactions) {
+                                Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                            }
+                            return false;
+                        }
+                    }
+                }
+
+                final TransactionOutput transactionOutputBeingSpent = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputIdBeingSpent);
+
+                final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+                final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+
+                context.setTransactionInput(transactionInput);
+                context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+                context.setTransactionInputIndex(i);
+
+                final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
+                if (! inputIsUnlocked) {
+                    if (_shouldLogInvalidTransactions) {
+                        Logger.log("Transaction failed to verify.");
+                    }
+                    _logInvalidTransaction(transaction, context);
+                    return false;
+                }
             }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            return false;
         }
 
         return true;

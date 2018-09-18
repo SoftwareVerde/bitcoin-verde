@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
@@ -259,21 +260,11 @@ public class BlockValidatorTests extends IntegrationTest {
         );
         Assert.assertTrue(rows.size() > 0);
 
+        final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime);
+        final BlockChainSegmentId block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block2Id);
+
         // Action
-        final Boolean block2PrimeIsValid;
-        {
-            Boolean blockIsValid;
-            try {
-                final BlockChainSegmentId block2PrimeBlockChainSegmentId;
-                final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime); // Should be an invalid block...
-                block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block2Id);
-                blockIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, block2Prime);
-            }
-            catch (final DatabaseException exception) {
-                blockIsValid = false;
-            }
-            block2PrimeIsValid = blockIsValid;
-        }
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, block2Prime);
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -387,6 +378,203 @@ public class BlockValidatorTests extends IntegrationTest {
         @Override
         public MerkleRoot getMerkleRoot() {
             return _merkleRoot;
+        }
+    }
+
+    @Test
+    public void should_link_correct_transaction_outputs_when_duplicate_transaction_found_across_forks_0() throws Exception {
+        // Setup
+
+        /*
+            This test's purpose is to assert that transactions that spend outputs whose hash match transactions
+            that are included in multiple blocks are paired to the correct fork.
+
+            For instance, transactionOne could be included in both blockOne and blockTwo, where blockOne and blockTwo belong
+            to separate forks.  When a new transaction, newTransaction, spends the output included in transactionOne,
+            there are two possible matches when assigning the input's previous_transaction_output_id.  The correct match
+            is the output that belongs to the transaction that was included the same blockChain as newTransaction.
+         */
+
+        /* The scenario's ordering that blocks are received in is: 0 -> 1' -> 1'' -> 2'
+            0   - Genesis Block ("genesisBlock")
+            1'' - Fake Bitcoin Block #1 ("block1DoublePrime")
+            1'  - Forking Block (sharing Genesis Block as its parent) ("block1Prime")
+            2'  - Block #2 Prime that spends a Tx that exists in both 1'' and 1'. ("block2Prime")
+
+           block2Prime spends a transactionOutput found in both block1DoublePrime and block1Prime.
+
+                 [2']
+                  |
+            [1''][1']
+             |    |
+             +---[0]
+                  |
+
+            The block2 transaction should be linked to the transactionOutput on block1Prime, not block1DoublePrime.
+
+         */
+
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000004617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED25956FC5AFFFF001D0CD8FA580101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944FDA020000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000001ADC819E4F74B03FF2F5190AB235361CDCC09E6B37E59918857965CC2F5F5B515956FC5AFFFF001D706CA7DC0101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944F0C010000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000737D4C7036345CF70FC4939FFC994A75F4EDE84F3E206F9EF83BEA000000000091D4741CA6F8AC523E21D5E95E492A05A55C94E4419116B986EB5DD7020440349980FC5AFFFF001D846E62900201000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E307388291D1B000000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC0000000001000000014617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED20000000000FFFFFFFF0100111024010000001976A9140010C980A8F5B8E072AE8175376788AB56E5858688AC00000000")); // NOTE: The transaction in this block does not properly unlock the transactionOutput...
+
+        Assert.assertTrue(genesisBlock.isValid());
+        Assert.assertTrue(block1Prime.isValid());
+        Assert.assertTrue(block1DoublePrime.isValid());
+        Assert.assertTrue(block2Prime.isValid());
+
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
+        Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
+        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
+        Assert.assertNotEquals(block1Prime.getHash(), block1DoublePrime.getHash());
+
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+
+        // Action
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+
+        // Assert
+        Assert.assertEquals(1L, genesisBlockId.longValue());
+        Assert.assertEquals(2L, block1PrimeId.longValue());
+        Assert.assertEquals(3L, block1DoublePrimeId.longValue());
+        Assert.assertEquals(4L, block2PrimeId.longValue());
+
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        Assert.assertEquals(3, rows.size());
+
+        { // Chain #1 (baseBlockChain)
+            final Row row = rows.get(0);
+            Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
+            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
+            Assert.assertEquals(0L, row.getLong("block_height").longValue());
+            Assert.assertEquals(1L, row.getLong("block_count").longValue());
+        }
+
+        { // Chain #2 (refactoredBlockChain)
+            final Row row = rows.get(1);
+            Assert.assertEquals(block2PrimeId, row.getLong("head_block_id"));
+            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
+            Assert.assertEquals(2L, row.getLong("block_height").longValue());
+            Assert.assertEquals(2L, row.getLong("block_count").longValue());
+        }
+
+        { // Chain #3 (newBlockChain)
+            final Row row = rows.get(2);
+            Assert.assertEquals(block1DoublePrimeId, row.getLong("head_block_id"));
+            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
+            Assert.assertEquals(1L, row.getLong("block_height").longValue());
+            Assert.assertEquals(1L, row.getLong("block_count").longValue());
+        }
+
+        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+
+        { // Validate that the Transaction Input spent in block2Prime is linked to block1Prime and not block1DoublePrime...
+            final Transaction transaction = block2Prime.getTransactions().get(1);
+            Assert.assertNotEquals(new ImmutableSha256Hash(), transaction.getTransactionInputs().get(0).getPreviousOutputTransactionHash()); // Assert this transactionInput is not a coinbase transaction...
+            final Sha256Hash transactionHash = transaction.getHash();
+            final Long transactionId = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(transactionHash)).get(0).getLong("id");
+            final Long previousTransactionOutputId = databaseConnection.query(new Query("SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id = ?").setParameter(transactionId)).get(0).getLong("previous_transaction_output_id");
+            final Long blockIdContainingSpentTransaction = databaseConnection.query(new Query("SELECT transactions.block_id FROM transactions INNER JOIN transaction_outputs ON (transaction_outputs.transaction_id = transactions.id) WHERE transaction_outputs.id = ?").setParameter(previousTransactionOutputId)).get(0).getLong("block_id");
+            final String blockHashContainingSpentTransaction = databaseConnection.query(new Query("SELECT hash FROM blocks WHERE id = ?").setParameter(blockIdContainingSpentTransaction)).get(0).getString("hash");
+
+            Assert.assertEquals(block1Prime.getHash().toString(), blockHashContainingSpentTransaction);
+        }
+    }
+
+    @Test
+    public void should_link_correct_transaction_outputs_when_duplicate_transaction_found_across_forks_1() throws Exception {
+        // Setup
+
+        /* The scenario's the same as the above test, except the ordering that blocks are received in is: 0 -> 1'' -> 1' -> 2'
+
+                 [2']
+                  |
+            [1''][1']
+             |    |
+             +---[0]
+                  |
+
+            The block2 transaction should (still) be linked to the transactionOutput on block1Prime, not block1DoublePrime.
+
+         */
+
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000004617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED25956FC5AFFFF001D0CD8FA580101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944FDA020000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000001ADC819E4F74B03FF2F5190AB235361CDCC09E6B37E59918857965CC2F5F5B515956FC5AFFFF001D706CA7DC0101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944F0C010000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000737D4C7036345CF70FC4939FFC994A75F4EDE84F3E206F9EF83BEA000000000091D4741CA6F8AC523E21D5E95E492A05A55C94E4419116B986EB5DD7020440349980FC5AFFFF001D846E62900201000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E307388291D1B000000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC0000000001000000014617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED20000000000FFFFFFFF0100111024010000001976A9140010C980A8F5B8E072AE8175376788AB56E5858688AC00000000")); // NOTE: The transaction in this block does not properly unlock the transactionOutput...
+
+        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+
+        // Action
+        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+
+        // Assert
+        { // Validate that the Transaction Input spent in block2Prime is linked to block1Prime and not block1DoublePrime...
+            final Transaction transaction = block2Prime.getTransactions().get(1);
+            Assert.assertNotEquals(new ImmutableSha256Hash(), transaction.getTransactionInputs().get(0).getPreviousOutputTransactionHash()); // Assert this transactionInput is not a coinbase transaction...
+            final Sha256Hash transactionHash = transaction.getHash();
+            final Long transactionId = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(transactionHash)).get(0).getLong("id");
+            final Long previousTransactionOutputId = databaseConnection.query(new Query("SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id = ?").setParameter(transactionId)).get(0).getLong("previous_transaction_output_id");
+            final Long blockIdContainingSpentTransaction = databaseConnection.query(new Query("SELECT transactions.block_id FROM transactions INNER JOIN transaction_outputs ON (transaction_outputs.transaction_id = transactions.id) WHERE transaction_outputs.id = ?").setParameter(previousTransactionOutputId)).get(0).getLong("block_id");
+            final String blockHashContainingSpentTransaction = databaseConnection.query(new Query("SELECT hash FROM blocks WHERE id = ?").setParameter(blockIdContainingSpentTransaction)).get(0).getString("hash");
+
+            Assert.assertEquals(block1Prime.getHash().toString(), blockHashContainingSpentTransaction);
+        }
+    }
+
+    @Test
+    public void should_not_link_transaction_when_transaction_output_is_only_found_on_separate_fork() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+        final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
+        final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+
+        final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+        final Block invalidBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000CA62264F9C5F8C91919DEEB07AEBAEA6D7699B370027EBA290C2154C6344476EA730975BFFFF001D2070BB0202010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC000000000100000001E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D53000000008A47304402202876A32EBDA4BB8D29F5E7596CF0B0F4E9C97D3BDF4C15BE4F13CA64692B002802201F3C9A1B2474907CAE9C505CDD96C8B2F7B7277098FBBA2ED5BAE4BC7C45A4750141046C1D8C923D8ADFCEA711BE28A9BF7E2981632AAC789AEF95D7402B9225784AD93661700AB5474EFFDD7D5BEA6100904D3F1B3BE2017E2A18971DD8904B522020FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+
+        // NOTE: invalidBlock6 attempts to spend an output that only exists within customBlock6. Since the TransactionOutput does not exist on its chain, this block is invalid.
+        Assert.assertEquals(customBlock6.getTransactions().get(0).getHash(), invalidBlock6.getTransactions().get(1).getTransactionInputs().get(0).getPreviousOutputTransactionHash());
+
+        for (final Block block : new Block[]{ genesisBlock, block1, block2, block3, block4, block5 }) {
+            blockDatabaseManager.storeBlock(block);
+        }
+
+        blockDatabaseManager.storeBlock(customBlock6);
+
+        // Action
+        try {
+            blockDatabaseManager.storeBlock(invalidBlock6);
+            Assert.fail();
+        }
+        catch (final Exception exception) {
+            Assert.assertTrue(exception.getMessage().contains("Could not find TransactionInput"));
+            Assert.assertTrue(true);
         }
     }
 }

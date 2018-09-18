@@ -100,16 +100,14 @@ public class NodeModule {
             { // Warm Up TransactionDatabaseManager Cache...
                 final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, block_id, hash FROM transactions WHERE block_id IS NOT NULL ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
+                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
                 );
                 for (final Row row : rows) {
-                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                    final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-                    final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(row.getString("hash"));
-                    transactionDatabaseManager.getTransactionIdFromHash(blockId, transactionHash);
+                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
                 }
 
-                TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
+                // TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
             }
         }
         catch (final DatabaseException exception) {

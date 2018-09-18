@@ -161,7 +161,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -179,7 +179,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -197,7 +197,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(2L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -215,7 +215,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -233,7 +233,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -251,7 +251,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -269,7 +269,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(5L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -287,7 +287,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -305,7 +305,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -323,7 +323,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId);
+        final Boolean isBlockConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);

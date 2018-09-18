@@ -8,10 +8,16 @@ import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -82,61 +88,6 @@ public class BlockValidator {
             }
         };
 
-        // TODO: The total expenditures are validated at the block-level, but it's not checked at the transaction-level...
-        // TODO: Validate that the transactionInputs' transactionOutputs have not already been spent and are not being spent twice...
-        // TODO: Validate block size...
-        // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
-        // TODO: Enforce SCRIPT_VERIFY_STRICTENC (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
-        // TODO: Enforce LOW_S (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
-        // TODO: Enforce NULLFAIL (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
-
-        { // Validate coinbase contains block height...
-            if (Bip34.isEnabled(blockHeight)) {
-                final Long blockVersion = block.getVersion();
-                if (blockVersion < 2L) {
-                    Logger.log("Invalid block version.");
-                    return false;
-                }
-
-                final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
-                final UnlockingScript unlockingScript = coinbaseTransaction.getCoinbaseScript();
-
-                final List<Operation> operations = unlockingScript.getOperations();
-                final Operation operation = operations.get(0);
-                if (operation.getType() != Operation.Type.OP_PUSH) {
-                    Logger.log("Block coinbase does not contain block height.");
-                    return false;
-                }
-                final PushOperation pushOperation = (PushOperation) operation;
-                final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
-                if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {
-                    Logger.log("Invalid block height within coinbase.");
-                    return false;
-                }
-            }
-        }
-
-        { // Validate coinbase input...
-            final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
-            final List<TransactionInput> transactionInputs = coinbaseTransaction.getTransactionInputs();
-
-            { // Validate transaction amount...
-                if (transactionInputs.getSize() != 1) {
-                    Logger.log("Invalid coinbase transaction inputs. Count: " + transactionInputs.getSize() + "; " + "Block: " + block.getHash());
-                    return false;
-                }
-            }
-
-            { // Validate previousOutputTransactionHash...
-                final Sha256Hash requiredHash = new ImmutableSha256Hash();
-                final TransactionInput transactionInput = transactionInputs.get(0);
-                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                if (! requiredHash.equals(previousOutputTransactionHash)) {
-                    Logger.log("Invalid coinbase transaction input. PreviousTransactionHash: " + previousOutputTransactionHash + "; " + "Block: " + block.getHash());
-                    return false;
-                }
-            }
-        }
 
         final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
         // TODO: Synchronize the totalExpenditureValidationTaskSpawner before executing unlockedInputsValidationTaskSpawner if threadCount is 1...
@@ -156,6 +107,72 @@ public class BlockValidator {
             Logger.log("NOTE: Trusting Block Height: " + blockHeight);
             final List<Transaction> emptyTransactionList = new MutableList<Transaction>();
             unlockedInputsValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
+        }
+
+        // TODO: The total expenditures are validated at the block-level, but it's not checked at the transaction-level...
+        // TODO: Validate block size...
+        // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
+        // TODO: Enforce SCRIPT_VERIFY_STRICTENC (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
+        // TODO: Enforce LOW_S (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
+        // TODO: Enforce NULLFAIL (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+        // TODO: Validate transaction does not appear twice within the same Block and BlockChain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
+
+        { // Validate coinbase contains block height...
+            if (Bip34.isEnabled(blockHeight)) {
+                final Long blockVersion = block.getVersion();
+                if (blockVersion < 2L) {
+                    Logger.log("Invalid block version.");
+                    totalExpenditureValidationTaskSpawner.abort();
+                    unlockedInputsValidationTaskSpawner.abort();
+                    return false;
+                }
+
+                final CoinbaseTransaction coinbaseTransaction = block.getCoinbaseTransaction();
+                final UnlockingScript unlockingScript = coinbaseTransaction.getCoinbaseScript();
+
+                final List<Operation> operations = unlockingScript.getOperations();
+                final Operation operation = operations.get(0);
+                if (operation.getType() != Operation.Type.OP_PUSH) {
+                    Logger.log("Block coinbase does not contain block height.");
+                    totalExpenditureValidationTaskSpawner.abort();
+                    unlockedInputsValidationTaskSpawner.abort();
+                    return false;
+                }
+                final PushOperation pushOperation = (PushOperation) operation;
+                final Long coinbaseBlockHeight = pushOperation.getValue().asLong();
+                if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {
+                    Logger.log("Invalid block height within coinbase.");
+                    totalExpenditureValidationTaskSpawner.abort();
+                    unlockedInputsValidationTaskSpawner.abort();
+                    return false;
+                }
+            }
+        }
+
+        { // Validate coinbase input...
+            final Transaction coinbaseTransaction = block.getCoinbaseTransaction();
+            final List<TransactionInput> transactionInputs = coinbaseTransaction.getTransactionInputs();
+
+            { // Validate transaction amount...
+                if (transactionInputs.getSize() != 1) {
+                    Logger.log("Invalid coinbase transaction inputs. Count: " + transactionInputs.getSize() + "; " + "Block: " + block.getHash());
+                    totalExpenditureValidationTaskSpawner.abort();
+                    unlockedInputsValidationTaskSpawner.abort();
+                    return false;
+                }
+            }
+
+            { // Validate previousOutputTransactionHash...
+                final Sha256Hash requiredHash = new ImmutableSha256Hash();
+                final TransactionInput transactionInput = transactionInputs.get(0);
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                if (! requiredHash.equals(previousOutputTransactionHash)) {
+                    Logger.log("Invalid coinbase transaction input. PreviousTransactionHash: " + previousOutputTransactionHash + "; " + "Block: " + block.getHash());
+                    totalExpenditureValidationTaskSpawner.abort();
+                    unlockedInputsValidationTaskSpawner.abort();
+                    return false;
+                }
+            }
         }
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();

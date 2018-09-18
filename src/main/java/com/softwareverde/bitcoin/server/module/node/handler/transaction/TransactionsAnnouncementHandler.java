@@ -46,7 +46,7 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             for (final Sha256Hash transactionHash : transactionHashes) {
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromMemoryPool(transactionHash);
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
                 if (transactionId == null) {
                     unseenTransactionHashes.add(transactionHash);
                 }
@@ -60,8 +60,6 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
         _bitcoinNode.requestTransactions(unseenTransactionHashes, new BitcoinNode.DownloadTransactionCallback() {
             @Override
             public void onResult(final Transaction transaction) {
-                final Sha256Hash transactionHash = transaction.getHash();
-
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
@@ -80,7 +78,7 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                         TransactionUtil.startTransaction(databaseConnection);
                         final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
                         if (transactionIsValid) {
-                            final TransactionId transactionId = transactionDatabaseManager.insertTransactionIntoMemoryPool(transaction);
+                            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
                             TransactionUtil.commitTransaction(databaseConnection);
                             // Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
                         }

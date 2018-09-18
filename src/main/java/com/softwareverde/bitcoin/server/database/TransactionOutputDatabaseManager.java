@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -242,7 +243,7 @@ public class TransactionOutputDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
 
         final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getBlockChainSegmentId(), transactionOutputIdentifier.getTransactionHash());
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionOutputIdentifier.getTransactionHash());
         if (transactionId == null) { return null; }
 
         final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIndex);

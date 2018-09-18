@@ -30,7 +30,7 @@ public class IntegrationTest {
 
     protected static void _resetCache() {
         AddressDatabaseManager.ADDRESS_CACHE.clear();
-        TransactionDatabaseManager.TRANSACTION_CACHE.clear();
+        // TransactionDatabaseManager.TRANSACTION_CACHE.clear();
         BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear();
         BlockChainDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear();
     }

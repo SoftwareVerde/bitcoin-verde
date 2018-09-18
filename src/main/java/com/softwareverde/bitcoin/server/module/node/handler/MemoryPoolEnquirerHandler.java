@@ -15,16 +15,16 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
 
     @Override
     public BloomFilter getBloomFilter(final Sha256Hash blockHash) {
-
+        return null; // TODO
     }
 
     @Override
     public Integer getMemoryPoolTransactionCount() {
-
+        return null; // TODO
     }
 
     @Override
     public Transaction getTransaction(final Sha256Hash transactionHash) {
-
+        return null; // TODO
     }
 }

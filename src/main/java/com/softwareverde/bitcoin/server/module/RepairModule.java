@@ -62,7 +62,7 @@ public class RepairModule {
 
         final ImmutableListBuilder<Sha256Hash> blockHashesBuilder = new ImmutableListBuilder<Sha256Hash>(blockHashes.length);
         for (final String blockHashString : blockHashes) {
-            final Sha256Hash blockHash = ImmutableSha256Hash.fromHexString(blockHashString);
+            final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
             if (blockHash != null) {
                 blockHashesBuilder.add(blockHash);
             }

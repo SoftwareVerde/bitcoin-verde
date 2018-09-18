@@ -41,12 +41,21 @@ ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (bl
 CREATE TABLE transactions (
     id int unsigned NOT NULL AUTO_INCREMENT,
     hash char(64) NOT NULL,
-    block_id int unsigned,
     version int unsigned NOT NULL,
     lock_time bigint unsigned NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_hash_uq (hash, block_id),
-    FOREIGN KEY transaction_block_id_ix (block_id) REFERENCES blocks (id)
+    UNIQUE KEY transaction_hash_uq (hash)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE block_transactions (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    block_id int unsigned NOT NULL,
+    transaction_id int unsigned NOT NULL,
+    sort_order int unsigned NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY block_transactions_uq (block_id, transaction_id),
+    FOREIGN KEY block_transactions_ix (block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_transactions_ix2 (transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_outputs (

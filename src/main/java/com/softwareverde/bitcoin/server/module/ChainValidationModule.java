@@ -53,7 +53,7 @@ public class ChainValidationModule {
     protected ChainValidationModule(final String configurationFilename, final String startingBlockHash) {
         _configuration = _loadConfigurationFile(configurationFilename);
 
-        _startingBlockHash = Util.coalesce(ImmutableSha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
+        _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
