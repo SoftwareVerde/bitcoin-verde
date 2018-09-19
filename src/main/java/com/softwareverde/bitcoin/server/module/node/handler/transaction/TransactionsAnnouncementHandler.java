@@ -88,7 +88,7 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                         final Boolean transactionIsValid;
                         {
                             if (transactionId != null) {
-                                transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
+                                transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction);
                             }
                             else {
                                 transactionIsValid = false;

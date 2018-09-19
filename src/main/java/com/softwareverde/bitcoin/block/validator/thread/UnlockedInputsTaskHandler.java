@@ -36,7 +36,7 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
         {
             boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransactionInputsAreUnlocked(_blockChainSegmentId, _blockHeight, transaction);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockChainSegmentId, _blockHeight, transaction);
             }
             catch (final Exception exception) { Logger.log(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;
