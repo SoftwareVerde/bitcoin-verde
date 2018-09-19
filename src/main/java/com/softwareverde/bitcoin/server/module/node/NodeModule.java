@@ -133,6 +133,8 @@ public class NodeModule {
                     public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
                 });
 
+                final Integer maxDatabaseThreadCount = Math.max(128, (serverProperties.getMaxPeerCount() * 3));
+
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
                     commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
@@ -141,6 +143,7 @@ public class NodeModule {
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setQueryCacheByteCount(0L);
                     commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
                     // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
                     // commandLineArguments.addArgument("--performance_schema");
                     // commandLineArguments.addArgument("--general_log_file=query.log");
