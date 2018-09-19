@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.handler;
+package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -12,11 +12,16 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 
-public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnouncementCallback {
+public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCallback {
+    public static final BitcoinNode.BlockAnnouncementCallback IGNORE_NEW_BLOCKS_HANDLER = new BitcoinNode.BlockAnnouncementCallback() {
+        @Override
+        public void onResult(final Block result) { }
+    };
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final Container<BlockSynchronizer> _blockDownloader;
 
-    public NewBlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
+    public BlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _blockDownloader = blockDownloader;
     }
@@ -25,7 +30,6 @@ public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnounce
     public void onResult(final Block block) {
         final Sha256Hash blockHash = block.getHash();
 
-        Logger.log("New Block Announced: " + blockHash);
         final BlockSynchronizer blockSynchronizer = _blockDownloader.value;
 
         if (blockSynchronizer.isRunning()) {
@@ -37,9 +41,8 @@ public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnounce
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
-            final Boolean blockIsSynchronized = blockDatabaseManager.isBlockSynchronized(blockHash);
+            final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
             if (blockIsSynchronized) {
-                Logger.log("Already aware of announced block: " + blockHash);
                 return;
             }
 
@@ -53,9 +56,11 @@ public class NewBlockAnnouncementHandler implements BitcoinNode.NewBlockAnnounce
         }
 
         if (parentBlockExists) {
+            Logger.log("New Block Announced: " + blockHash);
             blockSynchronizer.submitBlock(block);
         }
         else {
+            Logger.log("New (Orphaned) Block Announced: " + blockHash + " (Restarting blockSynchronizer...)");
             blockSynchronizer.start();
         }
     }

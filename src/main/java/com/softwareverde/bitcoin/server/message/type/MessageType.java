@@ -9,11 +9,15 @@ public enum MessageType {
 
     QUERY_BLOCKS("getblocks"), QUERY_RESPONSE("inv"),
     REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
-    REQUEST_DATA("getdata"), BLOCK("block"),
+    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"),
 
     NOT_FOUND("notfound"), ERROR("reject"),
 
-    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders");
+    ENABLE_NEW_BLOCKS_VIA_HEADERS("sendheaders"),
+    ENABLE_COMPACT_BLOCKS("sendcmpct"),
+
+    REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
+    REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

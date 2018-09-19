@@ -59,12 +59,14 @@ public class TransactionTestUtil {
         return genesisBlockId;
     }
 
-    public static void makeFakeTransactionInsertable(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
+
+        final BlockId genesisBlockId = _getGenesisBlockId(blockChainSegmentId, databaseConnection);
 
         // Ensure that all of the Transaction's TransactionInput's have outputs that exist...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.findPreviousTransactionOutputId(blockChainSegmentId, transactionInput);
+            final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.findPreviousTransactionOutputId(transactionInput);
             if (transactionOutputId != null) { continue; }
 
             final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -76,12 +78,28 @@ public class TransactionTestUtil {
                 Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
 
                 transactionId = TransactionId.wrap(databaseConnection.executeSql(
-                    new Query("INSERT INTO transactions (hash, block_id, version, lock_time) VALUES (?, ?, ?, ?)")
+                    new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
                         .setParameter(previousOutputTransactionHash)
-                        .setParameter(_getGenesisBlockId(blockChainSegmentId, databaseConnection))
                         .setParameter(Transaction.VERSION)
                         .setParameter(LockTime.MIN_TIMESTAMP.getValue())
                 ));
+
+                final Integer sortOrder;
+                {
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
+                            .setParameter(genesisBlockId)
+                    );
+                    final Row row = rows.get(0);
+                    sortOrder = row.getInteger("transaction_count");
+                }
+
+                databaseConnection.executeSql(
+                    new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
+                        .setParameter(genesisBlockId)
+                        .setParameter(transactionId)
+                        .setParameter(sortOrder)
+                );
             }
             else {
                 transactionId = TransactionId.wrap(transactionRows.get(0).getLong("id"));

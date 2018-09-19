@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -12,12 +12,29 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
-public class SynchronizationStatusHandler implements BitcoinNode.SynchronizationStatusHandler {
+public class SynchronizationStatusHandler implements SynchronizationStatus {
     protected final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
+    protected State _state = State.ONLINE;
+
     public SynchronizationStatusHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
+    }
+
+    public void setState(final State state) {
+        Logger.log("Synchronization State: " + state);
+        _state = state;
+    }
+
+    @Override
+    public State getState() {
+        return _state;
+    }
+
+    @Override
+    public Boolean isBlockChainSynchronized() {
+        return (_state == State.WAITING_FOR_BLOCK);
     }
 
     @Override

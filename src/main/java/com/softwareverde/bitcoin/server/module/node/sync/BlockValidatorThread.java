@@ -18,7 +18,7 @@ public class BlockValidatorThread {
     };
 
     protected final InvalidBlockCallback _invalidBlockCallback;
-    protected final BlockQueue _queuedBlocks;
+    protected final BlockQueue _blockQueue;
     protected final BlockProcessor _blockProcessor;
     protected Thread _thread = null;
     protected volatile Boolean _shouldContinue = true;
@@ -33,8 +33,8 @@ public class BlockValidatorThread {
         _thread.setPriority(Thread.MAX_PRIORITY);
     }
 
-    public BlockValidatorThread(final BlockQueue queuedBlocks, final BlockProcessor blockProcessor, final InvalidBlockCallback invalidBlockCallback) {
-        _queuedBlocks = queuedBlocks;
+    public BlockValidatorThread(final BlockQueue blockQueue, final BlockProcessor blockProcessor, final InvalidBlockCallback invalidBlockCallback) {
+        _blockQueue = blockQueue;
         _blockProcessor = blockProcessor;
         _invalidBlockCallback = invalidBlockCallback;
     }
@@ -43,7 +43,7 @@ public class BlockValidatorThread {
         final Thread originalThread = _thread;
 
         while (_shouldContinue) {
-            final Block block = _queuedBlocks.getNextBlock();
+            final Block block = _blockQueue.getNextBlock(); // TODO: Consider blocking instead of polling...
             if (block != null) {
                 final Timer timer = new Timer();
 
@@ -51,15 +51,16 @@ public class BlockValidatorThread {
                 final Boolean isValidBlock = _blockProcessor.processBlock(block);
                 timer.stop();
 
-                Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()) + " ("+ String.format("%.2f", (block.getTransactionCount() / timer.getMillisecondsElapsed() * 1000L)) +" tps) | " + DateUtil.timestampToDatetimeString(block.getTimestamp() * 1000L));
-
                 if (! isValidBlock) {
                     Logger.log("Invalid block: " + block.getHash());
                     _invalidBlockCallback.onInvalidBlock(block);
                 }
+                else {
+                    Logger.log("Process Block Duration: " + String.format("%.2f", timer.getMillisecondsElapsed()) + " (" + String.format("%.2f", (block.getTransactionCount() / timer.getMillisecondsElapsed() * 1000L)) + " tps) | " + DateUtil.timestampToDatetimeString(block.getTimestamp() * 1000L));
+                }
             }
             else {
-                try { Thread.sleep(100L); } catch (final Exception exception) { break; }
+                try { Thread.sleep(200L); } catch (final Exception exception) { break; }
             }
         }
 

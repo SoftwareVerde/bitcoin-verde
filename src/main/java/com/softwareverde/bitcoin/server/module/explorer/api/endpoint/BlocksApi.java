@@ -14,7 +14,7 @@ import com.softwareverde.util.Util;
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class BlocksApi extends ExplorerApiEndpoint {
-    public static final Long RPC_DURATION_TIMEOUT_MS = 15000L;
+    public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
     private static class RecentBlocksResult extends ApiResult {
         private Json _blockHeadersJson = new Json(true);

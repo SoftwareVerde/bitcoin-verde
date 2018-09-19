@@ -28,7 +28,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         try {
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
 
-            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, outputTransactionHash, transactionOutputIndex);
+            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex);
             final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
             if (transactionOutputId != null) {
                 return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);

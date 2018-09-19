@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -24,7 +25,6 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
     @Override
     public Long getBalance(final Address address) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
@@ -56,7 +56,7 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
                 final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
                 final Long amount = row.getLong("amount");
 
-                final Boolean transactionIsOnMainChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headChainSegmentId);
+                final Boolean transactionIsOnMainChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headChainSegmentId, BlockRelationship.ANY);
                 if (transactionIsOnMainChain) {
                     totalAmount = totalAmount.add(BigInteger.valueOf(amount));
                 }

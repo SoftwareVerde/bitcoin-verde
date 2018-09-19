@@ -6,30 +6,12 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 
 public class MutableSha256Hash extends MutableHash implements Sha256Hash {
-    public static MutableSha256Hash fromHexString(final String hexString) {
-        final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
-        if (hashBytes == null) {
-            Logger.log("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
-            return null;
-        }
-
-        return new MutableSha256Hash(hashBytes);
-    }
-
     public static MutableSha256Hash wrap(final byte[] bytes) {
         if (bytes.length != BYTE_COUNT) {
             Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
             return null;
         }
         return new MutableSha256Hash(bytes);
-    }
-
-    public static MutableSha256Hash copyOf(final byte[] bytes) {
-        if (bytes.length != BYTE_COUNT) {
-            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
-            return null;
-        }
-        return new MutableSha256Hash(ByteUtil.copyBytes(bytes));
     }
 
     protected MutableSha256Hash(final byte[] bytes) {

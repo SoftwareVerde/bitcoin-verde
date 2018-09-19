@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
@@ -24,7 +24,6 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -67,6 +66,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected final Environment _environment;
+    protected final SynchronizationStatus _synchronizationStatus;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageBlockHeadersPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
@@ -92,9 +92,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         { // Include Block hashes which include this transaction...
             final Json blockHashesJson = new Json(true);
-            final List<TransactionId> duplicateTransactionIds = transactionDatabaseManager.getTransactionIdsFromHash(transactionHash);
-            for (final TransactionId duplicateTransactionId : duplicateTransactionIds) {
-                final BlockId blockId = transactionDatabaseManager.getBlockId(duplicateTransactionId);
+            final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionHash);
+            for (final BlockId blockId : blockIds) {
                 final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
                 blockHashesJson.add(blockHash);
             }
@@ -108,7 +107,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 {
                     final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                     if (previousOutputTransactionHash != null) {
-                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(mainBlockChainSegmentId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+                        final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
                         previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
 
                         if (previousTransactionOutputId == null) {
@@ -179,8 +178,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         transactionJson.put("fee", transactionFee);
     }
 
-    public JsonRpcSocketServerHandler(final Environment environment, final StatisticsContainer statisticsContainer) {
+    public JsonRpcSocketServerHandler(final Environment environment, final SynchronizationStatus synchronizationStatus, final StatisticsContainer statisticsContainer) {
         _environment = environment;
+        _synchronizationStatus = synchronizationStatus;
 
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
@@ -280,7 +280,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
 
         final String blockHashString = parameters.getString("hash");
-        final Sha256Hash blockHash = MutableSha256Hash.fromHexString(blockHashString);
+        final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
 
         if (blockHash == null) {
             response.put("errorMessage", "Invalid block hash: " + blockHashString);
@@ -349,7 +349,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
 
         final String blockHashString = parameters.getString("hash");
-        final Sha256Hash blockHash = MutableSha256Hash.fromHexString(blockHashString);
+        final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
 
         if (blockHash == null) {
             response.put("errorMessage", "Invalid block hash: " + blockHashString);
@@ -447,7 +447,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Boolean shouldReturnRawTransactionData = parameters.getBoolean("rawFormat");
 
         final String transactionHashString = parameters.getString("hash");
-        final Sha256Hash transactionHash = MutableSha256Hash.fromHexString(transactionHashString);
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(transactionHashString);
 
         if (transactionHash == null) {
             response.put("errorMessage", "Invalid transaction hash: " + transactionHashString);
@@ -456,14 +456,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(mainBlockChainSegmentId, transactionHash);
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
             if (transactionId == null) {
                 response.put("errorMessage", "Transaction not found: " + transactionHashString);
                 return;
@@ -541,13 +540,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
             }
 
-            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
-
-            final Integer secondsInAnHour = (60 * 60);
-            final Boolean isSyncing = (secondsBehind > secondsInAnHour);
+//            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
+//            final Integer secondsInAnHour = (60 * 60);
+//            final Boolean isSyncing = (secondsBehind > secondsInAnHour);
 
             response.put("wasSuccess", 1);
-            response.put("status", (isSyncing ? "SYNCHRONIZING" : "ONLINE"));
+            response.put("status", _synchronizationStatus.getState());
 
             final Long blockHeight = _calculateBlockHeight(databaseConnection);
             final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
@@ -647,8 +645,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final Json nodeJson = new Json();
 
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
-            nodeJson.put("host", nodeIpAddress.getIp().toString());
-            nodeJson.put("port", nodeIpAddress.getPort());
+            nodeJson.put("host", (nodeIpAddress != null ? nodeIpAddress.getIp() : null));
+            nodeJson.put("port", (nodeIpAddress != null ? nodeIpAddress.getPort() : null));
 
             nodeListJson.add(nodeJson);
         }

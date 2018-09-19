@@ -5,10 +5,10 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -109,6 +109,20 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block477790 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("020000201E41513A74A6AFC3E9B6C7DE4C311BC5D82C65F87EF4E0000000000000000000615834D9119AC057CD586B89BB823DF8F80E2FE482661457366AD76CEDDCF8A4CCC57959DC5D0118A2650916"));
+
+        {
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            blockDatabaseManager.storeBlock(genesisBlock);
+
+            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block477790.getHash())
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+        }
+
         blockDatabaseManager.storeBlockHeader(block477790);
         databaseConnection.executeSql(
             new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
@@ -139,6 +153,18 @@ public class DifficultyCalculatorTests extends IntegrationTest {
                 .setParameter(477793L)
                 .setParameter(block477793.getHash())
         );
+
+        {
+            final MutableBlockHeader block477794 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("020000206569100B4B52EADCEE0AA9A34001BE33B8AB44DB5C59C200000000000000000042FB937F6398AE22CFE62A2CFB9D96F916B0B7113905669D9D24834601225AA60DCC795935470118B131AF2B"));
+            blockDatabaseManager.storeBlockHeader(block477794);
+
+            // Hack the block so that its hash looks like the block479790's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter("0000000000000000045A0372DFB07E71CFEE86C282800660AB73EA66BE3F8545")
+                    .setParameter("000000000000000000735904147ECF02E80B5F092B08961ECCD68A6A02EDF409")
+            );
+        }
 
         final BlockHeader block479790 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020F44C014C09C71A616BE35E2171A1BCB689D265B4B2073D0200000000000000008AEAF7998B7657375DE112ED9C6D9309DF800DCD27F842C377BEAF1EF961554F13F29859D7850918F89096B5"));
         final BlockHeader block479791 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002045853FBE66EA73AB60068082C286EECF717EB0DF72035A04000000000000000093EB3B5F106412594E76E692C96BD1A601C2911509E153731D078B0BCD2424CF23F29859D7850918C87B0403"));
@@ -215,13 +241,11 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
         final BlockId blockId = blockDatabaseManager.storeBlock(block);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
 
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
@@ -326,13 +350,13 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
-            new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(blockHeaders.length + 3)
                 .setParameter(479808L)
                 .setParameter(479808L)
+                .setParameter(1L)
         );
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_chain_segment_id = 1"));
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(479808L).setParameter(blockHeader.getHash()));
 
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
@@ -352,6 +376,19 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
+        {
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            blockDatabaseManager.insertBlock(block);
+
+            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter("00000000000000000435BC5750DAF2D9840D6CC670CC539D67B565B3F175EF40")
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+        }
+
         final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
         // ChainWork: 0000000000000000000000000000000000000000007C9252468D6FC7AA51E743
         final BlockHeader block503885 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002062B205D7E0CA90FBA87B1FC30AC413E7AE2033886DFB760700000000000000003C99B667F880E4FCE0E40EB746FC10F5B20564928B8216AC440A3AB0932E76042684085AF56A08187B499EE6"));
@@ -369,7 +406,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
 
         long blockHeight = 503884L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888}) {
+        for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888 }) {
             blockDatabaseManager.storeBlockHeader(blockHeader);
 
             if (blockHeight == 503884L) {
@@ -387,6 +424,18 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             );
 
             blockHeight += 1L;
+        }
+
+        {
+            final BlockHeader block = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203BEDAF10775BF4DAEA20C0CD14DFB1305643750B78ED5A03000000000000000052B2D71F8917516C6A61CF4FF70149B22337138F174971A341B9729C33D4FE8F9385085AF56A08182A6E5437"));
+            blockDatabaseManager.insertBlockHeader(block);
+
+            // Hack the block so that its hash looks like the next block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter("0000000000000000004AB6CD0EC46F050566B7CA9E556CA6825039078E5CC4D3")
+                    .setParameter("000000000000000007C927A6A203FB2CCCA31D3AFA56EA54429576925CE07995")
+            );
         }
 
         final BlockHeader block504028 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3C45C8E07395082A66C559ECAB76605056FC40ECDB64A000000000000000000DEBD79522F23890A23DDC97CE239F2760BCB23BE4274AA33EE40B99693159E694EF9095ABD1A021896DEFE6B"));
@@ -431,13 +480,13 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
-            new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
-                .setParameter(9)
+                .setParameter(11)
                 .setParameter(504032L)
                 .setParameter(504032L)
+                .setParameter(1L)
         );
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_chain_segment_id = 1"));
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504032L).setParameter(blockHeader.getHash()));
 
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
@@ -476,6 +525,20 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
         Assert.assertEquals(block503888.getHash(), block503889.getPreviousBlockHash());
 
+        {
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            blockDatabaseManager.storeBlock(genesisBlock);
+
+            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block503884.getPreviousBlockHash())
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+        }
+
+
         long blockHeight = 503884L;
         for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888, block503889 }) {
             blockDatabaseManager.storeBlockHeader(blockHeader);
@@ -513,6 +576,18 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block504030.getHash(), block504031.getPreviousBlockHash());
         Assert.assertEquals(block504031.getHash(), block504032.getPreviousBlockHash());
 
+        {
+            final BlockHeader block503890 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209579E05C9276954254EA56FA3A1DA3CC2CFB03A2A627C90700000000000000000041850165F77D5CDBEF74DCA7FB492328BA575B9708202C094D0D19F6EAC5121586085AF56A08186C37472D"));
+            blockDatabaseManager.storeBlockHeader(block503890);
+
+            // Hack the block so that its hash looks like the block503884's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block504028.getPreviousBlockHash())
+                    .setParameter(block503890.getHash())
+            );
+        }
+
         blockHeight = 504028L;
         for (final BlockHeader blockHeader : new BlockHeader[] { block504028, block504029, block504030, block504031, block504032 }) {
             blockDatabaseManager.storeBlockHeader(blockHeader);
@@ -542,13 +617,13 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
-            new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(11)
                 .setParameter(504033L)
                 .setParameter(504033L)
+                .setParameter(1L)
         );
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_chain_segment_id = 1"));
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504033L).setParameter(blockHeader.getHash()));
 
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
@@ -580,6 +655,19 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block504942.getHash(), block504943.getPreviousBlockHash());
         Assert.assertEquals(block504943.getHash(), block504944.getPreviousBlockHash());
         Assert.assertEquals(block504944.getHash(), block504945.getPreviousBlockHash());
+
+        {
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            blockDatabaseManager.storeBlock(genesisBlock);
+
+            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block504940.getPreviousBlockHash())
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+        }
 
         long blockHeight = 504940L;
         for (final BlockHeader blockHeader : new BlockHeader[] { block504940, block504941, block504942, block504943, block504944, block504945 }) {
@@ -613,6 +701,18 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block505087.getHash(), block505088.getPreviousBlockHash());
         Assert.assertEquals(block505088.getHash(), block505089.getPreviousBlockHash());
 
+        {
+            final BlockHeader block504946 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000205EDDCB2C5994B16FD9F0155836404CD3BCDBD1D2D6ABF2010000000000000000A85C491190D7DF041B6D8301B9DC61469A6D3450E95E03B57159F7F8A70914CFFB79125AD927061849AD94C2"));
+            blockDatabaseManager.storeBlockHeader(block504946);
+
+            // Hack the block so that its hash looks like the block505085's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block505085.getPreviousBlockHash())
+                    .setParameter(block504946.getHash())
+            );
+        }
+
         blockHeight = 505085L;
         for (final BlockHeader blockHeader : new BlockHeader[] { block505085, block505086, block505087, block505088, block505089 }) {
             blockDatabaseManager.storeBlockHeader(blockHeader);
@@ -642,13 +742,13 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
-            new Query("INSERT INTO block_chain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
+            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(11)
                 .setParameter(505090L)
                 .setParameter(505090L)
+                .setParameter(1L)
         );
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_chain_segment_id = 1"));
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(505090L).setParameter(blockHeader.getHash()));
 
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
@@ -658,5 +758,78 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
+    }
+
+    @Test
+    public void should_calculate_difficulty_for_block_000000000000000001D49711B252E3C8DDAEFEC6A668B3104E4C4EE63908A587() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+
+        final Long blockHeight = 547204L;
+
+        // Fake Pre-Block
+        final BlockHeader preBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+
+        // Starting Blocks (547057 through 547059)
+        final BlockHeader block547057 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020B5FBB21B15194519A93E89B3C9E4DCDE7A30E3378065540000000000000000002307AE41F518AB7B1ADCEC650A66DFA6D2805C0C583D5D74A9A6E4D8C71B52B4309A945B211902181E80E9F6"));
+        final BlockHeader block547058 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002087D4725EF111A4C59AD8F4324A41C034AA089B0268D733010000000000000000CD99207673166CF38726CED59FD0902802935C6C6B67B80E17A976009340DFCC4C9C945B88180218867927A5"));
+        final BlockHeader block547059 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020F54AF12DFB380656BF448C8AE3A20151C56A312B9DE9790100000000000000008F9A5ABD96F5D9731CCDEDBC978169378178557031E8F0BD0F3AE87070848EFF499D945B7F2102180C04F854"));
+
+        // Fake Transition Block
+        final BlockHeader transitionBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020E5E9CA253DEB603C1BBFA40C3905F598C38737502E61A5010000000000000000C7E8374831FD345C38A008E6EF456DA791C7118AA3AD912A6648E1CE8362C7D3E29F945B852302184B0E186E")); // 547060
+
+        // Ending Blocks (547201 through 547203)
+        final BlockHeader block547201 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DEBBC302DBED222D0FF299D1FDFC2667ED9CB5DCAC3B040100000000000000000DBFBF361ADC14E26962F130A465AF6E4D68746AF94F38F2E783ACC8C094DE651EFA955B982302189EC47A14"));
+        final BlockHeader block547202 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002030C831E27B35C498552F087186351E8A55DC1F1D83CF49010000000000000000CD7611E790C1051D5FC2E024EEAFD7A691DD3B92167211BEAFAE161FAC030D972DFC955B0F240218F86BB4D6"));
+        final BlockHeader block547203 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000201F8D5E668DAA58B04FE17C1AA448FA143E64F01D9177030200000000000000001030F6AF6ED57728388DDBC309B0D690E70AA60E9EECE501AF2B50C3A1DE5594D6FD955B231D02181541C84F"));
+
+        // Block To Test...
+        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209C40E748F5BADA0670EE1F67EE0E3D9F48CE1D0753538E01000000000000000016C1FA95946D658E7F79DF9420EAF862F320A95630217EDED426114C46C1F5F88B01965B221D02186548ACB8"));
+
+        blockDatabaseManager.storeBlockHeader(preBlock);
+        databaseConnection.executeSql(
+            new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
+                .setParameter("00000000000000000054658037E3307ADEDCE4C9B3893EA9194519151BB2FBB5")
+                .setParameter(547056L)
+                .setParameter("000000000000000000000000000000000000000000C06C4B44874C9B9A130D94")
+                .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+        );
+
+        blockDatabaseManager.storeBlockHeader(block547057);
+        blockDatabaseManager.storeBlockHeader(block547058);
+        blockDatabaseManager.storeBlockHeader(block547059);
+
+        blockDatabaseManager.storeBlockHeader(transitionBlock);
+        databaseConnection.executeSql(
+            new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
+                .setParameter("000000000000000001043BACDCB59CED6726FCFDD199F20F2D22EDDB02C3BBDE")
+                .setParameter(547200L)
+                .setParameter("000000000000000000000000000000000000000000C0B356BB448CE8066B2F93")
+                .setParameter("0000000000000000004129906FC0D6496A4194CD97251260FCF7F202A494DB92")
+        );
+
+        blockDatabaseManager.storeBlockHeader(block547201);
+        blockDatabaseManager.storeBlockHeader(block547202);
+        blockDatabaseManager.storeBlockHeader(block547203);
+
+        databaseConnection.executeSql(
+            new Query("UPDATE block_chain_segments SET block_height = ?, block_count = ? WHERE id = ?")
+                .setParameter(547203L)
+                .setParameter(547204L)
+                .setParameter(1L)
+        );
+
+        final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+
+        // Action
+        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, blockHeader);
+
+        // Assert
+        final Difficulty expectedDifficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
+        Assert.assertEquals(expectedDifficulty, difficulty);
     }
 }

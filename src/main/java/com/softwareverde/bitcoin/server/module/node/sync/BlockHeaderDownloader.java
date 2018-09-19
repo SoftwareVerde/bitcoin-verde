@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -53,7 +52,6 @@ public class BlockHeaderDownloader {
         }
 
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
 
         synchronized (BlockDatabaseManager.MUTEX) {
@@ -65,8 +63,6 @@ public class BlockHeaderDownloader {
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
-
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
 
             final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
             final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);

@@ -43,8 +43,14 @@ public class BlockHeaderValidator {
             final Long secondsInTwoHours = 7200L;
             final Long maximumNetworkTime = networkTime + secondsInTwoHours;
 
-            if (blockTime < minimumTimeInSeconds) { return false; }
-            if (blockTime > maximumNetworkTime) { return false; }
+            if (blockTime < minimumTimeInSeconds) {
+                Logger.log("Invalid block. Header invalid. BlockTime < MedianBlockTime. BlockTime: " + blockTime + " Minimum: " + minimumTimeInSeconds);
+                return false;
+            }
+            if (blockTime > maximumNetworkTime) {
+                Logger.log("Invalid block. Header invalid. BlockTime > NetworkTime. BlockTime: " + blockTime + " Maximum: " + maximumNetworkTime);
+                return false;
+            }
         }
 
         { // Validate block (calculated) difficulty...
@@ -57,7 +63,7 @@ public class BlockHeaderValidator {
 
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
             if (!difficultyIsCorrect) {
-                Logger.log("Invalid difficulty for block. Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
+                Logger.log("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
                 return false;
             }
         }

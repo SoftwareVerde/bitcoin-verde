@@ -149,6 +149,16 @@ public class NodeManager<NODE extends Node> {
         newNode.broadcastNodeAddresses(nodeAddresses);
     }
 
+    protected void _onNodeDisconnected(final NODE node) {
+        synchronized (_mutex) {
+            if (LOGGING_ENABLED) {
+                Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
+            }
+
+            _removeNode(node);
+        }
+    }
+
     protected void _initNode(final NODE node) {
         final Container<Boolean> nodeConnected = new Container<Boolean>(null);
         final Thread timeoutThread = new Thread(new Runnable() {
@@ -271,13 +281,7 @@ public class NodeManager<NODE extends Node> {
         node.setNodeDisconnectedCallback(new NODE.NodeDisconnectedCallback() {
             @Override
             public void onNodeDisconnected() {
-                synchronized (_mutex) {
-                    if (LOGGING_ENABLED) {
-                        Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
-                    }
-
-                    _removeNode(node);
-                }
+                _onNodeDisconnected(node);
             }
         });
 

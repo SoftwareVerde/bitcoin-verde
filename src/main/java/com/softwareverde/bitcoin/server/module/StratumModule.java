@@ -84,7 +84,7 @@ public class StratumModule {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
             stratumMineBlockTask.setBlockVersion(block.getVersion());
-            stratumMineBlockTask.setPreviousBlockHash(MutableSha256Hash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
+            stratumMineBlockTask.setPreviousBlockHash(Sha256Hash.fromHexString("F6B44766062D3179A7806C551A662B971CBE531B86CE00B1E0320BA9725C07D7"));
             stratumMineBlockTask.setDifficulty(block.getDifficulty());
 
             final Transaction coinbaseTransaction;

@@ -29,6 +29,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
         _nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
         _nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+        _nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
 
         _remoteNodeIpAddress = new BitcoinNodeIpAddress();
         _localNodeIpAddress = new BitcoinNodeIpAddress();

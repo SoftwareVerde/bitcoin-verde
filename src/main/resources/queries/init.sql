@@ -32,8 +32,8 @@ CREATE TABLE block_chain_segments (
     block_count int unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY block_chain_segments_block_ids_uq (head_block_id, tail_block_id),
-    FOREIGN KEY block_chain_segments_head_block_id_ix (head_block_id) REFERENCES blocks (id),
-    FOREIGN KEY block_chain_segments_tail_block_id_ix (tail_block_id) REFERENCES blocks (id)
+    FOREIGN KEY block_chain_segments_head_block_id_fk (head_block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_chain_segments_tail_block_id_fk (tail_block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (block_chain_segment_id) REFERENCES block_chain_segments (id);
@@ -41,12 +41,30 @@ ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (bl
 CREATE TABLE transactions (
     id int unsigned NOT NULL AUTO_INCREMENT,
     hash char(64) NOT NULL,
-    block_id int unsigned,
     version int unsigned NOT NULL,
     lock_time bigint unsigned NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY transaction_hash_uq (hash, block_id),
-    FOREIGN KEY transaction_block_id_ix (block_id) REFERENCES blocks (id)
+    UNIQUE KEY transaction_hash_uq (hash)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE block_transactions (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    block_id int unsigned NOT NULL,
+    transaction_id int unsigned NOT NULL,
+    sort_order int unsigned NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY block_transactions_uq (block_id, transaction_id),
+    FOREIGN KEY block_transactions_fk (block_id) REFERENCES blocks (id),
+    FOREIGN KEY block_transactions_fk2 (transaction_id) REFERENCES transactions (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE pending_transactions (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    transaction_id int unsigned NOT NULL,
+    timestamp bigint unsigned NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_transactions_uq (transaction_id),
+    FOREIGN KEY pending_transactions_fk (transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_outputs (
@@ -57,7 +75,7 @@ CREATE TABLE transaction_outputs (
     is_spent tinyint(1) unsigned NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_ix (transaction_id) REFERENCES transactions (id),
+    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
     INDEX transaction_outputs_spent_tx_id_ix (is_spent, transaction_id, `index`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
@@ -68,8 +86,8 @@ CREATE TABLE transaction_inputs (
     sequence_number int unsigned NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_output_id),
-    FOREIGN KEY transaction_inputs_tx_id_ix (transaction_id) REFERENCES transactions (id),
-    FOREIGN KEY transaction_inputs_tx_out_ix (previous_transaction_output_id) REFERENCES transaction_outputs (id)
+    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
+    FOREIGN KEY transaction_inputs_tx_out_fk (previous_transaction_output_id) REFERENCES transaction_outputs (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE locking_scripts (
@@ -80,8 +98,8 @@ CREATE TABLE locking_scripts (
     address_id int unsigned NULL,
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
-    FOREIGN KEY locking_scripts_output_id_ix (transaction_output_id) REFERENCES transaction_outputs (id),
-    FOREIGN KEY locking_scripts_address_id_ix (address_id) REFERENCES addresses (id)
+    FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
+    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unlocking_scripts (
@@ -90,17 +108,29 @@ CREATE TABLE unlocking_scripts (
     script blob NULL,
     PRIMARY KEY (id),
     UNIQUE KEY unlocking_scripts_uq (transaction_input_id),
-    FOREIGN KEY unlocking_scripts_input_id_ix (transaction_input_id) REFERENCES transaction_inputs (id)
+    FOREIGN KEY unlocking_scripts_input_id_fk (transaction_input_id) REFERENCES transaction_inputs (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE hosts (
+    id int unsigned NOT NULL AUTO_INCREMENT,
+    host varchar(255) NOT NULL,
+    is_banned tinyint(1) unsigned NOT NULL DEFAULT 0,
+    banned_timestamp bigint unsigned NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY hosts_uq (host)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE nodes (
     id int unsigned NOT NULL AUTO_INCREMENT,
-    host varchar(255) NOT NULL,
+    host_id int unsigned NOT NULL,
     port int unsigned NOT NULL,
-    timestamp bigint unsigned NOT NULL DEFAULT UNIX_TIMESTAMP(),
+    first_seen_timestamp bigint unsigned NOT NULL,
+    last_seen_timestamp bigint unsigned NOT NULL,
+    connection_count int unsigned NOT NULL DEFAULT 1,
     last_handshake_timestamp bigint unsigned NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY nodes_uq (host, port)
+    UNIQUE KEY nodes_uq (host_id, port),
+    FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_features (
@@ -109,7 +139,7 @@ CREATE TABLE node_features (
     feature varchar(255) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY node_features_uq (node_id, feature),
-    FOREIGN KEY node_features_ix (node_id) REFERENCES nodes (id)
+    FOREIGN KEY node_features_fk (node_id) REFERENCES nodes (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());

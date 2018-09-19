@@ -15,6 +15,7 @@ class ValidationTask<T, S> implements Runnable {
     private int _itemCount;
     private Future _future;
     private boolean _didEncounterError = false;
+    private volatile boolean _shouldAbort = false;
 
     public ValidationTask(final MysqlDatabaseConnection databaseConnection, final List<T> list, final TaskHandler<T, S> taskHandler) {
         _databaseConnection = databaseConnection;
@@ -40,6 +41,8 @@ class ValidationTask<T, S> implements Runnable {
             _taskHandler.init(_databaseConnection);
 
             for (int j = 0; j < _itemCount; ++j) {
+                if (_shouldAbort) { return; }
+
                 final T item = _list.get(_startIndex + j);
                 _taskHandler.executeTask(item);
             }
@@ -67,5 +70,10 @@ class ValidationTask<T, S> implements Runnable {
         }
 
         return _taskHandler.getResult();
+    }
+
+    public void abort() {
+        _shouldAbort = true;
+        _didEncounterError = true;
     }
 }

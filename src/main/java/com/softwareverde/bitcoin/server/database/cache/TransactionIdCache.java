@@ -42,6 +42,10 @@ public class TransactionIdCache {
         _recentHashes.clearDebug();
     }
 
+    public void invalidateTransaction(final Sha256Hash transactionHash) {
+        _cache.remove(transactionHash);
+    }
+
     public void cacheTransactionId(final BlockId blockId, final TransactionId transactionId, final Sha256Hash sha256Hash) {
         final ImmutableSha256Hash transactionHash = sha256Hash.asConst();
 

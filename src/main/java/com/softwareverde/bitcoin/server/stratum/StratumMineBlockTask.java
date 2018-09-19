@@ -181,7 +181,7 @@ public class StratumMineBlockTask {
     }
 
     public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
-        final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
+        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
         _prototypeBlock.setPreviousBlockHash(previousBlockHash);
     }
 

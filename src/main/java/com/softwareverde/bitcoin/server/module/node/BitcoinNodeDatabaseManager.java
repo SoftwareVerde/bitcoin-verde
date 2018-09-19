@@ -15,6 +15,8 @@ import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class BitcoinNodeDatabaseManager {
+    public static final Object MUTEX = new Object();
+
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final SystemTime _systemTime = new SystemTime();
 
@@ -51,27 +53,52 @@ public class BitcoinNodeDatabaseManager {
         final String host = node.getHost();
         final Integer port = node.getPort();
 
-        TransactionUtil.startTransaction(_databaseConnection);
-        try {
+        synchronized (MUTEX) {
+            final Long hostId;
+            {
+                final java.util.List<Row> rows = _databaseConnection.query(
+                    new Query("SELECT id FROM hosts WHERE host = ?")
+                        .setParameter(host)
+                );
+
+                if (! rows.isEmpty()) {
+                    final Row row = rows.get(0);
+                    hostId = row.getLong("id");
+                }
+                else {
+                    hostId = _databaseConnection.executeSql(
+                        new Query("INSERT INTO hosts (host) VALUES (?)")
+                            .setParameter(host)
+                    );
+                }
+            }
+
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id FROM nodes WHERE host = ? AND port = ?")
-                    .setParameter(host)
+                new Query("SELECT id FROM nodes WHERE host_id = ? AND port = ?")
+                    .setParameter(hostId)
                     .setParameter(port)
             );
 
             if (rows.isEmpty()) {
+                final Long now = _systemTime.getCurrentTimeInSeconds();
+
                 _databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host, port, timestamp) VALUES (?, ?, ?)")
-                        .setParameter(host)
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp) VALUES (?, ?, ?, ?)")
+                        .setParameter(hostId)
                         .setParameter(port)
-                        .setParameter(_systemTime.getCurrentTimeInSeconds())
+                        .setParameter(now)
+                        .setParameter(now)
                 );
             }
-            TransactionUtil.commitTransaction(_databaseConnection);
-        }
-        catch (final Exception exception) {
-            TransactionUtil.rollbackTransaction(_databaseConnection);
-            throw exception;
+            else {
+                final Row row = rows.get(0);
+                final Long nodeId = row.getLong("id");
+
+                _databaseConnection.executeSql(
+                    new Query("UPDATE nodes SET connection_count = (connection_count + 1) WHERE id = ?")
+                        .setParameter(nodeId)
+                );
+            }
         }
     }
 
@@ -79,32 +106,22 @@ public class BitcoinNodeDatabaseManager {
         final String host = node.getHost();
         final Integer port = node.getPort();
 
-        TransactionUtil.startTransaction(_databaseConnection);
-        try {
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id FROM nodes WHERE host = ? AND port = ?")
-                    .setParameter(host)
-                    .setParameter(port)
-            );
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
+                .setParameter(host)
+                .setParameter(port)
+        );
 
-            if (rows.isEmpty()) {
-                TransactionUtil.rollbackTransaction(_databaseConnection);
-                return;
-            }
+        if (rows.isEmpty()) { return; }
 
-            final Row row = rows.get(0);
-            final Long nodeId = row.getLong("id");
+        final Row row = rows.get(0);
+        final Long nodeId = row.getLong("id");
 
-            _databaseConnection.executeSql(
-                new Query("UPDATE nodes SET last_handshake_timestamp = ? WHERE id = ?")
-                    .setParameter(_systemTime.getCurrentTimeInSeconds())
-                    .setParameter(nodeId)
-            );
-        }
-        catch (final Exception exception) {
-            TransactionUtil.rollbackTransaction(_databaseConnection);
-            throw exception;
-        }
+        _databaseConnection.executeSql(
+            new Query("UPDATE nodes SET last_handshake_timestamp = ? WHERE id = ?")
+                .setParameter(_systemTime.getCurrentTimeInSeconds())
+                .setParameter(nodeId)
+        );
     }
 
     public void updateNodeFeatures(final BitcoinNode node) throws DatabaseException {
@@ -114,51 +131,39 @@ public class BitcoinNodeDatabaseManager {
         final BitcoinNodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
 
         if (nodeIpAddress != null) {
-            TransactionUtil.startTransaction(_databaseConnection);
-            try {
-                final java.util.List<Row> rows = _databaseConnection.query(
-                    new Query("SELECT id FROM nodes WHERE host = ? AND port = ?")
-                        .setParameter(host)
-                        .setParameter(port)
-                );
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
+                    .setParameter(host)
+                    .setParameter(port)
+            );
 
-                if (rows.isEmpty()) {
-                    TransactionUtil.rollbackTransaction(_databaseConnection);
-                    return;
-                }
+            if (rows.isEmpty()) { return; }
 
-                final Row row = rows.get(0);
-                final Long nodeId = row.getLong("id");
+            final Row row = rows.get(0);
+            final Long nodeId = row.getLong("id");
 
-                final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
-                final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
-                for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
-                    if (nodeFeatures.hasFeatureFlagEnabled(feature)) {
-                        _databaseConnection.executeSql(
-                            new Query("INSERT IGNORE INTO node_features (node_id, feature) VALUES (?, ?)")
-                                .setParameter(nodeId)
-                                .setParameter(feature)
-                        );
-                    }
-                    else {
-                        disabledFeatures.add(feature);
-                    }
-                }
-
-                if (! disabledFeatures.isEmpty()) {
-                    final String inClause = _createInClause(disabledFeatures);
-
+            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
+            final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
+            for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
+                if (nodeFeatures.hasFeatureFlagEnabled(feature)) {
                     _databaseConnection.executeSql(
-                        new Query("DELETE FROM node_features WHERE node_id = ? AND feature IN (" + inClause + ")")
+                        new Query("INSERT IGNORE INTO node_features (node_id, feature) VALUES (?, ?)")
                             .setParameter(nodeId)
+                            .setParameter(feature)
                     );
                 }
-
-                TransactionUtil.commitTransaction(_databaseConnection);
+                else {
+                    disabledFeatures.add(feature);
+                }
             }
-            catch (final Exception exception) {
-                TransactionUtil.rollbackTransaction(_databaseConnection);
-                throw exception;
+
+            if (! disabledFeatures.isEmpty()) {
+                final String inClause = _createInClause(disabledFeatures);
+
+                _databaseConnection.executeSql(
+                    new Query("DELETE FROM node_features WHERE node_id = ? AND feature IN (" + inClause + ")")
+                        .setParameter(nodeId)
+                );
             }
         }
     }
@@ -167,7 +172,7 @@ public class BitcoinNodeDatabaseManager {
         final String inClause = _createInClause(requiredFeatures);
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT nodes.id, nodes.host, nodes.port FROM nodes INNER JOIN node_features ON nodes.id = node_features.node_id WHERE node_features.feature IN (" + inClause + ") ORDER BY nodes.last_handshake_timestamp DESC LIMIT " + maxCount)
+            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE hosts.is_banned = 0 AND node_features.feature IN (" + inClause + ") ORDER BY nodes.last_handshake_timestamp DESC LIMIT " + maxCount)
         );
 
         final IpInflater ipInflater = new IpInflater();
@@ -196,7 +201,7 @@ public class BitcoinNodeDatabaseManager {
 
     public List<BitcoinNodeIpAddress> findNodes(final Integer maxCount) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, host, port FROM nodes ORDER BY last_handshake_timestamp DESC LIMIT " + maxCount)
+            new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.is_banned = 0 ORDER BY nodes.last_handshake_timestamp DESC LIMIT " + maxCount)
         );
 
         final IpInflater ipInflater = new IpInflater();
@@ -221,5 +226,50 @@ public class BitcoinNodeDatabaseManager {
         }
 
         return nodeIpAddresses;
+    }
+
+    public Integer getFailedConnectionCountForHost(final String host) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT SUM(nodes.connection_count) AS failed_connection_count FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.last_handshake_timestamp IS NULL GROUP BY hosts.id")
+                .setParameter(host)
+        );
+        if (rows.isEmpty()) { return 0; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("failed_connection_count");
+    }
+
+    /**
+     * Marks all nodes at the Node's host as banned/unbanned--regardless of their port.
+     */
+    public void setIsBanned(final String host, final Boolean isBanned) throws DatabaseException {
+        if (isBanned) {
+            final Long now = _systemTime.getCurrentTimeInSeconds();
+            _databaseConnection.executeSql(
+                new Query("UPDATE hosts SET is_banned = 1, banned_timestamp = ? WHERE host = ?")
+                    .setParameter(now)
+                    .setParameter(host)
+            );
+        }
+        else {
+            _databaseConnection.executeSql(
+                new Query("UPDATE hosts SET is_banned = 0 WHERE host = ?")
+                    .setParameter(host)
+            );
+        }
+    }
+
+    public Boolean isBanned(final String host) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT is_banned FROM hosts WHERE host = ?")
+                .setParameter(host)
+        );
+
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        final Boolean isBanned = row.getBoolean("is_banned");
+
+        return isBanned;
     }
 }

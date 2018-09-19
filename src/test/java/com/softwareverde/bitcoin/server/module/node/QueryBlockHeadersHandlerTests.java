@@ -3,12 +3,11 @@ package com.softwareverde.bitcoin.server.module.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.module.node.handler.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
@@ -114,7 +113,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      */
     protected Block[] _initScenario() throws Exception {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockInflater blockInflater = new BlockInflater();
 
@@ -124,7 +122,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         for (final String blockData : blockDatas) {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             blockDatabaseManager.insertBlock(block);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
             blocks[i] = block;
             i += 1;
         }
@@ -150,17 +147,14 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      */
     protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
         final BlockInflater blockInflater = new BlockInflater();
 
         final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
         blockDatabaseManager.insertBlock(block5);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block5);
 
         final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
         blockDatabaseManager.insertBlock(forkedBlock0);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(forkedBlock0);
 
         final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
         {
@@ -169,7 +163,6 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             forkedBlock1 = mutableBlock;
         }
         blockDatabaseManager.insertBlock(forkedBlock1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(forkedBlock1);
 
         final Block[] newBlocks = new Block[blocks.length + 3];
         for (int i = 0; i < blocks.length; ++i) {
@@ -227,12 +220,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         Assert.assertEquals(1, sentMessages.getSize());
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
-        for (final DataHash dataHash : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
+        for (final InventoryItem inventoryItem : dataHashes) {
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -267,12 +260,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         Assert.assertEquals(1, sentMessages.getSize());
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
-        for (final DataHash dataHash : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
+        for (final InventoryItem inventoryItem : dataHashes) {
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -307,12 +300,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         Assert.assertEquals(1, sentMessages.getSize());
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
-        for (final DataHash dataHash : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
+        for (final InventoryItem inventoryItem : dataHashes) {
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -347,12 +340,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         Assert.assertEquals(1, sentMessages.getSize());
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
-        for (final DataHash dataHash : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), dataHash.getObjectHash());
+        for (final InventoryItem inventoryItem : dataHashes) {
+            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -371,10 +364,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
             final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
             blockDatabaseManager.insertBlock(mutableBlock);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(mutableBlock);
 
             extraChildEPrimeBlock = mutableBlock;
         }
@@ -399,10 +390,10 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         Assert.assertEquals(1, sentMessages.getSize());
 
         final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<DataHash> dataHashes = queryResponseMessage.getDataHashes();
+        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
         Assert.assertEquals(1, dataHashes.getSize());
 
-        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getObjectHash());
+        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getItemHash());
 
         fakeNodeConnection.disconnect();
     }

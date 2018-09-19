@@ -81,7 +81,7 @@ public class PushOperation extends SubTypedOperation {
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength);
                 if (byteCount < 0) { return null; }
                 if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
                     return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
                 }
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
@@ -95,7 +95,7 @@ public class PushOperation extends SubTypedOperation {
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
                 if (byteCount < 0) { return null; }
                 if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
                     return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
                 }
 
@@ -110,7 +110,7 @@ public class PushOperation extends SubTypedOperation {
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
                 if (byteCount < 0) { return null; }
                 if (byteCount > VALUE_MAX_BYTE_COUNT) {
-                    Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
+                    // Logger.log(opcode + " - Maximum byte count exceeded: " + byteCount);
                     return null; // It seems that enabling this restriction diminishes the usefulness of PUSH_DATA_INTEGER vs PUSH_DATA_SHORT...
                 }
 

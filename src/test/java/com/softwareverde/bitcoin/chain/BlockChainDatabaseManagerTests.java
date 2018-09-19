@@ -1,16 +1,34 @@
 package com.softwareverde.bitcoin.chain;
 
-import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
+import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
+import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -46,14 +64,12 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         Assert.assertTrue(genesisBlock.isValid());
 
         // Action
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -93,7 +109,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -102,11 +117,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1.isValid());
 
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         // Action
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -150,7 +163,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -161,14 +173,11 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block2.isValid());
 
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Action
         final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -214,7 +223,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -229,14 +237,11 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         // Action
         final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -303,7 +308,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -321,17 +325,13 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
         // Action
         final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -406,7 +406,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -439,26 +438,19 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
 
         final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
 
         final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
 
         final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
 
         // Action
         final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -568,7 +560,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -602,25 +593,12 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         // Action
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
-
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
-
         final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
-
         final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
-
         final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
-
         final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
-
         final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -730,7 +708,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -770,29 +747,15 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
 
         // Establish Original Blocks/Chains...
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
-
         final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
-
         final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2);
-
         final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block3);
-
         final BlockId block4Id = blockDatabaseManager.insertBlock(block4);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block4);
-
         final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
-
         final BlockId block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block3Prime);
 
         // Action
         final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -867,179 +830,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
     }
 
     @Test
-    public void should_link_correct_transaction_outputs_when_duplicate_transaction_found_across_forks_0() throws Exception {
-        // Setup
-
-        /*
-            This test's purpose is to assert that transactions that spend outputs whose hash match transactions
-            that are included in multiple blocks are paired to the correct fork.
-
-            For instance, transactionOne could be included in both blockOne and blockTwo, where blockOne and blockTwo belong
-            to separate forks.  When a new transaction, newTransaction, spends the output included in transactionOne,
-            there are two possible matches when assigning the input's previous_transaction_output_id.  The correct match
-            is the output that belongs to the transaction that was included the same blockChain as newTransaction.
-         */
-
-        /* The scenario's ordering that blocks are received in is: 0 -> 1' -> 1'' -> 2'
-            0   - Genesis Block ("genesisBlock")
-            1'' - Fake Bitcoin Block #1 ("block1DoublePrime")
-            1'  - Forking Block (sharing Genesis Block as its parent) ("block1Prime")
-            2'  - Block #2 Prime that spends a Tx that exists in both 1'' and 1'. ("block2Prime")
-
-           block2Prime spends a transactionOutput found in both block1DoublePrime and block1Prime.
-
-                 [2']
-                  |
-            [1''][1']
-             |    |
-             +---[0]
-                  |
-
-            The block2 transaction should be linked to the transactionOutput on block1Prime, not block1DoublePrime.
-
-         */
-
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-
-        final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000004617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED25956FC5AFFFF001D0CD8FA580101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944FDA020000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
-        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000001ADC819E4F74B03FF2F5190AB235361CDCC09E6B37E59918857965CC2F5F5B515956FC5AFFFF001D706CA7DC0101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944F0C010000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
-        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000737D4C7036345CF70FC4939FFC994A75F4EDE84F3E206F9EF83BEA000000000091D4741CA6F8AC523E21D5E95E492A05A55C94E4419116B986EB5DD7020440349980FC5AFFFF001D846E62900201000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E307388291D1B000000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC0000000001000000014617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED20000000000FFFFFFFF0100111024010000001976A9140010C980A8F5B8E072AE8175376788AB56E5858688AC00000000")); // NOTE: The transaction in this block does not properly unlock the transactionOutput...
-
-        Assert.assertTrue(genesisBlock.isValid());
-        Assert.assertTrue(block1Prime.isValid());
-        Assert.assertTrue(block1DoublePrime.isValid());
-        Assert.assertTrue(block2Prime.isValid());
-
-        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
-        Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
-        Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
-        Assert.assertNotEquals(block1Prime.getHash(), block1DoublePrime.getHash());
-
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
-
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
-
-        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
-
-        // Action
-        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
-
-        // Assert
-        Assert.assertEquals(1L, genesisBlockId.longValue());
-        Assert.assertEquals(2L, block1PrimeId.longValue());
-        Assert.assertEquals(3L, block1DoublePrimeId.longValue());
-        Assert.assertEquals(4L, block2PrimeId.longValue());
-
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
-        Assert.assertEquals(3, rows.size());
-
-        { // Chain #1 (baseBlockChain)
-            final Row row = rows.get(0);
-            Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
-            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
-            Assert.assertEquals(0L, row.getLong("block_height").longValue());
-            Assert.assertEquals(1L, row.getLong("block_count").longValue());
-        }
-
-        { // Chain #2 (refactoredBlockChain)
-            final Row row = rows.get(1);
-            Assert.assertEquals(block2PrimeId, row.getLong("head_block_id"));
-            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
-            Assert.assertEquals(2L, row.getLong("block_height").longValue());
-            Assert.assertEquals(2L, row.getLong("block_count").longValue());
-        }
-
-        { // Chain #3 (newBlockChain)
-            final Row row = rows.get(2);
-            Assert.assertEquals(block1DoublePrimeId, row.getLong("head_block_id"));
-            Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
-            Assert.assertEquals(1L, row.getLong("block_height").longValue());
-            Assert.assertEquals(1L, row.getLong("block_count").longValue());
-        }
-
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
-
-        { // Validate that the Transaction Input spent in block2Prime is linked to block1Prime and not block1DoublePrime...
-            final Transaction transaction = block2Prime.getTransactions().get(1);
-            Assert.assertNotEquals(new ImmutableSha256Hash(), transaction.getTransactionInputs().get(0).getPreviousOutputTransactionHash()); // Assert this transactionInput is not a coinbase transaction...
-            final Sha256Hash transactionHash = transaction.getHash();
-            final Long transactionId = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(transactionHash)).get(0).getLong("id");
-            final Long previousTransactionOutputId = databaseConnection.query(new Query("SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id = ?").setParameter(transactionId)).get(0).getLong("previous_transaction_output_id");
-            final Long blockIdContainingSpentTransaction = databaseConnection.query(new Query("SELECT transactions.block_id FROM transactions INNER JOIN transaction_outputs ON (transaction_outputs.transaction_id = transactions.id) WHERE transaction_outputs.id = ?").setParameter(previousTransactionOutputId)).get(0).getLong("block_id");
-            final String blockHashContainingSpentTransaction = databaseConnection.query(new Query("SELECT hash FROM blocks WHERE id = ?").setParameter(blockIdContainingSpentTransaction)).get(0).getString("hash");
-
-            Assert.assertEquals(block1Prime.getHash().toString(), blockHashContainingSpentTransaction);
-        }
-    }
-
-    @Test
-    public void should_link_correct_transaction_outputs_when_duplicate_transaction_found_across_forks_1() throws Exception {
-        // Setup
-
-        /* The scenario's the same as the above test, except the ordering that blocks are received in is: 0 -> 1'' -> 1' -> 2'
-
-                 [2']
-                  |
-            [1''][1']
-             |    |
-             +---[0]
-                  |
-
-            The block2 transaction should (still) be linked to the transactionOutput on block1Prime, not block1DoublePrime.
-
-         */
-
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-
-        final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000004617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED25956FC5AFFFF001D0CD8FA580101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944FDA020000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
-        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000006FE28C0AB6F1B372C1A6A246AE63F74F931E8365E15A089C68D61900000000001ADC819E4F74B03FF2F5190AB235361CDCC09E6B37E59918857965CC2F5F5B515956FC5AFFFF001D706CA7DC0101000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E300EEA944F0C010000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC00000000"));
-        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000737D4C7036345CF70FC4939FFC994A75F4EDE84F3E206F9EF83BEA000000000091D4741CA6F8AC523E21D5E95E492A05A55C94E4419116B986EB5DD7020440349980FC5AFFFF001D846E62900201000000010000000000000000000000000000000000000000000000000000000000000000000000001C16152F56657264652D426974636F696E3A302E307388291D1B000000FFFFFFFF0100F2052A010000001976A91404A0EB1B8E56E5EE4692C9AAB921376A3B58435588AC0000000001000000014617A0E5CD278219D09DF557717952EE95EA7045CCC17FAA34952D11B9D40ED20000000000FFFFFFFF0100111024010000001976A9140010C980A8F5B8E072AE8175376788AB56E5858688AC00000000")); // NOTE: The transaction in this block does not properly unlock the transactionOutput...
-
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
-
-        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1DoublePrime);
-
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1Prime);
-
-        // Action
-        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block2Prime);
-
-        // Assert
-        { // Validate that the Transaction Input spent in block2Prime is linked to block1Prime and not block1DoublePrime...
-            final Transaction transaction = block2Prime.getTransactions().get(1);
-            Assert.assertNotEquals(new ImmutableSha256Hash(), transaction.getTransactionInputs().get(0).getPreviousOutputTransactionHash()); // Assert this transactionInput is not a coinbase transaction...
-            final Sha256Hash transactionHash = transaction.getHash();
-            final Long transactionId = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(transactionHash)).get(0).getLong("id");
-            final Long previousTransactionOutputId = databaseConnection.query(new Query("SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id = ?").setParameter(transactionId)).get(0).getLong("previous_transaction_output_id");
-            final Long blockIdContainingSpentTransaction = databaseConnection.query(new Query("SELECT transactions.block_id FROM transactions INNER JOIN transaction_outputs ON (transaction_outputs.transaction_id = transactions.id) WHERE transaction_outputs.id = ?").setParameter(previousTransactionOutputId)).get(0).getLong("block_id");
-            final String blockHashContainingSpentTransaction = databaseConnection.query(new Query("SELECT hash FROM blocks WHERE id = ?").setParameter(blockIdContainingSpentTransaction)).get(0).getString("hash");
-
-            Assert.assertEquals(block1Prime.getHash().toString(), blockHashContainingSpentTransaction);
-        }
-    }
-
-    @Test
     public void should_not_increment_chain_block_height_when_processing_a_previously_processed_block() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
@@ -1052,7 +842,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
 
         blockDatabaseManager.storeBlock(genesisBlock);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(genesisBlock);
 
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
@@ -1060,7 +849,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
 
         blockDatabaseManager.storeBlock(block1);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
 
         Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
         Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
@@ -1072,9 +860,101 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
         Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
     }
+}
 
-    @Test
-    public void should_not_link_transaction_when_transaction_output_is_only_found_on_separate_fork() throws Exception {
-        // TODO
+class Void {
+    protected TransactionInput _createCoinbaseTransactionInput() {
+        final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
+        mutableTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+        mutableTransactionInput.setPreviousOutputIndex(0);
+        mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+        mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
+        return mutableTransactionInput;
+    }
+
+    protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress) {
+        final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+        transactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+        transactionOutput.setIndex(0);
+        transactionOutput.setLockingScript(ScriptBuilder.payToAddress(payToAddress));
+        return transactionOutput;
+    }
+
+    public void Void() throws Exception {
+        final AddressInflater addressInflater = new AddressInflater();
+        final BlockInflater blockInflater = new BlockInflater();
+
+        final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+        final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+
+        final Integer tenMinutesInSeconds = (60 * 10);
+
+        final MutableBlock mutableBlock = new MutableBlock();
+        mutableBlock.setPreviousBlockHash(block5.getHash());
+        mutableBlock.setDifficulty(block5.getDifficulty());
+        mutableBlock.setTimestamp(block5.getTimestamp() + (tenMinutesInSeconds));
+        mutableBlock.setVersion(block5.getVersion());
+
+        final PrivateKey privateKey = PrivateKey.parseFromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
+        final Address payToAddress = addressInflater.fromPrivateKey(privateKey);
+
+        {
+            final MutableCoinbaseTransaction coinbaseTransaction = new MutableCoinbaseTransaction();
+            coinbaseTransaction.setVersion(Transaction.VERSION);
+            coinbaseTransaction.setLockTime(LockTime.MIN_TIMESTAMP);
+            coinbaseTransaction.addTransactionInput(_createCoinbaseTransactionInput());
+            coinbaseTransaction.addTransactionOutput(_createTransactionOutput(payToAddress));
+            mutableBlock.addTransaction(coinbaseTransaction);
+        }
+
+        {
+            final MutableTransaction transaction = new MutableTransaction();
+            transaction.setVersion(Transaction.VERSION);
+            transaction.setLockTime(LockTime.MIN_TIMESTAMP);
+            final TransactionOutput outputBeingSpent;
+            {
+                final Transaction transactionToSpend = customBlock6.getCoinbaseTransaction();
+                outputBeingSpent = transactionToSpend.getTransactionOutputs().get(0);
+
+                final MutableTransactionInput transactionInput = new MutableTransactionInput();
+                transactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
+                transactionInput.setPreviousOutputIndex(0);
+                transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+                transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
+                transaction.addTransactionInput(transactionInput);
+            }
+            transaction.addTransactionOutput(_createTransactionOutput(addressInflater.fromPrivateKey(privateKey)));
+
+            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
+            signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
+            final TransactionSigner transactionSigner = new TransactionSigner();
+            final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
+            final MutableContext context = new MutableContext();
+            context.setCurrentScript(null);
+            context.setTransactionInputIndex(0);
+            context.setTransactionInput(transactionInput);
+            context.setTransaction(signedTransaction);
+            context.setBlockHeight(6L);
+            context.setTransactionOutputBeingSpent(outputBeingSpent);
+            context.setCurrentScriptLastCodeSeparatorIndex(0);
+            final ScriptRunner scriptRunner = new ScriptRunner();
+            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
+            Assert.assertTrue(outputIsUnlocked);
+
+            mutableBlock.addTransaction(signedTransaction);
+        }
+
+        final BlockDeflater blockDeflater = new BlockDeflater();
+
+        System.out.println(privateKey);
+        System.out.println(payToAddress.toBase58CheckEncoded());
+
+        final Miner miner = new Miner(4, 0);
+        miner.setShouldMutateTimestamp(true);
+        final Block minedBlock = miner.mineBlock(mutableBlock);
+        System.out.println(minedBlock.getHash());
+        System.out.println(blockDeflater.toBytes(minedBlock));
     }
 }
