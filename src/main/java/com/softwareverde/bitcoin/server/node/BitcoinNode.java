@@ -412,6 +412,7 @@ public class BitcoinNode extends Node {
                 //  assumed to be for that callback's request.
 
                 final Sha256Hash blockHash = objectHashes.get(0);
+Logger.log(this.getHost() + " Received: QueryResponseMessage:BLOCK(" + blockHash + ")");
 
                 _storeInMapSet(_downloadBlockRequests, blockHash, new DownloadBlockCallback() {
                     @Override
@@ -461,6 +462,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onBlockMessageReceived(final BlockMessage blockMessage) {
+Logger.log(this.getHost() + " Received: BlockMessage(" + blockMessage.getBlock().getHash()+ ")");
         final Block block = blockMessage.getBlock();
         final Boolean blockHeaderIsValid = block.isValid();
 
@@ -477,6 +479,7 @@ public class BitcoinNode extends Node {
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
         final List<BlockHeaderWithTransactionCount> blockHeaders = blockHeadersMessage.getBlockHeaders();
+Logger.log(this.getHost() + " Received: BlockHeadersMessage(" + (blockHeaders.isEmpty() ? null : blockHeaders.get(0).getHash()) + ")");
 
         final Boolean allBlockHeadersAreValid;
         {
@@ -553,6 +556,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onThinBlockMessageReceived(final ThinBlockMessage blockMessage) {
+Logger.log(this.getHost() + " Received: ThinBlockMessage(" + blockMessage.getBlockHeader().getHash()+ ")");
         final BlockHeader blockHeader = blockMessage.getBlockHeader();
         final List<Sha256Hash> transactionHashes = blockMessage.getTransactionHashes();
         final List<Transaction> transactions = blockMessage.getMissingTransactions();
@@ -565,6 +569,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onExtraThinBlockMessageReceived(final ExtraThinBlockMessage blockMessage) {
+Logger.log(this.getHost() + " Received: ExtraThinBlockMessage(" + blockMessage.getBlockHeader().getHash()+ ")");
         final BlockHeader blockHeader = blockMessage.getBlockHeader();
         final List<ByteArray> transactionHashes = blockMessage.getTransactionShortHashes();
         final List<Transaction> transactions = blockMessage.getMissingTransactions();
@@ -579,6 +584,7 @@ public class BitcoinNode extends Node {
     protected void _onThinTransactionsMessageReceived(final ThinTransactionsMessage transactionsMessage) {
         final Sha256Hash blockHash = transactionsMessage.getBlockHash();
         final List<Transaction> transactions = transactionsMessage.getTransactions();
+Logger.log(this.getHost() + " Received: ThinTransactionsMessage(" + blockHash +", "+ (transactions.isEmpty() ? null : transactions.get(0).getHash()) + ")");
 
         _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions);
     }
@@ -640,6 +646,7 @@ public class BitcoinNode extends Node {
     }
 
     public void detectFork(final List<Sha256Hash> blockHashes) {
+Logger.log(this.getHost() + " detectFork(" + (blockHashes.isEmpty() ? null : blockHashes.get(0)) + ")");
         final Integer blockHashesCount = blockHashes.getSize();
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         for (int i = 0; i < blockHashesCount; ++i) {
@@ -651,26 +658,31 @@ public class BitcoinNode extends Node {
     }
 
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
+Logger.log(this.getHost() + " requestBlockHashesAfter(" + blockHash + ")");
         _storeInMapSet(_queryRequests, InventoryItemType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
         _queryForBlockHashesAfter(blockHash);
     }
 
     public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
+Logger.log(this.getHost() + " requestBlock(" + blockHash + ")");
         _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
         _requestBlock(blockHash);
     }
 
     public void requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadThinBlockCallback downloadThinBlockCallback) {
+Logger.log(this.getHost() + " requestThinBlock(" + blockHash + ")");
         _storeInMapSet(_downloadThinBlockRequests, blockHash, downloadThinBlockCallback);
         _requestThinBlock(blockHash, knownTransactionsFilter);
     }
 
     public void requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter, final DownloadExtraThinBlockCallback downloadThinBlockCallback) {
+Logger.log(this.getHost() + " requestExtraThinBlock(" + blockHash + ")");
         _storeInMapSet(_downloadExtraThinBlockRequests, blockHash, downloadThinBlockCallback);
         _requestExtraThinBlock(blockHash, knownTransactionsFilter);
     }
 
     public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
+Logger.log(this.getHost() + " requestThinTransactions(" + blockHash + ")");
         final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getSize());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
@@ -683,6 +695,7 @@ public class BitcoinNode extends Node {
     }
 
     public void requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback downloadBlockHeaderCallback) {
+Logger.log(this.getHost() + " requestBlockHeaders(" + (blockHashes.isEmpty() ? null : blockHashes.get(0)) + ")");
         if (blockHashes.isEmpty()) { return; }
 
         final Sha256Hash firstBlockHash = blockHashes.get(0);
@@ -691,6 +704,7 @@ public class BitcoinNode extends Node {
     }
 
     public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback downloadTransactionCallback) {
+Logger.log(this.getHost() + " requestBlockHeaders(" + (transactionHashes.isEmpty() ? null : transactionHashes.get(0)) + ")");
         if (transactionHashes.isEmpty()) { return; }
 
         for (final Sha256Hash transactionHash : transactionHashes) {

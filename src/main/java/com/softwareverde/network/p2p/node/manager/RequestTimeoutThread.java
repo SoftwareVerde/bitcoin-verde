@@ -6,7 +6,7 @@ import com.softwareverde.util.Container;
 
 public class RequestTimeoutThread extends Thread {
     public static final Integer MAX_REPLAY_COUNT = 3;
-    public static final Long REQUEST_TIMEOUT_THRESHOLD = 10_000L;
+    public static final Long REQUEST_TIMEOUT_THRESHOLD = 30_000L;
 
     public final Object mutex = new Object();
 

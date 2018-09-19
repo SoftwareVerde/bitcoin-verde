@@ -151,12 +151,16 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void detectFork(final List<Sha256Hash> blockHashes) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                bitcoinNode.detectFork(blockHashes);
-            }
-        });
+        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+            bitcoinNode.detectFork(blockHashes);
+        }
+
+//        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+//            @Override
+//            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+//                bitcoinNode.detectFork(blockHashes);
+//            }
+//        });
     }
 
     public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback callback) {
@@ -196,12 +200,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     public void run() {
                         bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                             @Override
-                            public void onResult(final Block result) {
+                            public void onResult(final Block block) {
                                 final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
                                 if (requestTimedOut) { return; }
 
                                 if (callback != null) {
-                                    callback.onResult(result);
+                                    Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getHost());
+                                    callback.onResult(block);
                                 }
                             }
                         });

@@ -306,9 +306,9 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Action
         final Boolean transactionIsValid;
         {
-            Boolean isValid = false;
+            Boolean isValid;
             try {
-                transactionDatabaseManager.insertTransaction(signedTransaction);
+                transactionDatabaseManager.insertTransaction(signedTransaction); // Should fail to insert transaction due to constraint transaction_inputs_tx_id_prev_tx_id_uq...
                 isValid = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
             }
             catch (final DatabaseException exception) {
