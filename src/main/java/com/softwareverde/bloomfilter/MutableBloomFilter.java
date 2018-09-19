@@ -13,7 +13,10 @@ public class MutableBloomFilter implements BloomFilter {
     protected final Integer _hashFunctionCount;
 
     protected static Integer _calculateByteCount(final Integer maxItemCount, final Double falsePositiveRate) {
-        return (int) ( (-1 / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8 );
+        final Integer byteCount = (int) ( (-1 / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8 );
+        if (byteCount < 1) { return 1; }
+
+        return byteCount;
     }
 
     protected static Integer _calculateFunctionCount(final Integer byteCount, final Integer maxItemCount) {

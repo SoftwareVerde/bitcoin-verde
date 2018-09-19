@@ -2,6 +2,7 @@ package com.softwareverde.bloomfilter;
 
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
 
 public class ImmutableBloomFilter implements BloomFilter, Const {
     protected final ByteArray _bytes;
@@ -12,6 +13,12 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
         _bytes = bloomFilter.getBytes().asConst();
         _nonce = bloomFilter.getNonce();
         _hashFunctionCount = bloomFilter.getHashFunctionCount();
+    }
+
+    protected ImmutableBloomFilter(final byte[] bytes, final Long nonce, final Integer hashFunctionCount) {
+        _bytes = new ImmutableByteArray(bytes);
+        _nonce = nonce;
+        _hashFunctionCount = hashFunctionCount;
     }
 
     @Override

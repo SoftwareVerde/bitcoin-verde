@@ -243,6 +243,17 @@ public class BlockChainDatabaseManager {
         return BlockChainSegmentId.wrap(row.getLong("id"));
     }
 
+    public BlockId getHeadBlockIdOfBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, head_block_id FROM block_chain_segments WHERE id = ?")
+                .setParameter(blockChainSegmentId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("head_block_id"));
+    }
+
     public BlockChainSegmentId getHeadBlockChainSegmentIdOfBlockChainSegment(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         final BlockChainSegment blockChainSegment = _inflateBlockChainSegmentFromId(blockChainSegmentId);
         if (blockChainSegment == null) { return null; }

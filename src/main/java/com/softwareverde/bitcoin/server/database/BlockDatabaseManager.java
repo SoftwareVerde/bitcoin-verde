@@ -622,6 +622,8 @@ public class BlockDatabaseManager {
      *  For instance, getAncestor(blockId, 0) returns blockId, and getAncestor(blockId, 1) returns blockId's parent.
      */
     public BlockId getAncestorBlockId(final BlockId blockId, final Integer parentCount) throws DatabaseException {
+        if (blockId == null) { return null; }
+
         BlockId nextBlockId = blockId;
         for (int i = 0; i < parentCount; ++i) {
             final BlockHeader blockHeader = _inflateBlockHeader(nextBlockId);

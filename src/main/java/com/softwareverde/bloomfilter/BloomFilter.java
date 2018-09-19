@@ -6,6 +6,9 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.Util;
 
 public interface BloomFilter extends Constable<ImmutableBloomFilter> {
+    BloomFilter MATCH_ALL = new ImmutableBloomFilter(new byte[] { (byte) 0xFF }, 0L, 1);
+    BloomFilter MATCH_NONE = new ImmutableBloomFilter(new byte[] { (byte) 0x00 }, 0L, 1);
+
     Integer MAX_ITEM_COUNT = Integer.MAX_VALUE;
     Integer MAX_FUNCTION_COUNT = Integer.MAX_VALUE;
 

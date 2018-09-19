@@ -8,8 +8,13 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
@@ -19,6 +24,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.Timer;
 
 public class BlockProcessor {
@@ -55,6 +61,7 @@ public class BlockProcessor {
     protected Boolean _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
 
         final Sha256Hash blockHash = block.getHash();
         final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
@@ -64,6 +71,8 @@ public class BlockProcessor {
         }
 
         TransactionUtil.startTransaction(databaseConnection);
+
+        final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
         final Timer storeBlockTimer = new Timer();
 
@@ -102,6 +111,62 @@ public class BlockProcessor {
 
         if (blockIsValid) {
             _medianBlockTime.addBlock(block);
+
+            final BlockChainSegmentId newHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+            final Boolean bestBlockChainHasChanged = (! Util.areEqual(newHeadBlockChainSegmentId, originalHeadBlockChainSegmentId));
+
+            if (bestBlockChainHasChanged) {
+                // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
+                // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
+                BlockId nextBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(originalHeadBlockChainSegmentId);
+
+                while (nextBlockId != null) {
+                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
+                    for (int i = 1; i < transactionIds.getSize(); ++i) {
+                        final TransactionId transactionId = transactionIds.get(i);
+                        transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
+                    }
+
+                    // 2. Continue to traverse up the chain until the block is connected to the new headBlockChain...
+                    nextBlockId = blockDatabaseManager.getAncestorBlockId(nextBlockId, 1);
+                    final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
+                    if (nextBlockIsConnectedToNewHeadBlockChain) { break; }
+                }
+
+                // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
+                while (nextBlockId != null) {
+                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
+                    for (int i = 1; i < transactionIds.getSize(); ++i) {
+                        final TransactionId transactionId = transactionIds.get(i);
+                        transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                    }
+
+                    nextBlockId = blockDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
+                }
+
+                // 4. Validate that the transactions are still valid on the new chain...
+                final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _networkTime, _medianBlockTime);
+                transactionValidator.setLoggingEnabled(false);
+                final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+
+                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
+                for (final TransactionId transactionId : transactionIds) {
+                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                    final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(newHeadBlockChainSegmentId, blockHeight, transaction);
+                    if (! transactionIsValid) {
+                        transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                    }
+                }
+            }
+            else {
+                // Remove any transactions in the memory pool that were included in this block...
+                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
+                for (int i = 1; i < transactionIds.getSize(); ++i) {
+                    final TransactionId transactionId = transactionIds.get(i);
+                    transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                }
+            }
+
             TransactionUtil.commitTransaction(databaseConnection);
 
             final Integer blockTransactionCount = block.getTransactions().getSize();

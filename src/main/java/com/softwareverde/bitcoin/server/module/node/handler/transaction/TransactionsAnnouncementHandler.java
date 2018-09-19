@@ -71,20 +71,36 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
                     final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
-                    // TODO: Ensure transactionOutput is unspent...
                     // TODO: Add transaction to memory, but not to the database, if the utxo it's spending is has not been seen yet...
 
                     synchronized (MUTEX) {
                         TransactionUtil.startTransaction(databaseConnection);
-                        final Boolean transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
+                        final TransactionId transactionId;
+                        {
+                            TransactionId newTransactionId = null;
+                            try {
+                                newTransactionId = transactionDatabaseManager.insertTransaction(transaction);
+                            }
+                            catch (final DatabaseException exception) { }
+                            transactionId = newTransactionId;
+                        }
+
+                        final Boolean transactionIsValid;
+                        {
+                            if (transactionId != null) {
+                                transactionIsValid = transactionValidator.validateTransactionInputsAreUnlocked(blockChainSegmentId, blockHeight, transaction);
+                            }
+                            else {
+                                transactionIsValid = false;
+                            }
+                        }
+
                         if (transactionIsValid) {
-                            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
+                            transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
                             TransactionUtil.commitTransaction(databaseConnection);
-                            // Logger.log("Stored Transaction: " + transactionHash + " with Id: " + transactionId);
                         }
                         else {
                             TransactionUtil.rollbackTransaction(databaseConnection);
-                            // Logger.log("Invalid Transaction: " + transactionHash);
                         }
                     }
                 }

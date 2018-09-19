@@ -23,6 +23,7 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 import java.util.Set;
@@ -31,6 +32,7 @@ import java.util.TreeSet;
 public class TransactionDatabaseManager {
     public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
 
+    protected static final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected void _insertTransactionInputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
@@ -99,6 +101,23 @@ public class TransactionDatabaseManager {
             blockIds.add(BlockId.wrap(blockId));
         }
         return blockIds;
+    }
+
+    protected void _insertTransactionIntoMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        final Long now = _systemTime.getCurrentTimeInSeconds();
+
+        _databaseConnection.executeSql(
+            new Query("INSERT IGNORE INTO pending_transactions (transaction_id, timestamp) VALUES (?, ?)")
+                .setParameter(transactionId)
+                .setParameter(now)
+        );
+    }
+
+    protected void _deleteTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM pending_transactions WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
     }
 
     protected TransactionId _insertTransaction(final Transaction transaction) throws DatabaseException {
@@ -234,6 +253,36 @@ public class TransactionDatabaseManager {
 
     public MutableTransaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         return _inflateTransaction(transactionId);
+    }
+
+    public void addTransactionToMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        _insertTransactionIntoMemoryPool(transactionId);
+    }
+
+    public void removeTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        _deleteTransactionFromMemoryPool(transactionId);
+    }
+
+    public List<TransactionId> getTransactionIdsFromMemoryPool() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT transactions.id FROM transactions INNER JOIN pending_transactions ON transactions.id = pending_transactions.transaction_id")
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
+
+    public Integer getMemoryPoolTransactionCount() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS transaction_count FROM pending_transactions")
+        );
+        final Row row = rows.get(0);
+
+        return row.getInteger("transaction_count");
     }
 
     public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
@@ -377,4 +426,6 @@ public class TransactionDatabaseManager {
                 .setParameter(transactionId)
         );
     }
+
+    // public void disassociateTransactionFromBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException { } // TODO
 }

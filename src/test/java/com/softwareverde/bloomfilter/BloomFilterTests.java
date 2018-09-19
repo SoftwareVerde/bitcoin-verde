@@ -119,4 +119,34 @@ public class BloomFilterTests {
         // Assert
         Assert.assertEquals(bloomFilter, inflatedBloomFilter);
     }
+
+    @Test
+    public void static_match_all_bloom_filter_should_match_everything() {
+        // Setup
+
+        // Action
+        for (int i = 0; i < 1024 * 1024; ++i) {
+            final ByteArray object = MutableByteArray.wrap(ByteUtil.integerToBytes(i));
+
+            // Assert
+            final Boolean matchesObject = BloomFilter.MATCH_ALL.containsItem(object);
+
+            Assert.assertTrue(matchesObject);
+        }
+    }
+
+    @Test
+    public void static_match_none_bloom_filter_should_match_nothing() {
+        // Setup
+
+        // Action
+        for (int i = 0; i < 1024 * 1024; ++i) {
+            final ByteArray object = MutableByteArray.wrap(ByteUtil.integerToBytes(i));
+
+            // Assert
+            final Boolean matchesObject = BloomFilter.MATCH_NONE.containsItem(object);
+
+            Assert.assertFalse(matchesObject);
+        }
+    }
 }
