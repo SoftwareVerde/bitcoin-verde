@@ -55,16 +55,6 @@ public class SearchApi extends ExplorerApiEndpoint {
 
             final SocketConnection socketConnection = _newRpcConnection();
 
-            final Object lock = new Object();
-            socketConnection.setMessageReceivedCallback(new Runnable() {
-                @Override
-                public void run() {
-                    synchronized (lock) {
-                        lock.notifyAll();
-                    }
-                }
-            });
-
             SearchResult.ObjectType objectType = null;
             Jsonable object = null;
             {
@@ -81,11 +71,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
                     socketConnection.write(rpcRequestJson.toString());
 
-                    synchronized (lock) {
-                        try { lock.wait(RPC_DURATION_TIMEOUT_MS); } catch (final InterruptedException exception) { }
-                    }
-
-                    final String queryBlockResponse = socketConnection.popMessage();
+                    final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
                     if (queryBlockResponse == null) {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
@@ -109,11 +95,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
                     socketConnection.write(rpcRequestJson.toString());
 
-                    synchronized (lock) {
-                        try { lock.wait(RPC_DURATION_TIMEOUT_MS); } catch (final InterruptedException exception) { }
-                    }
-
-                    final String queryTransactionResponse = socketConnection.popMessage();
+                    final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
                     if (queryTransactionResponse == null) {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
