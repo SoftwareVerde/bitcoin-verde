@@ -217,6 +217,11 @@
     float: right;
 }
 
+.block .block-header div.difficulty label {
+    font-size: 1.00em !important;
+    height: 1.175em !important;
+}
+
 .transaction .io .transaction-input .unlocking-script > div > label,
 .transaction .io .transaction-output .locking-script > div > label,
 .transaction-input div.unlocking-script div label,
