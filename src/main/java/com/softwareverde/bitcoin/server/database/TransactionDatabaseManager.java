@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.cache.Cache;
+import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -12,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -31,6 +34,9 @@ import java.util.TreeSet;
 
 public class TransactionDatabaseManager {
     public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
+
+    public static final Cache<TransactionId, ImmutableTransaction> TRANSACTION_CACHE = new Cache<TransactionId, ImmutableTransaction>("TransactionCache", 65536);
+    public static final Cache<ImmutableSha256Hash, TransactionId> TRANSACTION_ID_CACHE = new Cache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", 65536);
 
     protected static final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -55,6 +61,9 @@ public class TransactionDatabaseManager {
      * Returns the transaction that matches the provided transactionHash, or null if one was not found.
      */
     protected TransactionId _getTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+        final TransactionId cachedTransactionId = TRANSACTION_ID_CACHE.getCachedItem(transactionHash.asConst());
+        if (cachedTransactionId != null) { return cachedTransactionId; }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transactions WHERE hash = ?")
                 .setParameter(transactionHash)
@@ -66,6 +75,9 @@ public class TransactionDatabaseManager {
     }
 
     protected void _updateTransaction(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
+        TRANSACTION_CACHE.clear();
+        TRANSACTION_ID_CACHE.clear();
+
         final LockTime lockTime = transaction.getLockTime();
         _databaseConnection.executeSql(
             new Query("UPDATE transactions SET hash = ?, version = ?, lock_time = ? WHERE id = ?")
@@ -121,15 +133,21 @@ public class TransactionDatabaseManager {
     }
 
     protected TransactionId _insertTransaction(final Transaction transaction) throws DatabaseException {
+        final Sha256Hash transactionHash = transaction.getHash();
+
         final LockTime lockTime = transaction.getLockTime();
-        final Long transactionId = _databaseConnection.executeSql(
+        final Long transactionIdLong = _databaseConnection.executeSql(
             new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
-                .setParameter(transaction.getHash())
+                .setParameter(transactionHash)
                 .setParameter(transaction.getVersion())
                 .setParameter(lockTime.getValue())
         );
 
-        return TransactionId.wrap(transactionId);
+        final TransactionId transactionId = TransactionId.wrap(transactionIdLong);
+        TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+        TRANSACTION_CACHE.cacheItem(transactionId, transaction.asConst());
+
+        return transactionId;
     }
 
     protected List<TransactionId> _insertTransactions(final List<Transaction> transactions) throws DatabaseException {
@@ -149,11 +167,19 @@ public class TransactionDatabaseManager {
         for (int i = 0; i < transactions.getSize(); ++i) {
             final TransactionId transactionId = TransactionId.wrap(firstTransactionId + i);
             transactionIds.add(transactionId);
+
+            final Transaction transaction = transactions.get(i);
+            final Sha256Hash transactionHash = transaction.getHash();
+            TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+            TRANSACTION_CACHE.cacheItem(transactionId, transaction.asConst());
         }
         return transactionIds;
     }
 
-    protected MutableTransaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
+    protected Transaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
+        final Transaction cachedTransaction = TRANSACTION_CACHE.getCachedItem(transactionId);
+        if (cachedTransaction != null) { return cachedTransaction; }
+
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
 
@@ -194,14 +220,19 @@ public class TransactionDatabaseManager {
             transaction.addTransactionOutput(transactionOutput);
         }
 
+        final Sha256Hash transactionHash = transaction.getHash();
+
         { // Validate inflated transaction hash...
             final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-            if (! Util.areEqual(expectedTransactionHash, transaction.getHash())) {
+            if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
                 Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
                 Logger.log(transaction.toJson());
                 return null;
             }
         }
+
+        TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+        TRANSACTION_CACHE.cacheItem(transactionId, transaction.asConst());
 
         return transaction;
     }
@@ -212,6 +243,13 @@ public class TransactionDatabaseManager {
 
     public TransactionId insertTransaction(final Transaction transaction) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
+
+        final TransactionId cachedTransactionId = TRANSACTION_ID_CACHE.getCachedItem(transactionHash.asConst());
+        if (cachedTransactionId != null) {
+            TRANSACTION_CACHE.cacheItem(cachedTransactionId, transaction.asConst());
+            return cachedTransactionId;
+        }
+
         final TransactionId existingTransactionId = _getTransactionIdFromHash(transactionHash);
         if (existingTransactionId != null) {
             return existingTransactionId;
@@ -220,6 +258,9 @@ public class TransactionDatabaseManager {
         final TransactionId transactionId = _insertTransaction(transaction);
         _insertTransactionOutputs(transactionId, transaction);
         _insertTransactionInputs(transactionId, transaction);
+
+        TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+        TRANSACTION_CACHE.cacheItem(transactionId, transaction.asConst());
 
         return transactionId;
     }
@@ -241,6 +282,13 @@ public class TransactionDatabaseManager {
     }
 
     public Sha256Hash getTransactionHash(final TransactionId transactionId) throws DatabaseException {
+        final Transaction cachedTransaction = TRANSACTION_CACHE.getCachedItem(transactionId);
+        if (cachedTransaction != null) {
+            final Sha256Hash transactionHash = cachedTransaction.getHash();
+            TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+            return cachedTransaction.getHash();
+        }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, hash FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
@@ -248,10 +296,14 @@ public class TransactionDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+        TRANSACTION_ID_CACHE.cacheItem(transactionHash.asConst(), transactionId);
+
+        return transactionHash;
     }
 
-    public MutableTransaction getTransaction(final TransactionId transactionId) throws DatabaseException {
+    public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
         return _inflateTransaction(transactionId);
     }
 
@@ -329,6 +381,9 @@ public class TransactionDatabaseManager {
     }
 
     public void updateTransaction(final Transaction transaction) throws DatabaseException {
+        TRANSACTION_CACHE.clear();
+        TRANSACTION_ID_CACHE.clear();
+
         final TransactionId transactionId = _getTransactionIdFromHash(transaction.getHash());
 
         _updateTransaction(transactionId, transaction);
@@ -409,6 +464,9 @@ public class TransactionDatabaseManager {
     }
 
     public void deleteTransaction(final TransactionId transactionId) throws DatabaseException {
+        TRANSACTION_CACHE.clear();
+        TRANSACTION_ID_CACHE.clear();
+
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection);
         final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
         for (final TransactionInputId transactionInputId : transactionInputIds) {

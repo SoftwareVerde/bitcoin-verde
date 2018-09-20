@@ -14,7 +14,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.cache.BlockChainSegmentIdCache;
+import com.softwareverde.bitcoin.server.database.cache.Cache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class BlockDatabaseManager {
-    public static final BlockChainSegmentIdCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentIdCache();
+    public static final Cache<BlockId, BlockChainSegmentId> BLOCK_CHAIN_SEGMENT_CACHE = new Cache<BlockId, BlockChainSegmentId>("Block-BlockChainSegmentId", 1460);
 
     public static final Object MUTEX = new Object();
 
@@ -222,7 +222,7 @@ public class BlockDatabaseManager {
     }
 
     protected void _setBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        BLOCK_CHAIN_SEGMENT_CACHE.cacheBlockChainSegmentId(blockId, blockChainSegmentId);
+        BLOCK_CHAIN_SEGMENT_CACHE.cacheItem(blockId, blockChainSegmentId);
 
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET block_chain_segment_id = ? WHERE id = ?")
@@ -233,7 +233,7 @@ public class BlockDatabaseManager {
 
     protected BlockChainSegmentId _getBlockChainSegmentId(final BlockId blockId) throws DatabaseException {
         { // Attempt to find BlockChainSegmentId from cache...
-            final BlockChainSegmentId cachedBlockChainSegmentId = BLOCK_CHAIN_SEGMENT_CACHE.getBlockChainSegmentId(blockId);
+            final BlockChainSegmentId cachedBlockChainSegmentId = BLOCK_CHAIN_SEGMENT_CACHE.getCachedItem(blockId);
             if (cachedBlockChainSegmentId != null) {
                 return cachedBlockChainSegmentId;
             }
@@ -247,7 +247,7 @@ public class BlockDatabaseManager {
         final Row row = rows.get(0);
 
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("block_chain_segment_id"));
-        BLOCK_CHAIN_SEGMENT_CACHE.cacheBlockChainSegmentId(blockId, blockChainSegmentId);
+        BLOCK_CHAIN_SEGMENT_CACHE.cacheItem(blockId, blockChainSegmentId);
         return blockChainSegmentId;
     }
 

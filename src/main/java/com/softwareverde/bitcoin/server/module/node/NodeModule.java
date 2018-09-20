@@ -2,15 +2,12 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
-import com.softwareverde.bitcoin.server.database.cache.TransactionIdCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
@@ -25,8 +22,6 @@ import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
@@ -86,7 +81,7 @@ public class NodeModule {
             { // Warm Up AddressDatabaseManager Cache...
                 final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressIdCache.DEFAULT_CACHE_SIZE)
+                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + AddressDatabaseManager.ADDRESS_CACHE.getMaxItemCount())
                 );
                 for (final Row row : rows) {
                     final AddressId addressId = AddressId.wrap(row.getLong("id"));
@@ -100,7 +95,7 @@ public class NodeModule {
             { // Warm Up TransactionDatabaseManager Cache...
                 final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
                 final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + TransactionIdCache.DEFAULT_CACHE_SIZE)
+                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + TransactionDatabaseManager.TRANSACTION_ID_CACHE.getMaxItemCount())
                 );
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));

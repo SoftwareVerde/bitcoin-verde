@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockRelationship;
-import com.softwareverde.bitcoin.server.database.cache.AddressIdCache;
+import com.softwareverde.bitcoin.server.database.cache.Cache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -26,7 +26,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class AddressDatabaseManager {
-    public static final AddressIdCache ADDRESS_CACHE = new AddressIdCache();
+    public static final Cache<String, AddressId> ADDRESS_CACHE = new Cache<String, AddressId>("AddressId", 262144);
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -156,7 +156,7 @@ public class AddressDatabaseManager {
 
         final String addressString = address.toBase58CheckEncoded();
 
-        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedItem(addressString);
         if (cachedAddressId != null) {
             return cachedAddressId;
         }
@@ -168,7 +168,7 @@ public class AddressDatabaseManager {
             ));
 
             if ( (addressId != null) && (addressId.longValue() > 0) ) {
-                ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+                ADDRESS_CACHE.cacheItem(addressString, addressId);
                 return addressId;
             }
         }
@@ -181,7 +181,7 @@ public class AddressDatabaseManager {
         final Row row = rows.get(0);
         final AddressId addressId = AddressId.wrap(row.getLong("id"));
 
-        ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+        ADDRESS_CACHE.cacheItem(addressString, addressId);
 
         return addressId;
     }
@@ -223,7 +223,7 @@ public class AddressDatabaseManager {
 
             final String addressString = address.toBase58CheckEncoded();
 
-            final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+            final AddressId cachedAddressId = ADDRESS_CACHE.getCachedItem(addressString);
             if (cachedAddressId != null) {
                 addressIds.add(cachedAddressId);
                 continue;
@@ -239,7 +239,7 @@ public class AddressDatabaseManager {
                     final AddressId addressId = AddressId.wrap(row.getLong("id"));
                     addressIds.add(addressId);
 
-                    ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+                    ADDRESS_CACHE.cacheItem(addressString, addressId);
 
                     continue;
                 }
@@ -276,7 +276,7 @@ public class AddressDatabaseManager {
             else if (Util.areEqual(addressId, DUPLICATE)) {
                 final DuplicateAddress duplicateAddress = (DuplicateAddress) addressId;
 
-                final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(duplicateAddress.addressString);
+                final AddressId cachedAddressId = ADDRESS_CACHE.getCachedItem(duplicateAddress.addressString);
                 if (cachedAddressId != null) {
                     addressIds.set(i, cachedAddressId);
                 }
@@ -290,7 +290,7 @@ public class AddressDatabaseManager {
                     final AddressId duplicateAddressId = AddressId.wrap(row.getLong("id"));
                     addressIds.set(i, duplicateAddressId);
 
-                    ADDRESS_CACHE.cacheAddressId(duplicateAddressId, duplicateAddress.addressString);
+                    ADDRESS_CACHE.cacheItem(duplicateAddress.addressString, duplicateAddressId);
                 }
             }
             else if (addressId == null) {
@@ -315,7 +315,7 @@ public class AddressDatabaseManager {
     }
 
     public AddressId getAddressId(final String addressString) throws DatabaseException {
-        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedAddressId(addressString);
+        final AddressId cachedAddressId = ADDRESS_CACHE.getCachedItem(addressString);
         if (cachedAddressId != null) {
             return cachedAddressId;
         }
@@ -330,7 +330,7 @@ public class AddressDatabaseManager {
         final Row row = rows.get(0);
         final AddressId addressId = AddressId.wrap(row.getLong("id"));
 
-        ADDRESS_CACHE.cacheAddressId(addressId, addressString);
+        ADDRESS_CACHE.cacheItem(addressString, addressId);
 
         return addressId;
     }
