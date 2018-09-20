@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.json.Json;
@@ -36,7 +37,9 @@ public class TransactionInputDeflater {
     }
 
     public Integer getByteCount(final TransactionInput transactionInput) {
-        final Integer previousTransactionOutputHashByteCount = 32;
+        final Integer indexByteCount = 4;
+
+        final Integer previousTransactionOutputHashByteCount = Sha256Hash.BYTE_COUNT;
 
         final Integer scriptByteCount;
         {
@@ -50,7 +53,7 @@ public class TransactionInputDeflater {
 
         final Integer sequenceByteCount = 4;
 
-        return (previousTransactionOutputHashByteCount + scriptByteCount + sequenceByteCount);
+        return (indexByteCount + previousTransactionOutputHashByteCount + scriptByteCount + sequenceByteCount);
     }
 
     public byte[] toBytes(final TransactionInput transactionInput) {

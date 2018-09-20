@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
@@ -79,7 +80,7 @@ public class BlockProcessor {
         LoggingConnectionWrapper.reset();
 
         storeBlockTimer.start();
-        final BlockId blockId = blockDatabaseManager.storeBlock(block); // blockDatabaseManager.insertBlock(block);
+        final BlockId blockId = blockDatabaseManager.storeBlock(block);
         storeBlockTimer.stop();
 
         {
@@ -110,6 +111,10 @@ public class BlockProcessor {
         }
 
         if (blockIsValid) {
+            final BlockDeflater blockDeflater = new BlockDeflater();
+            final Integer byteCount = blockDeflater.getByteCount(block);
+            blockDatabaseManager.setBlockByteCount(blockId, byteCount);
+
             _medianBlockTime.addBlock(block);
 
             final BlockChainSegmentId newHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();

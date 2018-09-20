@@ -512,6 +512,25 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
+    public void setBlockByteCount(final BlockId blockId, final Integer byteCount) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE blocks SET byte_count = ? WHERE id = ?")
+                .setParameter(byteCount)
+                .setParameter(blockId)
+        );
+    }
+
+    public Integer getBlockByteCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, byte_count FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("byte_count");
+    }
+
     /**
      * Returns the Sha256Hash of the block that has the tallest block-height.
      */
