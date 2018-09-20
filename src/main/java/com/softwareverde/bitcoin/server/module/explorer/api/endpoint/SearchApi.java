@@ -55,45 +55,65 @@ public class SearchApi extends ExplorerApiEndpoint {
 
             final SocketConnection socketConnection = _newRpcConnection();
 
+            final Object lock = new Object();
+            socketConnection.setMessageReceivedCallback(new Runnable() {
+                @Override
+                public void run() {
+                    synchronized (lock) {
+                        lock.notifyAll();
+                    }
+                }
+            });
+
             SearchResult.ObjectType objectType = null;
             Jsonable object = null;
             {
                 final Json rpcRequestJson = new Json();
                 {
                     final Json rpcParametersJson = new Json();
-                    {
-                        rpcParametersJson.put("hash", objectHash);
-                    }
+                    rpcParametersJson.put("hash", objectHash);
 
                     rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
                     rpcRequestJson.put("parameters", rpcParametersJson);
                 }
 
-                socketConnection.write(rpcRequestJson.toString());
-                final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                if (queryBlockResponse == null) {
-                    return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                if (objectHash.startsWith("00000000")) {
+                    rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
+                    socketConnection.write(rpcRequestJson.toString());
+
+                    synchronized (lock) {
+                        try { lock.wait(RPC_DURATION_TIMEOUT_MS); } catch (final InterruptedException exception) { }
+                    }
+
+                    final String queryBlockResponse = socketConnection.popMessage();
+                    if (queryBlockResponse == null) {
+                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                    }
+                    final Json queryBlockResponseJson = Json.parse(queryBlockResponse);
+                    if (queryBlockResponseJson.getBoolean("wasSuccess")) {
+                        final Json blockJson = queryBlockResponseJson.get("block");
+
+                        final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
+
+                        object = blockJson;
+                        if (isFullBlock) {
+                            objectType = SearchResult.ObjectType.BLOCK;
+                        }
+                        else {
+                            objectType = SearchResult.ObjectType.BLOCK_HEADER;
+                        }
+                    }
                 }
 
-                final Json queryBlockResponseJson = Json.parse(queryBlockResponse);
-                if (queryBlockResponseJson.getBoolean("wasSuccess")) {
-                    final Json blockJson = queryBlockResponseJson.get("block");
-
-                    final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
-
-                    object = blockJson;
-                    if (isFullBlock) {
-                        objectType = SearchResult.ObjectType.BLOCK;
-                    }
-                    else {
-                        objectType = SearchResult.ObjectType.BLOCK_HEADER;
-                    }
-                }
-                else {
+                if (objectType == null) {
                     rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
                     socketConnection.write(rpcRequestJson.toString());
-                    final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+
+                    synchronized (lock) {
+                        try { lock.wait(RPC_DURATION_TIMEOUT_MS); } catch (final InterruptedException exception) { }
+                    }
+
+                    final String queryTransactionResponse = socketConnection.popMessage();
                     if (queryTransactionResponse == null) {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
@@ -106,7 +126,6 @@ public class SearchApi extends ExplorerApiEndpoint {
                     }
                 }
             }
-
             final Boolean wasSuccess = (objectType != null);
 
             final SearchResult searchResult = new SearchResult();

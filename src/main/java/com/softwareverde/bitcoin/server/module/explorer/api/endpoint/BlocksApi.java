@@ -45,6 +45,16 @@ public class BlocksApi extends ExplorerApiEndpoint {
             // Requires POST:
             final SocketConnection socketConnection = _newRpcConnection();
 
+            final Object lock = new Object();
+            socketConnection.setMessageReceivedCallback(new Runnable() {
+                @Override
+                public void run() {
+                    synchronized (lock) {
+                        lock.notifyAll();
+                    }
+                }
+            });
+
             final Json blockHeadersJson;
             {
                 final Json rpcRequestJson = new Json();
@@ -64,7 +74,11 @@ public class BlocksApi extends ExplorerApiEndpoint {
                 }
 
                 socketConnection.write(rpcRequestJson.toString());
-                final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                synchronized (lock) {
+                    try { lock.wait(RPC_DURATION_TIMEOUT_MS); } catch (final InterruptedException exception) { }
+                }
+
+                final String rpcResponseString = socketConnection.popMessage();
                 if (rpcResponseString == null) {
                     return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                 }

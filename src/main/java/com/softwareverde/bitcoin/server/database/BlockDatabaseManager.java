@@ -149,7 +149,8 @@ public class BlockDatabaseManager {
             final Sha256Hash expectedHash = Sha256Hash.fromHexString(row.getString("hash"));
             final Sha256Hash actualHash = blockHeader.getHash();
             if (! Util.areEqual(expectedHash, actualHash)) {
-                throw new DatabaseException("Unable to inflate BlockHeader.");
+                Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+                return null;
             }
         }
 
@@ -646,6 +647,8 @@ public class BlockDatabaseManager {
         BlockId nextBlockId = blockId;
         for (int i = 0; i < parentCount; ++i) {
             final BlockHeader blockHeader = _inflateBlockHeader(nextBlockId);
+            if (blockHeader == null) { return null; }
+
             nextBlockId = _getBlockIdFromHash(blockHeader.getPreviousBlockHash());
         }
         return nextBlockId;
@@ -677,6 +680,8 @@ public class BlockDatabaseManager {
      */
     public MedianBlockTime calculateMedianBlockTime(final BlockId startingBlockId) throws DatabaseException {
         final BlockHeader startingBlock = _inflateBlockHeader(startingBlockId);
+        if (startingBlock == null) { return null; }
+
         final Sha256Hash blockHash = startingBlock.getPreviousBlockHash();
         return _newInitializedMedianBlockTime(_databaseConnection, blockHash);
     }
