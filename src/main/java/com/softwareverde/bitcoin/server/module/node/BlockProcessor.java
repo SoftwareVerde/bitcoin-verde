@@ -7,10 +7,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockRelationship;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -109,6 +106,8 @@ public class BlockProcessor {
             TransactionDatabaseManager.TRANSACTION_CACHE.clearDebug();
             AddressDatabaseManager.ADDRESS_CACHE.debug();
             AddressDatabaseManager.ADDRESS_CACHE.clearDebug();
+            TransactionOutputDatabaseManager.TRANSACTION_OUTPUT_CACHE.debug();
+            TransactionOutputDatabaseManager.TRANSACTION_OUTPUT_CACHE.clearDebug();
         }
 
         if (blockIsValid) {

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.Cache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledCache;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -35,8 +36,8 @@ import java.util.TreeSet;
 public class TransactionDatabaseManager {
     public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
 
-    public static final Cache<TransactionId, ImmutableTransaction> TRANSACTION_CACHE = new Cache<TransactionId, ImmutableTransaction>("TransactionCache", 65536);
-    public static final Cache<ImmutableSha256Hash, TransactionId> TRANSACTION_ID_CACHE = new Cache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", 65536);
+    public static final Cache<TransactionId, ImmutableTransaction> TRANSACTION_CACHE = new DisabledCache<TransactionId, ImmutableTransaction>("Transaction", 65536);
+    public static final Cache<ImmutableSha256Hash, TransactionId> TRANSACTION_ID_CACHE = new DisabledCache<ImmutableSha256Hash, TransactionId>("TransactionId", 65536);
 
     protected static final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnection _databaseConnection;

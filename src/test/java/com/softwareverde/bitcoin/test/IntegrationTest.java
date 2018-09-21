@@ -1,9 +1,7 @@
 package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.test.database.MysqlTestDatabase;
 
@@ -33,6 +31,6 @@ public class IntegrationTest {
         TransactionDatabaseManager.TRANSACTION_CACHE.clear();
         TransactionDatabaseManager.TRANSACTION_ID_CACHE.clear();
         BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear();
-        BlockChainDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear();
+        TransactionOutputDatabaseManager.TRANSACTION_OUTPUT_CACHE.clear();
     }
 }

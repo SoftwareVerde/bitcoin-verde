@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.server.database.cache.Cache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -12,7 +14,6 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -25,9 +26,15 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.Util;
 
 public class TransactionOutputDatabaseManager {
+    public static final Cache<CachedTransactionOutputIdentifier, TransactionOutputId> TRANSACTION_OUTPUT_CACHE = new DisabledCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", 65536);
+
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected TransactionOutputId _findTransactionOutput(final Boolean isSpent, final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+        final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = new CachedTransactionOutputIdentifier(transactionId, transactionOutputIndex);
+        final TransactionOutputId cachedTransactionOutputId = TRANSACTION_OUTPUT_CACHE.getCachedItem(cachedTransactionOutputIdentifier);
+        if (cachedTransactionOutputId != null) { return cachedTransactionOutputId; }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transaction_outputs WHERE is_spent = ? AND transaction_id = ? AND `index` = ?")
                 .setParameter(isSpent ? 1 : 0)
@@ -38,7 +45,11 @@ public class TransactionOutputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return TransactionOutputId.wrap(row.getLong("id"));
+        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+
+        TRANSACTION_OUTPUT_CACHE.cacheItem(cachedTransactionOutputIdentifier, transactionOutputId);
+
+        return transactionOutputId;
     }
 
     /**
@@ -67,6 +78,9 @@ public class TransactionOutputDatabaseManager {
         if (transactionOutputId == null) { return null; }
 
         _insertLockingScript(transactionOutputId, lockingScript);
+
+        final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = new CachedTransactionOutputIdentifier(transactionId, transactionOutput.getIndex());
+        TRANSACTION_OUTPUT_CACHE.cacheItem(cachedTransactionOutputIdentifier, transactionOutputId);
 
         return transactionOutputId;
     }
@@ -286,6 +300,8 @@ public class TransactionOutputDatabaseManager {
     }
 
     public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
+        TRANSACTION_OUTPUT_CACHE.clear();
+
         final LockingScript lockingScript = transactionOutput.getLockingScript();
 
         _databaseConnection.executeSql(
@@ -304,6 +320,8 @@ public class TransactionOutputDatabaseManager {
     }
 
     public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        TRANSACTION_OUTPUT_CACHE.clear();
+
         final Boolean transactionOutputWasSpent = _isTransactionOutputSpent(transactionOutputId);
         if (transactionOutputWasSpent) {
             throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
@@ -318,5 +336,32 @@ public class TransactionOutputDatabaseManager {
             new Query("DELETE FROM transaction_outputs WHERE id = ?")
                 .setParameter(transactionOutputId)
         );
+    }
+}
+
+class CachedTransactionOutputIdentifier {
+    final TransactionId transactionId;
+    final Integer transactionOutputIndex;
+
+    public CachedTransactionOutputIdentifier(final TransactionId transactionId, final Integer transactionOutputIndex) {
+        this.transactionId = transactionId;
+        this.transactionOutputIndex = transactionOutputIndex;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (object == null) { return false; }
+        if (! (object instanceof CachedTransactionOutputIdentifier)) { return false; }
+
+        final CachedTransactionOutputIdentifier cachedTransactionOutputIdentifier = (CachedTransactionOutputIdentifier) object;
+        if (! Util.areEqual(this.transactionId, cachedTransactionOutputIdentifier.transactionId)) { return false; }
+        if (! Util.areEqual(this.transactionOutputIndex, cachedTransactionOutputIdentifier.transactionOutputIndex)) { return false; }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return ( (this.transactionId == null ? 0 : this.transactionId.hashCode()) + (this.transactionOutputIndex == null ? 0 : transactionOutputIndex.hashCode()) );
     }
 }

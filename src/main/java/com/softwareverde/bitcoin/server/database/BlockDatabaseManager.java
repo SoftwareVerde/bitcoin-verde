@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.cache.Cache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
@@ -36,7 +37,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class BlockDatabaseManager {
-    public static final Cache<BlockId, BlockChainSegmentId> BLOCK_CHAIN_SEGMENT_CACHE = new Cache<BlockId, BlockChainSegmentId>("Block-BlockChainSegmentId", 1460);
+    public static final Cache<BlockId, BlockChainSegmentId> BLOCK_CHAIN_SEGMENT_CACHE = new DisabledCache<BlockId, BlockChainSegmentId>("Block-BlockChainSegmentId", 1460);
 
     public static final Object MUTEX = new Object();
 

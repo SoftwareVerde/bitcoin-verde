@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
-import com.softwareverde.bitcoin.server.database.cache.BlockChainSegmentCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -14,14 +13,9 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 
 public class BlockChainDatabaseManager {
-    public static final BlockChainSegmentCache BLOCK_CHAIN_SEGMENT_CACHE = new BlockChainSegmentCache();
-
     protected final MysqlDatabaseConnection _databaseConnection;
 
     protected BlockChainSegment _inflateBlockChainSegmentFromId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
-        final BlockChainSegment cachedBlockChainSegment = BLOCK_CHAIN_SEGMENT_CACHE.loadCachedBlockChainSegment(blockChainSegmentId);
-        if (cachedBlockChainSegment != null) { return cachedBlockChainSegment; }
-
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT * FROM block_chain_segments WHERE id = ?")
                 .setParameter(blockChainSegmentId)
@@ -32,8 +26,6 @@ public class BlockChainDatabaseManager {
         final Row row = rows.get(0);
         final BlockChainSegmentInflater blockChainSegmentInflater = new BlockChainSegmentInflater();
         final BlockChainSegment blockChainSegment = blockChainSegmentInflater.fromRow(row);
-
-        BLOCK_CHAIN_SEGMENT_CACHE.cacheBlockChainSegment(blockChainSegment);
 
         return blockChainSegment;
     }
@@ -103,7 +95,6 @@ public class BlockChainDatabaseManager {
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
                 // 2.1.1 Update the blockChain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-                BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
                 _databaseConnection.executeSql(
                     new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
                         .setParameter(newBlockId)
@@ -161,7 +152,6 @@ public class BlockChainDatabaseManager {
             // 3.2 Update/revert the baseBlockChain.
             //  The head_block_id should point to the previousBlock.
             //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-            BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate cache due to update...
             _databaseConnection.executeSql(
                 new Query("UPDATE block_chain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
                     .setParameter(previousBlockId)

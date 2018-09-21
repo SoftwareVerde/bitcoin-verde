@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.database.cache.Cache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -26,7 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class AddressDatabaseManager {
-    public static final Cache<String, AddressId> ADDRESS_CACHE = new Cache<String, AddressId>("AddressId", 262144);
+    public static final Cache<String, AddressId> ADDRESS_CACHE = new DisabledCache<String, AddressId>("AddressId", 262144);
 
     protected final MysqlDatabaseConnection _databaseConnection;
 
