@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
@@ -24,6 +25,7 @@ import com.softwareverde.util.timer.Timer;
 
 public class BlockSynchronizer {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected final BitcoinNodeManager _nodeManager;
 
     protected Integer _maxQueueSize = 1;
@@ -46,7 +48,7 @@ public class BlockSynchronizer {
 
     protected Boolean _hasGenesisBlock() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
             return (lastKnownHash != null);
         }
@@ -58,7 +60,7 @@ public class BlockSynchronizer {
 
     protected Sha256Hash _getHeadBlockHash() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final Sha256Hash headBlockHash = blockDatabaseManager.getHeadBlockHash();
             return Util.coalesce(headBlockHash, Block.GENESIS_BLOCK_HASH);
         }
@@ -194,8 +196,9 @@ public class BlockSynchronizer {
         _clear();
     }
 
-    public BlockSynchronizer(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final BlockProcessor blockProcessor, final SynchronizationStatusHandler synchronizationStatusHandler) {
+    public BlockSynchronizer(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final BlockProcessor blockProcessor, final SynchronizationStatusHandler synchronizationStatusHandler) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
         _nodeManager = nodeManager;
         _blockProcessor = blockProcessor;
         _synchronizationStatusHandler = synchronizationStatusHandler;
@@ -244,7 +247,7 @@ public class BlockSynchronizer {
                 {
                     MutableList<Sha256Hash> blockHashes = null;
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                         final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
                         final Long maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);

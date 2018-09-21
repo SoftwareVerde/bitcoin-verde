@@ -3,9 +3,10 @@ package com.softwareverde.bitcoin.server.module.node.rpc;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockRelationship;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -17,15 +18,17 @@ import java.math.BigInteger;
 
 public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBalanceHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected DatabaseManagerCache _databaseManagerCache;
 
-    public QueryBalanceHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public QueryBalanceHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
     public Long getBalance(final Address address) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             final BlockChainSegmentId headChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);

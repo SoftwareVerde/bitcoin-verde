@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -175,12 +176,12 @@ public class TransactionValidator {
         return true;
     }
 
-    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
-        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
+    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+        _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
+        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
+        _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }

@@ -42,7 +42,6 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
-        _resetCache();
     }
 
     @Test
@@ -63,7 +62,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         Assert.assertTrue(genesisBlock.isValid());
@@ -108,7 +107,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -162,7 +161,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -222,7 +221,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -307,7 +306,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -405,7 +404,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -559,7 +558,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -707,7 +706,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -835,8 +834,8 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));

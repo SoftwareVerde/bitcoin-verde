@@ -1,15 +1,17 @@
 package com.softwareverde.bitcoin.gui;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -59,6 +61,7 @@ public class TransactionsPane extends GridPane {
         super();
 
         _databaseConnectionFactory = databaseConnectionFactory;
+        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
 
         this.setPadding(new Insets(10, 10, 10, 10));
         this.setVgap(20);
@@ -94,7 +97,7 @@ public class TransactionsPane extends GridPane {
                 public void changed(final ObservableValue<? extends String> observable, final String oldValue, final String newValue) {
                     final String sanitizedAddressValue = newValue.replaceAll("[^A-Za-z0-9]", "");
                     try (MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection);
+                        final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, databaseManagerCache);
 
                         final Boolean addressIsValid;
                         final AddressId addressId;
@@ -143,9 +146,9 @@ public class TransactionsPane extends GridPane {
 
                                     final java.util.List<Label> addressTransactions = new ArrayList<Label>(spendableTransactionOutputs.getSize());
 
-                                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-                                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+                                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+                                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+                                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
                                     final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
                                     for (AddressDatabaseManager.SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {

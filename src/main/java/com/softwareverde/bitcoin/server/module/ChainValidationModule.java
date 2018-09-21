@@ -11,7 +11,9 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -92,27 +94,29 @@ public class ChainValidationModule {
             }
         }
 
-        _environment = new Environment(database);
+        _environment = new Environment(database, new MasterDatabaseManagerCache());
     }
 
     public void run() {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
 
             final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
             final NetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = blockDatabaseManager.initializeMedianBlockTime();
 
-            final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, networkTime, medianBlockTime);
+            final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, databaseManagerCache, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
 
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();

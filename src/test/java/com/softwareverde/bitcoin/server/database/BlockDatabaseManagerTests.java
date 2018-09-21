@@ -59,8 +59,8 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     protected ScenarioData _setupScenario(final MysqlDatabaseConnection databaseConnection) throws Exception {
         final BlockInflater blockInflater = new BlockInflater();
 
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block block_A = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block_B = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -113,7 +113,6 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
-        _resetCache();
     }
 
     @Test
@@ -122,7 +121,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
             // Setup
             final BlockInflater blockInflater = new BlockInflater();
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             { // Store blocks that contain this blocks spent outputs...
                 // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
@@ -153,7 +152,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_connected_block_when_parent() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -171,7 +170,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_not_connected_block() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -189,7 +188,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_connected_block_for_child() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -207,7 +206,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_connected_block_for_child_2() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -225,7 +224,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_connected_block_for_child_3() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -243,7 +242,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_connected_block_for_child_4() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -261,7 +260,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_not_connected_block_2() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -279,7 +278,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_not_connected_block_3() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -297,7 +296,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_not_connected_block_4() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -315,7 +314,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_detect_not_connected_block_5() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData = _setupScenario(databaseConnection);
 
@@ -334,7 +333,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         { // Store genesis block...
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -373,7 +372,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -426,7 +425,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));

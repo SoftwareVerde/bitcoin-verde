@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
@@ -97,7 +98,7 @@ public class BlockValidatorTests extends IntegrationTest {
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
         try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockInflater blockInflater = new BlockInflater();
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             for (int i=0; i<blockCount; ++i) {
                 final Sha256Hash mostRecentBlockHash = blockDatabaseManager.getHeadBlockHash();
@@ -129,7 +130,6 @@ public class BlockValidatorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
-        _resetCache();
     }
 
     @Test
@@ -138,11 +138,20 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            blockDatabaseManager.insertBlock(genesisBlock);
+
+            { // Store the block header before the prerequisite block so that it may be inflated by the difficultyCalculator. Block Hash: 0000000009B905F3DB4990848B9B14FE39582147FCF6A6CB8D73BD227D75369E
+                final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0100000042490A3DE212575A7CADE89BED6AC18A4466E667F3D679BC1DA1B2BD00000000EDB0A433B741049D6E7C0B44838A188AD809C60FFE5076F4C881CB93AB70B247ECC66E49FFFF001D06FAFE08"));
+                blockDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
             final Block previousPrerequisiteBlock1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000009E36757D22BD738DCBA6F6FC47215839FE149B8B849049DBF305B90900000000E398331A75C87C42E14D571DFA7EF036CF4C06F85D05FEE2D366BB2ACC1B1FD4A5C96E49FFFF001D02B465C10101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027705FFFFFFFF0100F2052A01000000434104BA8220A0CDE503EE7F923AB223B07C22E705FB5215E1A3F5E6DFB37CF8A714D0D6D9F2A7A00A61675CF20ABA71233973D1DEA913C130F0AF380ED4A9C2116045AC00000000"));
             final BlockId previousPrerequisiteBlock1Id = blockDatabaseManager.insertBlock(previousPrerequisiteBlock1); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
@@ -178,8 +187,8 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
@@ -214,7 +223,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -229,7 +238,7 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         final BlockChainSegmentId genesisBlockChainSegmentId;
         {
@@ -280,9 +289,9 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
 
@@ -387,10 +396,10 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));

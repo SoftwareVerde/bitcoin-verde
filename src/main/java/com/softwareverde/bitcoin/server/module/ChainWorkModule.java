@@ -8,6 +8,9 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -85,14 +88,17 @@ public class ChainWorkModule {
             }
         }
 
-        _environment = new Environment(database);
+        _environment = new Environment(database, new MasterDatabaseManagerCache());
     }
 
     public void loop() {
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        final DatabaseManagerCache emptyCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
+
         long i = 0L;
-        MutableChainWork chainWork = new MutableChainWork();
+        final MutableChainWork chainWork = new MutableChainWork();
         try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, emptyCache);
 
             while (true) {
                 final java.util.List<Row> rows = databaseConnection.query(

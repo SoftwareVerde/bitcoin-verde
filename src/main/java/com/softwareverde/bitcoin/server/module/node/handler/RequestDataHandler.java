@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
@@ -22,16 +23,18 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) { }
     };
 
-    protected final MysqlDatabaseConnectionFactory _connectionFactory;
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
-    public RequestDataHandler(final MysqlDatabaseConnectionFactory connectionFactory) {
-        _connectionFactory = connectionFactory;
+    public RequestDataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+        _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
     public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) {
-        try (final MysqlDatabaseConnection databaseConnection = _connectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 

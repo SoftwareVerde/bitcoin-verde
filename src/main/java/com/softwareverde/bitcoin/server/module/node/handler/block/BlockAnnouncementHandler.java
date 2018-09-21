@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -19,10 +20,12 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
     };
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected final Container<BlockSynchronizer> _blockDownloader;
 
-    public BlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Container<BlockSynchronizer> blockDownloader) {
+    public BlockAnnouncementHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Container<BlockSynchronizer> blockDownloader) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
         _blockDownloader = blockDownloader;
     }
 
@@ -39,7 +42,7 @@ public class BlockAnnouncementHandler implements BitcoinNode.BlockAnnouncementCa
 
         final Boolean parentBlockExists;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
             if (blockIsSynchronized) {

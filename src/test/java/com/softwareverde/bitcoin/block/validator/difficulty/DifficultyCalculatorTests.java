@@ -22,7 +22,7 @@ import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
     protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block478550 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("020000202C76152C65B451734851B81FFBB3E2636DD5A1EE1C74B8000000000000000000A7FCE3FCC48CE39A71FAC02F29AE3842F35F3B6C1F302A88B08050AA2AADFE68C566805935470118490B9728"));
@@ -105,7 +105,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     }
 
     protected BlockHeader[] _initBlocks2(final Long stopBeforeBlockHeight, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block477790 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("020000201E41513A74A6AFC3E9B6C7DE4C311BC5D82C65F87EF4E0000000000000000000615834D9119AC057CD586B89BB823DF8F80E2FE482661457366AD76CEDDCF8A4CCC57959DC5D0118A2650916"));
@@ -230,7 +230,6 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
-        _resetCache();
     }
 
     @Test
@@ -238,9 +237,9 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -261,7 +260,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader[] blockHeaders = _initBlocks(478577L, databaseConnection);
@@ -288,7 +287,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             If blockTip - blockTipMinusSix is greater than 12 hours, the difficulty emergency difficulty adjustment is activated...
          */
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478577L).setParameter(blockHeader.getHash()));
@@ -307,7 +306,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader[] blockHeaders = _initBlocks(478573L, databaseConnection);
@@ -317,7 +316,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
         Assert.assertEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478573L).setParameter(blockHeader.getHash()));
@@ -336,7 +335,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader[] blockHeaders = _initBlocks2(479808L, databaseConnection);
@@ -346,7 +345,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
         Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
@@ -373,7 +372,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         {
@@ -476,7 +475,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         Assert.assertEquals(block504031.getHash(), blockHeader.getPreviousBlockHash());
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
@@ -503,7 +502,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
@@ -613,7 +612,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         Assert.assertEquals(block504032.getHash(), blockHeader.getPreviousBlockHash());
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
@@ -640,7 +639,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block504940 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207F96BFA443BB1ED083E8091972AE62EE4656B1D34A741A0100000000000000005D96B2D6A485A654581DE98D0650DA22839288172F050BE7A081AD414E6D6D8F0F68125A10160618008E4ADB"));
@@ -738,7 +737,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
 
         Assert.assertEquals(block505089.getHash(), blockHeader.getPreviousBlockHash());
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
         databaseConnection.executeSql(
@@ -764,8 +763,8 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     public void should_calculate_difficulty_for_block_000000000000000001D49711B252E3C8DDAEFEC6A668B3104E4C4EE63908A587() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final Long blockHeight = 547204L;

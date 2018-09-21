@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -29,6 +30,7 @@ public class ParallelledTaskSpawner<T, S> {
     }
 
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
 
@@ -36,8 +38,10 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory) {
+    public ParallelledTaskSpawner(final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
+
     }
 
     public void executeTasks(final List<T> items, final int maxThreadCount) {
@@ -65,7 +69,7 @@ public class ParallelledTaskSpawner<T, S> {
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
 
             final MysqlDatabaseConnection databaseConnection = mysqlDatabaseConnections[i];
-            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(databaseConnection, items, _taskHandlerFactory.newInstance());
+            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(databaseConnection, _databaseManagerCache, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
             validationTask.enqueueTo(THREAD_POOL);

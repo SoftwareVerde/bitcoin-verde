@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -26,7 +28,8 @@ import com.softwareverde.util.Util;
 public class TransactionTestUtil {
 
     protected static BlockId _getGenesisBlockId(final BlockChainSegmentId blockChainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockId genesisBlockId = blockDatabaseManager.getBlockIdFromHash(BlockHeader.GENESIS_BLOCK_HASH);
         if (genesisBlockId == null) {
 
@@ -60,7 +63,8 @@ public class TransactionTestUtil {
     }
 
     public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection);
+        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
         final BlockId genesisBlockId = _getGenesisBlockId(blockChainSegmentId, databaseConnection);
 

@@ -52,7 +52,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected StoredBlock _storeBlock(final String blockBytes) throws DatabaseException {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockBytes));
         blockDatabaseManager.insertBlock(block);
@@ -103,7 +103,6 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
-        _resetCache();
     }
 
     @Test
@@ -111,10 +110,10 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockChainSegmentId blockChainSegmentId;
 
@@ -144,8 +143,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -156,7 +155,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
@@ -169,7 +168,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
         transactionDatabaseManager.insertTransaction(signedTransaction);
@@ -187,8 +186,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -199,7 +198,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
@@ -212,7 +211,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -229,8 +228,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -241,7 +240,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
@@ -254,7 +253,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
@@ -271,8 +270,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         final AddressInflater addressInflater = new AddressInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final PrivateKey privateKey = PrivateKey.createNewKey();
 
         // Create a transaction that will be spent in our signed transaction.
@@ -283,7 +282,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
@@ -299,7 +298,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         unsignedTransaction.addTransactionInput(unsignedTransaction.getTransactionInputs().get(0));
 
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(blockChainSegmentId, unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 

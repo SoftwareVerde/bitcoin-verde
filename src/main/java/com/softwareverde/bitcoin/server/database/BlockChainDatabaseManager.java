@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentInflater;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -14,6 +15,7 @@ import com.softwareverde.io.Logger;
 
 public class BlockChainDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
     protected BlockChainSegment _inflateBlockChainSegmentFromId(final BlockChainSegmentId blockChainSegmentId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
@@ -82,7 +84,7 @@ public class BlockChainDatabaseManager {
         //          Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
         //      3.5 Set the newBlock's block_chain_segment_id to the newBlockChain's id created in 3.4.
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final BlockId newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
         final BlockId previousBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getPreviousBlockHash());
@@ -180,7 +182,7 @@ public class BlockChainDatabaseManager {
                         .setParameter(previousBlockChainSegmentId)
                         .setParameter(previousBlockBlockHeight)
                 );
-                BlockDatabaseManager.BLOCK_CHAIN_SEGMENT_CACHE.clear(); // Invalidate BlockChainSegmentId cache after update...
+                _databaseManagerCache.invalidateBlockIdBlockChainSegmentIdCache(); // Invalidate BlockChainSegmentId cache after update...
             }
 
             // 3.4 Create a new block chain to house the newBlock (and its future children)...
@@ -199,14 +201,15 @@ public class BlockChainDatabaseManager {
         }
     }
 
-    public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public BlockChainDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
         final Sha256Hash blockHash = newBlock.getHash();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
         if (blockId == null) {
             Logger.log("NOTICE: Unable to update BlockChainSegment for block: " + blockHash);
@@ -253,7 +256,7 @@ public class BlockChainDatabaseManager {
         );
         if (rows.isEmpty()) { return null; }
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockId blockId = blockChainSegment.getHeadBlockId();
 
         for (final Row row : rows) {

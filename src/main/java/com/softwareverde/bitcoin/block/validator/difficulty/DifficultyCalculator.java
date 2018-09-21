@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -26,12 +27,10 @@ public class DifficultyCalculator {
     protected static final Integer BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT = 2016;
     protected static final BigInteger TWO_RAISED_TO_256 = BigInteger.valueOf(2L).pow(256);
 
-    protected final MysqlDatabaseConnection _databaseConnection;
     protected final BlockDatabaseManager _blockDatabaseManager;
 
-    public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection) {
-        _databaseConnection = databaseConnection;
-        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+    public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
     }
 
     protected Difficulty _calculateNewBitcoinCoreTarget(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final BlockHeader blockHeader) throws DatabaseException {

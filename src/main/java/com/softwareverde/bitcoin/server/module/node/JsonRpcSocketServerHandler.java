@@ -14,6 +14,9 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -69,6 +72,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected final Environment _environment;
+    protected final ReadOnlyLocalDatabaseManagerCache _databaseManagerCache;
     protected final SynchronizationStatus _synchronizationStatus;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageBlockHeadersPerSecond;
@@ -78,9 +82,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected NodeHandler _nodeHandler = null;
     protected QueryBalanceHandler _queryBalanceHandler = null;
 
-    protected static void _addMetadataForBlockHeaderToJson(final BlockId blockId, final Json blockJson, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+    protected static void _addMetadataForBlockHeaderToJson(final BlockId blockId, final Json blockJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
         { // Include Extra Block Metadata...
             final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
@@ -93,13 +97,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
-    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
         final String transactionHashString = transactionHash.toString();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
@@ -198,6 +202,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public JsonRpcSocketServerHandler(final Environment environment, final SynchronizationStatus synchronizationStatus, final StatisticsContainer statisticsContainer) {
         _environment = environment;
+        _databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(environment.getMasterDatabaseManagerCache());
         _synchronizationStatus = synchronizationStatus;
 
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
@@ -206,7 +211,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.getHeadBlockId();
         if (blockId == null) { return 0L; }
@@ -215,7 +220,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected Long _calculateBlockHeaderHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.getHeadBlockHeaderId();
         if (blockId == null) { return 0L; }
@@ -227,8 +232,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected void _getBlockHeaders(final Json parameters, final Json response) {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Long startingBlockHeight;
             {
@@ -264,7 +269,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     blockJson = blockHeader.toJson();
                 }
 
-                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection);
+                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection, _databaseManagerCache);
 
                 blockHeadersJson.add(blockJson);
             }
@@ -297,7 +302,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
             if (blockId == null) {
@@ -325,7 +330,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
 
                 final Json blockJson = blockHeader.toJson();
-                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection);
+                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection, _databaseManagerCache);
                 response.put("block", blockJson);
             }
 
@@ -355,8 +360,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
             if (blockId == null) {
@@ -426,10 +431,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 for (int i = 0; i < transactionsJson.length(); ++i) {
                     final Json transactionJson = transactionsJson.get(i);
                     final Transaction transaction = blockTransactions.get(i);
-                    _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection);
+                    _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
                 }
 
-                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection);
+                _addMetadataForBlockHeaderToJson(blockId, blockJson, databaseConnection, _databaseManagerCache);
 
                 response.put("block", blockJson);
             }
@@ -460,8 +465,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
@@ -482,7 +487,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             else {
                 final Json transactionJson = transaction.toJson();
 
-                _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection);
+                _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
 
                 response.put("transaction", transactionJson);
             }
@@ -518,7 +523,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
             final Long blockTimestampInSeconds;
             {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
                 if (lastKnownHash == null) {
                     blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
@@ -532,7 +537,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
             final Long blockHeaderTimestampInSeconds;
             {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
                 if (lastKnownHash == null) {
                     blockHeaderTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;

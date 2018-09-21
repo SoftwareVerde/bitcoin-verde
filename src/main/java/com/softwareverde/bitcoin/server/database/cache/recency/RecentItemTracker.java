@@ -16,7 +16,7 @@ public class RecentItemTracker<T> {
 
     protected double _msSpentSearching = 0D;
 
-    protected void _clearDebug() {
+    protected void _resetDebug() {
         _msSpentSearching = 0D;
     }
 
@@ -98,10 +98,10 @@ public class RecentItemTracker<T> {
         _oldestAccess = Long.MIN_VALUE;
         _nextAccess = Long.MIN_VALUE;
 
-        _clearDebug();
+        _resetDebug();
     }
 
-    public void clearDebug() {
-        _clearDebug();
+    public void resetDebug() {
+        _resetDebug();
     }
 }

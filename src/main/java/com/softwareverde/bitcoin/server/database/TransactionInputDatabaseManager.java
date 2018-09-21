@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -22,10 +23,11 @@ import com.softwareverde.util.Util;
 
 public class TransactionInputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
     protected TransactionOutputId _getPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
 
@@ -70,7 +72,7 @@ public class TransactionInputDatabaseManager {
         );
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
 
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -112,8 +114,9 @@ public class TransactionInputDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     public TransactionInputId getTransactionInputId(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
@@ -174,7 +177,7 @@ public class TransactionInputDatabaseManager {
 
         _insertUnlockingScripts(transactionInputIds, unlockingScripts);
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         transactionOutputDatabaseManager.markTransactionOutputsAsSpent(previousTransactionOutputIds);
 
         return transactionInputIds;
@@ -278,7 +281,7 @@ public class TransactionInputDatabaseManager {
         // NOTE: The original PreviousTransactionOutputId should not be unmarked because it is possible it is still being spent by another transaction.
         //  While keeping this TransactionOutput marked as spent may lead to an unspent TransactionOutput being marked as spent it is fairly safe
         //  since this method is a performance improvement more so than a true representation of state.
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
 
         _updateUnlockingScript(transactionInputId, unlockingScript);

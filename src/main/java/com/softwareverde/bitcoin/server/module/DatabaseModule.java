@@ -70,7 +70,7 @@ public class DatabaseModule {
             Logger.log("[Database Online]");
         }
 
-        _environment = new Environment(database);
+        _environment = new Environment(database, null);
     }
 
     public void loop() {

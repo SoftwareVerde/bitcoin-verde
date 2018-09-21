@@ -8,16 +8,11 @@ import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -42,6 +37,7 @@ public class BlockValidator {
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
     protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
@@ -77,7 +73,7 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, Long> totalExpenditureTaskHandlerFactory = new TaskHandlerFactory<Transaction, Long>() {
             @Override
             public TaskHandler<Transaction, Long> newInstance() {
-                return new TotalExpenditureTaskHandler(blockChainSegmentId, queuedTransactionOutputs);
+                return new TotalExpenditureTaskHandler(queuedTransactionOutputs);
             }
         };
 
@@ -92,11 +88,11 @@ public class BlockValidator {
         final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
         // TODO: Synchronize the totalExpenditureValidationTaskSpawner before executing unlockedInputsValidationTaskSpawner if threadCount is 1...
 
-        final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory);
+        final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory, _databaseManagerCache);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
-        final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory);
+        final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory, _databaseManagerCache);
         unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
 
         final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
@@ -238,8 +234,9 @@ public class BlockValidator {
         return true;
     }
 
-    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public BlockValidator(final ReadUncommittedDatabaseConnectionFactory threadedConnectionsFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnectionFactory = threadedConnectionsFactory;
+        _databaseManagerCache = databaseManagerCache;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
@@ -259,11 +256,11 @@ public class BlockValidator {
         final BlockId blockId;
         final Long blockHeight;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
             blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
 
-            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _networkTime, _medianBlockTime);
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
             final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(blockChainSegmentId, block, blockHeight);
             if (! headerIsValid) {
                 Logger.log("Invalid block. Header invalid.");

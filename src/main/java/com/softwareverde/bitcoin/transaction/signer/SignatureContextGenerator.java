@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.signer;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -20,9 +21,9 @@ public class SignatureContextGenerator {
     private final TransactionDatabaseManager _transactionDatabaseManager;
     private final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
 
-    public SignatureContextGenerator(final MysqlDatabaseConnection databaseConnection) {
-        _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
-        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+    public SignatureContextGenerator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+        _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
     }
 
     public SignatureContextGenerator(final TransactionDatabaseManager transactionDatabaseManager, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) {

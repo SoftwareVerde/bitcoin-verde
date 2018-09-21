@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -15,15 +16,17 @@ import com.softwareverde.io.Logger;
 
 public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
-    public MemoryPoolEnquirerHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public MemoryPoolEnquirerHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
     public BloomFilter getBloomFilter(final Sha256Hash blockHash) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
 
             final MutableBloomFilter bloomFilter = new MutableBloomFilter(transactionIds.getSize(), 0.01D);
@@ -45,7 +48,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     @Override
     public Integer getMemoryPoolTransactionCount() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             return transactionDatabaseManager.getMemoryPoolTransactionCount();
         }
         catch (final DatabaseException exception) {
@@ -58,7 +61,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     @Override
     public Transaction getTransaction(final Sha256Hash transactionHash) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
             if (transactionId == null) { return null; }
 

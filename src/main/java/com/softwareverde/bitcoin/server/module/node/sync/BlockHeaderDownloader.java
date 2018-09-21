@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -22,6 +23,7 @@ import com.softwareverde.util.Util;
 
 public class BlockHeaderDownloader {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
 
@@ -33,7 +35,7 @@ public class BlockHeaderDownloader {
 
     protected Boolean _hasGenesisBlockHeader() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
             return (lastKnownHash != null);
         }
@@ -51,8 +53,8 @@ public class BlockHeaderDownloader {
             return false;
         }
 
-        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _nodeManager.getNetworkTime(), _medianBlockTime);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _nodeManager.getNetworkTime(), _medianBlockTime);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         synchronized (BlockDatabaseManager.MUTEX) {
             TransactionUtil.startTransaction(databaseConnection);
@@ -82,7 +84,7 @@ public class BlockHeaderDownloader {
         {
             Sha256Hash lastKnownHash = null;
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
             }
             catch (final DatabaseException e) { }
@@ -132,8 +134,9 @@ public class BlockHeaderDownloader {
         _nodeManager.requestBlockHeadersAfter(lastBlockHash.value, downloadBlockHeadersCallback);
     }
 
-    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime) {
+    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
         _nodeManager = nodeManager;
         _medianBlockTime = medianBlockTime;
     }

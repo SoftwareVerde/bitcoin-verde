@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -24,8 +25,8 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
     }
 
     @Override
-    public void init(final MysqlDatabaseConnection databaseConnection) {
-        _transactionValidator = new TransactionValidator(databaseConnection, _networkTime, _medianBlockTime);
+    public void init(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+        _transactionValidator = new TransactionValidator(databaseConnection, databaseManagerCache, _networkTime, _medianBlockTime);
     }
 
     @Override

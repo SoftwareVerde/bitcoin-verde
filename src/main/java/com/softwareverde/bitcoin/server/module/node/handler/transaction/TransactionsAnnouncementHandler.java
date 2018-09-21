@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -29,12 +30,14 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
 
     protected final BitcoinNode _bitcoinNode;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
-    public TransactionsAnnouncementHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionsAnnouncementHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _bitcoinNode = bitcoinNode;
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
@@ -43,7 +46,7 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
     public void onResult(final List<Sha256Hash> transactionHashes) {
         final MutableList<Sha256Hash> unseenTransactionHashes = new MutableList<Sha256Hash>(transactionHashes.getSize());
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             for (final Sha256Hash transactionHash : transactionHashes) {
                 final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
@@ -61,11 +64,11 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
             @Override
             public void onResult(final Transaction transaction) {
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _networkTime, _medianBlockTime);
+                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
 
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection);
-                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection);
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
                     final BlockId blockId = blockDatabaseManager.getHeadBlockId();
                     final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
