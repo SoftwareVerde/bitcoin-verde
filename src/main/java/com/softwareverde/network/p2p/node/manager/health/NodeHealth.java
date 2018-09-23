@@ -3,13 +3,15 @@ package com.softwareverde.network.p2p.node.manager.health;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.RotatingQueue;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 import com.softwareverde.util.type.time.Time;
 
 import java.util.Comparator;
 
 public class NodeHealth {
-    public static final Long FULL_HEALTH = 10000L; // 10L * 60L * 60L * 1000L;
+    public static final Long FULL_HEALTH = 24L * 60L * 60L * 1000L;
+    protected static final Float REGEN_TO_REQUEST_TIME_RATIO = 0.5F;
 
     public static final Comparator<NodeHealth> COMPARATOR = new Comparator<NodeHealth>() {
         @Override
@@ -25,7 +27,7 @@ public class NodeHealth {
         protected static Long nextId = 1L;
 
         public final Long id;
-        protected Long _startTimeInMilliseconds;
+        protected final Long _startTimeInMilliseconds;
         protected Long _endTimeInMilliseconds;
 
         protected Request(final Long startTimeInMilliseconds) {
@@ -55,7 +57,8 @@ public class NodeHealth {
     protected final Object _mutex = new Object();
     protected final Time _systemTime;
     protected final NodeId _nodeId;
-    protected RotatingQueue<Request> _requests = new RotatingQueue<Request>(128);
+    protected RotatingQueue<Request> _requests = new RotatingQueue<Request>(1024);
+    protected Long _pingInMilliseconds = 0L;
 
     protected MutableList<Request> _getRecentRequests() {
         final MutableList<Request> recentRequests = new MutableList<Request>(_requests.size());
@@ -86,7 +89,11 @@ public class NodeHealth {
     public Request onMessageSent() {
         synchronized (_mutex) {
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-            return new Request(now);
+            final Request request = new Request(now);
+
+            _requests.add(request);
+
+            return request;
         }
     }
 
@@ -96,34 +103,47 @@ public class NodeHealth {
         synchronized (_mutex) {
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             request.setEndTimeInMilliseconds(now);
-
-            _requests.add(request);
         }
+    }
+
+    public void updatePingInMilliseconds(final Long ping) {
+        _pingInMilliseconds = ping;
     }
 
     public Long calculateHealth() {
         synchronized (_mutex) {
+            final Long maxHealth = (_maxHealth - _pingInMilliseconds);
+
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             final Long millisecondsRequiredToHealToFullHealth = _maxHealth;
             final Long minimumAge = (now - millisecondsRequiredToHealToFullHealth);
 
-            long health = _maxHealth;
+            long health = maxHealth;
             Long previousRequestEndTime = null;
             for (final Request request : _requests) {
-                if (request.getStartTimeInMilliseconds() < minimumAge) { continue; }
+                if (Util.coalesce(request.getEndTimeInMilliseconds(), Long.MAX_VALUE) < minimumAge) { continue; }
 
                 if (previousRequestEndTime != null) {
-                    health = Math.min(_maxHealth, health + (request.getStartTimeInMilliseconds() - previousRequestEndTime));
+                    health = Math.min(maxHealth, health + (request.getStartTimeInMilliseconds() - previousRequestEndTime));
                 }
 
-                health = Math.max(0, health - request.calculateDurationInMilliseconds());
+                final Long consumedHealth;
+                { // Consume the elapsed duration, or 5% of the max health if it has not been completed...
+                    final Long requestDurationInMilliseconds = request.calculateDurationInMilliseconds();
+                    if (requestDurationInMilliseconds == null) {
+                        consumedHealth = maxHealth / 20L;
+                    }
+                    else {
+                        consumedHealth = (long) (requestDurationInMilliseconds / REGEN_TO_REQUEST_TIME_RATIO);
+                    }
+                }
+
+                health = Math.max(0, health - consumedHealth);
                 previousRequestEndTime = request.getEndTimeInMilliseconds();
             }
-
             if (previousRequestEndTime != null) {
-                health = Math.min(_maxHealth, health + (now - previousRequestEndTime));
+                health = Math.min(maxHealth, health + (now - previousRequestEndTime));
             }
-
             return health;
         }
     }

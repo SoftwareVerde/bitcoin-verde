@@ -246,7 +246,7 @@ public class BitcoinNode extends Node {
                     Logger.log("Received: " + message.getCommand());
                 }
 
-                _lastMessageReceivedTimestamp = System.currentTimeMillis();
+                _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
 
                 switch (message.getCommand()) {
                     case PING: {

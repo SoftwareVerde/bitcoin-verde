@@ -27,9 +27,9 @@ public abstract class Node {
         public final PingCallback pingCallback;
         public final Long timestamp;
 
-        public PingRequest(final PingCallback pingCallback) {
+        public PingRequest(final PingCallback pingCallback, final Long currentTimeInMilliseconds) {
             this.pingCallback = pingCallback;
-            this.timestamp = System.currentTimeMillis();
+            this.timestamp = currentTimeInMilliseconds;
         }
     }
 
@@ -58,9 +58,9 @@ public abstract class Node {
 
     protected final NodeId _id;
     protected final NodeConnection _connection;
-    protected final Long _initializationTime = System.currentTimeMillis();
+    protected final Long _initializationTime;
 
-    protected final SystemTime _systemTime = new SystemTime();
+    protected final SystemTime _systemTime;
 
     protected NodeIpAddress _localNodeIpAddress = null;
     protected Boolean _handshakeHasBeenInvoked = false;
@@ -187,10 +187,11 @@ public abstract class Node {
     protected void _onPongReceived(final PongMessage pongMessage) {
         final Long nonce = pongMessage.getNonce();
         final PingRequest pingRequest = _pingRequests.remove(nonce);
+        if (pingRequest == null) { return; }
 
-        final PingCallback pingCallback = (pingRequest != null ? pingRequest.pingCallback : null);
+        final PingCallback pingCallback = pingRequest.pingCallback;
         if (pingCallback != null) {
-            final Long now = System.currentTimeMillis();
+            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             final Long msElapsed = (now - pingRequest.timestamp);
             pingCallback.onResult(msElapsed);
         }
@@ -265,7 +266,20 @@ public abstract class Node {
             _nextId += 1;
         }
 
+        _systemTime = new SystemTime();
         _connection = new NodeConnection(host, port, binaryPacketFormat);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+    }
+
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime) {
+        synchronized (NODE_ID_MUTEX) {
+            _id = NodeId.wrap(_nextId);
+            _nextId += 1;
+        }
+
+        _systemTime = systemTime;
+        _connection = new NodeConnection(host, port, binaryPacketFormat);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
     }
 
     public Node(final BinarySocket binarySocket) {
@@ -274,7 +288,9 @@ public abstract class Node {
             _nextId += 1;
         }
 
+        _systemTime = new SystemTime();
         _connection = new NodeConnection(binarySocket);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
     }
 
     public NodeId getId() { return _id; }
@@ -349,7 +365,9 @@ public abstract class Node {
 
     public void ping(final PingCallback pingCallback) {
         final PingMessage pingMessage = _createPingMessage();
-        final PingRequest pingRequest = new PingRequest(pingCallback);
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final PingRequest pingRequest = new PingRequest(pingCallback, now);
         _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
     }

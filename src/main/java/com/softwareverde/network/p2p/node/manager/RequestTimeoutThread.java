@@ -4,11 +4,12 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.util.Container;
 
-public class RequestTimeoutThread extends Thread {
+public class RequestTimeoutThread implements Runnable {
     public static final Integer MAX_REPLAY_COUNT = 3;
     public static final Long REQUEST_TIMEOUT_THRESHOLD = 30_000L;
 
     public final Object mutex = new Object();
+    public final Object synchronizer = new Object();
 
     private final Container<Boolean> _didMessageTimeOut;
     private final NodeHealth _nodeHealth;
@@ -21,13 +22,15 @@ public class RequestTimeoutThread extends Thread {
         _requestContainer = requestContainer;
         _replayInvocation = replayInvocation;
 
-        this.setName("Node Manager - Request Timeout Thread - " + this.getId());
+        // this.setName("Node Manager - Request Timeout Thread - " + this.getId());
     }
 
     @Override
     public void run() {
-        try { Thread.sleep(REQUEST_TIMEOUT_THRESHOLD); }
-        catch (final Exception exception) { return; }
+        synchronized (this.synchronizer) {
+            try { this.synchronizer.wait(REQUEST_TIMEOUT_THRESHOLD); }
+            catch (final Exception exception) { return; }
+        }
 
         synchronized (this.mutex) {
             if (_didMessageTimeOut.value != null) { return; }
