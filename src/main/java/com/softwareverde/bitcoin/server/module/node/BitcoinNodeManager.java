@@ -150,6 +150,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
+    /**
+     * Builds and transmits a BlockFinder request (a QueryBlocksMessage ("getblocks") with this node's chain's history (i.e. blockHashes)).
+     *  If a fork is detected by the peer, an unsolicited QueryResponse ("inv") message is received.  The unsolicited QueryResponse message then triggers
+     *  a
+     */
     public void detectFork(final List<Sha256Hash> blockHashes) {
         for (final BitcoinNode bitcoinNode : _nodes.values()) {
             bitcoinNode.detectFork(blockHashes);

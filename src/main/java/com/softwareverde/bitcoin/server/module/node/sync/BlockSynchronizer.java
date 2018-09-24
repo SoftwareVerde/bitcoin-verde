@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -13,7 +11,6 @@ import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatu
 import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -100,19 +97,12 @@ public class BlockSynchronizer {
         _downloadBlockTimer.stop();
 
         final Sha256Hash blockHash = block.getHash();
-        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
 
         Logger.log("DOWNLOADED BLOCK: "+ blockHash + " ("+ _downloadBlockTimer.getMillisecondsElapsed() +"ms)");
 
         final Sha256Hash nextBlockHash;
         final Sha256Hash lastBlockHash;
         synchronized (_mutex) {
-            if (_lastBlockHash != null) {
-                if (! Util.areEqual(_lastBlockHash, previousBlockHash)) {
-                    return; // Ignore blocks sent out of order... NOTE: BlockSynchronizer::_restartBlockDownload depends on this logic.
-                }
-            }
-
             _blockQueue.addBlock(block);
 
             Logger.log("Block Queue Size: " + _blockQueue.getSize() + " / " + _maxQueueSize);
@@ -177,7 +167,6 @@ public class BlockSynchronizer {
     }
 
     protected void _restartBlockDownload() {
-        // NOTE: Any currently-pending requests will be completed but ignored since BlockSynchronizer::_startDownloadingBlocks resets BlockSynchronizer._lastBlockHash...
         _clear();
         _startDownloadingBlocks();
     }
@@ -245,32 +234,15 @@ public class BlockSynchronizer {
 
                 final List<Sha256Hash> blockFinderHashes;
                 {
-                    MutableList<Sha256Hash> blockHashes = null;
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                        final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
-                        final Long maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
-
-                        blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue() + 10));
-                        int blockHeightStep = 1;
-                        for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
-                            final BlockId blockId = blockDatabaseManager.getBlockIdAtHeight(headBlockChainSegmentId, blockHeight);
-                            final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
-
-                            blockHashes.add(blockHash);
-
-                            if (blockHashes.getSize() >= 10) {
-                                blockHeightStep *= 2;
-                            }
-                        }
+                        final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseManagerCache);
+                        blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
                     }
                     catch (final DatabaseException exception) {
                         Logger.log(exception);
                         _onFailure();
                         return;
                     }
-                    blockFinderHashes = blockHashes;
                 }
 
                 _nodeManager.detectFork(blockFinderHashes);
