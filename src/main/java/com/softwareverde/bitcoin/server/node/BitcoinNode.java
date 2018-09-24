@@ -62,7 +62,9 @@ public class BitcoinNode extends Node {
         default void onFailure() { }
     }
     public interface QueryCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
-    public interface DownloadBlockCallback extends Callback<Block>, FailableCallback { }
+    public interface DownloadBlockCallback extends Callback<Block> {
+        default void onFailure(Sha256Hash blockHash) { }
+    }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
     public interface DownloadTransactionCallback extends Callback<Transaction>, FailableCallback { }
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, FailableCallback { }

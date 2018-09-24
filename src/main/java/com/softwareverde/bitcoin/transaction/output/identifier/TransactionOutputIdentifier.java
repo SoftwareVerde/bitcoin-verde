@@ -31,4 +31,9 @@ public class TransactionOutputIdentifier implements Const {
 
         return true;
     }
+
+    @Override
+    public int hashCode() {
+        return (_transactionHash.hashCode() + _outputIndex.hashCode());
+    }
 }

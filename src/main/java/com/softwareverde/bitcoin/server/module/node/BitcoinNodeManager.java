@@ -275,7 +275,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +")");
 
                 if (callback != null) {
-                    callback.onFailure();
+                    callback.onFailure(blockHash);
                 }
             }
         });

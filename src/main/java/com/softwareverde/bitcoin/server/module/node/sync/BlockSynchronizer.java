@@ -217,7 +217,7 @@ public class BlockSynchronizer {
             }
 
             @Override
-            public void onFailure() {
+            public void onFailure(final Sha256Hash blockHash) {
                 _onFailure();
             }
         };
@@ -280,7 +280,7 @@ public class BlockSynchronizer {
                 }
 
                 @Override
-                public void onFailure() {
+                public void onFailure(final Sha256Hash blockHash) {
                     _isRunning = false;
                     _shouldContinue = false;
                 }
