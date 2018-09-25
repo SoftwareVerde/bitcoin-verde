@@ -229,8 +229,23 @@ public class NodeModule {
 
         { // Initialize BlockSynchronizer...
             final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            _blockSynchronizer = new BlockSynchronizer(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, blockProcessor, synchronizationStatusHandler);
-            _blockSynchronizer.setMaxQueueSize(maxQueueSize);
+            _blockSynchronizer = new BlockSynchronizer() {
+                private final JsonRpcSocketServerHandler.StatisticsContainer _statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
+                {
+                    _statisticsContainer.averageBlockHeadersPerSecond = new Container<Float>(0.0F);
+                    _statisticsContainer.averageBlocksPerSecond = new Container<Float>(0.0F);
+                    _statisticsContainer.averageTransactionsPerSecond = new Container<Float>(0.0F);
+                }
+
+                @Override
+                public void start() { }
+
+                @Override
+                public void stop() { }
+
+                @Override
+                public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() { return _statisticsContainer; }
+            };
             blockSynchronizerContainer.value = _blockSynchronizer;
         }
 

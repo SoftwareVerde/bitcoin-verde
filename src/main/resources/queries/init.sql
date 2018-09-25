@@ -1,3 +1,22 @@
+CREATE TABLE pending_blocks (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    hash CHAR(64) NOT NULL,
+    previous_block_hash CHAR(64) NOT NULL,
+    timestamp BIGINT UNSIGNED NOT NULL,
+    download_failure_count INT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_blocks_uq (hash)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE pending_block_data (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    pending_block_id INT UNSIGNED NOT NULL,
+    data BLOB,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_block_data_uq (pending_block_id),
+    FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE addresses (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     address VARCHAR(255) NOT NULL,

@@ -1,7 +1,6 @@
 package com.softwareverde.network.socket;
 
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 
 import java.io.IOException;
 

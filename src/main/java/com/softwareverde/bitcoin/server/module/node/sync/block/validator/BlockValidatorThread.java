@@ -1,8 +1,7 @@
-package com.softwareverde.bitcoin.server.module.node.sync;
+package com.softwareverde.bitcoin.server.module.node.sync.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.timer.Timer;
@@ -10,6 +9,10 @@ import com.softwareverde.util.timer.Timer;
 public class BlockValidatorThread {
     public interface InvalidBlockCallback {
         void onInvalidBlock(Block invalidBlock);
+    }
+
+    public interface BlockQueue {
+        Block getNextBlock();
     }
 
     public static final InvalidBlockCallback IGNORE_INVALID_BLOCKS_CALLBACK = new InvalidBlockCallback() {
