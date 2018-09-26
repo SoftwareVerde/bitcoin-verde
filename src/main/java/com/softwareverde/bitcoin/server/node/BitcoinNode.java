@@ -641,7 +641,7 @@ public class BitcoinNode extends Node {
         _queueMessage(requestTransactionMessage);
     }
 
-    public void detectFork(final List<Sha256Hash> blockHashes) {
+    public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
         final Integer blockHashesCount = blockHashes.getSize();
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         for (int i = 0; i < blockHashesCount; ++i) {

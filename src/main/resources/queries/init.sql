@@ -1,9 +1,10 @@
 CREATE TABLE pending_blocks (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     hash CHAR(64) NOT NULL,
-    previous_block_hash CHAR(64) NOT NULL,
+    previous_block_hash CHAR(64) NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
-    download_failure_count INT UNSIGNED NOT NULL DEFAULT 0,
+    failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
+    priority BIGINT NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY pending_blocks_uq (hash)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
@@ -92,7 +93,7 @@ CREATE TABLE transaction_outputs (
     transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    is_spent tinyint(1) UNSIGNED NOT NULL DEFAULT 0,
+    is_spent TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
     FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
