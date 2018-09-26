@@ -12,18 +12,19 @@ import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.block.BlockAnnouncementHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockChainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockSynchronizer;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -61,8 +62,9 @@ public class NodeModule {
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
     protected final JsonSocketServer _jsonRpcSocketServer;
-    protected final BlockSynchronizer _blockSynchronizer;
     protected final BlockHeaderDownloader _blockHeaderDownloader;
+    protected final BlockDownloader _blockDownloader;
+    protected final BlockChainBuilder _blockChainBuilder;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -179,7 +181,7 @@ public class NodeModule {
 
         _banFilter = new BanFilter(databaseConnectionFactory);
 
-        final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+        // final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final MutableMedianBlockTime medianBlockTime;
         final MutableMedianBlockTime medianBlockHeaderTime;
@@ -188,7 +190,7 @@ public class NodeModule {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 MutableMedianBlockTime newMedianBlockHeaderTime = null;
                 try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
                     newMedianBlockTime = blockDatabaseManager.initializeMedianBlockTime();
                     newMedianBlockHeaderTime = blockDatabaseManager.initializeMedianBlockHeaderTime();
                 }
@@ -201,25 +203,17 @@ public class NodeModule {
             }
         }
 
-        final BlockProcessor blockProcessor;
-        { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _readUncommittedDatabaseConnectionPool);
-            blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
-            blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
-        }
-
-        final Container<BlockSynchronizer> blockSynchronizerContainer = new Container<BlockSynchronizer>();
-
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
+        final InventoryMessageHandler inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+
         { // Initialize NodeInitializer...
-            final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback = new BlockAnnouncementHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, blockSynchronizerContainer);
             final TransactionAnnouncementHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionAnnouncementHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockAnnouncementCallback, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
         }
 
         { // Initialize NodeManager...
@@ -227,26 +221,34 @@ public class NodeModule {
             _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler);
         }
 
+        { // Initialize BlockHeaderDownloader...
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, medianBlockHeaderTime);
+        }
+
+        final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            final Integer maxQueueSize = serverProperties.getMaxBlockQueueSize();
-            _blockSynchronizer = new BlockSynchronizer() {
-                private final JsonRpcSocketServerHandler.StatisticsContainer _statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
-                {
-                    _statisticsContainer.averageBlockHeadersPerSecond = new Container<Float>(0.0F);
-                    _statisticsContainer.averageBlocksPerSecond = new Container<Float>(0.0F);
-                    _statisticsContainer.averageTransactionsPerSecond = new Container<Float>(0.0F);
+            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
+            blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
+        }
+
+        _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
+        _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor);
+
+        { // Set the synchronization elements to cascade to each component...
+            _blockDownloader.setNewBlockAvailableCallback(new Runnable() {
+                @Override
+                public void run() {
+                    _blockChainBuilder.wakeUp();
                 }
+            });
 
+            inventoryMessageHandler.setNewBlockHashesCallback(new Runnable() {
                 @Override
-                public void start() { }
-
-                @Override
-                public void stop() { }
-
-                @Override
-                public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() { return _statisticsContainer; }
-            };
-            blockSynchronizerContainer.value = _blockSynchronizer;
+                public void run() {
+                    _blockDownloader.wakeUp();
+                }
+            });
         }
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
@@ -274,14 +276,17 @@ public class NodeModule {
             }
         });
 
-        _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, medianBlockHeaderTime);
-
-        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = _blockSynchronizer.getStatisticsContainer();
-        statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
-
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
-            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockSynchronizer);
+
+            final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
+            { // Initialize statistics container...
+                statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
+                statisticsContainer.averageBlocksPerSecond = blockProcessor.getAverageBlocksPerSecondContainer();
+                statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
+            }
+
+            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockChainBuilder);
             final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
             final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
@@ -336,10 +341,9 @@ public class NodeModule {
         Logger.log("[Listening For Connections]");
 
         if (! serverProperties.skipNetworking()) {
-            _blockSynchronizer.start();
-            Logger.log("[Started Syncing Blocks]");
-
             _blockHeaderDownloader.start();
+            _blockDownloader.start();
+            _blockChainBuilder.start();
             Logger.log("[Started Syncing Headers]");
         }
 
@@ -348,7 +352,6 @@ public class NodeModule {
         }
 
         _blockHeaderDownloader.stop();
-        _blockSynchronizer.stop();
         _nodeManager.stopNodeMaintenanceThread();
         _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();

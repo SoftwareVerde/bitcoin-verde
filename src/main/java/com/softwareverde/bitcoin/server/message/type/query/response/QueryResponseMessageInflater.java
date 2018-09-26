@@ -14,11 +14,11 @@ public class QueryResponseMessageInflater extends BitcoinProtocolMessageInflater
     public static final Integer HASH_BYTE_COUNT = 32;
 
     @Override
-    public QueryResponseMessage fromBytes(final byte[] bytes) {
-        final QueryResponseMessage queryResponseMessage = new QueryResponseMessage();
+    public InventoryMessage fromBytes(final byte[] bytes) {
+        final InventoryMessage inventoryMessage = new InventoryMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.QUERY_RESPONSE);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.INVENTORY);
         if (protocolMessageHeader == null) { return null; }
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
@@ -28,11 +28,11 @@ public class QueryResponseMessageInflater extends BitcoinProtocolMessageInflater
 
             final InventoryItemType dataType = InventoryItemType.fromValue(inventoryTypeCode);
             final InventoryItem inventoryItem = new InventoryItem(dataType, objectHash);
-            queryResponseMessage.addInventoryItem(inventoryItem);
+            inventoryMessage.addInventoryItem(inventoryItem);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return queryResponseMessage;
+        return inventoryMessage;
     }
 }

@@ -122,13 +122,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+        this.executeRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final BitcoinNode bitcoinNode, final NodeApiRequestCallback nodeApiRequestCallback) {
                 bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
                     @Override
                     public void onResult(final List<BlockHeaderWithTransactionCount> result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
+                        final Boolean requestTimedOut = nodeApiRequestCallback.didTimeout();
                         if (requestTimedOut) { return; }
 
                         if (callback != null) {
@@ -156,45 +156,26 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+    public void requestBlockHashesAfter(final Sha256Hash blockHash) {
+        this.sendMessage(new NodeApiMessage<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                bitcoinNode.requestBlockHashesAfter(blockHash, new BitcoinNode.QueryCallback() {
-                    @Override
-                    public void onResult(final List<Sha256Hash> result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
-
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestBlockHashesAfter("+ blockHash +")");
-
-                if (callback != null) {
-                    callback.onFailure();
-                }
+            public void run(final BitcoinNode bitcoinNode) {
+                bitcoinNode.requestBlockHashesAfter(blockHash);
             }
         });
     }
 
     public void requestBlock(final Sha256Hash blockHash, final BitcoinNode.DownloadBlockCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+        this.executeRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final BitcoinNode bitcoinNode, final NodeApiRequestCallback nodeApiRequestCallback) {
                 final Runnable downloadTraditionalBlock = new Runnable() {
                     @Override
                     public void run() {
                         bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                             @Override
                             public void onResult(final Block block) {
-                                final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
+                                final Boolean requestTimedOut = nodeApiRequestCallback.didTimeout();
                                 if (requestTimedOut) { return; }
 
                                 if (callback != null) {
@@ -283,13 +264,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public void requestTransactions(final List<Sha256Hash> transactionHashes, final BitcoinNode.DownloadTransactionCallback callback) {
         if (transactionHashes.isEmpty()) { return; }
 
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+        this.executeRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final BitcoinNode bitcoinNode, final NodeApiRequestCallback nodeApiRequestCallback) {
                 bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
                     @Override
                     public void onResult(final Transaction result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
+                        final Boolean requestTimedOut = nodeApiRequestCallback.didTimeout();
                         if (requestTimedOut) { return; }
 
                         if (callback != null) {

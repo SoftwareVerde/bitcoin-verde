@@ -11,9 +11,9 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.NodeInitializer;
+import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.block.BlockAnnouncementHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
@@ -119,10 +119,10 @@ public class RepairModule {
             final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
             final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
             final BitcoinNode.RequestDataCallback requestDataHandler = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
-            final BitcoinNode.BlockAnnouncementCallback blockAnnouncementCallback = BlockAnnouncementHandler.IGNORE_NEW_BLOCKS_HANDLER;
             final TransactionAnnouncementHandlerFactory transactionAnnouncementHandlerFactory = TransactionAnnouncementHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
+            final BitcoinNode.InventoryMessageCallback inventoryMessageHandler = InventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockAnnouncementCallback, transactionAnnouncementHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionAnnouncementHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
         }
     }
 

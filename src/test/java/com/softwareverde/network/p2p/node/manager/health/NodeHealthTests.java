@@ -31,9 +31,9 @@ public class NodeHealthTests {
         final Long expectedHealth = (NodeHealth.FULL_HEALTH - damage + restTime);
 
         // Action
-        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        final NodeHealth.Request request = nodeHealth.onRequestSent();
         fakeTime.advanceTimeInMilliseconds(execTime);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
         fakeTime.advanceTimeInMilliseconds(restTime);
 
         final Long nodeHealthValue = nodeHealth.calculateHealth();
@@ -53,9 +53,9 @@ public class NodeHealthTests {
         final Long expectedHealth = NodeHealth.FULL_HEALTH;
 
         // Action
-        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        final NodeHealth.Request request = nodeHealth.onRequestSent();
         fakeTime.advanceTimeInMilliseconds(execTime);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
         fakeTime.advanceTimeInMilliseconds(restTime);
 
         final Long nodeHealthValue = nodeHealth.calculateHealth();
@@ -76,9 +76,9 @@ public class NodeHealthTests {
         final Long expectedHealth = (NodeHealth.FULL_HEALTH - damage + restTime);
 
         // Action
-        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        final NodeHealth.Request request = nodeHealth.onRequestSent();
         fakeTime.advanceTimeInMilliseconds(execTime);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
         fakeTime.advanceTimeInMilliseconds(restTime);
 
         final Long nodeHealthValue = nodeHealth.calculateHealth();
@@ -102,14 +102,14 @@ public class NodeHealthTests {
         NodeHealth.Request request;
 
         // Action
-        request = nodeHealth.onMessageSent(); // execCount = 1
+        request = nodeHealth.onRequestSent(); // execCount = 1
         fakeTime.advanceTimeInMilliseconds(execTime);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
         fakeTime.advanceTimeInMilliseconds(restTime);
 
-        request = nodeHealth.onMessageSent(); // execCount = 2
+        request = nodeHealth.onRequestSent(); // execCount = 2
         fakeTime.advanceTimeInMilliseconds(execTime);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
 
         final Long nodeHealthValue = nodeHealth.calculateHealth();
 
@@ -124,9 +124,9 @@ public class NodeHealthTests {
         final NodeHealth nodeHealth = new NodeHealth(NodeId.wrap(1L), fakeTime);
 
         // Action
-        final NodeHealth.Request request = nodeHealth.onMessageSent();
+        final NodeHealth.Request request = nodeHealth.onRequestSent();
         fakeTime.advanceTimeInMilliseconds(200L);
-        nodeHealth.onMessageReceived(request);
+        nodeHealth.onResponseReceived(request);
         fakeTime.advanceTimeInMilliseconds(9999L);
 
         final Long nodeHealthValue = nodeHealth.calculateHealth();
@@ -148,9 +148,9 @@ public class NodeHealthTests {
         // Action
         { // Drop the nodeHealth to zero...
             for (int i = 0; i < 2028; ++i) { // Only half of these are retained...
-                final NodeHealth.Request request = nodeHealth.onMessageSent();
+                final NodeHealth.Request request = nodeHealth.onRequestSent();
                 fakeTime.advanceTimeInMilliseconds(requestTime);
-                nodeHealth.onMessageReceived(request);
+                nodeHealth.onResponseReceived(request);
             }
         }
         Assert.assertEquals(0L, nodeHealth.calculateHealth().longValue());

@@ -86,7 +86,7 @@ public class NodeHealth {
         _nodeId = nodeId;
     }
 
-    public Request onMessageSent() {
+    public Request onRequestSent() {
         synchronized (_mutex) {
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             final Request request = new Request(now);
@@ -97,7 +97,32 @@ public class NodeHealth {
         }
     }
 
-    public void onMessageReceived(final Request request) {
+    public void onMessageSent() {
+        synchronized (_mutex) {
+            final Long averageMessageDuration;
+            {
+                long totalDuration = 0L;
+                int requestCount = 0;
+                for (final Request request : _requests) {
+                    final Long duration = request.calculateDurationInMilliseconds();
+                    if (duration != null) {
+                        totalDuration += duration;
+                        requestCount += 1;
+                    }
+                }
+
+                averageMessageDuration = (totalDuration / requestCount);
+            }
+
+            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+            final Request request = new Request(now);
+            request.setEndTimeInMilliseconds(now + averageMessageDuration);
+
+            _requests.add(request);
+        }
+    }
+
+    public void onResponseReceived(final Request request) {
         if (request == null) { return; }
 
         synchronized (_mutex) {

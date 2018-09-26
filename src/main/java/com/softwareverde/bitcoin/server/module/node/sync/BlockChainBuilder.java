@@ -83,7 +83,7 @@ public class BlockChainBuilder {
 
                             final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
                             if (pendingBlockIds.isEmpty()) {
-                                _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash, null);
+                                _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash);
                                 break;
                             }
 

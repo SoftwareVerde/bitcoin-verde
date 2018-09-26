@@ -182,13 +182,13 @@ public class NodeManagerTests {
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
-        final Set<NodeManager.NodeApiInvocationCallback> invocationCallbacks = new HashSet<NodeManager.NodeApiInvocationCallback>(nodeCount);
+        final Set<NodeManager.NodeApiRequestCallback> invocationCallbacks = new HashSet<NodeManager.NodeApiRequestCallback>(nodeCount);
 
         _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
 
-        final NodeManager.NodeApiInvocation<FakeNode> nodeApiInvocation = new NodeManager.NodeApiInvocation<FakeNode>() {
+        final NodeManager.NodeApiRequest<FakeNode> nodeApiInvocation = new NodeManager.NodeApiRequest<FakeNode>() {
             @Override
-            public void run(final FakeNode selectedNode, final NodeManager.NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final FakeNode selectedNode, final NodeManager.NodeApiRequestCallback nodeApiInvocationCallback) {
                 // NOTE: NodeApiInvocationCallback.didTimeout registers the response was received. It is intentionally not called until after all the requests have been issued.
                 invocationCallbacks.add(nodeApiInvocationCallback);
 
@@ -203,7 +203,7 @@ public class NodeManagerTests {
         }
 
         // Cleanup
-        for (final NodeManager.NodeApiInvocationCallback apiInvocationCallback : invocationCallbacks) {
+        for (final NodeManager.NodeApiRequestCallback apiInvocationCallback : invocationCallbacks) {
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
 
@@ -223,13 +223,13 @@ public class NodeManagerTests {
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
-        final HashMap<NodeId, NodeManager.NodeApiInvocationCallback> invocationCallbacks = new HashMap<NodeId, NodeManager.NodeApiInvocationCallback>(nodeCount);
+        final HashMap<NodeId, NodeManager.NodeApiRequestCallback> invocationCallbacks = new HashMap<NodeId, NodeManager.NodeApiRequestCallback>(nodeCount);
 
         final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
 
-        final NodeManager.NodeApiInvocation<FakeNode> nodeApiInvocation = new NodeManager.NodeApiInvocation<FakeNode>() {
+        final NodeManager.NodeApiRequest<FakeNode> nodeApiInvocation = new NodeManager.NodeApiRequest<FakeNode>() {
             @Override
-            public void run(final FakeNode selectedNode, final NodeManager.NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final FakeNode selectedNode, final NodeManager.NodeApiRequestCallback nodeApiInvocationCallback) {
                 // NOTE: NodeApiInvocationCallback.didTimeout registers the response was received. It is intentionally not called until after all the requests have been issued.
                 invocationCallbacks.put(selectedNode.getId(), nodeApiInvocationCallback);
 
@@ -250,12 +250,12 @@ public class NodeManagerTests {
             if (Util.areEqual(designatedSlowNodeId, nodeId)) { continue; }
 
             fakeSystemTime.advanceTimeInMilliseconds(100L);
-            final NodeManager.NodeApiInvocationCallback apiInvocationCallback = invocationCallbacks.get(nodeId);
+            final NodeManager.NodeApiRequestCallback apiInvocationCallback = invocationCallbacks.get(nodeId);
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
         { // Emulate a very slow response for the designated request...
             fakeSystemTime.advanceTimeInMilliseconds(20000L);
-            final NodeManager.NodeApiInvocationCallback apiInvocationCallback = invocationCallbacks.get(designatedSlowNodeId);
+            final NodeManager.NodeApiRequestCallback apiInvocationCallback = invocationCallbacks.get(designatedSlowNodeId);
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
         invocationCallbacks.clear();
@@ -265,7 +265,7 @@ public class NodeManagerTests {
         }
 
         // Cleanup
-        for (final NodeManager.NodeApiInvocationCallback apiInvocationCallback : invocationCallbacks.values()) {
+        for (final NodeManager.NodeApiRequestCallback apiInvocationCallback : invocationCallbacks.values()) {
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
 
@@ -290,13 +290,13 @@ public class NodeManagerTests {
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
-        final ArrayList<NodeManager.NodeApiInvocationCallback> invocationCallbacks = new ArrayList<NodeManager.NodeApiInvocationCallback>(nodeCount);
+        final ArrayList<NodeManager.NodeApiRequestCallback> invocationCallbacks = new ArrayList<NodeManager.NodeApiRequestCallback>(nodeCount);
 
         _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
 
-        final NodeManager.NodeApiInvocation<FakeNode> nodeApiInvocation = new NodeManager.NodeApiInvocation<FakeNode>() {
+        final NodeManager.NodeApiRequest<FakeNode> nodeApiInvocation = new NodeManager.NodeApiRequest<FakeNode>() {
             @Override
-            public void run(final FakeNode selectedNode, final NodeManager.NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final FakeNode selectedNode, final NodeManager.NodeApiRequestCallback nodeApiInvocationCallback) {
                 // NOTE: NodeApiInvocationCallback.didTimeout registers the response was received. It is intentionally not called until after all the requests have been issued.
                 invocationCallbacks.add(nodeApiInvocationCallback);
 
@@ -316,12 +316,12 @@ public class NodeManagerTests {
             if (Util.areEqual(designatedSlowNodeId, i)) { continue; }
 
             fakeSystemTime.advanceTimeInMilliseconds(100L);
-            final NodeManager.NodeApiInvocationCallback apiInvocationCallback = invocationCallbacks.get(i);
+            final NodeManager.NodeApiRequestCallback apiInvocationCallback = invocationCallbacks.get(i);
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
         { // Emulate a very slow response for the designated request...
             fakeSystemTime.advanceTimeInMilliseconds(20000L);
-            final NodeManager.NodeApiInvocationCallback apiInvocationCallback = invocationCallbacks.get(designatedSlowNodeId.intValue());
+            final NodeManager.NodeApiRequestCallback apiInvocationCallback = invocationCallbacks.get(designatedSlowNodeId.intValue());
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
         invocationCallbacks.clear();
@@ -333,7 +333,7 @@ public class NodeManagerTests {
         }
 
         // Cleanup
-        for (final NodeManager.NodeApiInvocationCallback apiInvocationCallback : invocationCallbacks) {
+        for (final NodeManager.NodeApiRequestCallback apiInvocationCallback : invocationCallbacks) {
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
 
@@ -359,7 +359,7 @@ public class NodeManagerTests {
         final MutableNetworkTime networkTime = new MutableNetworkTime();
         final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
-        final Set<NodeManager.NodeApiInvocationCallback> invocationCallbacks = new HashSet<NodeManager.NodeApiInvocationCallback>(nodeCount);
+        final Set<NodeManager.NodeApiRequestCallback> invocationCallbacks = new HashSet<NodeManager.NodeApiRequestCallback>(nodeCount);
 
         final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, fakeSystemTime);
 
@@ -388,9 +388,9 @@ public class NodeManagerTests {
 
         final NodeId[] selectedNodesOrder = new NodeId[5];
         final Container<Integer> selectedNodeOrderIndex = new Container<Integer>(0);
-        final NodeManager.NodeApiInvocation<FakeNode> nodeApiInvocation = new NodeManager.NodeApiInvocation<FakeNode>() {
+        final NodeManager.NodeApiRequest<FakeNode> nodeApiInvocation = new NodeManager.NodeApiRequest<FakeNode>() {
             @Override
-            public void run(final FakeNode selectedNode, final NodeManager.NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final FakeNode selectedNode, final NodeManager.NodeApiRequestCallback nodeApiInvocationCallback) {
                 // NOTE: NodeApiInvocationCallback.didTimeout registers the response was received. It is intentionally not called until after all the requests have been issued.
                 invocationCallbacks.add(nodeApiInvocationCallback);
 
@@ -406,7 +406,7 @@ public class NodeManagerTests {
         }
 
         // Cleanup
-        for (final NodeManager.NodeApiInvocationCallback apiInvocationCallback : invocationCallbacks) {
+        for (final NodeManager.NodeApiRequestCallback apiInvocationCallback : invocationCallbacks) {
             apiInvocationCallback.didTimeout(); // Mark the requests as received...
         }
 

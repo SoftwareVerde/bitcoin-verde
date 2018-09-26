@@ -13,7 +13,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
@@ -28,6 +28,7 @@ import com.softwareverde.bitcoin.server.message.type.thin.request.transaction.Re
 import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
+import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -49,7 +50,6 @@ import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -61,7 +61,7 @@ public class BitcoinNode extends Node {
     public interface FailableCallback {
         default void onFailure() { }
     }
-    public interface QueryCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
+    public interface InventoryMessageCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
     public interface DownloadBlockCallback extends Callback<Block> {
         default void onFailure(Sha256Hash blockHash) { }
     }
@@ -70,8 +70,6 @@ public class BitcoinNode extends Node {
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, FailableCallback { }
     public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters>, FailableCallback { }
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>>, FailableCallback { }
-
-    public interface BlockAnnouncementCallback extends Callback<Block> { }
     public interface TransactionsAnnouncementCallback extends Callback<List<Sha256Hash>> { }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
@@ -106,21 +104,6 @@ public class BitcoinNode extends Node {
 
     public interface RequestExtraThinTransactionCallback {
         void run(Sha256Hash blockHash, List<ByteArray> transactionShortHashes, NodeConnection nodeConnection);
-    }
-
-    protected static class BlockHashQueryCallback implements Callback<List<Sha256Hash>> {
-        public Sha256Hash afterBlockHash;
-        public QueryCallback callback;
-
-        public BlockHashQueryCallback(final Sha256Hash afterBlockHash, final QueryCallback callback) {
-            this.afterBlockHash = afterBlockHash;
-            this.callback = callback;
-        }
-
-        @Override
-        public void onResult(final List<Sha256Hash> result) {
-            this.callback.onResult(result);
-        }
     }
 
     public static class ThinBlockParameters {
@@ -161,16 +144,15 @@ public class BitcoinNode extends Node {
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
+    protected InventoryMessageCallback _inventoryMessageHandler = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
 
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
-    protected BlockAnnouncementCallback _blockAnnouncementCallback;
     protected TransactionsAnnouncementCallback _transactionsAnnouncementCallback;
 
-    protected final Map<InventoryItemType, Set<BlockHashQueryCallback>> _queryRequests = new HashMap<InventoryItemType, Set<BlockHashQueryCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
     protected final Map<InventoryItemType, Set<InventoryItem>> _availableDataHashes = new HashMap<InventoryItemType, Set<InventoryItem>>();
@@ -275,8 +257,8 @@ public class BitcoinNode extends Node {
                         _onErrorMessageReceived((ErrorMessage) message);
                     } break;
 
-                    case QUERY_RESPONSE: {
-                        _onQueryResponseMessageReceived((QueryResponseMessage) message);
+                    case INVENTORY: {
+                        _onQueryResponseMessageReceived((InventoryMessage) message);
                     } break;
 
                     case REQUEST_DATA: {
@@ -393,10 +375,10 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected void _onQueryResponseMessageReceived(final QueryResponseMessage queryResponseMessage) {
+    protected void _onQueryResponseMessageReceived(final InventoryMessage inventoryMessage) {
         final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<InventoryItemType, MutableList<Sha256Hash>>();
 
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
             final InventoryItemType inventoryItemType = inventoryItem.getItemType();
             _storeInMapSet(_availableDataHashes, inventoryItemType, inventoryItem);
@@ -408,45 +390,13 @@ public class BitcoinNode extends Node {
             if (objectHashes.isEmpty()) { continue; }
 
             if (inventoryItemType == InventoryItemType.BLOCK) {
-                // NOTE: Since the QueryResponseMessage is not tied to the QueryRequest for Blocks,
-                //  in order to tie the callback to the response, the first block within the response is requested.
-                //  If the downloaded Block's previousBlockHash matchesByte the requestAfter BlockHash, then the response is
-                //  assumed to be for that callback's request.
-
-                final Sha256Hash blockHash = objectHashes.get(0);
-
-                _storeInMapSet(_downloadBlockRequests, blockHash, new DownloadBlockCallback() {
-                    @Override
-                    public void onResult(final Block block) {
-                        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
-
-                        final Set<BlockHashQueryCallback> blockHashQueryCallbackSet = _queryRequests.get(inventoryItemType);
-
-                        Boolean queryResponseWasRequested = false;
-                        if (blockHashQueryCallbackSet != null) {
-                            for (final BlockHashQueryCallback blockHashQueryCallback : Util.copySet(blockHashQueryCallbackSet)) {
-                                if (Util.areEqual(previousBlockHash, blockHashQueryCallback.afterBlockHash)) {
-                                    blockHashQueryCallbackSet.remove(blockHashQueryCallback);
-                                    blockHashQueryCallback.onResult(objectHashes);
-                                    queryResponseWasRequested = true;
-                                }
-                            }
-                        }
-
-                        if (! queryResponseWasRequested) {
-                            final BlockAnnouncementCallback blockAnnouncementCallback = _blockAnnouncementCallback;
-                            if (blockAnnouncementCallback != null) {
-                                blockAnnouncementCallback.onResult(block);
-                            }
-                            else {
-                                Logger.log("NOTICE: No handler set for NewBlockAnnouncement.");
-                            }
-                        }
-                    }
-                });
-                _requestBlock(blockHash); // TODO: Convert to _requestBlockHeader(blockHash);
-
-                continue;
+                final InventoryMessageCallback inventoryMessageHandler = _inventoryMessageHandler;
+                if (inventoryMessageHandler != null) {
+                    inventoryMessageHandler.onResult(objectHashes);
+                }
+                else {
+                    Logger.log("NOTICE: No handler set for InventoryMessageHandler.");
+                }
             }
             else if (inventoryItemType == InventoryItemType.TRANSACTION) {
                 final TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
@@ -457,8 +407,6 @@ public class BitcoinNode extends Node {
                     Logger.log("NOTICE: No handler set for TransactionsAnnouncementCallback.");
                 }
             }
-
-            _executeAndClearCallbacks(_queryRequests, inventoryItemType, objectHashes);
         }
     }
 
@@ -652,8 +600,7 @@ public class BitcoinNode extends Node {
         _queueMessage(queryBlocksMessage);
     }
 
-    public void requestBlockHashesAfter(final Sha256Hash blockHash, final QueryCallback queryCallback) {
-        _storeInMapSet(_queryRequests, InventoryItemType.BLOCK, new BlockHashQueryCallback(blockHash, queryCallback));
+    public void requestBlockHashesAfter(final Sha256Hash blockHash) {
         _queryForBlockHashesAfter(blockHash);
     }
 
@@ -717,12 +664,12 @@ public class BitcoinNode extends Node {
         _requestDataMessageCallback = requestDataCallback;
     }
 
-    public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
-        _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
+    public void setInventoryMessageHandler(final InventoryMessageCallback inventoryMessageHandler) {
+        _inventoryMessageHandler = inventoryMessageHandler;
     }
 
-    public void setBlockAnnouncementCallback(final BlockAnnouncementCallback blockAnnouncementCallback) {
-        _blockAnnouncementCallback = blockAnnouncementCallback;
+    public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
+        _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
     }
 
     public void setTransactionsAnnouncementCallback(final TransactionsAnnouncementCallback transactionsAnnouncementCallback) {
@@ -765,7 +712,6 @@ public class BitcoinNode extends Node {
         super.disconnect();
 
         _availableDataHashes.clear();
-        _queryRequests.clear();
         _downloadBlockRequests.clear();
         _downloadBlockHeadersRequests.clear();
     }

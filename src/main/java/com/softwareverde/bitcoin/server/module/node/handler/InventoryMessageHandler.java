@@ -13,7 +13,12 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
-public class InventoryMessageHandler implements BitcoinNode.QueryCallback {
+public class InventoryMessageHandler implements BitcoinNode.InventoryMessageCallback {
+    public static final BitcoinNode.InventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.InventoryMessageCallback() {
+        @Override
+        public void onResult(final List<Sha256Hash> result) { }
+    };
+
     public static final Object MUTEX = new Object();
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;

@@ -37,7 +37,7 @@ public class RequestTimeoutThread implements Runnable {
             _didMessageTimeOut.value = true;
         }
 
-        _nodeHealth.onMessageReceived(_requestContainer.value);
+        _nodeHealth.onResponseReceived(_requestContainer.value);
         if (NodeManager.LOGGING_ENABLED) {
             Logger.log("P2P: NOTICE: Node " + _nodeHealth.getNodeId() + ": Request timed out.");
         }

@@ -20,19 +20,28 @@ public class NodeManager<NODE extends Node> {
 
     protected static ThreadPool _threadExecutor = new ThreadPool(4, 16, 8000L);
 
+    public interface NodeApiTransmission<NODE> { }
+
     /**
-     * NodeApiInvocation.run() should invoke an Api Call on the provided Node.
-     *  It is required that within the callback of the Node Api Call, nodeApiInvocationCallback.didTimeout() is invoked immediately.
-     *  nodeApiInvocationCallback.didTimeout() cancels the retry-thread timeout and returns true if the request has already timed out.
-     *  If nodeApiInvocationCallback.didTimeout() returns true, then the the Node Api Callback should abort.
+     * NodeApiRequest.run() should invoke an Api Call on the provided Node.
+     *  It is required that within the NodeApiRequestCallback, NodeApiRequestCallback::didTimeout is invoked immediately.
+     *  NodeApiRequestCallback::didTimeout cancels the retry-thread timeout and returns true if the request has already timed out.
+     *  If nodeApiInvocationCallback.didTimeout() returns true, then the the NodeApiRequestCallback should abort.
      */
-    public interface NodeApiInvocation<NODE> {
-        void run(NODE node, NodeApiInvocationCallback nodeApiInvocationCallback);
+    public interface NodeApiRequest<NODE> extends NodeApiTransmission<NODE> {
+        void run(NODE node, NodeApiRequestCallback nodeApiRequestCallback);
         default void onFailure() { }
     }
 
-    public static abstract class NodeApiInvocationCallback {
-        protected NodeApiInvocationCallback() { }
+    /**
+     * A NodeApi invocation that does not invoke a response.
+     */
+    public interface NodeApiMessage<NODE> extends NodeApiTransmission<NODE> {
+        void run(NODE node);
+    }
+
+    public static abstract class NodeApiRequestCallback {
+        protected NodeApiRequestCallback() { }
         public abstract Boolean didTimeout();
     }
 
@@ -258,7 +267,6 @@ public class NodeManager<NODE extends Node> {
 
                 synchronized (_mutex) {
                     for (final Runnable runnable : _queuedNodeRequests) {
-                        // new Thread(runnable).start();
                         _threadExecutor.execute(runnable);
                     }
                     _queuedNodeRequests.clear();
@@ -276,7 +284,6 @@ public class NodeManager<NODE extends Node> {
 
                 synchronized (_mutex) {
                     for (final Runnable runnable : _queuedNodeRequests) {
-                        // new Thread(runnable).start();
                         _threadExecutor.execute(runnable);
                     }
                     _queuedNodeRequests.clear();
@@ -425,7 +432,7 @@ public class NodeManager<NODE extends Node> {
 
         for (final NODE idleNode : idleNodes) {
             // final NodeId nodeId = idleNode.getId();
-            // _nodeHealthMap.get(nodeId).onMessageSent();
+            // _nodeHealthMap.get(nodeId).onRequestSent();
 
             if (! idleNode.handshakeIsComplete()) { return; }
 
@@ -508,7 +515,7 @@ public class NodeManager<NODE extends Node> {
         try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
     }
 
-    protected void _executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation, final ReplayInvocation replayInvocation) {
+    protected void _executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest, final ReplayInvocation replayInvocation) {
         final NODE selectedNode;
         final NodeHealth nodeHealth;
         {
@@ -528,12 +535,12 @@ public class NodeManager<NODE extends Node> {
         final Container<NodeHealth.Request> requestContainer = new Container<NodeHealth.Request>();
 
         final RequestTimeoutThread timeoutThread;
-        final NodeApiInvocationCallback cancelRequestTimeout;
+        final NodeApiRequestCallback cancelRequestTimeout;
         {
             final Container<Boolean> didMessageTimeOut = new Container<Boolean>(null);
             timeoutThread = new RequestTimeoutThread(didMessageTimeOut, nodeHealth, requestContainer, replayInvocation);
 
-            cancelRequestTimeout = new NodeApiInvocationCallback() {
+            cancelRequestTimeout = new NodeApiRequestCallback() {
                 @Override
                 public Boolean didTimeout() {
                     synchronized (timeoutThread.mutex) {
@@ -545,37 +552,65 @@ public class NodeManager<NODE extends Node> {
                         timeoutThread.synchronizer.notifyAll();
                     }
 
-                    nodeHealth.onMessageReceived(requestContainer.value);
+                    nodeHealth.onResponseReceived(requestContainer.value);
 
                     return false;
                 }
             };
         }
 
-        requestContainer.value = nodeHealth.onMessageSent();
+        requestContainer.value = nodeHealth.onRequestSent();
         _threadExecutor.execute(timeoutThread);
-        nodeApiInvocation.run(selectedNode, cancelRequestTimeout);
+        nodeNodeApiRequest.run(selectedNode, cancelRequestTimeout);
     }
 
-    public void executeRequest(final NodeApiInvocation<NODE> nodeApiInvocation) {
+    protected void _sendMessage(final NodeApiMessage<NODE> nodeNodeApiMessage) {
+        final NODE selectedNode;
+        final NodeHealth nodeHealth;
+        synchronized (_mutex) {
+            selectedNode = _selectBestNode();
+
+            if (selectedNode == null) {
+                _queuedNodeRequests.add(new Runnable() {
+                    @Override
+                    public void run() {
+                        _sendMessage(nodeNodeApiMessage);
+                    }
+                });
+                return;
+            }
+
+            final NodeId nodeId = selectedNode.getId();
+            nodeHealth = _nodeHealthMap.get(nodeId);
+        }
+
+        nodeHealth.onMessageSent();
+        nodeNodeApiMessage.run(selectedNode);
+    }
+
+    public void executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest) {
         final Container<ReplayInvocation> replayInvocation = new Container<ReplayInvocation>();
 
         replayInvocation.value = new ReplayInvocation(
             new Runnable() {
                 @Override
                 public void run() {
-                    _executeRequest(nodeApiInvocation, replayInvocation.value);
+                    _executeRequest(nodeNodeApiRequest, replayInvocation.value);
                 }
             },
             new Runnable() {
                 @Override
                 public void run() {
-                    nodeApiInvocation.onFailure();
+                    nodeNodeApiRequest.onFailure();
                 }
             }
         );
 
-        _executeRequest(nodeApiInvocation, replayInvocation.value);
+        _executeRequest(nodeNodeApiRequest, replayInvocation.value);
+    }
+
+    public void sendMessage(final NodeApiMessage<NODE> nodeNodeApiMessage) {
+        _sendMessage(nodeNodeApiMessage);
     }
 
     public List<NODE> getNodes() {

@@ -228,10 +228,11 @@ public class BlockProcessor {
         return false;
     }
 
-    public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() {
-        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
-        statisticsContainer.averageBlocksPerSecond = _averageBlocksPerSecond;
-        statisticsContainer.averageTransactionsPerSecond = _averageTransactionsPerSecond;
-        return statisticsContainer;
+    public Container<Float> getAverageBlocksPerSecondContainer() {
+        return _averageBlocksPerSecond;
+    }
+
+    public Container<Float> getAverageTransactionsPerSecondContainer() {
+        return _averageTransactionsPerSecond;
     }
 }

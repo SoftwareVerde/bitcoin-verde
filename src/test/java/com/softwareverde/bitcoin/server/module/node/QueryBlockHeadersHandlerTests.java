@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
@@ -221,8 +221,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
-        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
@@ -261,8 +261,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
-        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
@@ -301,8 +301,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
-        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
@@ -341,8 +341,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
-        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset + 1;
@@ -391,8 +391,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
-        final QueryResponseMessage queryResponseMessage = (QueryResponseMessage) (sentMessages.get(0));
-        final List<InventoryItem> dataHashes = queryResponseMessage.getInventoryItems();
+        final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
+        final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         Assert.assertEquals(1, dataHashes.getSize());
 
         Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(0).getItemHash());

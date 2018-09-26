@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.module.node.handler.AbstractQueryBlocksHandler;
@@ -39,7 +39,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
                 return;
             }
 
-            final QueryResponseMessage responseMessage = new QueryResponseMessage();
+            final InventoryMessage responseMessage = new InventoryMessage();
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
