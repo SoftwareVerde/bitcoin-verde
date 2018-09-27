@@ -20,10 +20,10 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
-public class TransactionsAnnouncementHandler implements BitcoinNode.TransactionsAnnouncementCallback {
+public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
     public static final Object MUTEX = new Object();
 
-    public static final BitcoinNode.TransactionsAnnouncementCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionsAnnouncementCallback() {
+    public static final BitcoinNode.TransactionInventoryMessageCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionInventoryMessageCallback() {
         @Override
         public void onResult(final List<Sha256Hash> result) { }
     };
@@ -34,7 +34,7 @@ public class TransactionsAnnouncementHandler implements BitcoinNode.Transactions
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
 
-    public TransactionsAnnouncementHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _bitcoinNode = bitcoinNode;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;

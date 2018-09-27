@@ -12,7 +12,7 @@ CREATE TABLE pending_blocks (
 CREATE TABLE pending_block_data (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     pending_block_id INT UNSIGNED NOT NULL,
-    data BLOB,
+    data BLOB NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY pending_block_data_uq (pending_block_id),
     FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id)

@@ -83,6 +83,7 @@ public class NodeManager<NODE extends Node> {
 
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
+    protected void _onNodeConnected(final NODE node) { }
 
     protected void _addNode(final NODE node) {
         final NodeId newNodeId = node.getId();
@@ -262,6 +263,8 @@ public class NodeManager<NODE extends Node> {
                         }
                     }
                 }
+
+                _onNodeConnected(node);
 
                 if (! node.hasActiveConnection()) { return; }
 

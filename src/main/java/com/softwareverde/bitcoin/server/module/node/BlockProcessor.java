@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -21,6 +22,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
@@ -39,16 +41,14 @@ public class BlockProcessor {
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
-    protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
 
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
-    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
+    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
-        _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;
@@ -94,18 +94,24 @@ public class BlockProcessor {
             // Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
         }
 
-        final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-        blockValidator.setMaxThreadCount(_maxThreadCount);
-        blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-
         final Timer blockValidationTimer = new Timer();
-        blockValidationTimer.start();
-        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-        blockValidationTimer.stop();
+        final Boolean blockIsValid;
 
-        localDatabaseManagerCache.log();
-        localDatabaseManagerCache.resetLog();
+        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
+        try (final MysqlDatabaseConnectionPool readUncommittedDatabaseConnectionPool = new MysqlDatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
+            final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+            blockValidator.setMaxThreadCount(_maxThreadCount);
+            blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+
+            blockValidationTimer.start();
+            blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+            blockValidationTimer.stop();
+
+            localDatabaseManagerCache.log();
+            localDatabaseManagerCache.resetLog();
+
+        }
 
         if (! blockIsValid) {
             TransactionUtil.rollbackTransaction(databaseConnection);

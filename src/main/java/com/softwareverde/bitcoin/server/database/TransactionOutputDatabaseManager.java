@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -96,11 +97,12 @@ public class TransactionOutputDatabaseManager {
             addressId = null;
         }
 
+        final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         _databaseConnection.executeSql(
             new Query("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
                 .setParameter(scriptType)
                 .setParameter(transactionOutputId)
-                .setParameter(lockingScript.getBytes().getBytes())
+                .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(addressId)
         );
     }
@@ -118,10 +120,11 @@ public class TransactionOutputDatabaseManager {
             addressId = null;
         }
 
+        final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         _databaseConnection.executeSql(
             new Query("UPDATE locking_scripts SET type = ?, script = ?, address_id = ? WHERE transaction_output_id = ?")
                 .setParameter(scriptType)
-                .setParameter(lockingScript.getBytes().getBytes())
+                .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(addressId)
                 .setParameter(transactionOutputId)
         );
@@ -154,10 +157,11 @@ public class TransactionOutputDatabaseManager {
             final LockingScript lockingScript = lockingScripts.get(i);
             final AddressId addressId = addressIds.get(i);
 
+            final ByteArray lockingScriptByteArray = lockingScript.getBytes();
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
             batchInsertQuery.setParameter(scriptType);
             batchInsertQuery.setParameter(transactionOutputId);
-            batchInsertQuery.setParameter(lockingScript.getBytes().getBytes());
+            batchInsertQuery.setParameter(lockingScriptByteArray.getBytes());
             batchInsertQuery.setParameter(addressId);
         }
 

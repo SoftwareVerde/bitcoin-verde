@@ -28,7 +28,6 @@ import com.softwareverde.bitcoin.server.message.type.thin.request.transaction.Re
 import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransactionsMessage;
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
-import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -56,12 +55,12 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     public interface FailableCallback {
         default void onFailure() { }
     }
-    public interface InventoryMessageCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
+    public interface BlockInventoryMessageCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
     public interface DownloadBlockCallback extends Callback<Block> {
         default void onFailure(Sha256Hash blockHash) { }
     }
@@ -70,7 +69,7 @@ public class BitcoinNode extends Node {
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, FailableCallback { }
     public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters>, FailableCallback { }
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>>, FailableCallback { }
-    public interface TransactionsAnnouncementCallback extends Callback<List<Sha256Hash>> { }
+    public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {
         @Override
@@ -144,14 +143,14 @@ public class BitcoinNode extends Node {
     protected QueryBlocksCallback _queryBlocksCallback = null;
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
-    protected InventoryMessageCallback _inventoryMessageHandler = null;
+    protected BlockInventoryMessageCallback _blockInventoryMessageHandler = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
 
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
-    protected TransactionsAnnouncementCallback _transactionsAnnouncementCallback;
+    protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback;
 
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
@@ -258,7 +257,7 @@ public class BitcoinNode extends Node {
                     } break;
 
                     case INVENTORY: {
-                        _onQueryResponseMessageReceived((InventoryMessage) message);
+                        _onInventoryMessageReceived((InventoryMessage) message);
                     } break;
 
                     case REQUEST_DATA: {
@@ -375,7 +374,7 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected void _onQueryResponseMessageReceived(final InventoryMessage inventoryMessage) {
+    protected void _onInventoryMessageReceived(final InventoryMessage inventoryMessage) {
         final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<InventoryItemType, MutableList<Sha256Hash>>();
 
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
@@ -390,21 +389,21 @@ public class BitcoinNode extends Node {
             if (objectHashes.isEmpty()) { continue; }
 
             if (inventoryItemType == InventoryItemType.BLOCK) {
-                final InventoryMessageCallback inventoryMessageHandler = _inventoryMessageHandler;
-                if (inventoryMessageHandler != null) {
-                    inventoryMessageHandler.onResult(objectHashes);
+                final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
+                if (blockInventoryMessageHandler != null) {
+                    blockInventoryMessageHandler.onResult(objectHashes);
                 }
                 else {
-                    Logger.log("NOTICE: No handler set for InventoryMessageHandler.");
+                    Logger.log("NOTICE: No handler set for BlockInventoryMessageHandler.");
                 }
             }
             else if (inventoryItemType == InventoryItemType.TRANSACTION) {
-                final TransactionsAnnouncementCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
+                final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                 if (transactionsAnnouncementCallback != null) {
                     transactionsAnnouncementCallback.onResult(objectHashes);
                 }
                 else {
-                    Logger.log("NOTICE: No handler set for TransactionsAnnouncementCallback.");
+                    Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
                 }
             }
         }
@@ -664,15 +663,15 @@ public class BitcoinNode extends Node {
         _requestDataMessageCallback = requestDataCallback;
     }
 
-    public void setInventoryMessageHandler(final InventoryMessageCallback inventoryMessageHandler) {
-        _inventoryMessageHandler = inventoryMessageHandler;
+    public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {
+        _blockInventoryMessageHandler = blockInventoryMessageHandler;
     }
 
     public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
         _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
     }
 
-    public void setTransactionsAnnouncementCallback(final TransactionsAnnouncementCallback transactionsAnnouncementCallback) {
+    public void setTransactionsAnnouncementCallback(final TransactionInventoryMessageCallback transactionsAnnouncementCallback) {
         _transactionsAnnouncementCallback = transactionsAnnouncementCallback;
     }
 

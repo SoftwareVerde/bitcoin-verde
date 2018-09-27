@@ -27,14 +27,16 @@ public class BlockChainBuilder {
     protected final DatabaseManagerCache _databaseCache;
     protected final Runnable _coreRunnable;
     protected final BlockProcessor _blockProcessor;
+    protected final Object _mutex = new Object();
 
     protected volatile boolean _wasNotifiedOfNewBlock = false;
     protected Thread _thread = null;
 
     protected void _startThread() {
         _wasNotifiedOfNewBlock = true;
-        _thread = new Thread(_coreRunnable);
-        _thread.start();
+        final Thread thread = new Thread(_coreRunnable);
+        _thread = thread;
+        thread.start();
     }
 
     protected void _processPendingBlockId(final PendingBlockId pendingBlockId, final MysqlDatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
@@ -74,21 +76,24 @@ public class BlockChainBuilder {
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
                         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
-
-                        BlockChainSegmentId targetBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                        final BlockChainSegmentId targetBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
                         while (true) {
                             final BlockId previousBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(targetBlockChainSegmentId);
                             final Sha256Hash previousBlockHash = blockDatabaseManager.getBlockHashFromId(previousBlockId);
 
+Logger.log("********** BlockChainBuilder::getPendingBlockIdsWithPreviousBlockHash");
                             final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
+Logger.log("********** BlockChainBuilder::getPendingBlockIdsWithPreviousBlockHash2");
                             if (pendingBlockIds.isEmpty()) {
                                 _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash);
                                 break;
                             }
 
                             for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+Logger.log("********** BlockChainBuilder::_processPendingBlockId - Main Chain");
                                 _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+Logger.log("********** BlockChainBuilder::_processPendingBlockId - Main Chain2");
                             }
                         }
 
@@ -96,7 +101,9 @@ public class BlockChainBuilder {
                             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
                             if (pendingBlockId == null) { break; }
 
+Logger.log("********** BlockChainBuilder::_processPendingBlockId - Side Chain");
                             _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+Logger.log("********** BlockChainBuilder::_processPendingBlockId - Side Chain2");
                         }
                     }
                     catch (final DatabaseException exception) {
@@ -114,36 +121,52 @@ public class BlockChainBuilder {
                     Logger.log(exception);
                 }
 
-                _thread = null;
+                synchronized (_mutex) {
+                    if (_thread == Thread.currentThread()) {
+                        _thread = null;
+                    }
+                }
             }
         };
     }
 
     public void start() {
-        if (_thread != null) {
-            _startThread();
+Logger.log("********** BlockChainBuilder::start");
+        synchronized (_mutex) {
+            if (_thread == null) {
+                _startThread();
+            }
         }
+Logger.log("********** BlockChainBuilder::start2");
     }
 
     public void wakeUp() {
+Logger.log("********** BlockChainBuilder::wakeUp");
         _wasNotifiedOfNewBlock = true;
 
-        if (_thread == null) {
-            _startThread();
+        synchronized (_mutex) {
+            if (_thread == null) {
+                _startThread();
+            }
         }
+Logger.log("********** BlockChainBuilder::wakeUp2");
     }
 
     public void stop() {
         _wasNotifiedOfNewBlock = false;
 
-        if (_thread != null) {
-            _thread.interrupt();
+        final Thread thread;
+        synchronized (_mutex) {
+            thread = _thread;
+            _thread = null;
+        }
+
+        if (thread != null) {
+            thread.interrupt();
             try {
-                _thread.join();
+                thread.join();
             }
             catch (final InterruptedException exception) { }
-
-            _thread = null;
         }
     }
 }

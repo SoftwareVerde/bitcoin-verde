@@ -567,6 +567,17 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
+    /**
+     * Returns true if the BlockHeader has been downloaded and verified.
+     */
+    public Boolean blockHeaderExists(final Sha256Hash blockHash) throws DatabaseException {
+        final BlockId blockId = _getBlockIdFromHash(blockHash);
+        return (blockId != null);
+    }
+
+    /**
+     * Returns true if the BlockHeader and its Transactions have been downloaded and verified.
+     */
     public Boolean blockExists(final Sha256Hash blockHash) throws DatabaseException {
         final BlockId blockId = _getBlockIdFromHash(blockHash);
         if (blockId == null) { return false; }

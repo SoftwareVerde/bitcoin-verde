@@ -9,6 +9,8 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
@@ -20,7 +22,7 @@ public class BlockDownloader {
     protected static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
     protected static final Integer MAX_CONCURRENT_DOWNLOAD_COUNT = 8;
 
-    protected final Object synchronizer = new Object();
+    protected final Object _synchronizer = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -40,6 +42,12 @@ public class BlockDownloader {
         _thread.start();
     }
 
+    protected Integer _getCurrentConnectionCount(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SHOW STATUS WHERE variable_name = 'Threads_connected'"));
+        final Row row = rows.get(0);
+        return row.getInteger("value");
+    }
+
     public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
@@ -51,13 +59,15 @@ public class BlockDownloader {
                 if (block == null) { return; }
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+Logger.log("** ACTIVE DATABASE CONNECTION COUNT: "+ _getCurrentConnectionCount(databaseConnection));
+
                     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
                     final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlock(block);
                     _currentBlockDownloadSet.remove(pendingBlockId);
 
-                    synchronized (synchronizer) {
-                        synchronizer.notifyAll();
+                    synchronized (_synchronizer) {
+                        _synchronizer.notifyAll();
                     }
                 }
                 catch (final DatabaseException exception) {
@@ -83,8 +93,8 @@ public class BlockDownloader {
                     pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
                     _currentBlockDownloadSet.remove(pendingBlockId);
 
-                    synchronized (synchronizer) {
-                        synchronizer.notifyAll();
+                    synchronized (_synchronizer) {
+                        _synchronizer.notifyAll();
                     }
                 }
                 catch (final DatabaseException exception) {
@@ -101,9 +111,9 @@ public class BlockDownloader {
                     { // Determine if routine should wait for a request to complete...
                         final Integer currentDownloadCount = _currentBlockDownloadSet.size();
                         if (currentDownloadCount >= MAX_CONCURRENT_DOWNLOAD_COUNT) {
-                            synchronized (synchronizer) {
+                            synchronized (_synchronizer) {
                                 try {
-                                    synchronizer.wait();
+                                    _synchronizer.wait();
                                 }
                                 catch (final InterruptedException exception) { break; }
                             }
@@ -114,7 +124,7 @@ public class BlockDownloader {
                         final Integer currentDownloadCount = _currentBlockDownloadSet.size();
                         for (int i = 0; i < (MAX_CONCURRENT_DOWNLOAD_COUNT - currentDownloadCount); ++i) {
                             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-                            final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.selectUnclaimedIncompletePendingBlocks(MAX_CONCURRENT_DOWNLOAD_COUNT);
+                            final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.selectIncompletePendingBlocks(MAX_CONCURRENT_DOWNLOAD_COUNT);
                             if (pendingBlockIds.isEmpty()) {
                                 _shouldContinue = false;
                                 break;
@@ -136,7 +146,12 @@ public class BlockDownloader {
                         try { Thread.sleep(10000L); } catch (final InterruptedException interruptedException) { break; }
                     }
                 }
-                _thread = null;
+
+                synchronized (_synchronizer) {
+                    if (_thread == Thread.currentThread()) {
+                        _thread = null;
+                    }
+                }
             }
         };
     }
@@ -146,32 +161,34 @@ public class BlockDownloader {
     }
 
     public void start() {
-        if (_thread != null) {
-            _startThread();
+        synchronized (_synchronizer) {
+            if (_thread == null) {
+                _startThread();
+            }
         }
     }
 
     public void wakeUp() {
-        synchronized (synchronizer) {
-            synchronizer.notifyAll();
-        }
+        synchronized (_synchronizer) {
+            _synchronizer.notifyAll();
 
-        if (_thread == null) {
-            _startThread();
+            if (_thread == null) {
+                _startThread();
+            }
         }
     }
 
     public void stop() {
         _shouldContinue = false;
+        final Thread thread = _thread;
+        _thread = null;
 
-        if (_thread != null) {
-            _thread.interrupt();
+        if (thread != null) {
+            thread.interrupt();
             try {
-                _thread.join();
+                thread.join();
             }
             catch (final InterruptedException exception) { }
-
-            _thread = null;
         }
     }
 }

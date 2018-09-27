@@ -54,12 +54,18 @@ public class PendingBlockDatabaseManager {
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
         final Long priority = currentTimestamp;
         final Long pendingBlockId = _databaseConnection.executeSql(
-            new Query("INSERT INTO pending_blocks (hash, previous_block_hash, timestamp, priority) VALUES (?, ?, ?, ?)")
+            new Query("INSERT IGNORE INTO pending_blocks (hash, previous_block_hash, timestamp, priority) VALUES (?, ?, ?, ?)")
                 .setParameter(blockHash)
                 .setParameter(previousBlockHash)
                 .setParameter(currentTimestamp)
                 .setParameter(priority)
         );
+
+        if (pendingBlockId == 0) {
+            // The insert was ignored, so return the existing row.  This logic is necessary to prevent a race condition due to PendingBlockDatabaseManager not locking...
+            return _getPendingBlockId(blockHash);
+        }
+
         return PendingBlockId.wrap(pendingBlockId);
     }
 
@@ -75,11 +81,11 @@ public class PendingBlockDatabaseManager {
         );
     }
 
-    protected Long _insertPendingBlockData(final PendingBlockId pendingBlockId, final ByteArray blockData) throws DatabaseException {
-        return _databaseConnection.executeSql(
-            new Query("INSERT INTO pending_block_data (pending_block_id, data) VALUES (?, ?)")
+    protected void _insertPendingBlockData(final PendingBlockId pendingBlockId, final ByteArray blockData) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("INSERT IGNORE INTO pending_block_data (pending_block_id, data) VALUES (?, ?)")
                 .setParameter(pendingBlockId)
-                .setParameter(blockData)
+                .setParameter(blockData.getBytes())
         );
     }
 
@@ -106,7 +112,7 @@ public class PendingBlockDatabaseManager {
     protected ByteArray _getBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, data FROM pending_block_data WHERE pending_block_id = ?")
-                    .setParameter(pendingBlockId)
+                .setParameter(pendingBlockId)
         );
         if (rows.isEmpty()) { return null; }
 
@@ -145,6 +151,11 @@ public class PendingBlockDatabaseManager {
         return _getPendingBlockId(blockHash);
     }
 
+    public Boolean pendingBlockExists(final Sha256Hash blockHash) throws DatabaseException {
+        final PendingBlockId pendingBlockId = _getPendingBlockId(blockHash);
+        return (pendingBlockId != null);
+    }
+
     public List<PendingBlockId> getPendingBlockIdsWithPreviousBlockHash(final Sha256Hash previousBlockHash) throws DatabaseException {
         return _getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
     }
@@ -181,9 +192,9 @@ public class PendingBlockDatabaseManager {
         return pendingBlockId;
     }
 
-    public List<PendingBlockId> selectUnclaimedIncompletePendingBlocks(final Integer maxCount) throws DatabaseException {
+    public List<PendingBlockId> selectIncompletePendingBlocks(final Integer maxCount) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id ORDER BY priority ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
+            new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE pending_block_data.id IS NULL ORDER BY priority ASC, id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
         );
 
         final ImmutableListBuilder<PendingBlockId> pendingBlockIdsBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());

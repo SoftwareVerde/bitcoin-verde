@@ -1,10 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -13,13 +11,11 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
-public class InventoryMessageHandler implements BitcoinNode.InventoryMessageCallback {
-    public static final BitcoinNode.InventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.InventoryMessageCallback() {
+public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
+    public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
         @Override
         public void onResult(final List<Sha256Hash> result) { }
     };
-
-    public static final Object MUTEX = new Object();
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
@@ -31,17 +27,15 @@ public class InventoryMessageHandler implements BitcoinNode.InventoryMessageCall
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
 
-            synchronized (MUTEX) {
-                for (final Sha256Hash blockHash : blockHashes) {
-                    // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockChainSynchronizer...
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
-                    if (blockId != null) { continue; }
-                    final PendingBlockId existingPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
-                    if (existingPendingBlockId != null) { continue; }
+            for (final Sha256Hash blockHash : blockHashes) {
+                // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockChainSynchronizer...
+                final Boolean blockExists = blockDatabaseManager.blockExists(blockHash);
+                if (blockExists) { continue; }
+                final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
+                if (pendingBlockExists) { continue; }
 
-                    pendingBlockDatabaseManager.insertBlockHash(blockHash);
-                    newBlockHashReceived = true;
-                }
+                pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                newBlockHashReceived = true;
             }
         }
         catch (final DatabaseException exception) {
@@ -67,6 +61,7 @@ public class InventoryMessageHandler implements BitcoinNode.InventoryMessageCall
 
     @Override
     public void onResult(final List<Sha256Hash> blockHashes) {
+        Logger.log("Block Hashes Received: " + (blockHashes.isEmpty() ? "(0)" : (blockHashes.get(0) + " (+"+ (blockHashes.getSize() - 1) +")")));
         _storeBlockHashes(blockHashes);
     }
 }

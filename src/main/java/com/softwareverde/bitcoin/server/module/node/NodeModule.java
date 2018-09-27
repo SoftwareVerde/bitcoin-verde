@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
@@ -18,7 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
-import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionAnnouncementHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
@@ -28,6 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -43,7 +45,6 @@ import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.Container;
 
 import java.io.File;
 
@@ -57,7 +58,6 @@ public class NodeModule {
 
     protected final Configuration _configuration;
     protected final Environment _environment;
-    protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
 
     protected final BitcoinNodeManager _nodeManager;
     protected final BinarySocketServer _socketServer;
@@ -69,6 +69,14 @@ public class NodeModule {
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
+
+    protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
+
+    protected MysqlDatabaseConnectionPool _createDatabaseConnectionPool(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Integer maxCount) {
+        final MysqlDatabaseConnectionPool databaseConnectionPool = new MysqlDatabaseConnectionPool(databaseConnectionFactory, maxCount);
+        _openDatabaseConnectionPools.add(databaseConnectionPool);
+        return databaseConnectionPool;
+    }
 
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
         final File configurationFile =  new File(configurationFilename);
@@ -138,7 +146,7 @@ public class NodeModule {
                     public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
                 });
 
-                final Integer maxDatabaseThreadCount = Math.max(128, (serverProperties.getMaxPeerCount() * 3));
+                final Integer maxDatabaseThreadCount = Math.max(128, (serverProperties.getMaxPeerCount() * 8));
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
@@ -177,7 +185,6 @@ public class NodeModule {
         _environment = new Environment(database, masterDatabaseManagerCache);
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
-        _readUncommittedDatabaseConnectionPool = new ReadUncommittedDatabaseConnectionPool(databaseConnectionFactory);
 
         _banFilter = new BanFilter(databaseConnectionFactory);
 
@@ -206,10 +213,15 @@ public class NodeModule {
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
-        final InventoryMessageHandler inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+        final InventoryMessageHandler inventoryMessageHandler;
+        {
+            final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
+            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionPool, readOnlyDatabaseManagerCache);
+        }
 
         { // Initialize NodeInitializer...
-            final TransactionAnnouncementHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionAnnouncementHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
+            final TransactionInventoryMessageHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
@@ -218,7 +230,7 @@ public class NodeModule {
 
         { // Initialize NodeManager...
             final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
-            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler);
+            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler);
         }
 
         { // Initialize BlockHeaderDownloader...
@@ -227,13 +239,22 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _readUncommittedDatabaseConnectionPool);
+            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
             blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
         }
 
-        _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
-        _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor);
+        { // Initialize the BlockDownloader...
+            final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
+            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionPool, readOnlyDatabaseManagerCache);
+        }
+
+        {
+            final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
+            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor);
+        }
 
         { // Set the synchronization elements to cascade to each component...
             _blockDownloader.setNewBlockAvailableCallback(new Runnable() {
@@ -353,12 +374,16 @@ public class NodeModule {
 
         _blockHeaderDownloader.stop();
         _nodeManager.stopNodeMaintenanceThread();
-        _readUncommittedDatabaseConnectionPool.shutdown();
         _socketServer.stop();
         _banFilter.close();
 
         if (_jsonRpcSocketServer != null) {
             _jsonRpcSocketServer.stop();
+        }
+
+        while (! _openDatabaseConnectionPools.isEmpty()) {
+            final MysqlDatabaseConnectionPool databaseConnectionPool = _openDatabaseConnectionPools.remove(0);
+            databaseConnectionPool.close();
         }
 
         System.exit(0);
