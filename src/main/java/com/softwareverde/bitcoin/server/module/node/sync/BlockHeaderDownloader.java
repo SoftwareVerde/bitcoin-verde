@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -27,7 +28,7 @@ public class BlockHeaderDownloader {
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
 
-    protected Long _startTime;
+    protected Long _startTime; // Timer cannot currently be used due to the expected duration being too long...
     protected Long _blockHeaderCount = 0L;
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
 
@@ -103,6 +104,8 @@ public class BlockHeaderDownloader {
                 Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                    final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+
                     for (final BlockHeader blockHeader : blockHeaders) {
                         final Sha256Hash blockHash = blockHeader.getHash();
 
@@ -110,6 +113,8 @@ public class BlockHeaderDownloader {
                         if (! blockHeaderWasStored) {
                             break;
                         }
+
+                        pendingBlockDatabaseManager.storeBlockHash(blockHash);
 
                         _blockHeaderCount += 1L;
                         final Long now = System.currentTimeMillis();

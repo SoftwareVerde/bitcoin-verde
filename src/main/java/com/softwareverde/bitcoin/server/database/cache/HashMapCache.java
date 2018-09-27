@@ -129,7 +129,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
 
     @Override
     public void debug() {
-        // TODO: Include delegateCache in calculations...
         Logger.log(_name + " Cache Miss/Queries: " + _cacheMissCount + "/" + _cacheQueryCount + " ("+ (((float) _cacheMissCount) / ((float) _cacheQueryCount) * 100) +"% Miss) | Cache Size: " + _itemCount + "/" + _maxItemCount + " | Time Spent Searching: " + _recentHashes.getMsSpentSearching());
+        _masterCache.debug();
     }
 }

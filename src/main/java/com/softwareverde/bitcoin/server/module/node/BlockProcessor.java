@@ -108,7 +108,7 @@ public class BlockProcessor {
             blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
             blockValidationTimer.stop();
 
-            localDatabaseManagerCache.log();
+            // localDatabaseManagerCache.log();
             localDatabaseManagerCache.resetLog();
 
         }

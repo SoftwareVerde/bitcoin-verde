@@ -39,17 +39,21 @@ public class BlockChainBuilder {
         thread.start();
     }
 
-    protected void _processPendingBlockId(final PendingBlockId pendingBlockId, final MysqlDatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
+    protected Sha256Hash _processPendingBlockId(final PendingBlockId pendingBlockId, final MysqlDatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
         final ByteArray blockData = pendingBlock.getData();
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
 
+        final Sha256Hash blockHash;
         if (block != null) {
-            _blockProcessor.processBlock(block);
+            final Boolean blockWasValid = _blockProcessor.processBlock(block);
+            blockHash = (blockWasValid ? block.getHash() : null);
         }
         else {
+            blockHash = null;
+
             final Sha256Hash pendingBlockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
             Logger.log("NOTICE: Pending Block Corrupted: " + pendingBlockHash);
         }
@@ -57,6 +61,8 @@ public class BlockChainBuilder {
         TransactionUtil.startTransaction(databaseConnection);
         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
         TransactionUtil.commitTransaction(databaseConnection);
+
+        return blockHash;
     }
 
     public BlockChainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor) {
@@ -72,38 +78,40 @@ public class BlockChainBuilder {
                     _wasNotifiedOfNewBlock = false;
 
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseCache);
-                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
                         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
-                        final BlockChainSegmentId targetBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                        // NOTE: Disabled due to BlockHeaders grossly outpacing Block downloads...
+                        // final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseCache);
+                        // final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+                        // final BlockChainSegmentId targetBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                        //
+                        // while (true) {
+                        //     final BlockId previousBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(targetBlockChainSegmentId);
+                        //     final Sha256Hash previousBlockHash = blockDatabaseManager.getBlockHashFromId(previousBlockId);
+                        //
+                        //     final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
+                        //     if (pendingBlockIds.isEmpty()) {
+                        //         _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash);
+                        //         break;
+                        //     }
+                        //
+                        //     for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+                        //         _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+                        //     }
+                        // }
 
                         while (true) {
-                            final BlockId previousBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(targetBlockChainSegmentId);
-                            final Sha256Hash previousBlockHash = blockDatabaseManager.getBlockHashFromId(previousBlockId);
+                            final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
+                            if (candidatePendingBlockId == null) { break; }
 
-Logger.log("********** BlockChainBuilder::getPendingBlockIdsWithPreviousBlockHash");
-                            final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
-Logger.log("********** BlockChainBuilder::getPendingBlockIdsWithPreviousBlockHash2");
-                            if (pendingBlockIds.isEmpty()) {
-                                _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash);
-                                break;
+                            Sha256Hash processedBlockHash = _processPendingBlockId(candidatePendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+
+                            while (processedBlockHash != null) {
+                                final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(processedBlockHash);
+                                for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+                                    processedBlockHash = _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+                                }
                             }
-
-                            for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-Logger.log("********** BlockChainBuilder::_processPendingBlockId - Main Chain");
-                                _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
-Logger.log("********** BlockChainBuilder::_processPendingBlockId - Main Chain2");
-                            }
-                        }
-
-                        while (true) {
-                            final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
-                            if (pendingBlockId == null) { break; }
-
-Logger.log("********** BlockChainBuilder::_processPendingBlockId - Side Chain");
-                            _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
-Logger.log("********** BlockChainBuilder::_processPendingBlockId - Side Chain2");
                         }
                     }
                     catch (final DatabaseException exception) {
@@ -131,17 +139,14 @@ Logger.log("********** BlockChainBuilder::_processPendingBlockId - Side Chain2")
     }
 
     public void start() {
-Logger.log("********** BlockChainBuilder::start");
         synchronized (_mutex) {
             if (_thread == null) {
                 _startThread();
             }
         }
-Logger.log("********** BlockChainBuilder::start2");
     }
 
     public void wakeUp() {
-Logger.log("********** BlockChainBuilder::wakeUp");
         _wasNotifiedOfNewBlock = true;
 
         synchronized (_mutex) {
@@ -149,7 +154,6 @@ Logger.log("********** BlockChainBuilder::wakeUp");
                 _startThread();
             }
         }
-Logger.log("********** BlockChainBuilder::wakeUp2");
     }
 
     public void stop() {

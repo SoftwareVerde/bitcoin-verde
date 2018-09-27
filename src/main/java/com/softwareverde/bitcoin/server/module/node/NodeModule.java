@@ -372,6 +372,7 @@ public class NodeModule {
             try { Thread.sleep(5000); } catch (final Exception e) { break; }
         }
 
+        _nodeManager.shutdown();
         _blockHeaderDownloader.stop();
         _nodeManager.stopNodeMaintenanceThread();
         _socketServer.stop();

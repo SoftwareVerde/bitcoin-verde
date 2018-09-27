@@ -14,20 +14,21 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Container;
+import com.softwareverde.util.timer.Timer;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
 
 public class BlockDownloader {
     protected static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
-    protected static final Integer MAX_CONCURRENT_DOWNLOAD_COUNT = 8;
+    protected static final Integer MAX_CONCURRENT_DOWNLOAD_COUNT = 32;
 
     protected final Object _synchronizer = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
-    protected final Set<PendingBlockId> _currentBlockDownloadSet = new HashSet<PendingBlockId>(MAX_CONCURRENT_DOWNLOAD_COUNT);
+    protected final HashMap<PendingBlockId, Timer> _currentBlockDownloadSet = new HashMap<PendingBlockId, Timer>(MAX_CONCURRENT_DOWNLOAD_COUNT);
     protected final Runnable _coreRunnable;
     protected final BitcoinNode.DownloadBlockCallback _blockDownloadedCallback;
 
@@ -42,21 +43,32 @@ public class BlockDownloader {
         _thread.start();
     }
 
-    protected Integer _getCurrentConnectionCount(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SHOW STATUS WHERE variable_name = 'Threads_connected'"));
-        final Row row = rows.get(0);
-        return row.getInteger("value");
-    }
+protected Integer _getCurrentConnectionCount(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    final java.util.List<Row> rows = databaseConnection.query(new Query("SHOW STATUS WHERE variable_name = 'Threads_connected'"));
+    final Row row = rows.get(0);
+    return row.getInteger("value");
+}
 
     public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
 
+final Container<Integer> downloadCountContainer = new Container<Integer>(0);
+final Long startTime = System.currentTimeMillis();
         _blockDownloadedCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 if (block == null) { return; }
+
+synchronized (downloadCountContainer) {
+    downloadCountContainer.value += 1;
+    if (downloadCountContainer.value % 128 == 0) {
+        final Long now = System.currentTimeMillis();
+        final Long elapsed = (now - startTime);
+        Logger.log("------------------ Downloads Per Second: " + (downloadCountContainer.value / elapsed.floatValue() * 1000.0F));
+    }
+}
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
 Logger.log("** ACTIVE DATABASE CONNECTION COUNT: "+ _getCurrentConnectionCount(databaseConnection));
@@ -64,7 +76,12 @@ Logger.log("** ACTIVE DATABASE CONNECTION COUNT: "+ _getCurrentConnectionCount(d
                     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
                     final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlock(block);
-                    _currentBlockDownloadSet.remove(pendingBlockId);
+                    final Timer timer = _currentBlockDownloadSet.remove(pendingBlockId);
+                    if (timer != null) {
+                        timer.stop();
+                    }
+
+                    Logger.log("Downloaded Block: " + block.getHash() + "(" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                     synchronized (_synchronizer) {
                         _synchronizer.notifyAll();
@@ -131,12 +148,18 @@ Logger.log("** ACTIVE DATABASE CONNECTION COUNT: "+ _getCurrentConnectionCount(d
                             }
 
                             for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-                                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.contains(pendingBlockId);
+                                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(pendingBlockId);
                                 if (itemIsAlreadyBeingDownloaded) { continue; }
 
-                                _currentBlockDownloadSet.add(pendingBlockId);
                                 final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
+                                if (blockHash == null) { continue; }
+
+                                final Timer timer = new Timer();
+                                timer.start();
+
+                                _currentBlockDownloadSet.put(pendingBlockId, timer);
                                 _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
+
                                 break;
                             }
                         }
