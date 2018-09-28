@@ -8,7 +8,7 @@ CREATE TABLE pending_blocks (
     PRIMARY KEY (id),
     UNIQUE KEY pending_blocks_uq (hash),
     INDEX pending_blocks_ix1 (priority) USING BTREE,
-    INDEX pending_blocks_ix2 (failed_download_count) USING BTREE,
+    INDEX pending_blocks_ix2 (failed_download_count) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE pending_block_data (

@@ -75,7 +75,7 @@ public class NodeManager<NODE extends Node> {
     protected final NodeFactory<NODE> _nodeFactory;
     protected final Map<NodeId, NODE> _nodes;
     protected final Map<NodeId, NodeHealth> _nodeHealthMap;
-    protected final java.util.List<Runnable> _queuedNodeRequests = new ArrayList<Runnable>();
+    protected final MutableList<Runnable> _queuedNodeRequests = new MutableList<Runnable>();
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
@@ -112,8 +112,8 @@ public class NodeManager<NODE extends Node> {
     protected void _checkMaxNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
-                final java.util.List<NODE> inactiveNodes = _getInactiveNodes();
-                if (inactiveNodes.size() > 0) {
+                final List<NODE> inactiveNodes = _getInactiveNodes();
+                if (inactiveNodes.getSize() > 0) {
                     final NODE inactiveNode = inactiveNodes.get(0);
                     _removeNode(inactiveNode);
                     continue;
@@ -312,7 +312,7 @@ public class NodeManager<NODE extends Node> {
     // NOTE: Requires Mutex Lock...
     protected Integer _countNodesAboveHealth(final Integer minimumHealth) {
         int nodeCount = 0;
-        final java.util.List<NODE> activeNodes = _getActiveNodes();
+        final List<NODE> activeNodes = _getActiveNodes();
         for (final NODE node : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
             if (nodeHealth.calculateHealth() > minimumHealth) {
@@ -323,8 +323,8 @@ public class NodeManager<NODE extends Node> {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected java.util.List<NODE> _getInactiveNodes() {
-        final java.util.List<NODE> inactiveNodes = new ArrayList<NODE>(_nodes.size());
+    protected List<NODE> _getInactiveNodes() {
+        final MutableList<NODE> inactiveNodes = new MutableList<NODE>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             if (! node.hasActiveConnection()) {
                 inactiveNodes.add(node);
@@ -334,8 +334,8 @@ public class NodeManager<NODE extends Node> {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected java.util.List<NODE> _getActiveNodes() {
-        final java.util.List<NODE> activeNodes = new ArrayList<NODE>(_nodes.size());
+    protected List<NODE> _getActiveNodes() {
+        final MutableList<NODE> activeNodes = new MutableList<NODE>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             if (node.hasActiveConnection()) {
                 activeNodes.add(node);
@@ -347,17 +347,17 @@ public class NodeManager<NODE extends Node> {
 
     // NOTE: Requires Mutex Lock...
     protected NODE _selectWorstActiveNode() {
-        final java.util.List<NODE> activeNodes = _getActiveNodes();
+        final List<NODE> activeNodes = _getActiveNodes();
 
-        final Integer activeNodeCount = activeNodes.size();
+        final Integer activeNodeCount = activeNodes.getSize();
         if (activeNodeCount == 0) { return null; }
 
-        final java.util.List<NodeHealth> nodeHealthList = new ArrayList<NodeHealth>(activeNodeCount);
+        final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             nodeHealthList.add(nodeHealth);
         }
-        Collections.sort(nodeHealthList, NodeHealth.COMPARATOR);
+        nodeHealthList.sort(NodeHealth.COMPARATOR);
 
         final NodeHealth bestNodeHealth = nodeHealthList.get(0);
         return _nodes.get(bestNodeHealth.getNodeId());
@@ -380,17 +380,17 @@ public class NodeManager<NODE extends Node> {
 
     // NOTE: Requires Mutex Lock...
     protected List<NODE> _selectBestNodes(final Integer requestedNodeCount) {
-        final java.util.List<NODE> activeNodes = _getActiveNodes();
+        final List<NODE> activeNodes = _getActiveNodes();
 
-        final Integer activeNodeCount = activeNodes.size();
+        final Integer activeNodeCount = activeNodes.getSize();
         if (activeNodeCount == 0) { return null; }
 
-        final java.util.List<NodeHealth> nodeHealthList = new ArrayList<NodeHealth>(activeNodeCount);
+        final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             nodeHealthList.add(nodeHealth);
         }
-        Collections.sort(nodeHealthList, NodeHealth.COMPARATOR);
+        nodeHealthList.sort(NodeHealth.COMPARATOR);
 
         final Integer nodeCount;
         {
@@ -404,7 +404,7 @@ public class NodeManager<NODE extends Node> {
 
         final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
         for (int i = 0; i < nodeCount; ++i) {
-            final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.size() - i - 1);
+            final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.getSize() - i - 1);
             final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
 
             selectedNodes.add(selectedNode);
@@ -419,7 +419,7 @@ public class NodeManager<NODE extends Node> {
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
 
-        final java.util.List<NODE> idleNodes = new ArrayList<NODE>(_nodes.size());
+        final MutableList<NODE> idleNodes = new MutableList<NODE>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
             final Long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
@@ -430,7 +430,7 @@ public class NodeManager<NODE extends Node> {
         }
 
         if (LOGGING_ENABLED) {
-            Logger.log("P2P: Idle Node Count: " + idleNodes.size() + " / " + _nodes.size());
+            Logger.log("P2P: Idle Node Count: " + idleNodes.getSize() + " / " + _nodes.size());
         }
 
         for (final NODE idleNode : idleNodes) {
@@ -460,7 +460,7 @@ public class NodeManager<NODE extends Node> {
 
     // NOTE: Requires Mutex lock...
     protected void _removeDisconnectedNodes() {
-        final java.util.List<NODE> purgeableNodes = new ArrayList<NODE>();
+        final MutableList<NODE> purgeableNodes = new MutableList<NODE>();
 
         for (final NODE node : _nodes.values()) {
             if (! node.isConnected()) {
@@ -637,5 +637,10 @@ public class NodeManager<NODE extends Node> {
 
     public NODE getWorstNode() {
         return _selectWorstActiveNode();
+    }
+
+    public Integer getActiveNodeCount() {
+        final List<NODE> nodes = _getActiveNodes();
+        return nodes.getSize();
     }
 }

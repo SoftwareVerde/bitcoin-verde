@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -114,7 +115,8 @@ public class BlockHeaderDownloader {
                             break;
                         }
 
-                        pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                        final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                        pendingBlockDatabaseManager.setPriority(pendingBlockId, blockHeader.getTimestamp());
 
                         _blockHeaderCount += 1L;
                         final Long now = System.currentTimeMillis();
@@ -159,14 +161,13 @@ public class BlockHeaderDownloader {
 
         _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
             @Override
-            public void onResult(final Block blockHeader) {
-                Logger.log("GENESIS RECEIVED: " + blockHeader.getHash());
+            public void onResult(final Block block) {
+                Logger.log("GENESIS RECEIVED: " + block.getHash());
                 if (! _hasGenesisBlockHeader()) {
                     // NOTE: Can happen if the NodeModule received GenesisBlock from another node...
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final Boolean genesisBlockWasStored = _storeBlockHeader(blockHeader, databaseConnection);
-
-                        Logger.log("GENESIS STORED: " + blockHeader.getHash());
+                        final Boolean genesisBlockWasStored = _storeBlockHeader(block, databaseConnection);
+                        Logger.log("GENESIS STORED: " + block.getHash());
                     }
                     catch (final DatabaseException exception) {
                         Logger.log(exception);

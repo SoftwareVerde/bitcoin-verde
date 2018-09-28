@@ -216,8 +216,8 @@ public class NodeModule {
         final InventoryMessageHandler inventoryMessageHandler;
         {
             final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
-            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
-            inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionPool, readOnlyDatabaseManagerCache);
+            // final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
         { // Initialize NodeInitializer...
@@ -246,14 +246,14 @@ public class NodeModule {
 
         { // Initialize the BlockDownloader...
             final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
-            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
-            _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionPool, readOnlyDatabaseManagerCache);
+            // final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
         {
             final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
-            final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
-            _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor);
+            // final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
+            _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor());
         }
 
         { // Set the synchronization elements to cascade to each component...

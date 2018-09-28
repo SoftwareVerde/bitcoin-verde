@@ -402,7 +402,7 @@ public abstract class Node {
     }
 
     public String getHost() {
-        return _connection.getHost();
+        return Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
     }
 
     public Integer getPort() {

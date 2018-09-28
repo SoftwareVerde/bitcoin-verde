@@ -2,8 +2,6 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -151,6 +149,10 @@ public class PendingBlockDatabaseManager {
         return _getPendingBlockId(blockHash);
     }
 
+    public Boolean hasBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
+        return _hasBlockData(pendingBlockId);
+    }
+
     public Boolean pendingBlockExists(final Sha256Hash blockHash) throws DatabaseException {
         final PendingBlockId pendingBlockId = _getPendingBlockId(blockHash);
         return (pendingBlockId != null);
@@ -228,6 +230,14 @@ public class PendingBlockDatabaseManager {
     public void incrementFailedDownloadCount(final PendingBlockId pendingBlockId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("UPDATE pending_blocks SET failed_download_count = failed_download_count + 1, priority = priority + 60 WHERE id = ?")
+                .setParameter(pendingBlockId)
+        );
+    }
+
+    public void setPriority(final PendingBlockId pendingBlockId, final Long priority) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE pending_blocks SET priority = ? WHERE id = ?")
+                .setParameter(priority)
                 .setParameter(pendingBlockId)
         );
     }

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
@@ -10,6 +11,7 @@ import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -28,6 +30,8 @@ public class BlockChainBuilder {
     protected final Runnable _coreRunnable;
     protected final BlockProcessor _blockProcessor;
     protected final Object _mutex = new Object();
+    protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
+    protected Boolean _hasGenesisBlock = false;
 
     protected volatile boolean _wasNotifiedOfNewBlock = false;
     protected Thread _thread = null;
@@ -42,6 +46,7 @@ public class BlockChainBuilder {
     protected Sha256Hash _processPendingBlockId(final PendingBlockId pendingBlockId, final MysqlDatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
         final ByteArray blockData = pendingBlock.getData();
+        if (blockData == null) { return null; } // NOTE: The pending block is not available due to a race condition; do not delete the pending block record in this case.
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
@@ -65,11 +70,21 @@ public class BlockChainBuilder {
         return blockHash;
     }
 
-    public BlockChainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor) {
+    public BlockChainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
         _blockProcessor = blockProcessor;
+        _downloadStatusMonitor = downloadStatusMonitor;
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+            _hasGenesisBlock = blockDatabaseManager.blockExists(BlockHeader.GENESIS_BLOCK_HASH);
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            _hasGenesisBlock = false;
+        }
 
         _coreRunnable = new Runnable() {
             @Override
@@ -80,34 +95,45 @@ public class BlockChainBuilder {
                     try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
-                        // NOTE: Disabled due to BlockHeaders grossly outpacing Block downloads...
-                        // final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseCache);
-                        // final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-                        // final BlockChainSegmentId targetBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
-                        //
-                        // while (true) {
-                        //     final BlockId previousBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(targetBlockChainSegmentId);
-                        //     final Sha256Hash previousBlockHash = blockDatabaseManager.getBlockHashFromId(previousBlockId);
-                        //
-                        //     final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
-                        //     if (pendingBlockIds.isEmpty()) {
-                        //         _bitcoinNodeManager.requestBlockHashesAfter(previousBlockHash);
-                        //         break;
-                        //     }
-                        //
-                        //     for (final PendingBlockId pendingBlockId : pendingBlockIds) {
-                        //         _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
-                        //     }
-                        // }
+                        { // Special case for storing the Genesis block...
+                            if (! _hasGenesisBlock) {
+                                final PendingBlockId genesisPendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(BlockHeader.GENESIS_BLOCK_HASH);
+                                final Boolean hasBlockDataAvailable = pendingBlockDatabaseManager.hasBlockData(genesisPendingBlockId);
+                                if (hasBlockDataAvailable) {
+                                    final Sha256Hash processedGenesisBlockHash = _processPendingBlockId(genesisPendingBlockId, databaseConnection, pendingBlockDatabaseManager);
+                                    _hasGenesisBlock = (processedGenesisBlockHash != null);
+                                }
+                                else {
+                                    pendingBlockDatabaseManager.storeBlockHash(BlockHeader.GENESIS_BLOCK_HASH);
+                                    pendingBlockDatabaseManager.setPriority(genesisPendingBlockId, 0L);
+                                    break;
+                                }
+                            }
+                        }
 
                         while (true) {
                             final PendingBlockId candidatePendingBlockId = pendingBlockDatabaseManager.selectCandidatePendingBlockId();
-                            if (candidatePendingBlockId == null) { break; }
+                            if (candidatePendingBlockId == null) {
+                                { // Request the next head block be downloaded... (depends on BlockHeaders)
+                                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseCache);
+                                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+
+                                    final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                                    final BlockId nextBlockId = blockDatabaseManager.getChildBlockId(headBlockChainSegmentId, headBlockId);
+                                    final Sha256Hash nextBlockHash = blockDatabaseManager.getBlockHashFromId(nextBlockId);
+                                    final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(nextBlockHash);
+                                    pendingBlockDatabaseManager.setPriority(pendingBlockId, 0L);
+                                }
+                                break;
+                            }
 
                             Sha256Hash processedBlockHash = _processPendingBlockId(candidatePendingBlockId, databaseConnection, pendingBlockDatabaseManager);
 
                             while (processedBlockHash != null) {
                                 final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(processedBlockHash);
+                                if (pendingBlockIds.isEmpty()) { break; }
+
                                 for (final PendingBlockId pendingBlockId : pendingBlockIds) {
                                     processedBlockHash = _processPendingBlockId(pendingBlockId, databaseConnection, pendingBlockDatabaseManager);
                                 }
@@ -120,13 +146,16 @@ public class BlockChainBuilder {
                     }
                 }
 
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
-                    final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
-                    _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
+                final BlockDownloader.Status downloadStatus = _downloadStatusMonitor.getStatus();
+                if (downloadStatus != BlockDownloader.Status.DOWNLOADING) {
+                    try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                        final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
+                        final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
+                        _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.log(exception);
+                    }
                 }
 
                 synchronized (_mutex) {

@@ -61,7 +61,6 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
 
     @Override
     public void onResult(final List<Sha256Hash> blockHashes) {
-        Logger.log("Block Hashes Received: " + (blockHashes.isEmpty() ? "(0)" : (blockHashes.get(0) + " (+"+ (blockHashes.getSize() - 1) +")")));
         _storeBlockHashes(blockHashes);
     }
 }
