@@ -7,6 +7,7 @@ import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
+import com.softwareverde.network.p2p.node.manager.health.MutableNodeHealth;
 import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
@@ -16,7 +17,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     protected static ThreadPool _threadExecutor = new ThreadPool(4, 16, 8000L);
 
@@ -74,7 +75,7 @@ public class NodeManager<NODE extends Node> {
     protected final SystemTime _systemTime;
     protected final NodeFactory<NODE> _nodeFactory;
     protected final Map<NodeId, NODE> _nodes;
-    protected final Map<NodeId, NodeHealth> _nodeHealthMap;
+    protected final Map<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final MutableList<Runnable> _queuedNodeRequests = new MutableList<Runnable>();
     protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
@@ -88,19 +89,19 @@ public class NodeManager<NODE extends Node> {
     protected void _addNode(final NODE node) {
         final NodeId newNodeId = node.getId();
         _nodes.put(newNodeId, node);
-        _nodeHealthMap.put(newNodeId, new NodeHealth(newNodeId, _systemTime));
+        _nodeHealthMap.put(newNodeId, new MutableNodeHealth(newNodeId, _systemTime));
     }
 
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
 
         _nodes.remove(nodeId);
-        final NodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
+        final MutableNodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
 
         node.disconnect();
 
         if (LOGGING_ENABLED) {
-            Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.calculateHealth() + "hp");
+            Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.getHealth() + "hp");
         }
 
         if (_nodes.isEmpty()) {
@@ -314,8 +315,8 @@ public class NodeManager<NODE extends Node> {
         int nodeCount = 0;
         final List<NODE> activeNodes = _getActiveNodes();
         for (final NODE node : activeNodes) {
-            final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
-            if (nodeHealth.calculateHealth() > minimumHealth) {
+            final MutableNodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
+            if (nodeHealth.getHealth() > minimumHealth) {
                 nodeCount += 1;
             }
         }
@@ -354,10 +355,10 @@ public class NodeManager<NODE extends Node> {
 
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
-            final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
-            nodeHealthList.add(nodeHealth);
+            final MutableNodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
+            nodeHealthList.add(nodeHealth.asConst());
         }
-        nodeHealthList.sort(NodeHealth.COMPARATOR);
+        nodeHealthList.sort(MutableNodeHealth.COMPARATOR);
 
         final NodeHealth bestNodeHealth = nodeHealthList.get(0);
         return _nodes.get(bestNodeHealth.getNodeId());
@@ -372,7 +373,7 @@ public class NodeManager<NODE extends Node> {
 
         if (LOGGING_ENABLED) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(selectedNode.getId());
-            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + nodeHealth.calculateHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
+            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + nodeHealth.getHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
         }
 
         return selectedNode;
@@ -388,7 +389,7 @@ public class NodeManager<NODE extends Node> {
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
-            nodeHealthList.add(nodeHealth);
+            nodeHealthList.add(nodeHealth.asConst()); // NOTE: Items must be a snapshot to prevent concurrent modifications during sort...
         }
         nodeHealthList.sort(NodeHealth.COMPARATOR);
 
@@ -451,7 +452,7 @@ public class NodeManager<NODE extends Node> {
                     }
 
                     final NodeId nodeId = idleNode.getId();
-                    final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
+                    final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
                     nodeHealth.updatePingInMilliseconds(pingInMilliseconds);
                 }
             });
@@ -479,7 +480,7 @@ public class NodeManager<NODE extends Node> {
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime) {
         _systemTime = new SystemTime();
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
+        _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
@@ -488,7 +489,7 @@ public class NodeManager<NODE extends Node> {
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime) {
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new HashMap<NodeId, NodeHealth>(maxNodeCount);
+        _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
@@ -520,7 +521,7 @@ public class NodeManager<NODE extends Node> {
 
     protected void _executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest, final ReplayInvocation replayInvocation) {
         final NODE selectedNode;
-        final NodeHealth nodeHealth;
+        final MutableNodeHealth nodeHealth;
         {
             synchronized (_mutex) {
                 selectedNode = _selectBestNode();
@@ -535,7 +536,7 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
-        final Container<NodeHealth.Request> requestContainer = new Container<NodeHealth.Request>();
+        final Container<MutableNodeHealth.Request> requestContainer = new Container<MutableNodeHealth.Request>();
 
         final RequestTimeoutThread timeoutThread;
         final NodeApiRequestCallback cancelRequestTimeout;
@@ -569,7 +570,7 @@ public class NodeManager<NODE extends Node> {
 
     protected void _sendMessage(final NodeApiMessage<NODE> nodeNodeApiMessage) {
         final NODE selectedNode;
-        final NodeHealth nodeHealth;
+        final MutableNodeHealth nodeHealth;
         synchronized (_mutex) {
             selectedNode = _selectBestNode();
 
@@ -621,10 +622,10 @@ public class NodeManager<NODE extends Node> {
     }
 
     public Long getNodeHealth(final NodeId nodeId) {
-        final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
+        final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
         if (nodeHealth == null) { return null; }
 
-        return nodeHealth.calculateHealth();
+        return nodeHealth.getHealth();
     }
 
     public NODE getBestNode() {

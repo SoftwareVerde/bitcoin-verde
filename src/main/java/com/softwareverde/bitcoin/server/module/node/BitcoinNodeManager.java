@@ -200,6 +200,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                                     callback.onResult(block);
                                 }
                             }
+
+                            @Override
+                            public void onFailure(final Sha256Hash blockHash) {
+                                Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +")");
+
+                                if (callback != null) {
+                                    callback.onFailure(blockHash);
+                                }
+                            }
                         });
                     }
                 };
@@ -219,6 +228,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 }
 
                 if (shouldRequestThinBlock) {
+                    Logger.log("NOTICE: Requesting thin block. " + System.currentTimeMillis());
                     final BloomFilter bloomFilter = _memoryPoolEnquirer.getBloomFilter(blockHash);
                     bitcoinNode.requestThinBlock(blockHash, bloomFilter, new BitcoinNode.DownloadThinBlockCallback() { // TODO: Consider using ExtraThinBlocks... Unsure if the potential round-trip on a TransactionHash collision is worth it, though.
                         @Override
@@ -236,18 +246,37 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                                     public void onResult(final List<Transaction> missingTransactions) {
                                         final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
                                         if (block == null) {
+                                            Logger.log("NOTICE: Falling back to traditional block.");
                                             // Fallback on downloading block traditionally...
                                             downloadTraditionalBlock.run();
                                         }
                                         else {
-                                            callback.onResult(assembleThinBlockResult.block);
+                                            Logger.log("NOTICE: Thin block assembled. " + System.currentTimeMillis());
+                                            if (callback != null) {
+                                                callback.onResult(assembleThinBlockResult.block);
+                                            }
                                         }
+                                    }
+
+                                    @Override
+                                    public void onFailure() {
+                                        Logger.log("NOTICE: Falling back to traditional block.");
+                                        downloadTraditionalBlock.run();
                                     }
                                 });
                             }
                             else {
-                                callback.onResult(assembleThinBlockResult.block);
+                                Logger.log("NOTICE: Thin block assembled on first trip. " + System.currentTimeMillis());
+                                if (callback != null) {
+                                    callback.onResult(assembleThinBlockResult.block);
+                                }
                             }
+                        }
+
+                        @Override
+                        public void onFailure() {
+                            Logger.log("NOTICE: Falling back to traditional block.");
+                            downloadTraditionalBlock.run();
                         }
                     });
                 }

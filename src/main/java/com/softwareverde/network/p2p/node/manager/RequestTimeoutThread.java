@@ -1,7 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
+import com.softwareverde.network.p2p.node.manager.health.MutableNodeHealth;
 import com.softwareverde.util.Container;
 
 public class RequestTimeoutThread implements Runnable {
@@ -12,11 +12,11 @@ public class RequestTimeoutThread implements Runnable {
     public final Object synchronizer = new Object();
 
     private final Container<Boolean> _didMessageTimeOut;
-    private final NodeHealth _nodeHealth;
-    private final Container<NodeHealth.Request> _requestContainer;
+    private final MutableNodeHealth _nodeHealth;
+    private final Container<MutableNodeHealth.Request> _requestContainer;
     private final ReplayInvocation _replayInvocation;
 
-    public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final NodeHealth nodeHealth, final Container<NodeHealth.Request> requestContainer, final ReplayInvocation replayInvocation) {
+    public RequestTimeoutThread(final Container<Boolean> didMessageTimeoutContainer, final MutableNodeHealth nodeHealth, final Container<MutableNodeHealth.Request> requestContainer, final ReplayInvocation replayInvocation) {
         _didMessageTimeOut = didMessageTimeoutContainer;
         _nodeHealth = nodeHealth;
         _requestContainer = requestContainer;

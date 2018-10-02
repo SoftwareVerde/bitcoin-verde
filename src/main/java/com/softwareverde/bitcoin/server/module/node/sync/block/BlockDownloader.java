@@ -12,9 +12,13 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.Timer;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockDownloader {
     protected static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
@@ -27,12 +31,13 @@ public class BlockDownloader {
         Status getStatus();
     }
 
-    protected final Object _synchronizer = new Object();
+    protected final Object _threadObjectMutex = new Object();
+    protected final Object _downloadCallbackSynchronizer = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
-    protected final HashMap<PendingBlockId, Timer> _currentBlockDownloadSet = new HashMap<PendingBlockId, Timer>();
+    protected final Map<PendingBlockId, Timer> _currentBlockDownloadSet = new ConcurrentHashMap<PendingBlockId, Timer>();
     protected final Runnable _coreRunnable;
     protected final BitcoinNode.DownloadBlockCallback _blockDownloadedCallback;
     protected final StatusMonitor _statusMonitor;
@@ -56,18 +61,21 @@ public class BlockDownloader {
         _statusMonitor = new StatusMonitor() {
             @Override
             public Status getStatus() {
-                if ((_thread == null) || (! _shouldContinue)) {
-                    return Status.SLEEPING;
+                synchronized (_threadObjectMutex) {
+                    if ((_thread == null) || (!_shouldContinue)) {
+                        return Status.SLEEPING;
+                    }
+                    return Status.DOWNLOADING;
                 }
-                return Status.DOWNLOADING;
             }
         };
 
         _blockDownloadedCallback = new BitcoinNode.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                if (block == null) { return; }
-
+                if (block == null) { Logger.log("-- Downloader A"); return; }
+                if (! _shouldContinue) { Logger.log("-- Downloader B"); return; }
+                Logger.log("-- Downloader C");
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
@@ -79,11 +87,12 @@ public class BlockDownloader {
 
                     Logger.log("Downloaded Block: " + block.getHash() + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
-                    synchronized (_synchronizer) {
-                        _synchronizer.notifyAll();
+                    synchronized (_downloadCallbackSynchronizer) {
+                        _downloadCallbackSynchronizer.notifyAll();
                     }
                 }
                 catch (final DatabaseException exception) {
+                    Logger.log("-- Downloader D");
                     Logger.log(exception);
                     return;
                 }
@@ -92,23 +101,27 @@ public class BlockDownloader {
                 if (newBlockAvailableCallback != null) {
                     newBlockAvailableCallback.run();
                 }
+                Logger.log("-- Downloader E");
             }
 
             @Override
             public void onFailure(final Sha256Hash blockHash) {
+                if (! _shouldContinue) { Logger.log("-- Downloader F"); return; }
+
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
                     final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
-                    if (pendingBlockId == null) { return; }
+                    if (pendingBlockId == null) { Logger.log("-- Downloader G"); return; }
 
                     pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
                     pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
                     _currentBlockDownloadSet.remove(pendingBlockId);
 
-                    synchronized (_synchronizer) {
-                        _synchronizer.notifyAll();
+                    synchronized (_downloadCallbackSynchronizer) {
+                        _downloadCallbackSynchronizer.notifyAll();
                     }
+                    Logger.log("-- Downloader H");
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
@@ -119,53 +132,103 @@ public class BlockDownloader {
         _coreRunnable = new Runnable() {
             @Override
             public void run() {
-                while (_shouldContinue) {
-                    final Integer maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
+                try {
+                    Logger.log("-- Downloader I");
+                    while (_shouldContinue) {
+                        Logger.log("-- Downloader Z: " + _shouldContinue);
+                        final Integer maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
+                        Logger.log("-- Downloader J");
 
-                    { // Determine if routine should wait for a request to complete...
-                        final Integer currentDownloadCount = _currentBlockDownloadSet.size();
-                        if (currentDownloadCount >= maximumConcurrentDownloadCount) {
-                            synchronized (_synchronizer) {
-                                try {
-                                    _synchronizer.wait();
+                        { // Determine if routine should wait for a request to complete...
+                            final Integer currentDownloadCount = _currentBlockDownloadSet.size();
+                            if (currentDownloadCount >= maximumConcurrentDownloadCount) {
+                                synchronized (_downloadCallbackSynchronizer) {
+                                    try {
+                                        Logger.log("-- Downloader K");
+                                        _downloadCallbackSynchronizer.wait();
+                                        Logger.log("-- Downloader L");
+                                    }
+                                    catch (final InterruptedException exception) {
+                                        Logger.log("-- Downloader M");
+                                        break;
+                                    }
                                 }
-                                catch (final InterruptedException exception) { break; }
                             }
                         }
-                    }
 
-                    try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final Integer currentDownloadCount = _currentBlockDownloadSet.size();
-                        final Integer newDownloadCount = (maximumConcurrentDownloadCount - currentDownloadCount);
+                        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                            final Integer currentDownloadCount = _currentBlockDownloadSet.size();
+                            // final Integer newDownloadCount = (maximumConcurrentDownloadCount - currentDownloadCount);
 
-                        final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-                        final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.selectIncompletePendingBlocks(newDownloadCount);
-                        if (pendingBlockIds.isEmpty()) {
-                            _shouldContinue = false;
-                            break;
+                            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+                            final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.selectIncompletePendingBlocks(maximumConcurrentDownloadCount);
+                            if (pendingBlockIds.isEmpty()) {
+                                Logger.log("-- Downloader N");
+                                _shouldContinue = false;
+                                break;
+                            }
+                            for (int i = 0; i < pendingBlockIds.getSize(); ++i) {
+                                if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) {
+                                    Logger.log("-- Downloader - Max Concurrent Reached: " + _currentBlockDownloadSet.size());
+                                    final Set<PendingBlockId> concurrentPendingBlockIds = Util.copySet(_currentBlockDownloadSet.keySet());
+                                    Logger.log(concurrentPendingBlockIds.size());
+                                    for (final PendingBlockId pendingBlockId : concurrentPendingBlockIds) {
+                                        final Timer timer = _currentBlockDownloadSet.get(pendingBlockId);
+                                        if (timer == null) { Logger.log("-- Downloader - Timer - null"); }
+                                        else {
+                                            timer.stop();
+                                            Logger.log("-- Downloader - Timer - " + timer.getMillisecondsElapsed());
+                                        }
+                                    }
+                                    break;
+                                }
+
+                                Logger.log("-- Downloader X1");
+                                final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
+                                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(pendingBlockId);
+                                Logger.log("-- Downloader X2");
+                                if (itemIsAlreadyBeingDownloaded) {
+                                    Logger.log("-- Downloader O");
+                                    continue;
+                                }
+                                Logger.log("-- Downloader X3");
+
+                                final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
+                                if (blockHash == null) {
+                                    Logger.log("-- Downloader P");
+                                    continue;
+                                }
+                                Logger.log("-- Downloader X4");
+
+                                final Timer timer = new Timer();
+                                timer.start();
+                                _currentBlockDownloadSet.put(pendingBlockId, timer);
+                                Logger.log("-- Downloader X5");
+                                _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
+                                Logger.log("-- Downloader X6");
+                            }
                         }
-                        for (int i = 0; i < pendingBlockIds.getSize(); ++i) {
-                            final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
-                            final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(pendingBlockId);
-                            if (itemIsAlreadyBeingDownloaded) { continue; }
-
-                            final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
-                            if (blockHash == null) { continue; }
-
-                            final Timer timer = new Timer();
-                            timer.start();
-                            _currentBlockDownloadSet.put(pendingBlockId, timer);
-                            _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
+                        catch (final DatabaseException exception) {
+                            Logger.log(exception);
+                            Logger.log("-- Downloader 3");
+                            try { Thread.sleep(10000L); }
+                            catch (final InterruptedException interruptedException) {
+                                break;
+                            }
+                            Logger.log("-- Downloader 2");
                         }
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.log(exception);
-                        try { Thread.sleep(10000L); } catch (final InterruptedException interruptedException) { break; }
+
+                        Logger.log("-- Downloader 1");
                     }
                 }
+                catch (final Exception exception) {
+                    Logger.log(exception);
+                }
 
-                synchronized (_synchronizer) {
+                Logger.log("-- Downloader Q");
+                synchronized (_threadObjectMutex) {
                     if (_thread == Thread.currentThread()) {
+                        Logger.log("-- Downloader R");
                         _thread = null;
                     }
                 }
@@ -178,18 +241,19 @@ public class BlockDownloader {
     }
 
     public void start() {
-        synchronized (_synchronizer) {
+        synchronized (_threadObjectMutex) {
             if (_thread == null) {
+                _currentBlockDownloadSet.clear();
                 _startThread();
             }
         }
     }
 
     public void wakeUp() {
-        synchronized (_synchronizer) {
-            _synchronizer.notifyAll();
-
+        // Logger.log("-- Downloader S");
+        synchronized (_threadObjectMutex) {
             if (_thread == null) {
+                Logger.log("-- Downloader T");
                 _startThread();
             }
         }

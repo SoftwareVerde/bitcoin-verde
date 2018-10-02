@@ -47,6 +47,7 @@ import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 
@@ -129,12 +130,19 @@ public class BitcoinNode extends Node {
         }
     }
 
-    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value) {
-        final Set<S> callbackSet = callbackMap.remove(key);
-        if ( (callbackSet == null) || (callbackSet.isEmpty()) ) { return; }
+    protected static <U, T, S extends Callback<U>> void _executeAndClearCallbacks(final Map<T, Set<S>> callbackMap, final T key, final U value, final ThreadPool threadPool) {
+        synchronized (callbackMap) {
+            final Set<S> callbackSet = callbackMap.remove(key);
+            if ((callbackSet == null) || (callbackSet.isEmpty())) { return; }
 
-        for (final S callback : callbackSet) {
-            callback.onResult(value);
+            for (final S callback : callbackSet) {
+                threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        callback.onResult(value);
+                    }
+                });
+            }
         }
     }
 
@@ -159,6 +167,8 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
+
+    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
@@ -367,7 +377,12 @@ public class BitcoinNode extends Node {
 
         if (requestDataCallback != null) {
             final List<InventoryItem> dataHashes = new ImmutableList<InventoryItem>(requestDataMessage.getInventoryItems());
-            requestDataCallback.run(dataHashes, nodeConnection);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    requestDataCallback.run(dataHashes, nodeConnection);
+                }
+            });
         }
         else {
             Logger.log("NOTICE: No handler set for RequestData message.");
@@ -391,7 +406,12 @@ public class BitcoinNode extends Node {
             if (inventoryItemType == InventoryItemType.BLOCK) {
                 final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
                 if (blockInventoryMessageHandler != null) {
-                    blockInventoryMessageHandler.onResult(objectHashes);
+                    _threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            blockInventoryMessageHandler.onResult(objectHashes);
+                        }
+                    });
                 }
                 else {
                     Logger.log("NOTICE: No handler set for BlockInventoryMessageHandler.");
@@ -400,7 +420,12 @@ public class BitcoinNode extends Node {
             else if (inventoryItemType == InventoryItemType.TRANSACTION) {
                 final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
                 if (transactionsAnnouncementCallback != null) {
-                    transactionsAnnouncementCallback.onResult(objectHashes);
+                    _threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            transactionsAnnouncementCallback.onResult(objectHashes);
+                        }
+                    });
                 }
                 else {
                     Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
@@ -414,14 +439,14 @@ public class BitcoinNode extends Node {
         final Boolean blockHeaderIsValid = block.isValid();
 
         final Sha256Hash blockHash = block.getHash();
-        _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null));
+        _executeAndClearCallbacks(_downloadBlockRequests, blockHash, (blockHeaderIsValid ? block : null), _threadPool);
     }
 
     protected void _onTransactionMessageReceived(final TransactionMessage transactionMessage) {
         final Transaction transaction = transactionMessage.getTransaction();
 
         final Sha256Hash transactionHash = transaction.getHash();
-        _executeAndClearCallbacks(_downloadTransactionRequests, transactionHash, transaction);
+        _executeAndClearCallbacks(_downloadTransactionRequests, transactionHash, transaction, _threadPool);
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
@@ -442,7 +467,7 @@ public class BitcoinNode extends Node {
         if (blockHeaders.isEmpty()) { return; }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
-        _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null));
+        _executeAndClearCallbacks(_downloadBlockHeadersRequests, firstBlockHeader.getPreviousBlockHash(), (allBlockHeadersAreValid ? blockHeaders : null), _threadPool);
     }
 
     protected void _onQueryBlocksMessageReceived(final QueryBlocksMessage queryBlocksMessage, final NodeConnection nodeConnection) {
@@ -451,7 +476,12 @@ public class BitcoinNode extends Node {
         if (queryBlocksCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
-            queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    queryBlocksCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+                }
+            });
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlocks message.");
@@ -464,7 +494,12 @@ public class BitcoinNode extends Node {
         if (queryBlockHeadersCallback != null) {
             final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(requestBlockHeadersMessage.getBlockHeaderHashes());
             final Sha256Hash desiredBlockHeaderHash = requestBlockHeadersMessage.getStopBeforeBlockHash();
-            queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    queryBlockHeadersCallback.run(blockHeaderHashes, desiredBlockHeaderHash, nodeConnection);
+                }
+            });
         }
         else {
             Logger.log("NOTICE: No handler set for QueryBlockHeaders message.");
@@ -480,7 +515,12 @@ public class BitcoinNode extends Node {
 
             final Sha256Hash blockHash = inventoryItem.getItemHash();
             final BloomFilter bloomFilter = requestExtraThinBlockMessage.getBloomFilter();
-            requestExtraThinBlockCallback.run(blockHash, bloomFilter, nodeConnection);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    requestExtraThinBlockCallback.run(blockHash, bloomFilter, nodeConnection);
+                }
+            });
         }
         else {
             Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
@@ -494,7 +534,12 @@ public class BitcoinNode extends Node {
             final Sha256Hash blockHash = requestExtraThinTransactionsMessage.getBlockHash();
             final List<ByteArray> transactionShortHashes = requestExtraThinTransactionsMessage.getTransactionShortHashes();
 
-            requestExtraThinTransactionCallback.run(blockHash, transactionShortHashes, nodeConnection);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    requestExtraThinTransactionCallback.run(blockHash, transactionShortHashes, nodeConnection);
+                }
+            });
         }
         else {
             Logger.log("NOTICE: No handler set for RequestExtraThinBlock message.");
@@ -510,7 +555,7 @@ public class BitcoinNode extends Node {
         final ThinBlockParameters thinBlockParameters = new ThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        _executeAndClearCallbacks(_downloadThinBlockRequests, blockHash, (blockHeaderIsValid ? thinBlockParameters : null));
+        _executeAndClearCallbacks(_downloadThinBlockRequests, blockHash, (blockHeaderIsValid ? thinBlockParameters : null), _threadPool);
     }
 
     protected void _onExtraThinBlockMessageReceived(final ExtraThinBlockMessage blockMessage) {
@@ -522,14 +567,14 @@ public class BitcoinNode extends Node {
         final ExtraThinBlockParameters extraThinBlockParameters = new ExtraThinBlockParameters(blockHeader, transactionHashes, transactions);
 
         final Sha256Hash blockHash = blockHeader.getHash();
-        _executeAndClearCallbacks(_downloadExtraThinBlockRequests, blockHash, (blockHeaderIsValid ? extraThinBlockParameters : null));
+        _executeAndClearCallbacks(_downloadExtraThinBlockRequests, blockHash, (blockHeaderIsValid ? extraThinBlockParameters : null), _threadPool);
     }
 
     protected void _onThinTransactionsMessageReceived(final ThinTransactionsMessage transactionsMessage) {
         final Sha256Hash blockHash = transactionsMessage.getBlockHash();
         final List<Transaction> transactions = transactionsMessage.getTransactions();
 
-        _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions);
+        _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions, _threadPool);
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
@@ -688,6 +733,7 @@ public class BitcoinNode extends Node {
 
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
+        if (_localNodeIpAddress == null) { return null; }
         return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
     }
 
@@ -713,5 +759,13 @@ public class BitcoinNode extends Node {
         _availableDataHashes.clear();
         _downloadBlockRequests.clear();
         _downloadBlockHeadersRequests.clear();
+
+        synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
+        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
+        synchronized (_availableDataHashes) { _availableDataHashes.clear(); }
+        synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
+        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
+        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
+        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
     }
 }

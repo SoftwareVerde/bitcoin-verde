@@ -46,12 +46,17 @@ public class BlockProcessor {
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
+    protected Integer _processedBlockCount = 0;
+    protected final Long _startTime;
+
     public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;
+
+        _startTime = System.currentTimeMillis();
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -63,6 +68,7 @@ public class BlockProcessor {
     }
 
     protected Boolean _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        _processedBlockCount += 1;
         final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
@@ -212,7 +218,9 @@ public class BlockProcessor {
             averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
         }
 
-        _averageBlocksPerSecond.value = averageBlocksPerSecond;
+        // _averageBlocksPerSecond.value = averageBlocksPerSecond;
+        final Long now = System.currentTimeMillis();
+        _averageBlocksPerSecond.value = ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
         _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
         _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
