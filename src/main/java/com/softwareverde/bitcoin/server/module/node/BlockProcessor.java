@@ -29,7 +29,7 @@ import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
@@ -76,6 +76,7 @@ public class BlockProcessor {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
+        Logger.log("Processing Block: " + blockHash);
         final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
         if (blockIsSynchronized) {
             Logger.log("Skipping known block: " + blockHash);
@@ -86,7 +87,7 @@ public class BlockProcessor {
 
         final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
-        final Timer storeBlockTimer = new Timer();
+        final NanoTimer storeBlockTimer = new NanoTimer();
 
         LoggingConnectionWrapper.reset();
 
@@ -100,7 +101,7 @@ public class BlockProcessor {
             // Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
         }
 
-        final Timer blockValidationTimer = new Timer();
+        final NanoTimer blockValidationTimer = new NanoTimer();
         final Boolean blockIsValid;
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);

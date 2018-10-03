@@ -278,7 +278,6 @@ public class NodeModule {
                 @Override
                 public void run() {
                     _blockDownloader.wakeUp();
-                    Logger.log("*** InventoryMessageHandler - A");
                 }
             });
         }

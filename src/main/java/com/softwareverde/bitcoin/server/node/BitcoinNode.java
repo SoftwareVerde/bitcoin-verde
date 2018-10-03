@@ -56,7 +56,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class BitcoinNode extends Node {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     public interface FailableCallback {
         default void onFailure() { }
@@ -162,7 +162,6 @@ public class BitcoinNode extends Node {
 
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
-    protected final Map<InventoryItemType, Set<InventoryItem>> _availableDataHashes = new HashMap<InventoryItemType, Set<InventoryItem>>();
     protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
@@ -395,7 +394,6 @@ public class BitcoinNode extends Node {
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
             final InventoryItemType inventoryItemType = inventoryItem.getItemType();
-            _storeInMapSet(_availableDataHashes, inventoryItemType, inventoryItem);
             _storeInMapList(dataHashesMap, inventoryItemType, inventoryItem.getItemHash());
         }
 
@@ -403,32 +401,35 @@ public class BitcoinNode extends Node {
             final List<Sha256Hash> objectHashes = dataHashesMap.get(inventoryItemType);
             if (objectHashes.isEmpty()) { continue; }
 
-            if (inventoryItemType == InventoryItemType.BLOCK) {
-                final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
-                if (blockInventoryMessageHandler != null) {
-                    _threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            blockInventoryMessageHandler.onResult(objectHashes);
-                        }
-                    });
-                }
-                else {
-                    Logger.log("NOTICE: No handler set for BlockInventoryMessageHandler.");
-                }
-            }
-            else if (inventoryItemType == InventoryItemType.TRANSACTION) {
-                final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
-                if (transactionsAnnouncementCallback != null) {
-                    _threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            transactionsAnnouncementCallback.onResult(objectHashes);
-                        }
-                    });
-                }
-                else {
-                    Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
+            switch (inventoryItemType) {
+                case BLOCK: {
+                    final BlockInventoryMessageCallback blockInventoryMessageHandler = _blockInventoryMessageHandler;
+                    if (blockInventoryMessageHandler != null) {
+                        _threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                blockInventoryMessageHandler.onResult(objectHashes);
+                            }
+                        });
+                    }
+                    else {
+                        Logger.log("NOTICE: No handler set for BlockInventoryMessageHandler.");
+                    }
+                } break;
+
+                case TRANSACTION: {
+                    final TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallback;
+                    if (transactionsAnnouncementCallback != null) {
+                        _threadPool.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                transactionsAnnouncementCallback.onResult(objectHashes);
+                            }
+                        });
+                    }
+                    else {
+                        Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
+                    }
                 }
             }
         }
@@ -756,13 +757,11 @@ public class BitcoinNode extends Node {
     public void disconnect() {
         super.disconnect();
 
-        _availableDataHashes.clear();
         _downloadBlockRequests.clear();
         _downloadBlockHeadersRequests.clear();
 
         synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
         synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
-        synchronized (_availableDataHashes) { _availableDataHashes.clear(); }
         synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
         synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }

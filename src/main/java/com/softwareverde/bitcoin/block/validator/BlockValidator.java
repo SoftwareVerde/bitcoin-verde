@@ -26,7 +26,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -49,7 +49,7 @@ public class BlockValidator {
             return false;
         }
 
-        final Timer validateBlockTimer = new Timer();
+        final NanoTimer validateBlockTimer = new NanoTimer();
         validateBlockTimer.start();
 
         final List<Transaction> transactions;

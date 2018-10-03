@@ -17,7 +17,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.*;
 
 public class NodeManager<NODE extends Node> {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     protected static ThreadPool _threadExecutor = new ThreadPool(4, 16, 8000L);
 

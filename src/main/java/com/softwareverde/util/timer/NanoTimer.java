@@ -1,6 +1,6 @@
 package com.softwareverde.util.timer;
 
-public class Timer {
+public class NanoTimer {
     protected long _startTime;
     protected long _endTime;
 

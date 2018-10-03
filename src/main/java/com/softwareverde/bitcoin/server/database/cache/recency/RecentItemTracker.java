@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.database.cache.recency;
 
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,7 +27,7 @@ public class RecentItemTracker<T> {
     }
 
     public void markRecent(final T item) {
-        final Timer timer = new Timer();
+        final NanoTimer timer = new NanoTimer();
         timer.start();
 
         final RecentItem<T> recentItem;
@@ -56,7 +56,7 @@ public class RecentItemTracker<T> {
     }
 
     public T getOldestItem() {
-        final Timer timer = new Timer();
+        final NanoTimer timer = new NanoTimer();
         timer.start();
 
         while (_skippedAccesses.remove(_oldestAccess)) {

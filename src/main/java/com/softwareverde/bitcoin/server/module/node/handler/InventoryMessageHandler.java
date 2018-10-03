@@ -21,7 +21,7 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
     protected final DatabaseManagerCache _databaseCache;
     protected Runnable _newBlockHashesCallback;
 
-    protected void _storeBlockHashes(final List<Sha256Hash> blockHashes) {
+    protected Boolean _storeBlockHashes(final List<Sha256Hash> blockHashes) {
         Boolean newBlockHashReceived = false;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
@@ -42,12 +42,7 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
             Logger.log(exception);
         }
 
-        if (newBlockHashReceived) {
-            final Runnable newBlockHashesCallback = _newBlockHashesCallback;
-            if (newBlockHashesCallback != null) {
-                newBlockHashesCallback.run();
-            }
-        }
+        return newBlockHashReceived;
     }
 
     public InventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
@@ -61,6 +56,13 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
 
     @Override
     public void onResult(final List<Sha256Hash> blockHashes) {
-        _storeBlockHashes(blockHashes);
+        final Boolean newBlockHashReceived = _storeBlockHashes(blockHashes);
+
+        if (newBlockHashReceived) {
+            final Runnable newBlockHashesCallback = _newBlockHashesCallback;
+            if (newBlockHashesCallback != null) {
+                newBlockHashesCallback.run();
+            }
+        }
     }
 }

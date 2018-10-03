@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockValidatorThread {
     public interface InvalidBlockCallback {
@@ -48,7 +48,7 @@ public class BlockValidatorThread {
         while (_shouldContinue) {
             final Block block = _blockQueue.getNextBlock(); // TODO: Consider blocking instead of polling...
             if (block != null) {
-                final Timer timer = new Timer();
+                final NanoTimer timer = new NanoTimer();
 
                 timer.start();
                 final Boolean isValidBlock = _blockProcessor.processBlock(block);

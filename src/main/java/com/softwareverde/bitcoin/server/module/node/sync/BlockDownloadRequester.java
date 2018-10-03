@@ -22,7 +22,6 @@ public class BlockDownloadRequester {
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
             pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
 
-            // Logger.log("~~~ BlockDownloadRequester - A");
             _blockDownloader.wakeUp();
         }
         catch (final DatabaseException exception) {

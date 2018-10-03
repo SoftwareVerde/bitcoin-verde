@@ -87,11 +87,15 @@ public class PendingBlockDatabaseManager {
         );
     }
 
-    protected void _deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
+    protected void _deletePendingBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("DELETE FROM pending_block_data WHERE pending_block_id = ?")
                 .setParameter(pendingBlockId)
         );
+    }
+
+    protected void _deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
+        _deletePendingBlockData(pendingBlockId);
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM pending_blocks WHERE id = ?")
@@ -261,5 +265,9 @@ public class PendingBlockDatabaseManager {
 
     public void deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         _deletePendingBlock(pendingBlockId);
+    }
+
+    public void deletePendingBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
+        _deletePendingBlockData(pendingBlockId);
     }
 }

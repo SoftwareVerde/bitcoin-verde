@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -107,8 +106,6 @@ public class BlockHeaderDownloader {
                 Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-
                     for (final BlockHeader blockHeader : blockHeaders) {
                         final Sha256Hash blockHash = blockHeader.getHash();
 
@@ -125,11 +122,6 @@ public class BlockHeaderDownloader {
                         _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
 
                         lastBlockHash.value = blockHash;
-
-                        final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
-                        if (newBlockHeaderAvailableCallback != null) {
-                            newBlockHeaderAvailableCallback.run();
-                        }
                     }
                 }
                 catch (final DatabaseException exception) {
@@ -141,6 +133,11 @@ public class BlockHeaderDownloader {
                 Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + lastBlockHash.value);
 
                 _nodeManager.requestBlockHeadersAfter(lastBlockHash.value, this);
+
+                final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+                if (newBlockHeaderAvailableCallback != null) {
+                    newBlockHeaderAvailableCallback.run();
+                }
             }
         };
 

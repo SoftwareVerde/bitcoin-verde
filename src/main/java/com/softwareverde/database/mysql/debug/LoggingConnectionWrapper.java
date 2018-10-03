@@ -6,7 +6,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.sql.Connection;
 import java.util.HashMap;
@@ -84,7 +84,7 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
 
     @Override
     public List<Row> query(final Query query) throws DatabaseException {
-        final Timer timer = new Timer();
+        final NanoTimer timer = new NanoTimer();
         timer.start();
         final List<Row> rows = super.query(query);
         timer.stop();
@@ -96,7 +96,7 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
 
     @Override
     public synchronized Long executeSql(final Query query) throws DatabaseException {
-        final Timer timer = new Timer();
+        final NanoTimer timer = new NanoTimer();
         timer.start();
         final Long rowId = super.executeSql(query);
         timer.stop();
