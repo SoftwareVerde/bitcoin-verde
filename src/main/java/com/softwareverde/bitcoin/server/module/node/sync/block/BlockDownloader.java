@@ -84,6 +84,9 @@ public class BlockDownloader extends SleepyService {
 
                     if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
                         Logger.log("NOTICE: Block download stalled.");
+
+                        _markPendingBlockIdsAsFailed(_currentBlockDownloadSet.keySet());
+                        _currentBlockDownloadSet.clear();
                         return false;
                     }
                 }
@@ -124,10 +127,7 @@ public class BlockDownloader extends SleepyService {
     }
 
     @Override
-    protected void _onSleep() {
-        _markPendingBlockIdsAsFailed(_currentBlockDownloadSet.keySet());
-        _currentBlockDownloadSet.clear();
-    }
+    protected void _onSleep() { }
 
     public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
