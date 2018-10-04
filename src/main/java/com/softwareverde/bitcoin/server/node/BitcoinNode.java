@@ -58,18 +58,13 @@ import java.util.Set;
 public class BitcoinNode extends Node {
     public static Boolean LOGGING_ENABLED = false;
 
-    public interface FailableCallback {
-        default void onFailure() { }
-    }
-    public interface BlockInventoryMessageCallback extends Callback<List<Sha256Hash>>, FailableCallback { }
-    public interface DownloadBlockCallback extends Callback<Block> {
-        default void onFailure(Sha256Hash blockHash) { }
-    }
-    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>>, FailableCallback { }
-    public interface DownloadTransactionCallback extends Callback<Transaction>, FailableCallback { }
-    public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters>, FailableCallback { }
-    public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters>, FailableCallback { }
-    public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>>, FailableCallback { }
+    public interface BlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+    public interface DownloadBlockCallback extends Callback<Block> { }
+    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
+    public interface DownloadTransactionCallback extends Callback<Transaction> { }
+    public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters> { }
+    public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters> { }
+    public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
     public interface TransactionInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
 
     public static SynchronizationStatus DEFAULT_STATUS_CALLBACK = new SynchronizationStatus() {

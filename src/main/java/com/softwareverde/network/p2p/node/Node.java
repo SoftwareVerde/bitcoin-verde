@@ -1,6 +1,5 @@
 package com.softwareverde.network.p2p.node;
 
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -91,11 +90,9 @@ public abstract class Node {
 
     protected void _queueMessage(final ProtocolMessage message) {
         if (_handshakeIsComplete) {
-            Logger.log("SENDING MESSAGE: " + ((BitcoinProtocolMessage) message).getCommand());
             _connection.queueMessage(message);
         }
         else {
-            Logger.log("QUEUEING MESSAGE: " + ((BitcoinProtocolMessage) message).getCommand());
             _postHandshakeMessageQueue.addLast(message);
         }
     }

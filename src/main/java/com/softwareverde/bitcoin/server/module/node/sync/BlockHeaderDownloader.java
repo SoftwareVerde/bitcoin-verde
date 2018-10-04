@@ -97,7 +97,7 @@ public class BlockHeaderDownloader {
 
         final Container<Sha256Hash> lastBlockHash = new Container<Sha256Hash>(resumeAfterHash);
 
-        final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
+        final BitcoinNodeManager.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
             public void onResult(final List<BlockHeaderWithTransactionCount> blockHeaders) {
                 if (_shouldStop) { return; }
@@ -163,7 +163,7 @@ public class BlockHeaderDownloader {
             return;
         }
 
-        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
+        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 Logger.log("GENESIS RECEIVED: " + block.getHash());

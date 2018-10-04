@@ -30,7 +30,7 @@ public class BlockDownloader extends SleepyService {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final Map<PendingBlockId, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<PendingBlockId, MilliTimer>();
-    protected final BitcoinNode.DownloadBlockCallback _blockDownloadedCallback;
+    protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
 
     protected Runnable _newBlockAvailableCallback = null;
 
@@ -134,7 +134,7 @@ public class BlockDownloader extends SleepyService {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
 
-        _blockDownloadedCallback = new BitcoinNode.DownloadBlockCallback() {
+        _blockDownloadedCallback = new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
