@@ -6,11 +6,14 @@ import com.softwareverde.util.HexUtil;
 
 public interface Sha256Hash extends Hash {
     static Sha256Hash fromHexString(final String hexString) {
+        if (hexString == null) { return null; }
+
         final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
         if (hashBytes == null) {
             Logger.log("NOTICE: Unable to parse hash from string. Invalid hex string: "+ hexString);
             return null;
         }
+        if (hashBytes.length != BYTE_COUNT) { return null; }
 
         return new ImmutableSha256Hash(hashBytes);
     }

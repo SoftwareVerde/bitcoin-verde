@@ -23,9 +23,17 @@ public class BlockFinderHashesBuilder {
     public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
 
+        final Long maxBlockHeight;
+        final BlockChainSegmentId headBlockChainSegmentId;
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-        final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
-        final Long maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+        if (headBlockId != null) {
+            headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
+            maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+        }
+        else {
+            maxBlockHeight = 0L;
+            headBlockChainSegmentId = null;
+        }
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue() + 10));
         int blockHeightStep = 1;

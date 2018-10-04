@@ -11,12 +11,12 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
-public class QueryResponseMessage extends BitcoinProtocolMessage {
+public class InventoryMessage extends BitcoinProtocolMessage {
 
     private final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
 
-    public QueryResponseMessage() {
-        super(MessageType.QUERY_RESPONSE);
+    public InventoryMessage() {
+        super(MessageType.INVENTORY);
     }
 
     public List<InventoryItem> getInventoryItems() {

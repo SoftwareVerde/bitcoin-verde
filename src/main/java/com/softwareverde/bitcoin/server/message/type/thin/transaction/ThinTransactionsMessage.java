@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.message.type.thin.transaction;
 
-import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;

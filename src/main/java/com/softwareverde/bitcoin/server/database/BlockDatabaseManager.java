@@ -460,7 +460,6 @@ public class BlockDatabaseManager {
         final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
 
         if (existingBlockId != null) {
-            // _updateBlockHeader(existingBlockId, blockHeader);
             return existingBlockId;
         }
 
@@ -470,6 +469,23 @@ public class BlockDatabaseManager {
         blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
 
         return blockId;
+    }
+
+    public BlockId storeBlockHeader(final Object mutex, final BlockHeader blockHeader) throws DatabaseException {
+        final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
+
+        if (existingBlockId != null) {
+            return existingBlockId;
+        }
+
+        synchronized (mutex) {
+            final BlockId blockId = _insertBlockHeader(blockHeader);
+
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
+            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
+
+            return blockId;
+        }
     }
 
     /**
@@ -493,6 +509,29 @@ public class BlockDatabaseManager {
         }
 
         _insertBlockTransactions(blockId, block.getTransactions());
+
+        return blockId;
+    }
+
+    public BlockId storeBlock(final Object mutex, final Block block) throws DatabaseException {
+        final Sha256Hash blockHash = block.getHash();
+        final BlockId existingBlockId = _getBlockIdFromHash(blockHash);
+
+        final BlockId blockId;
+        if (existingBlockId == null) {
+            synchronized (mutex) {
+                blockId = _insertBlockHeader(block);
+
+                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
+                blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+
+                _insertBlockTransactions(blockId, block.getTransactions());
+            }
+        }
+        else {
+            blockId = existingBlockId;
+            _insertBlockTransactions(blockId, block.getTransactions());
+        }
 
         return blockId;
     }
@@ -567,6 +606,17 @@ public class BlockDatabaseManager {
         return _inflateBlockHeader(blockId);
     }
 
+    /**
+     * Returns true if the BlockHeader has been downloaded and verified.
+     */
+    public Boolean blockHeaderExists(final Sha256Hash blockHash) throws DatabaseException {
+        final BlockId blockId = _getBlockIdFromHash(blockHash);
+        return (blockId != null);
+    }
+
+    /**
+     * Returns true if the BlockHeader and its Transactions have been downloaded and verified.
+     */
     public Boolean blockExists(final Sha256Hash blockHash) throws DatabaseException {
         final BlockId blockId = _getBlockIdFromHash(blockHash);
         if (blockId == null) { return false; }

@@ -13,7 +13,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockHeaderValidator {
     protected final NetworkTime _networkTime;
@@ -27,7 +27,7 @@ public class BlockHeaderValidator {
             return false;
         }
 
-        final Timer validateBlockTimer = new Timer();
+        final NanoTimer validateBlockTimer = new NanoTimer();
         validateBlockTimer.start();
 
         { // Validate Block Timestamp...

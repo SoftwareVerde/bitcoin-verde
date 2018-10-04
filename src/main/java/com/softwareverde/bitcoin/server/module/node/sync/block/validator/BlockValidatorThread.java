@@ -1,15 +1,18 @@
-package com.softwareverde.bitcoin.server.module.node.sync;
+package com.softwareverde.bitcoin.server.module.node.sync.block.validator;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.blockqueue.BlockQueue;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockValidatorThread {
     public interface InvalidBlockCallback {
         void onInvalidBlock(Block invalidBlock);
+    }
+
+    public interface BlockQueue {
+        Block getNextBlock();
     }
 
     public static final InvalidBlockCallback IGNORE_INVALID_BLOCKS_CALLBACK = new InvalidBlockCallback() {
@@ -45,10 +48,10 @@ public class BlockValidatorThread {
         while (_shouldContinue) {
             final Block block = _blockQueue.getNextBlock(); // TODO: Consider blocking instead of polling...
             if (block != null) {
-                final Timer timer = new Timer();
+                final NanoTimer timer = new NanoTimer();
 
                 timer.start();
-                final Boolean isValidBlock = _blockProcessor.processBlock(block);
+                final Boolean isValidBlock = (_blockProcessor.processBlock(block) != null);
                 timer.stop();
 
                 if (! isValidBlock) {

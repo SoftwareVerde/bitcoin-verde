@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingSc
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -82,17 +83,19 @@ public class TransactionInputDatabaseManager {
     }
 
     protected void _insertUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+        final ByteArray unlockingScriptByteArray = unlockingScript.getBytes();
         _databaseConnection.executeSql(
             new Query("INSERT INTO unlocking_scripts (transaction_input_id, script) VALUES (?, ?)")
                 .setParameter(transactionInputId)
-                .setParameter(unlockingScript.getBytes().getBytes())
+                .setParameter(unlockingScriptByteArray.getBytes())
         );
     }
 
     protected void _updateUnlockingScript(final TransactionInputId transactionInputId, final UnlockingScript unlockingScript) throws DatabaseException {
+        final ByteArray unlockingScriptByteArray = unlockingScript.getBytes();
         _databaseConnection.executeSql(
             new Query("UPDATE unlocking_scripts SET script = ? WHERE transaction_input_id = ?")
-                .setParameter(unlockingScript.getBytes().getBytes())
+                .setParameter(unlockingScriptByteArray.getBytes())
                 .setParameter(transactionInputId)
         );
     }
@@ -106,9 +109,9 @@ public class TransactionInputDatabaseManager {
         for (int i = 0; i < transactionInputIds.getSize(); ++i) {
             final TransactionInputId transactionInputId = transactionInputIds.get(i);
             final UnlockingScript unlockingScript = unlockingScripts.get(i);
-
+            final ByteArray unlockingScriptByteArray = unlockingScript.getBytes();
             batchedInsertQuery.setParameter(transactionInputId);
-            batchedInsertQuery.setParameter(unlockingScript.getBytes().getBytes());
+            batchedInsertQuery.setParameter(unlockingScriptByteArray.getBytes());
         }
 
         _databaseConnection.executeSql(batchedInsertQuery);

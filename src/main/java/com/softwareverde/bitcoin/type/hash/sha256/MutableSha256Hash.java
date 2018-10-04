@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.type.hash.sha256;
 import com.softwareverde.bitcoin.type.hash.MutableHash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.HexUtil;
 
 public class MutableSha256Hash extends MutableHash implements Sha256Hash {
     public static MutableSha256Hash wrap(final byte[] bytes) {

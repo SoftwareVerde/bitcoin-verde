@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.module.node.SleepyService;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -18,26 +18,45 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
-public class BlockHeaderDownloader {
+public class BlockHeaderDownloader extends SleepyService {
+    public static final Long MAX_TIMEOUT_MS = 60000L;
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
-
-    protected Long _startTime;
-    protected Long _blockHeaderCount = 0L;
+    protected final BlockDownloadRequester _blockDownloadRequester;
+    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
+    protected final MilliTimer _timer;
+    protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
 
-    protected volatile boolean _shouldStop = false;
+    protected final Object _headersDownloadedPin = new Object();
+    protected final Object _genesisBlockPin = new Object();
+    protected Boolean _hasGenesisBlock = false;
 
-    protected Boolean _hasGenesisBlockHeader() {
+    protected Long _blockHeight = 0L;
+    protected Sha256Hash _lastBlockHash = Block.GENESIS_BLOCK_HASH;
+    protected Long _blockHeaderCount = 0L;
+
+    protected Runnable _newBlockHeaderAvailableCallback = null;
+
+    protected Boolean _checkForGenesisBlockHeader() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
-            return (lastKnownHash != null);
+
+            synchronized (_genesisBlockPin) {
+                _hasGenesisBlock = (lastKnownHash != null);
+                _genesisBlockPin.notifyAll();
+            }
+
+            return _hasGenesisBlock;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -45,7 +64,50 @@ public class BlockHeaderDownloader {
         }
     }
 
-    protected Boolean _storeBlockHeader(final BlockHeader blockHeader, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected void _downloadGenesisBlock() {
+        final Runnable retry = new Runnable() {
+            @Override
+            public void run() {
+                try { Thread.sleep(5000L); } catch (final InterruptedException exception) { return; }
+                _downloadGenesisBlock();
+            }
+        };
+
+        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
+            @Override
+            public void onResult(final Block block) {
+                final Sha256Hash blockHash = block.getHash();
+                Logger.log("GENESIS RECEIVED: " + blockHash);
+                if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
+
+                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                    final Boolean genesisBlockWasStored = _validateAndStoreBlockHeader(block, databaseConnection);
+                    if (! genesisBlockWasStored) {
+                        _threadPool.execute(retry);
+                        return;
+                    }
+
+                    Logger.log("GENESIS STORED: " + block.getHash());
+
+                    synchronized (_genesisBlockPin) {
+                        _hasGenesisBlock = true;
+                        _genesisBlockPin.notifyAll();
+                    }
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    _threadPool.execute(retry);
+                }
+            }
+
+            @Override
+            public void onFailure(final Sha256Hash blockHash) {
+                _threadPool.execute(retry);
+            }
+        });
+    }
+
+    protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final Sha256Hash blockHash = blockHeader.getHash();
 
         if (! blockHeader.isValid()) {
@@ -56,129 +118,170 @@ public class BlockHeaderDownloader {
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _nodeManager.getNetworkTime(), _medianBlockTime);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        synchronized (BlockDatabaseManager.MUTEX) {
-            TransactionUtil.startTransaction(databaseConnection);
-            final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+        TransactionUtil.startTransaction(databaseConnection);
 
-            if (blockId == null) {
-                Logger.log("Error storing BlockHeader: " + blockHash);
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                return false;
-            }
+        final BlockId blockId = blockDatabaseManager.storeBlockHeader(BlockDatabaseManager.MUTEX, blockHeader);
 
-            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
-            if (! blockHeaderIsValid) {
-                Logger.log("Invalid BlockHeader: " + blockHash);
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                return false;
-            }
-
-            TransactionUtil.commitTransaction(databaseConnection);
-            return true;
+        if (blockId == null) {
+            Logger.log("Error storing BlockHeader: " + blockHash);
+            TransactionUtil.rollbackTransaction(databaseConnection);
+            return false;
         }
+
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+        if (! blockHeaderIsValid) {
+            Logger.log("Invalid BlockHeader: " + blockHash);
+            TransactionUtil.rollbackTransaction(databaseConnection);
+            return false;
+        }
+
+        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        _blockHeight = Math.max(blockHeight, _blockHeight);
+
+        TransactionUtil.commitTransaction(databaseConnection);
+        return true;
     }
 
-    protected void _downloadAllBlockHeaders() {
-        final Sha256Hash resumeAfterHash;
-        {
-            Sha256Hash lastKnownHash = null;
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+    protected void _processBlockHeaders(final List<BlockHeaderWithTransactionCount> blockHeaders) {
+        final MilliTimer storeHeadersTimer = new MilliTimer();
+        storeHeadersTimer.start();
+
+        final BlockHeader firstBlockHeader = blockHeaders.get(0);
+        Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            for (final BlockHeader blockHeader : blockHeaders) {
+                final Sha256Hash blockHash = blockHeader.getHash();
+
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
-            }
-            catch (final DatabaseException e) { }
+                final Boolean blockAlreadyExists = blockDatabaseManager.blockHeaderExists(blockHash);
+                if (! blockAlreadyExists) {
+                    final Boolean blockHeaderWasStored = _validateAndStoreBlockHeader(blockHeader, databaseConnection);
+                    if (! blockHeaderWasStored) { continue; }
 
-            resumeAfterHash = Util.coalesce(lastKnownHash, Block.GENESIS_BLOCK_HASH);
+                    _threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            _blockDownloadRequester.requestBlock(blockHash, blockHeader.getTimestamp());
+                        }
+                    });
+
+                    _blockHeaderCount += 1L;
+                    _timer.stop();
+                    final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
+                    _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
+                }
+
+                _lastBlockHash = blockHash;
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            Logger.log("Processing BlockHeaders failed.");
+            return;
         }
 
-        final Container<Sha256Hash> lastBlockHash = new Container<Sha256Hash>(resumeAfterHash);
-
-        final BitcoinNode.DownloadBlockHeadersCallback downloadBlockHeadersCallback = new BitcoinNode.DownloadBlockHeadersCallback() {
-            @Override
-            public void onResult(final List<BlockHeaderWithTransactionCount> blockHeaders) {
-                if (_shouldStop) { return; }
-
-                final BlockHeader firstBlockHeader = blockHeaders.get(0);
-                Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
-
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    for (final BlockHeader blockHeader : blockHeaders) {
-                        final Sha256Hash blockHash = blockHeader.getHash();
-
-                        final Boolean blockHeaderWasStored = _storeBlockHeader(blockHeader, databaseConnection);
-                        if (! blockHeaderWasStored) {
-                            break;
-                        }
-
-                        _blockHeaderCount += 1L;
-                        final Long now = System.currentTimeMillis();
-                        final Long millisecondsElapsed = (now - _startTime);
-                        _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
-
-                        lastBlockHash.value = blockHash;
-                    }
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    Logger.log("Syncing BlockHeaders aborting.");
-                    return;
-                }
-
-                Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + lastBlockHash.value);
-
-                _nodeManager.requestBlockHeadersAfter(lastBlockHash.value, this);
-            }
-        };
-
-        _nodeManager.requestBlockHeadersAfter(lastBlockHash.value, downloadBlockHeadersCallback);
+        storeHeadersTimer.stop();
+        Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime) {
+    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeManager = nodeManager;
         _medianBlockTime = medianBlockTime;
-    }
+        _blockDownloadRequester = blockDownloadRequester;
+        _timer = new MilliTimer();
 
-    public void start() {
-        _shouldStop = false;
-
-        _blockHeaderCount = 0L;
-        _startTime = System.currentTimeMillis();
-
-        if (_hasGenesisBlockHeader()) {
-            _downloadAllBlockHeaders();
-            return;
-        }
-
-        _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNode.DownloadBlockCallback() {
+        _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final Block blockHeader) {
-                Logger.log("GENESIS RECEIVED: " + blockHeader.getHash());
-                if (! _hasGenesisBlockHeader()) {
-                    // NOTE: Can happen if the NodeModule received GenesisBlock from another node...
-                    try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                        final Boolean genesisBlockWasStored = _storeBlockHeader(blockHeader, databaseConnection);
+            public void onResult(final List<BlockHeaderWithTransactionCount> blockHeaders) {
+                _processBlockHeaders(blockHeaders);
 
-                        Logger.log("GENESIS STORED: " + blockHeader.getHash());
-                    }
-                    catch (final DatabaseException exception) {
-                        Logger.log(exception);
-                        return;
-                    }
+                final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+                if (newBlockHeaderAvailableCallback != null) {
+                    _threadPool.execute(newBlockHeaderAvailableCallback);
                 }
 
-                _downloadAllBlockHeaders();
+                synchronized (_headersDownloadedPin) {
+                    _headersDownloadedPin.notifyAll();
+                }
             }
-        });
+
+            @Override
+            public void onFailure() {
+                // Let the headersDownloadedPin timeout...
+            }
+        };
     }
 
-    public void stop() {
-        _shouldStop = true;
+    @Override
+    protected void _onStart() {
+        _timer.start();
+        _blockHeaderCount = 0L;
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            if (headBlockId != null) {
+                final Sha256Hash headBlockHash = blockDatabaseManager.getBlockHashFromId(headBlockId);
+                _lastBlockHash = headBlockHash;
+                _blockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+            }
+            else {
+                _lastBlockHash = Block.GENESIS_BLOCK_HASH;
+                _blockHeight = 0L;
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            _lastBlockHash = Util.coalesce(_lastBlockHash, Block.GENESIS_BLOCK_HASH);
+        }
+
+        if (! _checkForGenesisBlockHeader()) {
+            _downloadGenesisBlock();
+        }
+    }
+
+    @Override
+    protected Boolean _run() {
+        synchronized (_genesisBlockPin) {
+            while (! _hasGenesisBlock) {
+                try { _genesisBlockPin.wait(); }
+                catch (final InterruptedException exception) { return false; }
+            }
+        }
+
+        _nodeManager.requestBlockHeadersAfter(_lastBlockHash, _downloadBlockHeadersCallback);
+
+        synchronized (_headersDownloadedPin) {
+            final MilliTimer timer = new MilliTimer();
+            timer.start();
+
+            try { _headersDownloadedPin.wait(MAX_TIMEOUT_MS); }
+            catch (final InterruptedException exception) { return false; }
+
+            timer.stop();
+            if (timer.getMillisecondsElapsed() >= MAX_TIMEOUT_MS) { return false; }
+        }
+
+        return true;
+    }
+
+    @Override
+    protected void _onSleep() { }
+
+    public void setNewBlockHeaderAvailableCallback(final Runnable newBlockHeaderAvailableCallback) {
+        _newBlockHeaderAvailableCallback = newBlockHeaderAvailableCallback;
     }
 
     public Container<Float> getAverageBlockHeadersPerSecondContainer() {
         return _averageBlockHeadersPerSecond;
+    }
+
+    public Long getBlockHeight() {
+        return _blockHeight;
     }
 }

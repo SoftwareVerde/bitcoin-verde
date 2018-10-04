@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class BlockInflater {
@@ -36,6 +37,10 @@ public class BlockInflater {
 
     public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
+    }
+
+    public MutableBlock fromBytes(final ByteArray byteArrayReader) {
+        return _fromByteArrayReader(new ByteArrayReader(byteArrayReader));
     }
 
     public MutableBlock fromBytes(final byte[] bytes) {

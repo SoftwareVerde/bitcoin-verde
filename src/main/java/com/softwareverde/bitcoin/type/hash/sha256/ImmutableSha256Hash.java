@@ -3,8 +3,6 @@ package com.softwareverde.bitcoin.type.hash.sha256;
 import com.softwareverde.bitcoin.type.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
-import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 
 public class ImmutableSha256Hash extends ImmutableHash implements Sha256Hash, Const {
     protected ImmutableSha256Hash(final byte[] bytes) {

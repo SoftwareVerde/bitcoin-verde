@@ -5,7 +5,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 import java.util.concurrent.ExecutorService;
@@ -29,7 +29,7 @@ public class ParallelledTaskSpawner<T, S> {
         }
     }
 
-    protected final ReadUncommittedDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
@@ -38,7 +38,7 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public ParallelledTaskSpawner(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
 

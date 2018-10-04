@@ -39,21 +39,25 @@ public abstract class Node {
     private static Long _nextId = 0L;
 
     protected static <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
-        Set<S> destinationSet = destinationMap.get(key);
-        if (destinationSet == null) {
-            destinationSet = new HashSet<S>();
-            destinationMap.put(key, destinationSet);
+        synchronized (destinationMap) {
+            Set<S> destinationSet = destinationMap.get(key);
+            if (destinationSet == null) {
+                destinationSet = new HashSet<S>();
+                destinationMap.put(key, destinationSet);
+            }
+            destinationSet.add(value);
         }
-        destinationSet.add(value);
     }
 
     protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
-        MutableList<S> destinationSet = destinationList.get(key);
-        if (destinationSet == null) {
-            destinationSet = new MutableList<S>();
-            destinationList.put(key, destinationSet);
+        synchronized (destinationList) {
+            MutableList<S> destinationSet = destinationList.get(key);
+            if (destinationSet == null) {
+                destinationSet = new MutableList<S>();
+                destinationList.put(key, destinationSet);
+            }
+            destinationSet.add(value);
         }
-        destinationSet.add(value);
     }
 
     protected final NodeId _id;
@@ -399,7 +403,7 @@ public abstract class Node {
     }
 
     public String getHost() {
-        return _connection.getHost();
+        return Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
     }
 
     public Integer getPort() {

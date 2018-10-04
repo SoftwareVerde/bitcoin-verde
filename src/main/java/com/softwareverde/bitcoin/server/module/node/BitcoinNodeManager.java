@@ -6,10 +6,13 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
@@ -21,6 +24,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
@@ -29,7 +33,18 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         public static final Integer FAILED_CONNECTION_ATTEMPT_COUNT = 3;
     }
 
+    public interface FailableCallback {
+        default void onFailure() { }
+    }
+    public interface BlockInventoryMessageCallback extends BitcoinNode.BlockInventoryMessageCallback, FailableCallback { }
+    public interface DownloadBlockCallback extends BitcoinNode.DownloadBlockCallback {
+        default void onFailure(Sha256Hash blockHash) { }
+    }
+    public interface DownloadBlockHeadersCallback extends BitcoinNode.DownloadBlockHeadersCallback, FailableCallback { }
+    public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback, FailableCallback { }
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerCache _databaseManagerCache;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
@@ -66,6 +81,19 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);
+        }
+    }
+
+    @Override
+    public void _onNodeConnected(final BitcoinNode node) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseManagerCache);
+            final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
+
+            node.transmitBlockFinder(blockFinderHashes);
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
         }
     }
 
@@ -112,24 +140,27 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler) {
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler) {
         super(maxNodeCount, new BitcoinNodeFactory(), networkTime);
         _databaseConnectionFactory = databaseConnectionFactory;
+        _databaseManagerCache = databaseManagerCache;
         _nodeInitializer = nodeInitializer;
         _banFilter = banFilter;
         _memoryPoolEnquirer = memoryPoolEnquirer;
         _synchronizationStatusHandler = synchronizationStatusHandler;
     }
 
-    protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+    protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
+        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final BitcoinNode bitcoinNode) {
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
                 bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
                     @Override
                     public void onResult(final List<BlockHeaderWithTransactionCount> result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
 
                         if (callback != null) {
                             callback.onResult(result);
@@ -150,124 +181,39 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
-    /**
-     * Builds and transmits a BlockFinder request (a QueryBlocksMessage ("getblocks") with this node's chain's history (i.e. blockHashes)).
-     *  If a fork is detected by the peer, an unsolicited QueryResponse ("inv") message is received.  The unsolicited QueryResponse message then triggers
-     *  a
-     */
-    public void detectFork(final List<Sha256Hash> blockHashes) {
+    public void broadcastBlockFinder(final List<Sha256Hash> blockHashes) {
         for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            bitcoinNode.detectFork(blockHashes);
+            bitcoinNode.transmitBlockFinder(blockHashes);
         }
-
-//        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
-//            @Override
-//            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-//                bitcoinNode.detectFork(blockHashes);
-//            }
-//        });
     }
 
-    public void requestBlockHashesAfter(final Sha256Hash blockHash, final BitcoinNode.QueryCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+    public void requestBlockHashesAfter(final Sha256Hash blockHash) {
+        _sendMessage(new NodeApiMessage<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                bitcoinNode.requestBlockHashesAfter(blockHash, new BitcoinNode.QueryCallback() {
-                    @Override
-                    public void onResult(final List<Sha256Hash> result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
-
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestBlockHashesAfter("+ blockHash +")");
-
-                if (callback != null) {
-                    callback.onFailure();
-                }
+            public void run(final BitcoinNode bitcoinNode) {
+                bitcoinNode.requestBlockHashesAfter(blockHash);
             }
         });
     }
 
-    public void requestBlock(final Sha256Hash blockHash, final BitcoinNode.DownloadBlockCallback callback) {
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+    protected void _requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
-                final Runnable downloadTraditionalBlock = new Runnable() {
+            public void run(final BitcoinNode bitcoinNode) {
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
+                bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                     @Override
-                    public void run() {
-                        bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
-                            @Override
-                            public void onResult(final Block block) {
-                                final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                                if (requestTimedOut) { return; }
+                    public void onResult(final Block block) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
 
-                                if (callback != null) {
-                                    Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getHost());
-                                    callback.onResult(block);
-                                }
-                            }
-                        });
-                    }
-                };
-
-                final Boolean shouldRequestThinBlock;
-                {
-                    if (! bitcoinNode.supportsExtraThinBlocks()) {
-                        shouldRequestThinBlock = false;
-                    }
-                    else if (! _synchronizationStatusHandler.isBlockChainSynchronized()) {
-                        shouldRequestThinBlock = false;
-                    }
-                    else {
-                        final Integer memoryPoolTransactionCount = _memoryPoolEnquirer.getMemoryPoolTransactionCount();
-                        shouldRequestThinBlock = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
-                    }
-                }
-
-                if (shouldRequestThinBlock) {
-                    final BloomFilter bloomFilter = _memoryPoolEnquirer.getBloomFilter(blockHash);
-                    bitcoinNode.requestThinBlock(blockHash, bloomFilter, new BitcoinNode.DownloadThinBlockCallback() { // TODO: Consider using ExtraThinBlocks... Unsure if the potential round-trip on a TransactionHash collision is worth it, though.
-                        @Override
-                        public void onResult(final BitcoinNode.ThinBlockParameters extraThinBlockParameters) {
-                            final BlockHeader blockHeader = extraThinBlockParameters.blockHeader;
-                            final List<Sha256Hash> transactionHashes = extraThinBlockParameters.transactionHashes;
-                            final List<Transaction> transactions = extraThinBlockParameters.transactions;
-
-                            final ThinBlockAssembler thinBlockAssembler = new ThinBlockAssembler(_memoryPoolEnquirer);
-
-                            final AssembleThinBlockResult assembleThinBlockResult = thinBlockAssembler.assembleThinBlock(blockHeader, transactionHashes, transactions);
-                            if (! assembleThinBlockResult.wasSuccessful()) {
-                                bitcoinNode.requestThinTransactions(blockHash, assembleThinBlockResult.missingTransactions, new BitcoinNode.DownloadThinTransactionsCallback() {
-                                    @Override
-                                    public void onResult(final List<Transaction> missingTransactions) {
-                                        final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
-                                        if (block == null) {
-                                            // Fallback on downloading block traditionally...
-                                            downloadTraditionalBlock.run();
-                                        }
-                                        else {
-                                            callback.onResult(assembleThinBlockResult.block);
-                                        }
-                                    }
-                                });
-                            }
-                            else {
-                                callback.onResult(assembleThinBlockResult.block);
-                            }
+                        if (callback != null) {
+                            Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getHost());
+                            callback.onResult(block);
                         }
-                    });
-                }
-                else {
-                    downloadTraditionalBlock.run();
-                }
+                    }
+                });
             }
 
             @Override
@@ -281,28 +227,150 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
-    public void requestBlockHeadersAfter(final Sha256Hash blockHash, final BitcoinNode.DownloadBlockHeadersCallback callback) {
+    public void requestThinBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        final NodeApiRequest<BitcoinNode> thinBlockApiRequest = new NodeApiRequest<BitcoinNode>() {
+            @Override
+            public void run(final BitcoinNode bitcoinNode) {
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
+                final BloomFilter bloomFilter = _memoryPoolEnquirer.getBloomFilter(blockHash);
+
+                bitcoinNode.requestThinBlock(blockHash, bloomFilter, new BitcoinNode.DownloadThinBlockCallback() { // TODO: Consider using ExtraThinBlocks... Unsure if the potential round-trip on a TransactionHash collision is worth it, though.
+                    @Override
+                    public void onResult(final BitcoinNode.ThinBlockParameters extraThinBlockParameters) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        final BlockHeader blockHeader = extraThinBlockParameters.blockHeader;
+                        final List<Sha256Hash> transactionHashes = extraThinBlockParameters.transactionHashes;
+                        final List<Transaction> transactions = extraThinBlockParameters.transactions;
+
+                        final ThinBlockAssembler thinBlockAssembler = new ThinBlockAssembler(_memoryPoolEnquirer);
+
+                        final AssembleThinBlockResult assembleThinBlockResult = thinBlockAssembler.assembleThinBlock(blockHeader, transactionHashes, transactions);
+                        if (! assembleThinBlockResult.wasSuccessful()) {
+                            _selectNodeForRequest(bitcoinNode, new NodeApiRequest<BitcoinNode>() {
+                                @Override
+                                public void run(final BitcoinNode bitcoinNode) {
+                                    final NodeApiRequest<BitcoinNode> apiRequest = this;
+
+                                    bitcoinNode.requestThinTransactions(blockHash, assembleThinBlockResult.missingTransactions, new BitcoinNode.DownloadThinTransactionsCallback() {
+                                        @Override
+                                        public void onResult(final List<Transaction> missingTransactions) {
+                                            _onResponseReceived(bitcoinNode, apiRequest);
+                                            if (apiRequest.didTimeout) { return; }
+
+                                            final Block block = thinBlockAssembler.reassembleThinBlock(assembleThinBlockResult, missingTransactions);
+                                            if (block == null) {
+                                                Logger.log("NOTICE: Falling back to traditional block.");
+                                                // Fallback on downloading block traditionally...
+                                                _requestBlock(blockHash, callback);
+                                            }
+                                            else {
+                                                Logger.log("NOTICE: Thin block assembled. " + System.currentTimeMillis());
+                                                if (callback != null) {
+                                                    callback.onResult(assembleThinBlockResult.block);
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+
+                                @Override
+                                public void onFailure() {
+                                    Logger.log("NOTICE: Falling back to traditional block.");
+                                    _requestBlock(blockHash, callback);
+                                }
+                            });
+                        }
+                        else {
+                            Logger.log("NOTICE: Thin block assembled on first trip. " + System.currentTimeMillis());
+                            if (callback != null) {
+                                callback.onResult(assembleThinBlockResult.block);
+                            }
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestThinBlock("+ blockHash +")");
+
+                if (callback != null) {
+                    callback.onFailure(blockHash);
+                }
+            }
+        };
+
+        final Boolean shouldRequestThinBlocks;
+        {
+            if (! _synchronizationStatusHandler.isBlockChainSynchronized()) {
+                shouldRequestThinBlocks = false;
+            }
+            else {
+                final Integer memoryPoolTransactionCount = _memoryPoolEnquirer.getMemoryPoolTransactionCount();
+                final Boolean memoryPoolIsTooEmpty = (memoryPoolTransactionCount >= MINIMUM_THIN_BLOCK_TRANSACTION_COUNT);
+                shouldRequestThinBlocks = (! memoryPoolIsTooEmpty);
+            }
+        }
+
+        if (shouldRequestThinBlocks) {
+            final NodeFilter<BitcoinNode> nodeFilter = new NodeFilter<BitcoinNode>() {
+                @Override
+                public Boolean meetsCriteria(final BitcoinNode bitcoinNode) {
+                    return bitcoinNode.supportsExtraThinBlocks();
+                }
+            };
+
+            final BitcoinNode selectedNode;
+            synchronized (_mutex) {
+                selectedNode = _selectBestNode(nodeFilter);
+            }
+
+            if (selectedNode != null) {
+                Logger.log("NOTICE: Requesting thin block. " + System.currentTimeMillis());
+                _selectNodeForRequest(selectedNode, thinBlockApiRequest);
+            }
+            else {
+                _requestBlock(blockHash, callback);
+            }
+
+        }
+        else {
+            _requestBlock(blockHash, callback);
+        }
+    }
+
+    // TODO: Ensure selected node will have the requested BlockHash (important when synchronization is complete and requesting very new blocks)...
+    public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        _requestBlock(blockHash, callback);
+    }
+
+    public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
         blockHashes.add(blockHash);
 
         _requestBlockHeaders(blockHashes, callback);
     }
 
-    public void requestBlockHeadersAfter(final List<Sha256Hash> blockHashes, final BitcoinNode.DownloadBlockHeadersCallback callback) {
+    public void requestBlockHeadersAfter(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
         _requestBlockHeaders(blockHashes, callback);
     }
 
-    public void requestTransactions(final List<Sha256Hash> transactionHashes, final BitcoinNode.DownloadTransactionCallback callback) {
+    public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
         if (transactionHashes.isEmpty()) { return; }
 
-        this.executeRequest(new NodeApiInvocation<BitcoinNode>() {
+        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
             @Override
-            public void run(final BitcoinNode bitcoinNode, final NodeApiInvocationCallback nodeApiInvocationCallback) {
+            public void run(final BitcoinNode bitcoinNode) {
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
                 bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
                     @Override
                     public void onResult(final Transaction result) {
-                        final Boolean requestTimedOut = nodeApiInvocationCallback.didTimeout();
-                        if (requestTimedOut) { return; }
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
 
                         if (callback != null) {
                             callback.onResult(result);
@@ -320,5 +388,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 }
             }
         });
+    }
+
+    public void shutdown() {
+        synchronized (_mutex) {
+            for (final BitcoinNode node : _nodes.values()) {
+                node.disconnect();
+            }
+            _nodes.clear();
+        }
     }
 }

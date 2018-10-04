@@ -9,7 +9,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.util.type.time.SystemTime;

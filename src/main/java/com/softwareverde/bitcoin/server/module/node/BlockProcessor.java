@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -21,13 +22,14 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.Timer;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
     protected final Object _statisticsMutex = new Object();
@@ -39,19 +41,22 @@ public class BlockProcessor {
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
-    protected final ReadUncommittedDatabaseConnectionPool _readUncommittedDatabaseConnectionPool;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
 
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
 
-    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final ReadUncommittedDatabaseConnectionPool readUncommittedDatabaseConnectionPool) {
+    protected Integer _processedBlockCount = 0;
+    protected final Long _startTime;
+
+    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
-        _readUncommittedDatabaseConnectionPool = readUncommittedDatabaseConnectionPool;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;
+
+        _startTime = System.currentTimeMillis();
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -62,7 +67,8 @@ public class BlockProcessor {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
-    protected Boolean _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected Long _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        _processedBlockCount += 1;
         final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
@@ -70,22 +76,24 @@ public class BlockProcessor {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
+        Logger.log("Processing Block: " + blockHash);
         final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
         if (blockIsSynchronized) {
             Logger.log("Skipping known block: " + blockHash);
-            return true;
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            return blockDatabaseManager.getBlockHeightForBlockId(blockId);
         }
 
         TransactionUtil.startTransaction(databaseConnection);
 
         final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
-        final Timer storeBlockTimer = new Timer();
+        final NanoTimer storeBlockTimer = new NanoTimer();
 
         LoggingConnectionWrapper.reset();
 
         storeBlockTimer.start();
-        final BlockId blockId = blockDatabaseManager.storeBlock(block);
+        final BlockId blockId = blockDatabaseManager.storeBlock(BlockDatabaseManager.MUTEX, block);
         storeBlockTimer.stop();
 
         {
@@ -94,23 +102,31 @@ public class BlockProcessor {
             // Logger.log("Updated Chains " + updateBlockChainsTimer.getMillisecondsElapsed() + " ms");
         }
 
-        final BlockValidator blockValidator = new BlockValidator(_readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-        blockValidator.setMaxThreadCount(_maxThreadCount);
-        blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final NanoTimer blockValidationTimer = new NanoTimer();
+        final Boolean blockIsValid;
 
-        final Timer blockValidationTimer = new Timer();
-        blockValidationTimer.start();
-        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
-        blockValidationTimer.stop();
+        final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
+        try (final MysqlDatabaseConnectionPool readUncommittedDatabaseConnectionPool = new MysqlDatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
+            final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+            blockValidator.setMaxThreadCount(_maxThreadCount);
+            blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
-        localDatabaseManagerCache.log();
-        localDatabaseManagerCache.resetLog();
+            blockValidationTimer.start();
+            blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+            blockValidationTimer.stop();
+
+            // localDatabaseManagerCache.log();
+            localDatabaseManagerCache.resetLog();
+
+        }
 
         if (! blockIsValid) {
             TransactionUtil.rollbackTransaction(databaseConnection);
-            return false;
+            return null;
         }
+
+        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
 
         final BlockDeflater blockDeflater = new BlockDeflater();
         final Integer byteCount = blockDeflater.getByteCount(block);
@@ -153,7 +169,6 @@ public class BlockProcessor {
             // 4. Validate that the transactions are still valid on the new chain...
             final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
             transactionValidator.setLoggingEnabled(false);
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
 
             final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
             for (final TransactionId transactionId : transactionIds) {
@@ -206,32 +221,33 @@ public class BlockProcessor {
             averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
         }
 
-        _averageBlocksPerSecond.value = averageBlocksPerSecond;
+        // _averageBlocksPerSecond.value = averageBlocksPerSecond;
+        final Long now = System.currentTimeMillis();
+        _averageBlocksPerSecond.value = ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
         _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
         _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
 
-        return true;
+        return blockHeight;
     }
 
-    public Boolean processBlock(final Block block) {
+    public Long processBlock(final Block block) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            synchronized (BlockDatabaseManager.MUTEX) {
-                return _processBlock(block, databaseConnection);
-            }
+            return _processBlock(block, databaseConnection);
         }
         catch (final Exception exception) {
             Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());
             Logger.log(exception);
         }
 
-        return false;
+        return null;
     }
 
-    public JsonRpcSocketServerHandler.StatisticsContainer getStatisticsContainer() {
-        final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
-        statisticsContainer.averageBlocksPerSecond = _averageBlocksPerSecond;
-        statisticsContainer.averageTransactionsPerSecond = _averageTransactionsPerSecond;
-        return statisticsContainer;
+    public Container<Float> getAverageBlocksPerSecondContainer() {
+        return _averageBlocksPerSecond;
+    }
+
+    public Container<Float> getAverageTransactionsPerSecondContainer() {
+        return _averageTransactionsPerSecond;
     }
 }
