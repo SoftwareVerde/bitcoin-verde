@@ -86,10 +86,8 @@ public class BlockChainBuilder extends SleepyService {
         final BlockHasher blockHasher = new BlockHasher();
         final Sha256Hash blockHash = blockHasher.calculateBlockHash(block);
         if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) {
-            synchronized (BlockDatabaseManager.MUTEX) {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-                blockId = blockDatabaseManager.storeBlock(block);
-            }
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+            blockId = blockDatabaseManager.storeBlock(BlockDatabaseManager.MUTEX, block);
         }
         else {
             blockId = null;

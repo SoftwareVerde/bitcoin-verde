@@ -31,7 +31,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final BlockDownloadRequester _blockDownloadRequester;
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 60000L);
+    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
     protected final MilliTimer _timer;
     protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
@@ -76,7 +76,8 @@ public class BlockHeaderDownloader extends SleepyService {
         _nodeManager.requestBlock(Block.GENESIS_BLOCK_HASH, new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
-                Logger.log("GENESIS RECEIVED: " + block.getHash());
+                final Sha256Hash blockHash = block.getHash();
+                Logger.log("GENESIS RECEIVED: " + blockHash);
                 if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
 
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -117,30 +118,29 @@ public class BlockHeaderDownloader extends SleepyService {
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _nodeManager.getNetworkTime(), _medianBlockTime);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        synchronized (BlockDatabaseManager.MUTEX) {
-            TransactionUtil.startTransaction(databaseConnection);
-            final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+        TransactionUtil.startTransaction(databaseConnection);
 
-            if (blockId == null) {
-                Logger.log("Error storing BlockHeader: " + blockHash);
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                return false;
-            }
+        final BlockId blockId = blockDatabaseManager.storeBlockHeader(BlockDatabaseManager.MUTEX, blockHeader);
 
-            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
-            if (! blockHeaderIsValid) {
-                Logger.log("Invalid BlockHeader: " + blockHash);
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                return false;
-            }
-
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
-            _blockHeight = Math.max(blockHeight, _blockHeight);
-
-            TransactionUtil.commitTransaction(databaseConnection);
-            return true;
+        if (blockId == null) {
+            Logger.log("Error storing BlockHeader: " + blockHash);
+            TransactionUtil.rollbackTransaction(databaseConnection);
+            return false;
         }
+
+        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+        if (! blockHeaderIsValid) {
+            Logger.log("Invalid BlockHeader: " + blockHash);
+            TransactionUtil.rollbackTransaction(databaseConnection);
+            return false;
+        }
+
+        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        _blockHeight = Math.max(blockHeight, _blockHeight);
+
+        TransactionUtil.commitTransaction(databaseConnection);
+        return true;
     }
 
     protected void _processBlockHeaders(final List<BlockHeaderWithTransactionCount> blockHeaders) {
@@ -154,15 +154,24 @@ public class BlockHeaderDownloader extends SleepyService {
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
 
-                final Boolean blockHeaderWasStored = _validateAndStoreBlockHeader(blockHeader, databaseConnection);
-                if (! blockHeaderWasStored) { continue; }
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                final Boolean blockAlreadyExists = blockDatabaseManager.blockHeaderExists(blockHash);
+                if (! blockAlreadyExists) {
+                    final Boolean blockHeaderWasStored = _validateAndStoreBlockHeader(blockHeader, databaseConnection);
+                    if (! blockHeaderWasStored) { continue; }
 
-                _blockDownloadRequester.requestBlock(blockHash, blockHeader.getTimestamp());
+                    _threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            _blockDownloadRequester.requestBlock(blockHash, blockHeader.getTimestamp());
+                        }
+                    });
 
-                _blockHeaderCount += 1L;
-                _timer.stop();
-                final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
-                _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
+                    _blockHeaderCount += 1L;
+                    _timer.stop();
+                    final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
+                    _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
+                }
 
                 _lastBlockHash = blockHash;
             }

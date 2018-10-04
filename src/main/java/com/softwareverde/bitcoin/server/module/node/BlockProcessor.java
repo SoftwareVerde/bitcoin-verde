@@ -93,7 +93,7 @@ public class BlockProcessor {
         LoggingConnectionWrapper.reset();
 
         storeBlockTimer.start();
-        final BlockId blockId = blockDatabaseManager.storeBlock(block);
+        final BlockId blockId = blockDatabaseManager.storeBlock(BlockDatabaseManager.MUTEX, block);
         storeBlockTimer.stop();
 
         {
@@ -233,9 +233,7 @@ public class BlockProcessor {
 
     public Long processBlock(final Block block) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            synchronized (BlockDatabaseManager.MUTEX) {
-                return _processBlock(block, databaseConnection);
-            }
+            return _processBlock(block, databaseConnection);
         }
         catch (final Exception exception) {
             Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());
