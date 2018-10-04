@@ -260,6 +260,16 @@ public class NodeModule {
         }
 
         { // Set the synchronization elements to cascade to each component...
+            _blockChainBuilder.setNewBlockProcessedCallback(new BlockChainBuilder.NewBlockProcessedCallback() {
+                @Override
+                public void newBlockHeight(final Long blockHeight) {
+                    final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
+                    if (blockHeaderDownloaderBlockHeight <= blockHeight) {
+                        _blockHeaderDownloader.wakeUp();
+                    }
+                }
+            });
+
             _blockHeaderDownloader.setNewBlockHeaderAvailableCallback(new Runnable() {
                 @Override
                 public void run() {

@@ -24,9 +24,15 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Util;
 
 public class BlockChainBuilder extends SleepyService {
+    public interface NewBlockProcessedCallback {
+        void newBlockHeight(Long blockHeight);
+    }
+
+    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 60000L);
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
@@ -34,6 +40,7 @@ public class BlockChainBuilder extends SleepyService {
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
     protected final BlockDownloadRequester _blockDownloadRequester;
     protected Boolean _hasGenesisBlock;
+    protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock) {
         final ByteArray blockData = pendingBlock.getData();
@@ -43,7 +50,21 @@ public class BlockChainBuilder extends SleepyService {
         final Block block = blockInflater.fromBytes(blockData);
 
         if (block != null) {
-            final Boolean blockWasValid = _blockProcessor.processBlock(block);
+            final Long processedBlockHeight = _blockProcessor.processBlock(block);
+            final Boolean blockWasValid = (processedBlockHeight != null);
+
+            if (blockWasValid) {
+                final NewBlockProcessedCallback newBlockProcessedCallback = _newBlockProcessedCallback;
+                if (newBlockProcessedCallback != null) {
+                    _threadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            newBlockProcessedCallback.newBlockHeight(processedBlockHeight);
+                        }
+                    });
+                }
+            }
+
             return blockWasValid;
         }
         else {
@@ -201,5 +222,9 @@ public class BlockChainBuilder extends SleepyService {
             Logger.log(exception);
             _hasGenesisBlock = false;
         }
+    }
+
+    public void setNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
+        _newBlockProcessedCallback = newBlockProcessedCallback;
     }
 }

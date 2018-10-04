@@ -51,7 +51,7 @@ public class BlockValidatorThread {
                 final NanoTimer timer = new NanoTimer();
 
                 timer.start();
-                final Boolean isValidBlock = _blockProcessor.processBlock(block);
+                final Boolean isValidBlock = (_blockProcessor.processBlock(block) != null);
                 timer.stop();
 
                 if (! isValidBlock) {

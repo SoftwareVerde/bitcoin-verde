@@ -67,7 +67,7 @@ public class BlockProcessor {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
-    protected Boolean _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected Long _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         _processedBlockCount += 1;
         final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
 
@@ -80,7 +80,8 @@ public class BlockProcessor {
         final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
         if (blockIsSynchronized) {
             Logger.log("Skipping known block: " + blockHash);
-            return true;
+            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            return blockDatabaseManager.getBlockHeightForBlockId(blockId);
         }
 
         TransactionUtil.startTransaction(databaseConnection);
@@ -122,8 +123,10 @@ public class BlockProcessor {
 
         if (! blockIsValid) {
             TransactionUtil.rollbackTransaction(databaseConnection);
-            return false;
+            return null;
         }
+
+        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
 
         final BlockDeflater blockDeflater = new BlockDeflater();
         final Integer byteCount = blockDeflater.getByteCount(block);
@@ -166,7 +169,6 @@ public class BlockProcessor {
             // 4. Validate that the transactions are still valid on the new chain...
             final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
             transactionValidator.setLoggingEnabled(false);
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
 
             final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
             for (final TransactionId transactionId : transactionIds) {
@@ -226,10 +228,10 @@ public class BlockProcessor {
 
         _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
 
-        return true;
+        return blockHeight;
     }
 
-    public Boolean processBlock(final Block block) {
+    public Long processBlock(final Block block) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             synchronized (BlockDatabaseManager.MUTEX) {
                 return _processBlock(block, databaseConnection);
@@ -240,7 +242,7 @@ public class BlockProcessor {
             Logger.log(exception);
         }
 
-        return false;
+        return null;
     }
 
     public Container<Float> getAverageBlocksPerSecondContainer() {
