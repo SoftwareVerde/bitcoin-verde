@@ -163,7 +163,7 @@ public class BlockHeaderDownloader extends SleepyService {
                     _threadPool.execute(new Runnable() {
                         @Override
                         public void run() {
-                            _blockDownloadRequester.requestBlock(blockHash, blockHeader.getTimestamp());
+                            _blockDownloadRequester.requestBlock(blockHeader);
                         }
                     });
 

@@ -9,6 +9,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.util.type.time.SystemTime;
@@ -18,16 +19,6 @@ public class BitcoinNodeDatabaseManager {
 
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final SystemTime _systemTime = new SystemTime();
-
-    protected String _createInClause(final List<?> list) {
-        final StringBuilder disabledFeaturesInClauseBuilder = new StringBuilder();
-        for (final Object item : list) {
-            disabledFeaturesInClauseBuilder.append("'");
-            disabledFeaturesInClauseBuilder.append(item.toString());
-            disabledFeaturesInClauseBuilder.append("',");
-        }
-        return disabledFeaturesInClauseBuilder.substring(0, disabledFeaturesInClauseBuilder.length() - 1); // Remove the last comma..
-    }
 
     protected NodeFeatures _inflateNodeFeatures(final Long nodeId) throws DatabaseException {
         final NodeFeatures nodeFeatures = new NodeFeatures();
@@ -157,7 +148,7 @@ public class BitcoinNodeDatabaseManager {
             }
 
             if (! disabledFeatures.isEmpty()) {
-                final String inClause = _createInClause(disabledFeatures);
+                final String inClause = DatabaseUtil.createInClause(disabledFeatures);
 
                 _databaseConnection.executeSql(
                     new Query("DELETE FROM node_features WHERE node_id = ? AND feature IN (" + inClause + ")")
@@ -168,7 +159,7 @@ public class BitcoinNodeDatabaseManager {
     }
 
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Integer maxCount) throws DatabaseException {
-        final String inClause = _createInClause(requiredFeatures);
+        final String inClause = DatabaseUtil.createInClause(requiredFeatures);
 
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE hosts.is_banned = 0 AND node_features.feature IN (" + inClause + ") ORDER BY nodes.last_handshake_timestamp DESC LIMIT " + maxCount)

@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.SleepyService;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -23,8 +22,7 @@ public class BlockDownloader extends SleepyService {
     protected static final Long MAX_TIMEOUT = 90000L;
     protected static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
 
-    protected final Object _threadObjectMutex = new Object();
-    protected final Object _downloadCallbackSynchronizer = new Object();
+    protected final Object _downloadCallbackPin = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -45,8 +43,8 @@ public class BlockDownloader extends SleepyService {
 
         Logger.log("Downloaded Block: " + block.getHash() + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
-        synchronized (_downloadCallbackSynchronizer) {
-            _downloadCallbackSynchronizer.notifyAll();
+        synchronized (_downloadCallbackPin) {
+            _downloadCallbackPin.notifyAll();
         }
     }
 
@@ -73,11 +71,11 @@ public class BlockDownloader extends SleepyService {
         { // Determine if routine should wait for a request to complete...
             Integer currentDownloadCount = _currentBlockDownloadSet.size();
             while (currentDownloadCount >= maximumConcurrentDownloadCount) {
-                synchronized (_downloadCallbackSynchronizer) {
+                synchronized (_downloadCallbackPin) {
                     final MilliTimer waitTimer = new MilliTimer();
                     try {
                         waitTimer.start();
-                        _downloadCallbackSynchronizer.wait(MAX_TIMEOUT);
+                        _downloadCallbackPin.wait(MAX_TIMEOUT);
                         waitTimer.stop();
                     }
                     catch (final InterruptedException exception) { return false; }
@@ -172,8 +170,8 @@ public class BlockDownloader extends SleepyService {
                     Logger.log("Unable to increment download failure count for block: " + blockHash);
                 }
 
-                synchronized (_downloadCallbackSynchronizer) {
-                    _downloadCallbackSynchronizer.notifyAll();
+                synchronized (_downloadCallbackPin) {
+                    _downloadCallbackPin.notifyAll();
                 }
             }
         };
