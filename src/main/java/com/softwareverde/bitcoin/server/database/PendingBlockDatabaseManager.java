@@ -48,7 +48,7 @@ public class PendingBlockDatabaseManager {
         return listBuilder.build();
     }
 
-    protected PendingBlockId _storetPendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
+    protected PendingBlockId _storePendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
         final Long priority = currentTimestamp;
         final Long pendingBlockId = _databaseConnection.executeSql(
@@ -170,21 +170,21 @@ public class PendingBlockDatabaseManager {
     }
 
     public PendingBlockId insertBlockHash(final Sha256Hash blockHash) throws DatabaseException {
-        return _storetPendingBlock(blockHash, null);
+        return _storePendingBlock(blockHash, null);
     }
 
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash) throws DatabaseException {
         final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
         if (existingPendingBlockId != null) { return existingPendingBlockId; }
 
-        return _storetPendingBlock(blockHash, null);
+        return _storePendingBlock(blockHash, null);
     }
 
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
         final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
         if (existingPendingBlockId != null) { return existingPendingBlockId; }
 
-        return _storetPendingBlock(blockHash, previousBlockHash);
+        return _storePendingBlock(blockHash, previousBlockHash);
     }
 
     public PendingBlockId storeBlock(final Block block) throws DatabaseException {
@@ -199,7 +199,7 @@ public class PendingBlockDatabaseManager {
                 pendingBlockId = existingPendingBlockId;
             }
             else {
-                pendingBlockId = _storetPendingBlock(blockHash, previousBlockHash);
+                pendingBlockId = _storePendingBlock(blockHash, previousBlockHash);
             }
         }
 
@@ -218,47 +218,6 @@ public class PendingBlockDatabaseManager {
             pendingBlockIdsBuilder.add(PendingBlockId.wrap(row.getLong("id")));
         }
         return pendingBlockIdsBuilder.build();
-    }
-
-    public PendingBlockId selectPendingBlockWithUnloadedTransactions() throws DatabaseException {
-        // Select a PendingBlock that has data and whose parent is either a loaded/validated block or whose parent is a previously loaded PendingBlock.
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query(
-                "SELECT " +
-                    "pending_blocks.id " +
-                "FROM " +
-                    "pending_blocks " +
-                    "INNER JOIN pending_block_data " +
-                        "ON pending_blocks.id = pending_block_data.pending_block_id " +
-                    "LEFT OUTER JOIN blocks " +
-                        "ON blocks.hash = pending_blocks.previous_block_hash " +
-                    "INNER JOIN block_transactions " +
-                        "ON block_transactions.block_id = blocks.id " +
-                "WHERE " +
-                    "( " +
-                        "EXISTS (" +
-                            "SELECT " +
-                                "pending_blocks.id " +
-                            "FROM " +
-                                "pending_blocks AS previous_pending_blocks " +
-                                "INNER JOIN pending_block_data AS previous_pending_block_data " +
-                                    "ON previous_pending_block_data.pending_block_id = previous_pending_blocks.id " +
-                            "WHERE " +
-                                "previous_pending_block_data.are_transactions_loaded = 1 " +
-                                "AND previous_pending_blocks.hash = pending_blocks.previous_block_hash" +
-                        ") " +
-                        "OR blocks.id IS NOT NULL" +
-                    ") " +
-                    "AND pending_block_data.are_transactions_loaded = 0 " +
-                "GROUP BY blocks.id " +
-                "ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC " +
-                "LIMIT 1"
-            )
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return PendingBlockId.wrap(row.getLong("id"));
     }
 
     public PendingBlockId selectCandidatePendingBlockId() throws DatabaseException {
@@ -293,13 +252,6 @@ public class PendingBlockDatabaseManager {
         _databaseConnection.executeSql(
             new Query("UPDATE pending_blocks SET priority = ? WHERE id = ?")
                 .setParameter(priority)
-                .setParameter(pendingBlockId)
-        );
-    }
-
-    public void setTransactionsAreLoaded(final PendingBlockId pendingBlockId) throws DatabaseException {
-        _databaseConnection.executeSql(
-            new Query("UPDATE pending_block_data SET are_transactions_loaded = 1 WHERE pending_block_id = ?")
                 .setParameter(pendingBlockId)
         );
     }

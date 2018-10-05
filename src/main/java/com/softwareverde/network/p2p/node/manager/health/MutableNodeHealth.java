@@ -7,8 +7,6 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 import com.softwareverde.util.type.time.Time;
 
-import java.util.Comparator;
-
 public class MutableNodeHealth implements NodeHealth {
 
     public static class Request implements NodeHealth.Request {

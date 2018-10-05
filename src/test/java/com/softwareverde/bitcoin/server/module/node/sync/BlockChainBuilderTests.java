@@ -15,7 +15,6 @@ import com.softwareverde.bitcoin.server.module.node.SleepyService;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -28,7 +27,7 @@ import org.junit.Test;
 public class BlockChainBuilderTests extends IntegrationTest {
     static class FakeBlockDownloadRequester extends BlockDownloadRequester {
         @Override
-        protected void _requestBlock(final Sha256Hash blockHash, final Long priority) {
+        protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Long priority) {
             // Nothing.
         }
 

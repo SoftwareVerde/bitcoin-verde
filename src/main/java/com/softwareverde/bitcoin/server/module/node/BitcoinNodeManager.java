@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
@@ -24,7 +23,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
