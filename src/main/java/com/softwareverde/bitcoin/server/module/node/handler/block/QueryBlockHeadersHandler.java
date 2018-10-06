@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
@@ -33,7 +33,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
     @Override
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
@@ -45,9 +45,9 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
 
             final MutableList<BlockHeaderWithTransactionCount> blockHeaders = new MutableList<BlockHeaderWithTransactionCount>();
             {
-                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockDatabaseManager);
+                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
                     final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
                     blockHeaders.add(blockHeaderWithTransactionCount);

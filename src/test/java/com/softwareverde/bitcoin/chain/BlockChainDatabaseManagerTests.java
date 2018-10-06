@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -61,13 +62,17 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         Assert.assertTrue(genesisBlock.isValid());
 
         // Action
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        final BlockId genesisBlockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -81,7 +86,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(0L, row.getLong("block_height").longValue());
         Assert.assertEquals(1L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
     }
 
     @Test
@@ -106,6 +111,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -114,10 +120,16 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(genesisBlock.isValid());
         Assert.assertTrue(block1.isValid());
 
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        final BlockId genesisBlockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        }
 
         // Action
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+        final BlockId block1Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block1Id = blockDatabaseManager.insertBlock(block1);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -132,8 +144,8 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1L, row.getLong("block_height").longValue());
         Assert.assertEquals(2L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
     }
 
     @Test
@@ -160,6 +172,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -170,12 +183,18 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertTrue(block1.isValid());
         Assert.assertTrue(block2.isValid());
 
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+        }
 
         // Action
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+        final BlockId block2Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block2Id = blockDatabaseManager.insertBlock(block2);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -191,9 +210,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(2L, row.getLong("block_height").longValue());
         Assert.assertEquals(3L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
     }
 
     @Test
@@ -220,6 +239,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -234,12 +254,18 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+        }
 
         // Action
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+        final BlockId block1PrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -273,9 +299,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
     }
 
     @Test
@@ -305,6 +331,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -322,14 +349,20 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1Prime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1Prime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        final BlockId block2Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+            block2Id = blockDatabaseManager.insertBlock(block2);
+        }
 
         // Action
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+        final BlockId block1PrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -364,10 +397,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
     }
 
     @Test
@@ -403,6 +436,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -435,20 +469,26 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(Block.GENESIS_BLOCK_HASH, block1DoublePrime.getPreviousBlockHash());
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-
-        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
-
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-
-        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        final BlockId block2Id;
+        final BlockId block3Id;
+        final BlockId block1PrimeId;
+        final BlockId block2PrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+            block2Id = blockDatabaseManager.insertBlock(block2);
+            block3Id = blockDatabaseManager.insertBlock(block3);
+            block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+            block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+        }
 
         // Action
-        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -495,19 +535,19 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -557,6 +597,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -590,13 +631,22 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Action
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        final BlockId block1PrimeId;
+        final BlockId block2PrimeId;
+        final BlockId block1DoublePrimeId;
+        final BlockId block2Id;
+        final BlockId block3Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+            block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
+            block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+            block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+            block2Id = blockDatabaseManager.insertBlock(block2);
+            block3Id = blockDatabaseManager.insertBlock(block3);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -643,19 +693,19 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -705,6 +755,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -744,16 +795,28 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertNotEquals(block1.getHash(), block1DoublePrime.getHash());
 
         // Establish Original Blocks/Chains...
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        final BlockId block1Id = blockDatabaseManager.insertBlock(block1);
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2);
-        final BlockId block3Id = blockDatabaseManager.insertBlock(block3);
-        final BlockId block4Id = blockDatabaseManager.insertBlock(block4);
-        final BlockId block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
-        final BlockId block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
+        final BlockId genesisBlockId;
+        final BlockId block1Id;
+        final BlockId block2Id;
+        final BlockId block3Id;
+        final BlockId block4Id;
+        final BlockId block2PrimeId;
+        final BlockId block3PrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            block1Id = blockDatabaseManager.insertBlock(block1);
+            block2Id = blockDatabaseManager.insertBlock(block2);
+            block3Id = blockDatabaseManager.insertBlock(block3);
+            block4Id = blockDatabaseManager.insertBlock(block4);
+            block2PrimeId = blockDatabaseManager.insertBlock(block2Prime);
+            block3PrimeId = blockDatabaseManager.insertBlock(block3Prime);
+        }
 
         // Action
-        final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+        final BlockId block1DoublePrimeId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
+        }
 
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
@@ -809,22 +872,22 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
-        Assert.assertEquals(2L, blockDatabaseManager.getBlockChainSegmentId(block4Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block4Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
-        Assert.assertEquals(3L, blockDatabaseManager.getBlockChainSegmentId(block3PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
 
         // Chain 5
-        Assert.assertEquals(5L, blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -833,20 +896,25 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
 
-        blockDatabaseManager.storeBlock(genesisBlock);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockDatabaseManager.storeBlock(genesisBlock);
+        }
 
         final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
         Assert.assertEquals(0, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
         Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
 
-        blockDatabaseManager.storeBlock(block1);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockDatabaseManager.storeBlock(block1);
+        }
 
         Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
         Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());

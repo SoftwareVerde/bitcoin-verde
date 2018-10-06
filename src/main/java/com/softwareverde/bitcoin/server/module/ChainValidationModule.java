@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
@@ -106,29 +108,31 @@ public class ChainValidationModule {
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
             final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
             final NetworkTime networkTime = new MutableNetworkTime();
-            final MutableMedianBlockTime medianBlockTime = blockDatabaseManager.initializeMedianBlockTime();
+            final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
 
             final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, databaseManagerCache, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
 
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long maxBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+            final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
 
             Long validatedTransactionCount = 0L;
             final Long startTime = System.currentTimeMillis();
             while (true) {
                 final Sha256Hash blockHash = nextBlockHash;
 
-                final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(nextBlockHash);
-                final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(nextBlockHash);
+                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
 
                 final Integer percentComplete = (int) ((blockHeight * 100) / maxBlockHeight.floatValue());
 
@@ -148,22 +152,21 @@ public class ChainValidationModule {
                     Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ( "+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
-                final Block block = blockDatabaseManager.getBlock(blockId);
-                if (block == null) {
-                    Logger.error("Corrupted block found: " + blockHash);
-                }
-                else {
-                    validatedTransactionCount += block.getTransactionCount();
-                    final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-                    final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+                validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, null);
 
-                    if (! blockIsValid) {
-                        Logger.error("Invalid block found: " + blockHash);
+                if (! blockIsValid) {
+                    Logger.error("Invalid block found: " + blockHash);
+                }
+
+                nextBlockHash = null;
+                final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockChainSegmentId, blockId);
+                if (nextBlockId != null) {
+                    final Boolean nextBlockHasTransactions = blockDatabaseManager.hasTransactions(nextBlockId);
+                    if (nextBlockHasTransactions) {
+                        nextBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(nextBlockId);
                     }
                 }
-
-                final BlockId nextBlockId = blockDatabaseManager.getChildBlockId(headBlockChainSegmentId, blockId);
-                nextBlockHash = blockDatabaseManager.getBlockHashFromId(nextBlockId);
             }
         }
         catch (final DatabaseException exception) {

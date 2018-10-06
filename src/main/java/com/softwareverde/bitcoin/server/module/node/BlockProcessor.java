@@ -7,10 +7,7 @@ import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockRelationship;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
@@ -22,7 +19,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.debug.LoggingConnectionWrapper;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
@@ -75,40 +71,41 @@ public class BlockProcessor {
         final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
 
         final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
         final BlockId blockId;
-        final Boolean blockHeaderExists = blockDatabaseManager.blockHeaderExists(blockHash);
+        final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
         if (blockHeaderExists) {
-            final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
-            if (blockIsSynchronized) {
+            final Boolean blockHasTransactions = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+            if (blockHasTransactions) {
                 Logger.log("Skipping known block: " + blockHash);
-                final BlockId existingBlockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
-                return blockDatabaseManager.getBlockHeightForBlockId(existingBlockId);
+                final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                return blockHeaderDatabaseManager.getBlockHeightForBlockId(existingBlockId);
             }
 
-            blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
         }
         else {
             // Store the BlockHeader...
-            synchronized (BlockDatabaseManager.MUTEX) {
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 final NanoTimer storeBlockHeaderTimer = new NanoTimer();
 
                 TransactionUtil.startTransaction(databaseConnection);
                 {
                     Logger.log("Processing Block: " + blockHash);
-                    final Boolean blockIsSynchronized = blockDatabaseManager.blockExists(blockHash);
-                    if (blockIsSynchronized) {
+                    final Boolean blockHasTransactions = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+                    if (blockHasTransactions) {
                         Logger.log("Skipping known block: " + blockHash);
-                        final BlockId existingBlockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
-                        return blockDatabaseManager.getBlockHeightForBlockId(existingBlockId);
+                        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                        return blockHeaderDatabaseManager.getBlockHeightForBlockId(existingBlockId);
                     }
 
                     storeBlockHeaderTimer.start();
-                    blockId = blockDatabaseManager.storeBlockHeader(block);
+                    blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
 
                     if (blockId == null) {
                         Logger.log("Error storing BlockHeader: " + blockHash);
@@ -116,9 +113,8 @@ public class BlockProcessor {
                         return null;
                     }
 
-                    final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
                     final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                    final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(blockChainSegmentId, block);
+                    final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
                     if (!blockHeaderIsValid) {
                         Logger.log("Invalid BlockHeader: " + blockHash);
                         TransactionUtil.rollbackTransaction(databaseConnection);
@@ -136,7 +132,7 @@ public class BlockProcessor {
         TransactionUtil.startTransaction(databaseConnection);
         {
             storeBlockTimer.start();
-            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
+            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.insertBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
             storeBlockTimer.stop();
 
             if (!transactionsStoredSuccessfully) {
@@ -155,10 +151,9 @@ public class BlockProcessor {
                 final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
                 blockValidator.setMaxThreadCount(_maxThreadCount);
                 blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-                final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
 
                 blockValidationTimer.start();
-                blockIsValid = blockValidator.validateBlockTransactions(blockChainSegmentId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                blockIsValid = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
                 blockValidationTimer.stop();
 
                 // localDatabaseManagerCache.log();
@@ -174,11 +169,11 @@ public class BlockProcessor {
         }
         TransactionUtil.commitTransaction(databaseConnection);
 
-        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
 
         final BlockDeflater blockDeflater = new BlockDeflater();
         final Integer byteCount = blockDeflater.getByteCount(block);
-        blockDatabaseManager.setBlockByteCount(blockId, byteCount);
+        blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 
         _medianBlockTime.addBlock(block);
 
@@ -199,8 +194,8 @@ public class BlockProcessor {
                     }
 
                     // 2. Continue to traverse up the chain until the block is connected to the new headBlockChain...
-                    nextBlockId = blockDatabaseManager.getAncestorBlockId(nextBlockId, 1);
-                    final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
+                    nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
+                    final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
                     if (nextBlockIsConnectedToNewHeadBlockChain) { break; }
                 }
 
@@ -212,7 +207,7 @@ public class BlockProcessor {
                         transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
                     }
 
-                    nextBlockId = blockDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
+                    nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
                 }
 
                 // 4. Validate that the transactions are still valid on the new chain...

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
@@ -34,6 +35,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     @Override
     public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
@@ -42,7 +44,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 switch (inventoryItem.getItemType()) {
                     case BLOCK: {
                         final Sha256Hash blockHash = inventoryItem.getItemHash();
-                        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
 
                         if (blockId == null) {
                             notFoundDataHashes.add(inventoryItem);

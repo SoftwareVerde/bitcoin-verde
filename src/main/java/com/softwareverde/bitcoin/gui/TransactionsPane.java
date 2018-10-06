@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
@@ -147,7 +147,7 @@ public class TransactionsPane extends GridPane {
                                     final java.util.List<Label> addressTransactions = new ArrayList<Label>(spendableTransactionOutputs.getSize());
 
                                     final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
-                                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+                                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
                                     final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
                                     final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
@@ -164,7 +164,7 @@ public class TransactionsPane extends GridPane {
                                                 transactionDateString = "UNCONFIRMED";
                                             }
                                             else {
-                                                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                                                final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                                                 final Long timestampInSeconds = blockHeader.getTimestamp();
                                                 transactionDateString = DateUtil.timestampToDatetimeString(timestampInSeconds * 1000L);
                                             }

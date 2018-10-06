@@ -38,7 +38,7 @@ public class TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
 
     protected final BlockChainDatabaseManager _blockChainDatabaseManager;
-    protected final BlockDatabaseManager _blockDatabaseManager;
+    protected final BlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected final TransactionDatabaseManager _transactionDatabaseManager;
     protected final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected final TransactionInputDatabaseManager _transactionInputDatabaseManager;
@@ -132,7 +132,7 @@ public class TransactionValidator {
                     // final BlockChainSegmentId blockChainSegmentId = _blockDatabaseManager.getBlockChainSegmentId(blockId);
                     final List<BlockId> previousTransactionBlockIds = _transactionDatabaseManager.getBlockIds(previousOutputTransactionId);
                     for (final BlockId previousTransactionBlockId : previousTransactionBlockIds) {
-                        final Boolean isConnected = _blockDatabaseManager.isBlockConnectedToChain(previousTransactionBlockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+                        final Boolean isConnected = _blockHeaderDatabaseManager.isBlockConnectedToChain(previousTransactionBlockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
                         if (isConnected) {
                             parentBlockId = previousTransactionBlockId;
                             break;
@@ -146,7 +146,7 @@ public class TransactionValidator {
                 if (sequenceNumber.getType() == SequenceNumberType.SECONDS_ELAPSED) {
                     final Long requiredSecondsElapsed = sequenceNumber.asSecondsElapsed();
 
-                    final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _blockDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);
+                    final MedianBlockTime medianBlockTimeOfOutputBeingSpent = _blockHeaderDatabaseManager.calculateMedianBlockTime(blockIdContainingOutputBeingSpent);
                     final Long secondsElapsed = (_medianBlockTime.getCurrentTimeInSeconds() - medianBlockTimeOfOutputBeingSpent.getCurrentTimeInSeconds());
 
                     final Boolean sequenceNumberIsValid = (secondsElapsed >= requiredSecondsElapsed);
@@ -158,7 +158,7 @@ public class TransactionValidator {
                     }
                 }
                 else {
-                    final Long blockHeightContainingOutputBeingSpent = _blockDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
+                    final Long blockHeightContainingOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
                     final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
                     final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
@@ -178,7 +178,7 @@ public class TransactionValidator {
 
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
-        _blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
         _transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);

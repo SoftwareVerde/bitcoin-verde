@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -67,12 +68,13 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                     final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
 
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                     final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
                     final BlockId blockId = blockDatabaseManager.getHeadBlockId();
-                    final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
-                    final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
 
                     // TODO: Add transaction to memory, but not to the database, if the utxo it's spending is has not been seen yet...
 

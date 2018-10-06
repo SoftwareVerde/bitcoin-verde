@@ -84,15 +84,15 @@ public class BlockChainDatabaseManager {
         //          Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
         //      3.5 Set the newBlock's block_chain_segment_id to the newBlockChain's id created in 3.4.
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockId newBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getHash());
-        final BlockId previousBlockId = blockDatabaseManager.getBlockIdFromHash(newBlock.getPreviousBlockHash());
+        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(newBlock.getHash());
+        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(newBlock.getPreviousBlockHash());
 
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
-        final Boolean newBlockIsContentiousBlock = (blockDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
+        final Boolean newBlockIsContentiousBlock = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
 
-        final BlockChainSegmentId previousBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(previousBlockId);
+        final BlockChainSegmentId previousBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(previousBlockId);
         if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
 
             if (previousBlockChainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
@@ -104,10 +104,10 @@ public class BlockChainDatabaseManager {
                 );
 
                 // 2.1.2 Update the newBlock so its block_chain_segment_id points to the previousBlockChain's id.
-                blockDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
+                blockHeaderDatabaseManager.setBlockChainSegmentId(newBlockId, previousBlockChainSegmentId);
             }
             else { // 2.2 Else (the newBlock is the genesis block)...
-                final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(newBlockId);
+                final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(newBlockId);
                 if (blockChainSegmentId == null) { // If this block is not already assigned a blockChainSegment, create a new one...
                     // 2.2.1 Create a new blockChain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
                     final BlockChainSegmentId genesisBlockChainSegmentId = BlockChainSegmentId.wrap(_databaseConnection.executeSql(
@@ -119,12 +119,12 @@ public class BlockChainDatabaseManager {
                     ));
 
                     // 2.2.2 Update the newBlock so its block_chain_segment_id points to the new blockChain's id.
-                    blockDatabaseManager.setBlockChainSegmentId(newBlockId, genesisBlockChainSegmentId);
+                    blockHeaderDatabaseManager.setBlockChainSegmentId(newBlockId, genesisBlockChainSegmentId);
                 }
             }
         }
         else { // 3. Else (the block is contentious)...
-            final Long previousBlockBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(previousBlockId);
+            final Long previousBlockBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(previousBlockId);
 
             final BlockId refactoredChainHeadBlockId;
             final BlockId refactoredChainTailBlockId;
@@ -197,7 +197,7 @@ public class BlockChainDatabaseManager {
             ));
 
             // 3.5 Set the newBlock's block_chain_id to the newBlockChain's id created in 3.4.
-            blockDatabaseManager.setBlockChainSegmentId(newBlockId, newChainId);
+            blockHeaderDatabaseManager.setBlockChainSegmentId(newBlockId, newChainId);
         }
     }
 
@@ -209,14 +209,14 @@ public class BlockChainDatabaseManager {
     public void updateBlockChainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
         final Sha256Hash blockHash = newBlock.getHash();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
         if (blockId == null) {
             Logger.log("NOTICE: Unable to update BlockChainSegment for block: " + blockHash);
             return;
         }
 
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
         if (blockChainSegmentId != null) { return; }
 
         _updateBlockChainsForNewBlock(newBlock);
@@ -256,12 +256,12 @@ public class BlockChainDatabaseManager {
         );
         if (rows.isEmpty()) { return null; }
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockId blockId = blockChainSegment.getHeadBlockId();
 
         for (final Row row : rows) {
             final BlockChainSegmentId headBlockChainSegmentId = BlockChainSegmentId.wrap(row.getLong("id"));
-            final Boolean blockIsConnectedToChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANCESTOR);
+            final Boolean blockIsConnectedToChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANCESTOR);
 
             if (blockIsConnectedToChain) {
                 return headBlockChainSegmentId;

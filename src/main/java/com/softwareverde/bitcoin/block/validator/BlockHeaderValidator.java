@@ -5,9 +5,8 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -21,7 +20,7 @@ public class BlockHeaderValidator {
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected Boolean _validateBlockHeader(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader, final Long blockHeight) {
+    protected Boolean _validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
         if (! blockHeader.isValid()) {
             Logger.log("Block header is invalid.");
             return false;
@@ -57,14 +56,14 @@ public class BlockHeaderValidator {
 
         { // Validate block (calculated) difficulty...
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseConnection, _databaseManagerCache);
-            final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockChainSegmentId, blockHeader);
+            final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
             if (calculatedRequiredDifficulty == null) {
-                Logger.log("Unable to calculate required difficulty for block: " + blockChainSegmentId + " " + blockHeader.getHash());
+                Logger.log("Unable to calculate required difficulty for block: " + blockHeader.getHash());
                 return false;
             }
 
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
-            if (!difficultyIsCorrect) {
+            if (! difficultyIsCorrect) {
                 Logger.log("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
                 return false;
             }
@@ -83,24 +82,24 @@ public class BlockHeaderValidator {
         _medianBlockTime = medianBlockTime;
     }
 
-    public Boolean validateBlockHeader(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader) {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+    public Boolean validateBlockHeader(final BlockHeader blockHeader) {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final BlockId blockId;
         final Long blockHeight;
         try {
-            blockId = blockDatabaseManager.getBlockIdFromHash(blockHeader.getHash());
-            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getHash());
+            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
             return false;
         }
 
-        return _validateBlockHeader(blockChainSegmentId, blockHeader, blockHeight);
+        return _validateBlockHeader(blockHeader, blockHeight);
     }
 
-    public Boolean validateBlockHeader(final BlockChainSegmentId blockChainSegmentId, final BlockHeader blockHeader, final Long blockHeight) {
-        return _validateBlockHeader(blockChainSegmentId, blockHeader, blockHeight);
+    public Boolean validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
+        return _validateBlockHeader(blockHeader, blockHeight);
     }
 }

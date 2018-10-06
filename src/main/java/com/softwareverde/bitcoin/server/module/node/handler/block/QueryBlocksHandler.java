@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -30,7 +30,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
     @Override
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
 
@@ -41,9 +41,9 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
 
             final InventoryMessage responseMessage = new InventoryMessage();
             {
-                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockDatabaseManager);
+                final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
-                    final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
+                    final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHashFromId(blockId);
                     responseMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
                 }
             }

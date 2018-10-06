@@ -355,11 +355,11 @@ public class TransactionDatabaseManager {
     }
 
     public BlockId getBlockId(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionId) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final List<BlockId> blockIds = _getBlockIds(transactionId);
         for (final BlockId blockId : blockIds) {
-            final Boolean isConnected = blockDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+            final Boolean isConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
             if (isConnected) {
                 return blockId;
             }

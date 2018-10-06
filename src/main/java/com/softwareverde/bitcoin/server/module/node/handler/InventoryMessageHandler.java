@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -25,11 +25,11 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
         Boolean newBlockHashReceived = false;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
 
             for (final Sha256Hash blockHash : blockHashes) {
                 // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockChainSynchronizer...
-                final Boolean blockExists = blockDatabaseManager.blockExists(blockHash);
+                final Boolean blockExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
                 if (blockExists) { continue; }
                 final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
                 if (pendingBlockExists) { continue; }

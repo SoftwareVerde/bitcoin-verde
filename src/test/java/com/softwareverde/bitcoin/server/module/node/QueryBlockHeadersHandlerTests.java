@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -198,8 +199,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_genesis_blocks_when_no_matches() throws Exception {
         // Setup
-        final Block[] scenarioBlocks = _initScenario();
-        final Block[] allBlocks = _initScenario2(scenarioBlocks);
+        final Block[] scenarioBlocks;
+        final Block[] allBlocks;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            scenarioBlocks = _initScenario();
+            allBlocks = _initScenario2(scenarioBlocks);
+        }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
@@ -237,8 +242,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_first_block_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks = _initScenario();
-        final Block[] allBlocks = _initScenario2(scenarioBlocks);
+        final Block[] scenarioBlocks;
+        final Block[] allBlocks;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            scenarioBlocks = _initScenario();
+            allBlocks = _initScenario2(scenarioBlocks);
+        }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
@@ -277,8 +286,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_first_blocks_when_non_genesis_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks = _initScenario();
-        final Block[] allBlocks = _initScenario2(scenarioBlocks);
+        final Block[] scenarioBlocks;
+        final Block[] allBlocks;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            scenarioBlocks = _initScenario();
+            allBlocks = _initScenario2(scenarioBlocks);
+        }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
@@ -317,8 +330,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_blocks_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks = _initScenario();
-        final Block[] allBlocks = _initScenario2(scenarioBlocks);
+        final Block[] scenarioBlocks;
+        final Block[] allBlocks;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            scenarioBlocks = _initScenario();
+            allBlocks = _initScenario2(scenarioBlocks);
+        }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
@@ -357,8 +374,12 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     @Test
     public void should_return_forked_blocks_when_match_found() throws Exception {
         // Setup
-        final Block[] scenarioBlocks = _initScenario();
-        final Block[] allBlocks = _initScenario2(scenarioBlocks);
+        final Block[] scenarioBlocks ;
+        final Block[] allBlocks;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            scenarioBlocks = _initScenario();
+            allBlocks = _initScenario2(scenarioBlocks);
+        }
 
         final Block extraChildEPrimeBlock;
         { // Create an additional child onto block E'...
@@ -367,7 +388,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
             final MysqlDatabaseConnection databaseConnection = _database.newConnection();
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            blockDatabaseManager.insertBlock(mutableBlock);
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.insertBlock(mutableBlock);
+            }
 
             extraChildEPrimeBlock = mutableBlock;
         }

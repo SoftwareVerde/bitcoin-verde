@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.SleepyService;
@@ -48,8 +48,8 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected Boolean _checkForGenesisBlockHeader() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+            final Sha256Hash lastKnownHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
 
             synchronized (_genesisBlockPin) {
                 _hasGenesisBlock = (lastKnownHash != null);
@@ -116,11 +116,11 @@ public class BlockHeaderDownloader extends SleepyService {
         }
 
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _nodeManager.getNetworkTime(), _medianBlockTime);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        synchronized (BlockDatabaseManager.MUTEX) {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
             TransactionUtil.startTransaction(databaseConnection);
-            final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
+            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
 
             if (blockId == null) {
                 Logger.log("Error storing BlockHeader: " + blockHash);
@@ -128,15 +128,14 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockHeader);
             if (! blockHeaderIsValid) {
                 Logger.log("Invalid BlockHeader: " + blockHash);
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
 
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
             _blockHeight = Math.max(blockHeight, _blockHeight);
 
             TransactionUtil.commitTransaction(databaseConnection);
@@ -156,8 +155,8 @@ public class BlockHeaderDownloader extends SleepyService {
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
 
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                final Boolean blockAlreadyExists = blockDatabaseManager.blockHeaderExists(blockHash);
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+                final Boolean blockAlreadyExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
                 if (! blockAlreadyExists) {
                     final Boolean blockHeaderWasStored = _validateAndStoreBlockHeader(blockHeader, databaseConnection);
                     if (! blockHeaderWasStored) { continue; }
@@ -224,13 +223,13 @@ public class BlockHeaderDownloader extends SleepyService {
         _blockHeaderCount = 0L;
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             if (headBlockId != null) {
-                final Sha256Hash headBlockHash = blockDatabaseManager.getBlockHashFromId(headBlockId);
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(headBlockId);
                 _lastBlockHash = headBlockHash;
-                _blockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                _blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
             }
             else {
                 _lastBlockHash = Block.GENESIS_BLOCK_HASH;

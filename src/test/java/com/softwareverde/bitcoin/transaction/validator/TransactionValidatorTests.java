@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -52,11 +53,12 @@ public class TransactionValidatorTests extends IntegrationTest {
 
     protected StoredBlock _storeBlock(final String blockBytes) throws DatabaseException {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockBytes));
         blockDatabaseManager.insertBlock(block);
-        return new StoredBlock(blockDatabaseManager.getBlockIdFromHash(block.getHash()), block);
+        return new StoredBlock(blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block.getHash()), block);
     }
 
     protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress) {
@@ -112,14 +114,14 @@ public class TransactionValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockChainSegmentId blockChainSegmentId;
 
-        { // Store the transaction output being spent by the transaction...
+        synchronized (BlockHeaderDatabaseManager.MUTEX) { // Store the transaction output being spent by the transaction...
             final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-            blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
             final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
             TransactionTestUtil.createRequiredTransactionInputs(blockChainSegmentId, previousTransaction, databaseConnection);
             final TransactionId transactionId = transactionDatabaseManager.insertTransaction(previousTransaction);
@@ -155,9 +157,12 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final StoredBlock storedBlock;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
+        }
+        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -198,9 +203,12 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final StoredBlock storedBlock;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
+        }
+        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -240,9 +248,12 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final StoredBlock storedBlock;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
+        }
+        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -282,9 +293,12 @@ public class TransactionValidatorTests extends IntegrationTest {
         );
 
         // Store the transaction in the database so that our validator can access it.
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final StoredBlock storedBlock;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
+        }
+        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 

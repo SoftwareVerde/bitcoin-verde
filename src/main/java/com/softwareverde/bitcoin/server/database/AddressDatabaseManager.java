@@ -65,10 +65,10 @@ public class AddressDatabaseManager {
 
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-        final BlockChainSegmentId headBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
+        final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
         final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<SpendableTransactionOutput>(rows.size());
 
@@ -84,7 +84,7 @@ public class AddressDatabaseManager {
             }
 
             if (spendableTransactionOutput.isMined()) {
-                final Boolean transactionWasMinedOnMainChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANY);
+                final Boolean transactionWasMinedOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANY);
 
                 if (! transactionWasMinedOnMainChain) {
                     continue;
@@ -118,7 +118,7 @@ public class AddressDatabaseManager {
                         transactionOutputHasBeenSpent = true;
                     }
                     else {
-                        final Boolean spendingTransactionIsMinedOnMainChain = (blockDatabaseManager.isBlockConnectedToChain(spendingBlockId, headBlockChainSegmentId, BlockRelationship.ANY));
+                        final Boolean spendingTransactionIsMinedOnMainChain = (blockHeaderDatabaseManager.isBlockConnectedToChain(spendingBlockId, headBlockChainSegmentId, BlockRelationship.ANY));
                         transactionOutputHasBeenSpent = spendingTransactionIsMinedOnMainChain;
                     }
 

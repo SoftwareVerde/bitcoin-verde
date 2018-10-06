@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
@@ -54,8 +55,11 @@ public class BlockChainBuilderTests extends IntegrationTest {
 
         final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseCache);
 
-        blockDatabaseManager.storeBlock(genesisBlock);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockDatabaseManager.storeBlock(genesisBlock);
+        }
 
         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
         for (final String blockData : new String[] { BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4, BlockData.MainChain.BLOCK_5 }) {
@@ -88,10 +92,10 @@ public class BlockChainBuilderTests extends IntegrationTest {
 
         // Assert
         final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
-        Assert.assertNotNull(blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 1L));
-        Assert.assertNotNull(blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 2L));
-        Assert.assertNotNull(blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 3L));
-        Assert.assertNotNull(blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 4L));
-        Assert.assertNotNull(blockDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 5L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 1L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 2L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 3L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 4L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 5L));
     }
 }

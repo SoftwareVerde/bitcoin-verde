@@ -5,8 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
@@ -47,13 +47,13 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
             final Long blockTimestampInSeconds;
             {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
-                if (lastKnownHash == null) {
+                final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                if (headBlockId == null) {
                     blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(headBlockId);
                     blockTimestampInSeconds = blockHeader.getTimestamp();
                 }
             }
@@ -72,11 +72,12 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     @Override
     public Integer getCurrentBlockHeight() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId blockId = blockDatabaseManager.getHeadBlockId();
             if (blockId == null) { return 0; }
 
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
             return blockHeight.intValue();
         }
         catch (final DatabaseException exception) {

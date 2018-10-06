@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.header.difficulty.work.MutableChainWork;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
@@ -98,7 +98,7 @@ public class ChainWorkModule {
         long i = 0L;
         final MutableChainWork chainWork = new MutableChainWork();
         try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, emptyCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, emptyCache);
 
             while (true) {
                 final java.util.List<Row> rows = databaseConnection.query(
@@ -110,7 +110,7 @@ public class ChainWorkModule {
                 final Row row = rows.get(0);
                 final BlockId blockId = BlockId.wrap(row.getLong("id"));
 
-                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                 final BlockWork proofOfWork = blockHeader.getDifficulty().calculateWork();
                 chainWork.add(proofOfWork);
 

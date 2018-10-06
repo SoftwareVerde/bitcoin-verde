@@ -3,7 +3,8 @@ package com.softwareverde.bitcoin.server.module.node.rpc;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockRelationship;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
@@ -27,10 +28,9 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
     @Override
     public Long getBalance(final Address address) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final BlockChainSegmentId headChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockChainSegmentId headChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
             final java.util.List<Row> rows = databaseConnection.query(
                 new Query(
@@ -58,7 +58,7 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
                 final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
                 final Long amount = row.getLong("amount");
 
-                final Boolean transactionIsOnMainChain = blockDatabaseManager.isBlockConnectedToChain(blockId, headChainSegmentId, BlockRelationship.ANY);
+                final Boolean transactionIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headChainSegmentId, BlockRelationship.ANY);
                 if (transactionIsOnMainChain) {
                     totalAmount = totalAmount.add(BigInteger.valueOf(amount));
                 }

@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
@@ -198,9 +198,9 @@ public class NodeModule {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 MutableMedianBlockTime newMedianBlockHeaderTime = null;
                 try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
-                    newMedianBlockTime = blockDatabaseManager.initializeMedianBlockTime();
-                    newMedianBlockHeaderTime = blockDatabaseManager.initializeMedianBlockHeaderTime();
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
+                    newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
+                    newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);

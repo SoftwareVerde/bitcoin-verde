@@ -7,11 +7,11 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -45,7 +45,6 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.type.time.SystemTime;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
     protected static final String CORRUPTED_BLOCK_ERROR_MESSAGE = "Could not inflate Block; it may be corrupted.";
@@ -82,16 +81,16 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected QueryBalanceHandler _queryBalanceHandler = null;
 
     protected static void _addMetadataForBlockHeaderToJson(final BlockId blockId, final Json blockJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
         { // Include Extra Block Metadata...
-            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
             final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
 
             blockJson.put("height", blockHeight);
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
-            blockJson.put("byteCount", blockDatabaseManager.getBlockByteCount(blockId));
+            blockJson.put("byteCount", blockHeaderDatabaseManager.getBlockByteCount(blockId));
             blockJson.put("transactionCount", transactionCount);
         }
     }
@@ -100,7 +99,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Sha256Hash transactionHash = transaction.getHash();
         final String transactionHashString = transactionHash.toString();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
@@ -115,7 +114,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final Json blockHashesJson = new Json(true);
             final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionHash);
             for (final BlockId blockId : blockIds) {
-                final Sha256Hash blockHash = blockDatabaseManager.getBlockHashFromId(blockId);
+                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHashFromId(blockId);
                 blockHashesJson.add(blockHash);
             }
             transactionJson.put("blocks", blockHashesJson);
@@ -211,28 +210,28 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockId blockId = blockDatabaseManager.getHeadBlockId();
         if (blockId == null) { return 0L; }
 
-        return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        return blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
     }
 
     protected Long _calculateBlockHeaderHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        final BlockId blockId = blockDatabaseManager.getHeadBlockHeaderId();
+        final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
         if (blockId == null) { return 0L; }
 
-        return blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        return blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
     }
 
     // Requires GET:    [blockHeight=null], [maxBlockCount=10]
     protected void _getBlockHeaders(final Json parameters, final Json response) {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Long startingBlockHeight;
             {
@@ -241,8 +240,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     startingBlockHeight = parameters.getLong("blockHeight");
                 }
                 else {
-                    final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    startingBlockHeight = blockDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                    final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+                    startingBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
                 }
             }
 
@@ -264,7 +263,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                 final Json blockJson;
                 {
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     blockJson = blockHeader.toJson();
                 }
 
@@ -301,9 +300,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
             if (blockId == null) {
                 response.put("errorMessage", "Block not found: " + blockHashString);
                 return;
@@ -322,7 +322,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put("block", blockData);
             }
             else {
-                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                 if (blockHeader == null) {
                     response.put("errorMessage", "Could not inflate Block; it may be corrupted.");
                     return;
@@ -359,12 +359,19 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(blockHash);
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
             if (blockId == null) {
                 response.put("errorMessage", "Block not found: " + blockHashString);
+                return;
+            }
+
+            final Boolean blockExists = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+            if (! blockExists) {
+                response.put("errorMessage", "Block not synchronized: " + blockHashString);
                 return;
             }
 
@@ -384,7 +391,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     blockData = blockDeflater.toBytes(block);
                 }
                 else {
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     if (blockHeader == null) {
                         response.put("errorMessage", CORRUPTED_BLOCK_ERROR_MESSAGE);
                         return;
@@ -398,24 +405,6 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put("block", blockData);
             }
             else {
-//                final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
-//                if (blockHeader == null) {
-//                    response.put("errorMessage", CORRUPTED_BLOCK_ERROR_MESSAGE);
-//                    return;
-//                }
-//
-//                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
-//
-//                final Json blockJson = blockHeader.toJson();
-//                final Json transactionHashesJson = new Json(true);
-//
-//                for (final TransactionId transactionId : transactionIds) {
-//                    final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-//                    transactionHashesJson.add(transactionHash);
-//                }
-//
-//                blockJson.put("transactionHashes", transactionHashesJson);
-
                 final Block block = blockDatabaseManager.getBlock(blockId);
                 if (block == null) {
                     response.put("errorMessage", CORRUPTED_BLOCK_ERROR_MESSAGE);
@@ -464,11 +453,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-
-            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final BlockChainSegmentId mainBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(headBlockId);
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
             if (transactionId == null) {
@@ -515,42 +500,36 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected void _queryStatus(final Json response) {
-        final SystemTime systemTime = new SystemTime();
-
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Long blockTimestampInSeconds;
             {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHash();
-                if (lastKnownHash == null) {
+                final Sha256Hash lastKnownBlockHash = blockDatabaseManager.getHeadBlockHash();
+                if (lastKnownBlockHash == null) {
                     blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(lastKnownBlockHash);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     blockTimestampInSeconds = blockHeader.getTimestamp();
                 }
             }
 
             final Long blockHeaderTimestampInSeconds;
             {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                final Sha256Hash lastKnownHash = blockDatabaseManager.getHeadBlockHeaderHash();
-                if (lastKnownHash == null) {
+                final Sha256Hash lastKnownHeaderHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                if (lastKnownHeaderHash == null) {
                     blockHeaderTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(lastKnownHash);
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(lastKnownHeaderHash);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     blockHeaderTimestampInSeconds = blockHeader.getTimestamp();
                 }
             }
-
-//            final Long secondsBehind = (systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
-//            final Integer secondsInAnHour = (60 * 60);
-//            final Boolean isSyncing = (secondsBehind > secondsInAnHour);
 
             response.put("wasSuccess", 1);
             response.put("status", _synchronizationStatus.getState());

@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -96,10 +97,11 @@ public class BlockValidatorTests extends IntegrationTest {
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
         try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockInflater blockInflater = new BlockInflater();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             for (int i=0; i<blockCount; ++i) {
-                final Sha256Hash mostRecentBlockHash = blockDatabaseManager.getHeadBlockHash();
+                final Sha256Hash mostRecentBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
                 MutableBlock block;
 
                 if (mostRecentBlockHash == null) {
@@ -108,8 +110,8 @@ public class BlockValidatorTests extends IntegrationTest {
                 }
                 else {
                     final Long blockHeight = null;
-                    final BlockId blockId = blockDatabaseManager.getBlockIdFromHash(mostRecentBlockHash);
-                    final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(mostRecentBlockHash);
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
                     listBuilder.add(Transaction.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
@@ -136,41 +138,53 @@ public class BlockValidatorTests extends IntegrationTest {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
         final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
         { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            blockDatabaseManager.insertBlock(genesisBlock);
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.insertBlock(genesisBlock);
+            }
 
             { // Store the block header before the prerequisite block so that it may be inflated by the difficultyCalculator. Block Hash: 0000000009B905F3DB4990848B9B14FE39582147FCF6A6CB8D73BD227D75369E
                 final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
                 final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0100000042490A3DE212575A7CADE89BED6AC18A4466E667F3D679BC1DA1B2BD00000000EDB0A433B741049D6E7C0B44838A188AD809C60FFE5076F4C881CB93AB70B247ECC66E49FFFF001D06FAFE08"));
-                blockDatabaseManager.storeBlockHeader(blockHeader);
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
             }
 
             // Block Hash: 000000002D947997DC957CDF075DD32390F5F754D2656208D5DD82A6620179F5
             final Block previousPrerequisiteBlock1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("010000009E36757D22BD738DCBA6F6FC47215839FE149B8B849049DBF305B90900000000E398331A75C87C42E14D571DFA7EF036CF4C06F85D05FEE2D366BB2ACC1B1FD4A5C96E49FFFF001D02B465C10101000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027705FFFFFFFF0100F2052A01000000434104BA8220A0CDE503EE7F923AB223B07C22E705FB5215E1A3F5E6DFB37CF8A714D0D6D9F2A7A00A61675CF20ABA71233973D1DEA913C130F0AF380ED4A9C2116045AC00000000"));
-            final BlockId previousPrerequisiteBlock1Id = blockDatabaseManager.insertBlock(previousPrerequisiteBlock1); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
-            final BlockChainSegmentId firstBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(previousPrerequisiteBlock1Id);
+            final BlockId previousPrerequisiteBlock1Id;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                previousPrerequisiteBlock1Id = blockDatabaseManager.insertBlock(previousPrerequisiteBlock1); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
+            }
+            final BlockChainSegmentId firstBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(previousPrerequisiteBlock1Id);
 
             // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
             final Block prerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000F5790162A682DDD5086265D254F7F59023D35D07DF7C95DC9779942D00000000193028D8B78007269D52B2A1068E32EDD21D0772C2C157954F7174761B78A51A30CE6E49FFFF001D3A2E34480201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027C05FFFFFFFF0100F2052A01000000434104B43BB206B71F34E2FAB9359B156FF683BED889021A06C315722A7C936B9743AD88A8882DC13EECAFCDAD4F082D2D0CC54AA177204F79DC7305F1F4857B7B8802AC00000000010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
             TransactionTestUtil.createRequiredTransactionInputs(firstBlockChainSegmentId, prerequisiteBlock.getTransactions().get(1), databaseConnection);
-            final BlockId prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
-            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(prerequisiteBlockId);
-            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(blockChainSegmentId, prerequisiteBlock);
+            final BlockId prerequisiteBlockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
+            }
+            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlockId, prerequisiteBlock);
             Assert.assertFalse(prerequisiteBlockIsValid); // Should fail because its dependent transactions are not inserted.  Asserting for clarity and sanity.
         }
 
         // Block Hash: 000000005A4DED781E667E06CEEFAFB71410B511FE0D5ADC3E5A27ECBEC34AE6
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray("0100000075616236CC2126035FADB38DEB65B9102CC2C41C09CDF29FC051906800000000FE7D5E12EF0FF901F6050211249919B1C0653771832B3A80C66CEA42847F0AE1D4D26E49FFFF001D00F0A4410401000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D029105FFFFFFFF0100F2052A010000004341046D8709A041D34357697DFCB30A9D05900A6294078012BF3BB09C6F9B525F1D16D5503D7905DB1ADA9501446EA00728668FC5719AA80BE2FDFC8A858A4DBDD4FBAC00000000010000000255605DC6F5C3DC148B6DA58442B0B2CD422BE385EAB2EBEA4119EE9C268D28350000000049483045022100AA46504BAA86DF8A33B1192B1B9367B4D729DC41E389F2C04F3E5C7F0559AAE702205E82253A54BF5C4F65B7428551554B2045167D6D206DFE6A2E198127D3F7DF1501FFFFFFFF55605DC6F5C3DC148B6DA58442B0B2CD422BE385EAB2EBEA4119EE9C268D2835010000004847304402202329484C35FA9D6BB32A55A70C0982F606CE0E3634B69006138683BCD12CBB6602200C28FEB1E2555C3210F1DDDB299738B4FF8BBE9667B68CB8764B5AC17B7ADF0001FFFFFFFF0200E1F505000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00180D8F000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC0000000001000000025F9A06D3ACDCEB56BE1BFEAA3E8A25E62D182FA24FEFE899D1C17F1DAD4C2028000000004847304402205D6058484157235B06028C30736C15613A28BDB768EE628094CA8B0030D4D6EB0220328789C9A2EC27DDAEC0AD5EF58EFDED42E6EA17C2E1CE838F3D6913F5E95DB601FFFFFFFF5F9A06D3ACDCEB56BE1BFEAA3E8A25E62D182FA24FEFE899D1C17F1DAD4C2028010000004A493046022100C45AF050D3CEA806CEDD0AB22520C53EBE63B987B8954146CDCA42487B84BDD6022100B9B027716A6B59E640DA50A864D6DD8A0EF24C76CE62391FA3EABAF4D2886D2D01FFFFFFFF0200E1F505000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00180D8F000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC000000000100000002E2274E5FEA1BF29D963914BD301AA63B64DAAF8A3E88F119B5046CA5738A0F6B0000000048473044022016E7A727A061EA2254A6C358376AAA617AC537EB836C77D646EBDA4C748AAC8B0220192CE28BF9F2C06A6467E6531E27648D2B3E2E2BAE85159C9242939840295BA501FFFFFFFFE2274E5FEA1BF29D963914BD301AA63B64DAAF8A3E88F119B5046CA5738A0F6B010000004A493046022100B7A1A755588D4190118936E15CD217D133B0E4A53C3C15924010D5648D8925C9022100AAEF031874DB2114F2D869AC2DE4AE53908FBFEA5B2B1862E181626BB9005C9F01FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F000000004341046A0765B5865641CE08DD39690AADE26DFBF5511430CA428A3089261361CEF170E3929A68AEE3D8D4848B0C5111B0A37B82B86AD559FD2A745B44D8E8D9DFDC0CAC00000000"));
-        final BlockId blockId = blockDatabaseManager.insertBlock(block);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockId = blockDatabaseManager.insertBlock(block);
+        }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
 
         // Assert
         Assert.assertTrue(blockIsValid);
@@ -186,17 +200,22 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
         final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+        }
 
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
-        final BlockId blockId = blockDatabaseManager.insertBlock(block);
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockId = blockDatabaseManager.insertBlock(block);
+        }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, block);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
 
         // Assert
         Assert.assertTrue(blockIsValid);
@@ -221,6 +240,7 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockInflater blockInflater = new BlockInflater();
@@ -240,22 +260,22 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockChainSegmentId genesisBlockChainSegmentId;
         {
-            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-            genesisBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(genesisBlockId);
+            final BlockId genesisBlockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+            }
+            genesisBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId);
             // Assert.assertTrue(blockValidator.validateBlock(genesisBlockChainSegmentId, genesisBlock)); // NOTE: This assertion is disabled for the genesis block. (The difficulty calculation for this block fails, but it's the genesis block, so it's likely not applicable.)
         }
 
-        final BlockChainSegmentId block1PrimeBlockChainSegmentId;
-        {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-            block1PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block1PrimeId);
-            Assert.assertTrue(blockValidator.validateBlock(block1PrimeBlockChainSegmentId, block1Prime));
+            Assert.assertTrue(blockValidator.validateBlock(block1PrimeId, block1Prime));
         }
 
-        {
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-            final BlockChainSegmentId block1DoublePrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId);
-            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeBlockChainSegmentId, block1DoublePrime));
+            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime));
         }
 
         // TransactionInput 0:BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D should exist within the database,
@@ -267,11 +287,13 @@ public class BlockValidatorTests extends IntegrationTest {
         );
         Assert.assertTrue(rows.size() > 0);
 
-        final BlockId block2Id = blockDatabaseManager.insertBlock(block2Prime);
-        final BlockChainSegmentId block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(block2Id);
+        final BlockId block2Id;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            block2Id = blockDatabaseManager.insertBlock(block2Prime);
+        }
 
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, block2Prime);
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime);
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -287,13 +309,18 @@ public class BlockValidatorTests extends IntegrationTest {
 
         final BlockInflater blockInflater = new BlockInflater();
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
         final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
-        _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            _storeBlocks(1, genesisBlockTimestamp); // Store the genesis block... (Since the genesis-block is considered block-height 0.)
+        }
 
-        _storeBlocks(2015, genesisBlockTimestamp + 1L);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            _storeBlocks(2015, genesisBlockTimestamp + 1L);
+        }
 
         { // Store the block that is 2016 blocks before the firstBlockWithDifficultyAdjustment
             // Block Hash: 000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8
@@ -303,13 +330,18 @@ public class BlockValidatorTests extends IntegrationTest {
             final String blockData = IoUtil.getResource("/blocks/000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8");
             final MutableBlock block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             block30240.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
-            final BlockId blockId = blockDatabaseManager.insertBlock(block30240);
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.insertBlock(block30240);
+            }
             final Difficulty blockDifficulty = block30240.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
-            Assert.assertEquals(2016, blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+            Assert.assertEquals(2016, blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
         }
 
-        _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+        }
 
         final Sha256Hash previousBlockHash;
         // Timestamp: 23EC3A4B
@@ -318,10 +350,13 @@ public class BlockValidatorTests extends IntegrationTest {
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
             final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
-            final BlockId blockId = blockDatabaseManager.insertBlock(previousBlock);
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.insertBlock(previousBlock);
+            }
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
-            Assert.assertEquals((blockHeight - 1), blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+            Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
 
             previousBlockHash = previousBlock.getHash();
         }
@@ -362,13 +397,14 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
 
-        final BlockId blockId = blockDatabaseManager.insertBlock(firstBlockWithDifficultyIncrease);
-        Assert.assertEquals(blockHeight, blockDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
-
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockId = blockDatabaseManager.insertBlock(firstBlockWithDifficultyIncrease);
+            Assert.assertEquals(blockHeight, blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+        }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockChainSegmentId, firstBlockWithDifficultyIncrease);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, firstBlockWithDifficultyIncrease);
 
         // Assert
         Assert.assertTrue(blockIsValid);
@@ -412,17 +448,18 @@ public class BlockValidatorTests extends IntegrationTest {
         // NOTE: invalidBlock6 attempts to spend an output that only exists within customBlock6. Since the TransactionOutput does not exist on its chain, this block is invalid.
         Assert.assertEquals(customBlock6.getTransactions().get(0).getHash(), invalidBlock6.getTransactions().get(1).getTransactionInputs().get(0).getPreviousOutputTransactionHash());
 
-        for (final Block block : new Block[]{ genesisBlock, block1, block2, block3, block4, block5 }) {
-            blockDatabaseManager.storeBlock(block);
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            for (final Block block : new Block[]{genesisBlock, block1, block2, block3, block4, block5}) {
+                blockDatabaseManager.storeBlock(block);
+            }
+
+            blockDatabaseManager.storeBlock(customBlock6);
+            blockId = blockDatabaseManager.storeBlock(invalidBlock6);
         }
 
-        blockDatabaseManager.storeBlock(customBlock6);
-        final BlockId blockId = blockDatabaseManager.storeBlock(invalidBlock6);
-
-        final BlockChainSegmentId block2PrimeBlockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2PrimeBlockChainSegmentId, invalidBlock6);
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(blockId, invalidBlock6);
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);

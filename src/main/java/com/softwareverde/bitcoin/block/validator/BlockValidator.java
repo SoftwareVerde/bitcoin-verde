@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
@@ -26,6 +27,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -252,20 +254,43 @@ public class BlockValidator {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
-    public Boolean validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block) {
-        final BlockId blockId;
+    public Boolean validateBlock(final BlockId blockId, final Block nullableBlock) {
+        final Block block;
         final Long blockHeight;
+        final BlockChainSegmentId blockChainSegmentId;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
-            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            if (nullableBlock != null) {
+                block = nullableBlock;
+                { // Validate BlockId...
+                    final Sha256Hash blockHash = block.getHash();
+                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                    if (! Util.areEqual(actualBlockId, blockId)) {
+                        Logger.log("ERROR: BlockId mismatch. " + blockId + " vs " + actualBlockId);
+                        return false;
+                    }
+                }
+            }
+            else {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                block = blockDatabaseManager.getBlock(blockId);
+                if (block == null) {
+                    Logger.log("No transactions for block id: " + blockId);
+                    return false;
+                }
+            }
+
+            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
 
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
-            final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(blockChainSegmentId, block, blockHeight);
+            final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(block, blockHeight);
             if (! headerIsValid) {
                 Logger.log("Invalid block. Header invalid.");
                 return false;
             }
+
+            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
         }
         catch (final DatabaseException databaseException) {
             Logger.log("Error encountered validating block:");
@@ -276,13 +301,35 @@ public class BlockValidator {
         return _validateBlock(blockChainSegmentId, block, blockHeight);
     }
 
-    public Boolean validateBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final Block block) {
-        final BlockId blockId;
+    public Boolean validateBlockTransactions(final BlockId blockId, final Block nullableBlock) {
+        final Block block;
         final Long blockHeight;
+        final BlockChainSegmentId blockChainSegmentId;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
-            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+
+            if (nullableBlock != null) {
+                block = nullableBlock;
+
+                { // Validate BlockId...
+                    final Sha256Hash blockHash = block.getHash();
+                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                    if (! Util.areEqual(actualBlockId, blockId)) {
+                        Logger.log("ERROR: BlockId mismatch. " + blockId + " vs " + actualBlockId);
+                        return false;
+                    }
+                }
+            }
+            else {
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                block = blockDatabaseManager.getBlock(blockId);
+                if (block == null) {
+                    Logger.log("No transactions for block id: " + blockId);
+                    return false;
+                }
+            }
         }
         catch (final DatabaseException databaseException) {
             Logger.log("Error encountered validating block:");

@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
@@ -87,7 +88,7 @@ public class BlockChainBuilder extends SleepyService {
         final Sha256Hash blockHash = blockHasher.calculateBlockHash(block);
         if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-            synchronized (BlockDatabaseManager.MUTEX) {
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.storeBlock(block);
             }
         }
@@ -141,12 +142,13 @@ public class BlockChainBuilder extends SleepyService {
                 if (candidatePendingBlockId == null) {
                     // Request the next head block be downloaded... (depends on BlockHeaders)
                     final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseCache);
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
                     final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-                    final BlockId nextBlockId = blockDatabaseManager.getChildBlockId(headBlockChainSegmentId, headBlockId);
+                    final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockChainSegmentId, headBlockId);
                     if (nextBlockId != null) {
-                        final Sha256Hash nextBlockHash = blockDatabaseManager.getBlockHashFromId(nextBlockId);
+                        final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(nextBlockId);
                         _blockDownloadRequester.requestBlock(nextBlockHash);
                     }
                     break;
@@ -218,7 +220,7 @@ public class BlockChainBuilder extends SleepyService {
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-            _hasGenesisBlock = blockDatabaseManager.blockExists(BlockHeader.GENESIS_BLOCK_HASH);
+            _hasGenesisBlock = blockDatabaseManager.blockExistsWithTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
@@ -29,8 +30,9 @@ public class TransactionTestUtil {
 
     protected static BlockId _getGenesisBlockId(final BlockChainSegmentId blockChainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
-        final BlockId genesisBlockId = blockDatabaseManager.getBlockIdFromHash(BlockHeader.GENESIS_BLOCK_HASH);
+        final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(BlockHeader.GENESIS_BLOCK_HASH);
         if (genesisBlockId == null) {
 
             final java.util.List<Row> rows = databaseConnection.query(
@@ -47,7 +49,10 @@ public class TransactionTestUtil {
             final BlockInflater blockInflater = new BlockInflater();
             final String genesisBlockData = IoUtil.getResource("/blocks/" + HexUtil.toHexString(BlockHeader.GENESIS_BLOCK_HASH.getBytes()));
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(genesisBlockData));
-            final BlockId blockId = blockDatabaseManager.insertBlock(block);
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.insertBlock(block);
+            }
 
             databaseConnection.executeSql(
                 new Query("UPDATE blocks SET block_height = ?, block_chain_segment_id = ? WHERE id = ?")
