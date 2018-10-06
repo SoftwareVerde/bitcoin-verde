@@ -87,7 +87,9 @@ public class BlockChainBuilder extends SleepyService {
         final Sha256Hash blockHash = blockHasher.calculateBlockHash(block);
         if (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-            blockId = blockDatabaseManager.storeBlock(BlockDatabaseManager.MUTEX, block);
+            synchronized (BlockDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.storeBlock(block);
+            }
         }
         else {
             blockId = null;
@@ -155,6 +157,7 @@ public class BlockChainBuilder extends SleepyService {
                 if (! processCandidateBlockWasSuccessful) {
                     pendingBlockDatabaseManager.incrementFailedDownloadCount(candidatePendingBlockId);
                     pendingBlockDatabaseManager.deletePendingBlockData(candidatePendingBlockId); // NOTE: Also prevents the failed block from being returned within PendingBlockDatabaseManager::selectCandidatePendingBlockId during the next iteration...
+                    pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
                     continue;
                 }
 
@@ -172,6 +175,7 @@ public class BlockChainBuilder extends SleepyService {
                         if (! processBlockWasSuccessful) {
                             pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
                             pendingBlockDatabaseManager.deletePendingBlockData(pendingBlockId);
+                            pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
                             break;
                         }
 

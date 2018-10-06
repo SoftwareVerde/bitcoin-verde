@@ -19,15 +19,16 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BlockDownloader extends SleepyService {
+    public static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
+
     protected static final Long MAX_TIMEOUT = 90000L;
-    protected static final Integer MAX_DOWNLOAD_FAILURE_COUNT = 10;
 
     protected final Object _downloadCallbackPin = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
-    protected final Map<PendingBlockId, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<PendingBlockId, MilliTimer>();
+    protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
 
     protected Runnable _newBlockAvailableCallback = null;
@@ -35,23 +36,16 @@ public class BlockDownloader extends SleepyService {
     protected void _onBlockDownloaded(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
-        final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlock(block);
-        final MilliTimer timer = _currentBlockDownloadSet.remove(pendingBlockId);
-        if (timer != null) {
-            timer.stop();
-        }
-
-        Logger.log("Downloaded Block: " + block.getHash() + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
-
-        synchronized (_downloadCallbackPin) {
-            _downloadCallbackPin.notifyAll();
-        }
+        pendingBlockDatabaseManager.storeBlock(block);
     }
 
-    protected void _markPendingBlockIdsAsFailed(final Set<PendingBlockId> pendingBlockIds) {
+    protected void _markPendingBlockIdsAsFailed(final Set<Sha256Hash> pendingBlockHashes) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+            for (final Sha256Hash pendingBlockHash : pendingBlockHashes) {
+                final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(pendingBlockHash);
+                if (pendingBlockId == null) { continue; }
+
                 pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
             }
             pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
@@ -102,15 +96,14 @@ public class BlockDownloader extends SleepyService {
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
 
                 final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
-
-                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(pendingBlockId);
-                if (itemIsAlreadyBeingDownloaded) { continue; }
-
                 final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
                 if (blockHash == null) { continue; }
 
+                final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(blockHash);
+                if (itemIsAlreadyBeingDownloaded) { continue; }
+
                 final MilliTimer timer = new MilliTimer();
-                _currentBlockDownloadSet.put(pendingBlockId, timer);
+                _currentBlockDownloadSet.put(blockHash, timer);
 
                 timer.start();
                 _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
@@ -142,6 +135,21 @@ public class BlockDownloader extends SleepyService {
                     Logger.log(exception);
                     return;
                 }
+                finally {
+                    final Sha256Hash blockHash = block.getHash();
+
+                    final MilliTimer timer = _currentBlockDownloadSet.remove(blockHash);
+
+                    if (timer != null) {
+                        timer.stop();
+                    }
+
+                    Logger.log("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+
+                    synchronized (_downloadCallbackPin) {
+                        _downloadCallbackPin.notifyAll();
+                    }
+                }
 
                 final Runnable newBlockAvailableCallback = _newBlockAvailableCallback;
                 if (newBlockAvailableCallback != null) {
@@ -160,8 +168,6 @@ public class BlockDownloader extends SleepyService {
                         return;
                     }
 
-                    _currentBlockDownloadSet.remove(pendingBlockId);
-
                     pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
                     pendingBlockDatabaseManager.purgeFailedPendingBlocks(MAX_DOWNLOAD_FAILURE_COUNT);
                 }
@@ -169,9 +175,12 @@ public class BlockDownloader extends SleepyService {
                     Logger.log(exception);
                     Logger.log("Unable to increment download failure count for block: " + blockHash);
                 }
+                finally {
+                    _currentBlockDownloadSet.remove(blockHash);
 
-                synchronized (_downloadCallbackPin) {
-                    _downloadCallbackPin.notifyAll();
+                    synchronized (_downloadCallbackPin) {
+                        _downloadCallbackPin.notifyAll();
+                    }
                 }
             }
         };

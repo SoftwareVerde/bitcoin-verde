@@ -276,6 +276,23 @@ public class BlockValidator {
         return _validateBlock(blockChainSegmentId, block, blockHeight);
     }
 
+    public Boolean validateBlockTransactions(final BlockChainSegmentId blockChainSegmentId, final Block block) {
+        final BlockId blockId;
+        final Long blockHeight;
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            blockId = blockDatabaseManager.getBlockIdFromHash(block.getHash());
+            blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log("Error encountered validating block:");
+            Logger.log(databaseException);
+            return false;
+        }
+
+        return _validateBlock(blockChainSegmentId, block, blockHeight);
+    }
+
     public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {
         _shouldLogValidBlocks = shouldLogValidBlocks;
     }

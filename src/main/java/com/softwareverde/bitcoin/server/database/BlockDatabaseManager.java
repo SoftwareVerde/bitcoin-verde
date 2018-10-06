@@ -444,6 +444,8 @@ public class BlockDatabaseManager {
     }
 
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to insertBlockHeader without obtaining lock."); }
+
         final BlockId blockId = _insertBlockHeader(blockHeader);
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
@@ -457,6 +459,8 @@ public class BlockDatabaseManager {
     }
 
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
+        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
+
         final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
 
         if (existingBlockId != null) {
@@ -471,29 +475,14 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
-    public BlockId storeBlockHeader(final Object mutex, final BlockHeader blockHeader) throws DatabaseException {
-        final BlockId existingBlockId = _getBlockIdFromHash(blockHeader.getHash());
-
-        if (existingBlockId != null) {
-            return existingBlockId;
-        }
-
-        synchronized (mutex) {
-            final BlockId blockId = _insertBlockHeader(blockHeader);
-
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(blockHeader);
-
-            return blockId;
-        }
-    }
-
     /**
      * Inserts the Block (and BlockHeader if it does not exist) (including its transactions) into the database.
      *  If the BlockHeader has already been stored, this will update the existing BlockHeader.
      *  Transactions inserted on this chain are assumed to be a part of the parent's chain if the BlockHeader did not exist.
      */
     public BlockId storeBlock(final Block block) throws DatabaseException {
+        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlock without obtaining lock."); }
+
         final Sha256Hash blockHash = block.getHash();
         final BlockId existingBlockId = _getBlockIdFromHash(blockHash);
 
@@ -513,27 +502,17 @@ public class BlockDatabaseManager {
         return blockId;
     }
 
-    public BlockId storeBlock(final Object mutex, final Block block) throws DatabaseException {
+    public Boolean storeBlockTransactions(final Block block) throws DatabaseException {
         final Sha256Hash blockHash = block.getHash();
-        final BlockId existingBlockId = _getBlockIdFromHash(blockHash);
-
-        final BlockId blockId;
-        if (existingBlockId == null) {
-            synchronized (mutex) {
-                blockId = _insertBlockHeader(block);
-
-                final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
-                blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
-
-                _insertBlockTransactions(blockId, block.getTransactions());
-            }
-        }
-        else {
-            blockId = existingBlockId;
-            _insertBlockTransactions(blockId, block.getTransactions());
+        final BlockId blockId = _getBlockIdFromHash(blockHash);
+        if (blockId == null) {
+            Logger.log("Attempting to insert transactions without BlockHeader stored: "+ blockHash);
+            return false;
         }
 
-        return blockId;
+        _insertBlockTransactions(blockId, block.getTransactions());
+
+        return true;
     }
 
     /**
@@ -542,6 +521,8 @@ public class BlockDatabaseManager {
      *  Transactions inserted on this chain are assumed to be a part of the parent's chain.
      */
     public BlockId insertBlock(final Block block) throws DatabaseException {
+        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to insertBlock without obtaining lock."); }
+
         final BlockId blockId = _insertBlockHeader(block);
 
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);

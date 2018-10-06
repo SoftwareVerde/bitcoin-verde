@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"\$@\"\n" > out/run.sh
-echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
+echo -e "#!/bin/bash\n\nexec java -d64 -Xms2G -Xmx8G -jar bin/main.jar \"NODE\" \"conf/server.conf\"\n" > out/run-node.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"EXPLORER\" \"conf/server.conf\"\n" > out/run-explorer.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"WALLET\" \"conf/server.conf\"\n" > out/run-wallet.sh
 echo -e "#!/bin/bash\n\nexec java -jar bin/main.jar \"VALIDATE\" \"conf/server.conf\" \"\$1\"\n" > out/run-validation.sh

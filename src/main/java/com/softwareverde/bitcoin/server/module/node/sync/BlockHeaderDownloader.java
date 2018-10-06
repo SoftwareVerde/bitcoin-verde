@@ -118,28 +118,30 @@ public class BlockHeaderDownloader extends SleepyService {
         final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _nodeManager.getNetworkTime(), _medianBlockTime);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        TransactionUtil.startTransaction(databaseConnection);
+        synchronized (BlockDatabaseManager.MUTEX) {
+            TransactionUtil.startTransaction(databaseConnection);
+            final BlockId blockId = blockDatabaseManager.storeBlockHeader(blockHeader);
 
-        final BlockId blockId = blockDatabaseManager.storeBlockHeader(BlockDatabaseManager.MUTEX, blockHeader);
+            if (blockId == null) {
+                Logger.log("Error storing BlockHeader: " + blockHash);
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
+            }
 
-        if (blockId == null) {
-            Logger.log("Error storing BlockHeader: " + blockHash);
-            TransactionUtil.rollbackTransaction(databaseConnection);
-            return false;
+            final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
+            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
+            if (! blockHeaderIsValid) {
+                Logger.log("Invalid BlockHeader: " + blockHash);
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
+            }
+
+            final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
+            _blockHeight = Math.max(blockHeight, _blockHeight);
+
+            TransactionUtil.commitTransaction(databaseConnection);
         }
 
-        final BlockChainSegmentId blockChainSegmentId = blockDatabaseManager.getBlockChainSegmentId(blockId);
-        final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockChainSegmentId, blockHeader);
-        if (! blockHeaderIsValid) {
-            Logger.log("Invalid BlockHeader: " + blockHash);
-            TransactionUtil.rollbackTransaction(databaseConnection);
-            return false;
-        }
-
-        final Long blockHeight = blockDatabaseManager.getBlockHeightForBlockId(blockId);
-        _blockHeight = Math.max(blockHeight, _blockHeight);
-
-        TransactionUtil.commitTransaction(databaseConnection);
         return true;
     }
 

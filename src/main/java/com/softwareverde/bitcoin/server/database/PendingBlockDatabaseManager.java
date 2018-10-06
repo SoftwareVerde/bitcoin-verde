@@ -258,7 +258,7 @@ public class PendingBlockDatabaseManager {
 
     public void purgeFailedPendingBlocks(final Integer maxFailedDownloadCount) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM pending_blocks WHERE failed_download_count > ?")
+            new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE pending_blocks.failed_download_count > ? AND pending_block_data.id IS NULL")
                 .setParameter(maxFailedDownloadCount)
         );
 
