@@ -18,10 +18,12 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -184,32 +186,41 @@ public class AddressDatabaseManager {
         return addressId;
     }
 
-    static class DuplicateAddress extends AddressId {
-        protected DuplicateAddress(final String addressString) {
-            super(-2L);
+    /**
+     * ScriptWrapper is a wrapper around LockingScript so that hashCode and equals uses simple checks instead of
+     *  the more complicated Script implementations.
+     */
+    static class ScriptWrapper {
+        public final LockingScript lockingScript;
 
-            this.addressString = addressString;
+        public ScriptWrapper(final LockingScript lockingScript) {
+            this.lockingScript = lockingScript;
         }
 
-        public final String addressString;
+        @Override
+        public int hashCode() {
+            return this.lockingScript.simpleHashCode();
+        }
+
+        @Override
+        public boolean equals(final Object object) {
+            return this.lockingScript.simpleEquals(object);
+        }
     }
 
     public List<AddressId> storeScriptAddresses(final List<LockingScript> lockingScripts) throws DatabaseException {
-        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getSize());
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
-        final AddressId INVALID = AddressId.wrap(-1L);
-        final AddressId DUPLICATE = AddressId.wrap(-2L);
+        final HashMap<String, AddressId> addressIdMap = new HashMap<String, AddressId>(lockingScripts.getSize());
+        final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<ScriptWrapper, String>(lockingScripts.getSize());
+        final MutableList<String> newAddresses = new MutableList<String>(lockingScripts.getSize());
+
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
-
-        final Set<String> newAddresses = new HashSet<String>(lockingScripts.getSize());
-
-        int insertCount = 0;
         for (final LockingScript lockingScript : lockingScripts) {
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
             if (scriptType == ScriptType.UNKNOWN) {
-                addressIds.add(INVALID);
+                lockingScriptAddresses.put(new ScriptWrapper(lockingScript), null);
                 continue;
             }
 
@@ -220,80 +231,37 @@ public class AddressDatabaseManager {
             }
 
             final String addressString = address.toBase58CheckEncoded();
-
-            final AddressId cachedAddressId = _databaseManagerCache.getCachedAddressId(addressString);
-            if (cachedAddressId != null) {
-                addressIds.add(cachedAddressId);
-                continue;
-            }
-            else {
-                final java.util.List<Row> rows = _databaseConnection.query(
-                    new Query("SELECT id FROM addresses WHERE address = ?")
-                        .setParameter(addressString)
-                );
-
-                if (! rows.isEmpty()) {
-                    final Row row = rows.get(0);
-                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
-                    addressIds.add(addressId);
-
-                    _databaseManagerCache.cacheAddressId(addressString, addressId);
-
-                    continue;
-                }
-            }
-
-            if (newAddresses.contains(addressString)) {
-                addressIds.add(new DuplicateAddress(addressString));
-                continue;
-            }
+            lockingScriptAddresses.put(new ScriptWrapper(lockingScript), addressString);
+            newAddresses.add(addressString);
 
             batchedInsertQuery.setParameter(addressString);
-            addressIds.add(null);
-            insertCount += 1;
-
-            newAddresses.add(addressString);
         }
 
-        final Long firstAddressId;
-        if (insertCount > 0) {
-            firstAddressId = _databaseConnection.executeSql(batchedInsertQuery);
-            if (firstAddressId == null) { return null; }
-        }
-        else {
-            firstAddressId = null;
+        if (! newAddresses.isEmpty()) {
+            _databaseConnection.executeSql(batchedInsertQuery);
         }
 
-        Long nextAddressId = firstAddressId;
-        for (int i = 0; i < addressIds.getSize(); ++i) {
-            final AddressId addressId = addressIds.get(i);
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, address FROM addresses WHERE address IN (" + DatabaseUtil.createInClause(newAddresses) + ")")
+        );
+        for (final Row row : rows) {
+            final AddressId addressId = AddressId.wrap(row.getLong("id"));
+            final String address = row.getString("address");
 
-            if (addressId == INVALID) {
-                addressIds.set(i, null);
+            addressIdMap.put(address, addressId);
+        }
+
+        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getSize());
+        for (final LockingScript lockingScript : lockingScripts) {
+            final String address = lockingScriptAddresses.get(new ScriptWrapper(lockingScript));
+            if (address == null) {
+                addressIds.add(null);
             }
-            else if (Util.areEqual(addressId, DUPLICATE)) {
-                final DuplicateAddress duplicateAddress = (DuplicateAddress) addressId;
+            else {
+                final AddressId addressId = addressIdMap.get(address);
+                if (addressId == null) { return null; }
 
-                final AddressId cachedAddressId = _databaseManagerCache.getCachedAddressId(duplicateAddress.addressString);
-                if (cachedAddressId != null) {
-                    addressIds.set(i, cachedAddressId);
-                }
-                else {
-                    final java.util.List<Row> rows = _databaseConnection.query(
-                        new Query("SELECT id FROM addresses WHERE address = ?")
-                            .setParameter(duplicateAddress.addressString)
-                    );
-
-                    final Row row = rows.get(0);
-                    final AddressId duplicateAddressId = AddressId.wrap(row.getLong("id"));
-                    addressIds.set(i, duplicateAddressId);
-
-                    _databaseManagerCache.cacheAddressId(duplicateAddress.addressString, duplicateAddressId);
-                }
-            }
-            else if (addressId == null) {
-                addressIds.set(i, AddressId.wrap(nextAddressId));
-                nextAddressId += 1L;
+                addressIds.add(addressId);
             }
         }
 

@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -23,6 +24,7 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class TransactionOutputDatabaseManager {
 
@@ -132,24 +134,14 @@ public class TransactionOutputDatabaseManager {
 
     protected void _insertLockingScripts(final List<TransactionOutputId> transactionOutputIds, final List<LockingScript> lockingScripts) throws DatabaseException {
         if (! Util.areEqual(transactionOutputIds.getSize(), lockingScripts.getSize())) {
-            throw new RuntimeException("TransactionOutputDatabaseManager::_insertLockingScripts -- transactionOutputIds.getSize must equal lockingScripts.getSize");
+            throw new DatabaseException("Attempted to insert LockingScripts without matching TransactionOutputIds.");
         }
 
         final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)");
 
         final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
-        final List<AddressId> addressIds;
-        {
-            final ImmutableListBuilder<AddressId> listBuilder = new ImmutableListBuilder<AddressId>(lockingScripts.getSize());
-            for (final LockingScript lockingScript : lockingScripts) {
-                final AddressId addressId = addressDatabaseManager.storeScriptAddress(lockingScript);
-                listBuilder.add(addressId);
-            }
-            addressIds = listBuilder.build();
-        }
-
+        final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         for (int i = 0; i < transactionOutputIds.getSize(); ++i) {
@@ -215,26 +207,31 @@ public class TransactionOutputDatabaseManager {
         return _insertTransactionOutput(transactionId, transactionOutput);
     }
 
-    public List<TransactionOutputId> insertTransactionOutputs(final List<TransactionId> transactionIds, final List<List<TransactionOutput>> allTransactionOutputs) throws DatabaseException {
-        if (! Util.areEqual(transactionIds.getSize(), allTransactionOutputs.getSize())) {
-            throw new RuntimeException("TransactionOutputDatabaseManager::insertTransactionOutputs -- transactionIds.getSize must equal transactionOutputs.getSize");
-        }
+    public List<TransactionOutputId> insertTransactionOutputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+        if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
+
+        final Integer transactionCount = transactions.getSize();
 
         final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)");
 
-        final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>(transactionIds.getSize() * 2);
+        final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>(transactionCount * 2);
 
-        for (int i = 0; i < transactionIds.getSize(); ++i) {
+        for (int i = 0; i < transactionCount; ++i) {
             final TransactionId transactionId = transactionIds.get(i);
-            final List<TransactionOutput> transactionOutputs = allTransactionOutputs.get(i);
+            final Transaction transaction = transactions.get(i);
+
+            final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
             for (final TransactionOutput transactionOutput : transactionOutputs) {
+                final Integer transactionOutputIndex = transactionOutput.getIndex();
+                final Long transactionOutputAmount = transactionOutput.getAmount();
                 final LockingScript lockingScript = transactionOutput.getLockingScript();
+
                 lockingScripts.add(lockingScript);
 
                 batchInsertQuery.setParameter(transactionId);
-                batchInsertQuery.setParameter(transactionOutput.getIndex());
-                batchInsertQuery.setParameter(transactionOutput.getAmount());
+                batchInsertQuery.setParameter(transactionOutputIndex);
+                batchInsertQuery.setParameter(transactionOutputAmount);
             }
         }
 

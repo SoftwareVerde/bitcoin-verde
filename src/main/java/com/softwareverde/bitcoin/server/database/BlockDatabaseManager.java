@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -17,6 +16,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.Set;
@@ -27,13 +27,12 @@ public class BlockDatabaseManager {
     protected final DatabaseManagerCache _databaseManagerCache;
 
 
-    protected void _insertBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+    protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        for (final Transaction transaction : transactions) {
-            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
-            transactionDatabaseManager.associateTransactionToBlock(transactionId, blockId);
-        }
+        final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
+
+        transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
@@ -114,12 +113,12 @@ public class BlockDatabaseManager {
             blockId = existingBlockId;
         }
 
-        _insertBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block.getTransactions());
 
         return blockId;
     }
 
-    public Boolean insertBlockTransactions(final Block block) throws DatabaseException {
+    public Boolean storeBlockTransactions(final Block block) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
@@ -129,7 +128,7 @@ public class BlockDatabaseManager {
             return false;
         }
 
-        _insertBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block.getTransactions());
 
         return true;
     }
@@ -150,7 +149,7 @@ public class BlockDatabaseManager {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
         blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
 
-        _insertBlockTransactions(blockId, block.getTransactions());
+        _storeBlockTransactions(blockId, block.getTransactions());
         return blockId;
     }
 

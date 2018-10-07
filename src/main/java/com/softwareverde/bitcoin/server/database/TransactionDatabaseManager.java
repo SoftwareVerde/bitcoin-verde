@@ -22,6 +22,7 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -148,26 +149,44 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
-    protected List<TransactionId> _insertTransactions(final List<Transaction> transactions) throws DatabaseException {
-        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
+    protected List<TransactionId> _storeTransactionsRecords(final List<Transaction> transactions) throws DatabaseException {
+        final Integer transactionCount = transactions.getSize();
+
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactionCount);
+        final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
         for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
             final LockTime lockTime = transaction.getLockTime();
 
-            batchedInsertQuery.setParameter(transaction.getHash());
+            batchedInsertQuery.setParameter(transactionHash);
             batchedInsertQuery.setParameter(transaction.getVersion());
             batchedInsertQuery.setParameter(lockTime.getValue());
+
+            transactionHashes.add(transactionHash);
         }
 
         final Long firstTransactionId = _databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionId == null) { return null; }
 
-        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactions.getSize());
-        for (int i = 0; i < transactions.getSize(); ++i) {
-            final TransactionId transactionId = TransactionId.wrap(firstTransactionId + i);
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
+        );
+        if (! Util.areEqual(transactionCount, rows.size())) { return null; }
+
+        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            transactionHashMap.put(transactionHash, transactionId);
+        }
+
+        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactionCount);
+        for (final Transaction transaction : transactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final TransactionId transactionId = transactionHashMap.get(transactionHash);
+
             transactionIds.add(transactionId);
 
-            final Transaction transaction = transactions.get(i);
-            final Sha256Hash transactionHash = transaction.getHash();
             _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
             _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
         }
@@ -264,6 +283,22 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
+    public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
+        final List<TransactionId> transactionIds = _storeTransactionsRecords(transactions);
+        if (transactionIds == null) { return null; }
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(transactionIds, transactions);
+        if (transactionOutputIds == null) { return null; }
+
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(transactionIds, transactions);
+        if (transactionInputIds == null) { return  null; }
+
+        return transactionIds;
+    }
+
     public void associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
             final Integer currentTransactionCount = _getTransactionCount(blockId);
@@ -273,6 +308,19 @@ public class TransactionDatabaseManager {
                     .setParameter(transactionId)
                     .setParameter(currentTransactionCount)
             );
+        }
+    }
+
+    public void associateTransactionsToBlock(final List<TransactionId> transactionIds, final BlockId blockId) throws DatabaseException {
+        synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
+            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
+            int sortOrder = 0;
+            for (final TransactionId transactionId : transactionIds) {
+                batchedInsertQuery.setParameter(blockId);
+                batchedInsertQuery.setParameter(transactionId);
+                batchedInsertQuery.setParameter(sortOrder);
+            }
+            _databaseConnection.executeSql(batchedInsertQuery);
         }
     }
 

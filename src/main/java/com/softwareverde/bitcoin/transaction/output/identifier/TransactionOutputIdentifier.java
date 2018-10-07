@@ -26,8 +26,8 @@ public class TransactionOutputIdentifier implements Const {
         if (! (object instanceof TransactionOutputIdentifier)) { return false; }
         final TransactionOutputIdentifier transactionOutputIdentifier = (TransactionOutputIdentifier) object;
 
-        if (! Util.areEqual(_outputIndex, transactionOutputIdentifier._outputIndex)) { return false; }
         if (! Util.areEqual(_transactionHash, transactionOutputIdentifier._transactionHash)) { return false; }
+        if (! Util.areEqual(_outputIndex, transactionOutputIdentifier._outputIndex)) { return false; }
 
         return true;
     }

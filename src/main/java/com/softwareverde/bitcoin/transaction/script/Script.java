@@ -20,4 +20,14 @@ public interface Script extends Constable<ImmutableScript>, Jsonable {
 
     @Override
     ImmutableScript asConst();
+
+    @Override
+    int hashCode();
+
+    @Override
+    boolean equals(Object object);
+
+    // These functions return the native object implementations for performance...
+    int simpleHashCode();
+    boolean simpleEquals(Object object);
 }

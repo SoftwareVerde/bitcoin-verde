@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -8,19 +9,24 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.StoredTransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.util.Util;
+
+import java.util.HashMap;
 
 public class TransactionInputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -131,25 +137,75 @@ public class TransactionInputDatabaseManager {
         return _insertTransactionInput(transactionId, transactionInput);
     }
 
-    public List<TransactionInputId> insertTransactionInputs(final List<TransactionId> transactionIds, final List<List<TransactionInput>> allTransactionInputs) throws DatabaseException {
+    public List<TransactionInputId> insertTransactionInputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+        if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
+
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        final Integer transactionCount = transactions.getSize();
+
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, sequence_number) VALUES (?, ?, ?)");
 
-        final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionIds.getSize() * 2);
-        final MutableList<TransactionOutputId> previousTransactionOutputIds = new MutableList<TransactionOutputId>(transactionIds.getSize() * 2);
+        final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionCount * 2);
+        final MutableList<TransactionOutputId> previousTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
+
+
+        final HashMap<StoredTransactionOutputIdentifier, TransactionOutputId> transactionOutputMap = new HashMap<StoredTransactionOutputIdentifier, TransactionOutputId>(transactionCount * 2);
+        final HashMap<Sha256Hash, TransactionId> previousOutputTransactionIdsMap = new HashMap<Sha256Hash, TransactionId>(transactionCount * 2);
+        {
+            final MutableList<Sha256Hash> previousTransactionOutputHashes = new MutableList<Sha256Hash>(transactionCount * 2);
+            for (final Transaction transaction : transactions) {
+                for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    // final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+
+                    previousTransactionOutputHashes.add(previousOutputTransactionHash);
+                }
+            }
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(previousTransactionOutputHashes) + ")")
+            );
+            for (final Row row : rows) {
+                final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                previousOutputTransactionIdsMap.put(transactionHash, transactionId);
+            }
+        }
+
+        {
+            final List<TransactionId> previousOutputTransactionIds = new ImmutableList<TransactionId>(previousOutputTransactionIdsMap.values());
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, transaction_id, `index` FROM transaction_outputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(previousOutputTransactionIds) + ")")
+            );
+            for (final Row row : rows) {
+                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
+                final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+                final Integer index = row.getInteger("index");
+
+                final StoredTransactionOutputIdentifier transactionOutputIdIdentifier = new StoredTransactionOutputIdentifier(transactionId, index);
+                transactionOutputMap.put(transactionOutputIdIdentifier, transactionOutputId);
+            }
+        }
 
         int transactionInputIdCount = 0;
-        for (int i = 0; i < transactionIds.getSize(); ++i) {
+        for (int i = 0; i < transactionCount; ++i) {
+            final Transaction transaction = transactions.get(i);
             final TransactionId transactionId = transactionIds.get(i);
-            final List<TransactionInput> transactionInputs = allTransactionInputs.get(i);
+            final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
             for (final TransactionInput transactionInput : transactionInputs) {
                 final TransactionOutputId previousTransactionOutputId;
                 {
-                    if (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash())) {
+                    final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
+                    if (Util.areEqual(Sha256Hash.EMPTY_HASH, previousOutputTransactionHash)) {
                         previousTransactionOutputId = null;
                     }
                     else {
-                        previousTransactionOutputId = _getPreviousTransactionOutputId(transactionInput);
+                        final TransactionId previousOutputTransactionId = previousOutputTransactionIdsMap.get(previousOutputTransactionHash);
+                        final StoredTransactionOutputIdentifier transactionOutputIdentifier = new StoredTransactionOutputIdentifier(previousOutputTransactionId, previousOutputIndex);
+                        previousTransactionOutputId = transactionOutputMap.get(transactionOutputIdentifier);
                         if (previousTransactionOutputId == null) {
                             throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
                         }
@@ -180,7 +236,6 @@ public class TransactionInputDatabaseManager {
 
         _insertUnlockingScripts(transactionInputIds, unlockingScripts);
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         transactionOutputDatabaseManager.markTransactionOutputsAsSpent(previousTransactionOutputIds);
 
         return transactionInputIds;

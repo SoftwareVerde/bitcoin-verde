@@ -132,7 +132,7 @@ public class BlockProcessor {
         TransactionUtil.startTransaction(databaseConnection);
         {
             storeBlockTimer.start();
-            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.insertBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
+            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
             storeBlockTimer.stop();
 
             if (!transactionsStoredSuccessfully) {

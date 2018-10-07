@@ -6,6 +6,8 @@ public class DatabaseUtil {
     protected DatabaseUtil() { }
 
     public static String createInClause(final List<?> list) {
+        if (list.isEmpty()) { return "NULL"; }
+
         final StringBuilder stringBuilder = new StringBuilder();
 
         String prefix = "";

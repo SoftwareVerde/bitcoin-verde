@@ -11,6 +11,7 @@ import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableScript implements Script, Const {
     protected List<Operation> _cachedOperations;
@@ -105,5 +106,22 @@ public class ImmutableScript implements Script, Const {
     @Override
     public int hashCode() {
         return _bytes.hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Script)) { return false; }
+        final Script script = (Script) object;
+        return (Util.areEqual(_bytes, script.getBytes()));
+    }
+
+    @Override
+    public int simpleHashCode() {
+        return super.hashCode();
+    }
+
+    @Override
+    public boolean simpleEquals(final Object object) {
+        return super.equals(object);
     }
 }

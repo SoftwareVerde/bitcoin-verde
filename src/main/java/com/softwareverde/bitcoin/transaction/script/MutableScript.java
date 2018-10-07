@@ -11,6 +11,7 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableScript implements Script {
     protected final MutableList<Operation> _operations;
@@ -20,6 +21,11 @@ public class MutableScript implements Script {
         final ScriptDeflater scriptDeflater = new ScriptDeflater();
         final ByteArray bytes = scriptDeflater.toBytes(this);
         _cachedByteCount = bytes.getByteCount();
+    }
+
+    protected ByteArray _toBytes() {
+        final ScriptDeflater scriptDeflater = new ScriptDeflater();
+        return scriptDeflater.toBytes(this);
     }
 
     public MutableScript() {
@@ -135,8 +141,7 @@ public class MutableScript implements Script {
 
     @Override
     public ByteArray getBytes() {
-        final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toBytes(this);
+        return _toBytes();
     }
 
     @Override
@@ -163,13 +168,29 @@ public class MutableScript implements Script {
 
     @Override
     public String toString() {
-        final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toBytes(this).toString();
+        return _toBytes().toString();
     }
 
     @Override
     public int hashCode() {
-        final ScriptDeflater scriptDeflater = new ScriptDeflater();
-        return scriptDeflater.toBytes(this).hashCode();
+        return _toBytes().hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Script)) { return false; }
+        final Script script = (Script) object;
+        return (Util.areEqual(_toBytes(), script.getBytes()));
+    }
+
+
+    @Override
+    public int simpleHashCode() {
+        return super.hashCode();
+    }
+
+    @Override
+    public boolean simpleEquals(final Object object) {
+        return super.equals(object);
     }
 }
