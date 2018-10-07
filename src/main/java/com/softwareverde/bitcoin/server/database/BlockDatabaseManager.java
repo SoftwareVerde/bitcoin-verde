@@ -16,7 +16,6 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.Set;

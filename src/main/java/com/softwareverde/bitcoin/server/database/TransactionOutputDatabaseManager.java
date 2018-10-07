@@ -15,7 +15,6 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -24,7 +23,6 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
 
 public class TransactionOutputDatabaseManager {
 
@@ -209,6 +207,7 @@ public class TransactionOutputDatabaseManager {
 
     public List<TransactionOutputId> insertTransactionOutputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
         if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
+        if (transactions.isEmpty()) { return new MutableList<TransactionOutputId>(0); }
 
         final Integer transactionCount = transactions.getSize();
 

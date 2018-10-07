@@ -143,6 +143,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         //  44s - Batched Address Inserting
         // 174s - "Better" Batched Address Inserting (Inefficient Script::equals & Script::hashcode)
         //  24s - Better Batched Address Inserting
+        //  26s - Added Duplicate-transaction detection
 
         // Final Timing Results:
         // Script Pattern Matching: 1ms

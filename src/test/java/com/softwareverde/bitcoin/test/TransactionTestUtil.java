@@ -17,6 +17,8 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -67,7 +69,19 @@ public class TransactionTestUtil {
         return genesisBlockId;
     }
 
+    public static List<Sha256Hash> getTransactionHashes(final List<Transaction> transactions) {
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactions.getSize());
+        for (final Transaction transaction : transactions) {
+            transactionHashes.add(transaction.getHash());
+        }
+        return transactionHashes;
+    }
+
     public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        createRequiredTransactionInputs(blockChainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
+    }
+
+    public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
@@ -75,11 +89,12 @@ public class TransactionTestUtil {
 
         // Ensure that all of the Transaction's TransactionInput's have outputs that exist...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+            if (excludedTransactionHashes.contains(previousOutputTransactionHash)) { continue; }
+            if (Util.areEqual(previousOutputTransactionHash, new ImmutableSha256Hash())) { continue; }
+
             final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.findPreviousTransactionOutputId(transactionInput);
             if (transactionOutputId != null) { continue; }
-
-            final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-            if (Util.areEqual(previousOutputTransactionHash, new ImmutableSha256Hash())) { continue; }
 
             final TransactionId transactionId;
             final java.util.List<Row> transactionRows = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(previousOutputTransactionHash));

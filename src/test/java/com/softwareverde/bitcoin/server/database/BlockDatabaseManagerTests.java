@@ -11,9 +11,10 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
@@ -383,8 +384,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
         final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
         final Block block = blockInflater.fromBytes(blockBytes);
+        final List<Sha256Hash> excludedHashes = TransactionTestUtil.getTransactionHashes(block.getTransactions());
         for (final Transaction transaction : block.getTransactions()) {
-            TransactionTestUtil.createRequiredTransactionInputs(blockChainSegmentId, transaction, databaseConnection);
+            TransactionTestUtil.createRequiredTransactionInputs(blockChainSegmentId, transaction, databaseConnection, excludedHashes);
         }
 
         // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
@@ -401,9 +403,9 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
         // Action
         final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
-        Logger.log(inflatedBlock.getTransactions().get(1).getHash());
 
         // Assert
+        Assert.assertNotNull(inflatedBlock);
         Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
     }
 

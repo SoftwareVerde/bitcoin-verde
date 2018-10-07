@@ -20,12 +20,9 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.Util;
 
 import java.math.BigInteger;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 
 public class AddressDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;

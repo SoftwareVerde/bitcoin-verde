@@ -150,6 +150,8 @@ public class TransactionDatabaseManager {
     }
 
     protected List<TransactionId> _storeTransactionsRecords(final List<Transaction> transactions) throws DatabaseException {
+        if (transactions.isEmpty()) { return new MutableList<TransactionId>(0); }
+
         final Integer transactionCount = transactions.getSize();
 
         final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(transactionCount);
@@ -284,19 +286,64 @@ public class TransactionDatabaseManager {
     }
 
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
-        final List<TransactionId> transactionIds = _storeTransactionsRecords(transactions);
-        if (transactionIds == null) { return null; }
+        final Integer transactionCount = transactions.getSize();
+
+        final List<Sha256Hash> transactionHashes;
+        final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
+        final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        {
+            final ImmutableListBuilder<Sha256Hash> transactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
+            for (final Transaction transaction : transactions) {
+                final Sha256Hash transactionHash = transaction.getHash();
+                transactionHashesBuilder.add(transactionHash);
+                unseenTransactionMap.put(transactionHash, transaction);
+            }
+            transactionHashes = transactionHashesBuilder.build();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
+            );
+            for (final Row row : rows) {
+                final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                existingTransactions.put(transactionHash, transactionId);
+                unseenTransactionMap.remove(transactionHash);
+            }
+        }
+
+        final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values());
+        final List<TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
+        final Integer newTransactionCount = unseenTransactions.getSize();
+        if (newTransactionIds == null) { return null; }
+        if (! Util.areEqual(newTransactionCount, newTransactionIds.getSize())) { return null; }
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(transactionIds, transactions);
+        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(newTransactionIds, unseenTransactions);
         if (transactionOutputIds == null) { return null; }
 
-        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(transactionIds, transactions);
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, unseenTransactions);
         if (transactionInputIds == null) { return  null; }
 
-        return transactionIds;
+        for (int i = 0; i < newTransactionCount; ++i) {
+            final Transaction unseenTransaction = unseenTransactions.get(i);
+            final TransactionId transactionId = newTransactionIds.get(i);
+
+            final Sha256Hash transactionHash = unseenTransaction.getHash();
+            existingTransactions.put(transactionHash, transactionId);
+        }
+
+        final MutableList<TransactionId> allTransactionIds = new MutableList<TransactionId>(transactionCount);
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            final TransactionId transactionId = existingTransactions.get(transactionHash);
+            if (transactionId == null) { return null; }
+
+            allTransactionIds.add(transactionId);
+        }
+
+        return allTransactionIds;
     }
 
     public void associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
@@ -319,6 +366,7 @@ public class TransactionDatabaseManager {
                 batchedInsertQuery.setParameter(blockId);
                 batchedInsertQuery.setParameter(transactionId);
                 batchedInsertQuery.setParameter(sortOrder);
+                sortOrder += 1;
             }
             _databaseConnection.executeSql(batchedInsertQuery);
         }

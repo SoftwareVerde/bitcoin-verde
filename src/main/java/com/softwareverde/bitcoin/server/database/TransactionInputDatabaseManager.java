@@ -139,6 +139,7 @@ public class TransactionInputDatabaseManager {
 
     public List<TransactionInputId> insertTransactionInputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
         if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
+        if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
