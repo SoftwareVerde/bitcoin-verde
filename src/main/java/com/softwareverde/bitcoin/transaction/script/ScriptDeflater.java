@@ -68,7 +68,7 @@ public class ScriptDeflater {
                 scriptType = scriptPatternMatcher.getScriptType((LockingScript) script);
             }
             else {
-                scriptType = ScriptType.UNKNOWN;
+                scriptType = ScriptType.CUSTOM_SCRIPT;
             }
         }
         json.put("scriptType", scriptType);

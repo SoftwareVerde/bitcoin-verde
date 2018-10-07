@@ -30,7 +30,7 @@ import com.softwareverde.util.Util;
 
 public class BlockChainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
-        void newBlockHeight(Long blockHeight);
+        void onNewBlock(Long blockHeight);
     }
 
     protected final ThreadPool _threadPool = new ThreadPool(0, 1, 60000L);
@@ -60,7 +60,7 @@ public class BlockChainBuilder extends SleepyService {
                     _threadPool.execute(new Runnable() {
                         @Override
                         public void run() {
-                            newBlockProcessedCallback.newBlockHeight(processedBlockHeight);
+                            newBlockProcessedCallback.onNewBlock(processedBlockHeight);
                         }
                     });
                 }

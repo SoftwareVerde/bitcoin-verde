@@ -23,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Transact
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockChainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
@@ -66,6 +67,7 @@ public class NodeModule {
     protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
     protected final BlockChainBuilder _blockChainBuilder;
+    protected final AddressProcessor _addressProcessor;
 
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -259,10 +261,14 @@ public class NodeModule {
             _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester);
         }
 
+        _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+
         { // Set the synchronization elements to cascade to each component...
             _blockChainBuilder.setNewBlockProcessedCallback(new BlockChainBuilder.NewBlockProcessedCallback() {
                 @Override
-                public void newBlockHeight(final Long blockHeight) {
+                public void onNewBlock(final Long blockHeight) {
+                    _addressProcessor.wakeUp();
+
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
                         _blockHeaderDownloader.wakeUp();
@@ -385,6 +391,7 @@ public class NodeModule {
             _blockHeaderDownloader.start();
             _blockDownloader.start();
             _blockChainBuilder.start();
+            _addressProcessor.start();
             Logger.log("[Started Syncing Headers]");
         }
 
@@ -392,8 +399,12 @@ public class NodeModule {
             try { Thread.sleep(5000); } catch (final Exception e) { break; }
         }
 
-        _nodeManager.shutdown();
+        _addressProcessor.stop();
+        _blockChainBuilder.stop();
+        _blockDownloader.stop();
         _blockHeaderDownloader.stop();
+
+        _nodeManager.shutdown();
         _nodeManager.stopNodeMaintenanceThread();
         _socketServer.stop();
         _banFilter.close();

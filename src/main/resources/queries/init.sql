@@ -116,20 +116,21 @@ CREATE TABLE transaction_inputs (
 
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    type ENUM('UNKNOWN', 'PAY_TO_PUBLIC_KEY', 'PAY_TO_PUBLIC_KEY_HASH', 'PAY_TO_SCRIPT_HASH') NOT NULL,
+    type ENUM('UNKNOWN', 'CUSTOM_SCRIPT', 'PAY_TO_PUBLIC_KEY', 'PAY_TO_PUBLIC_KEY_HASH', 'PAY_TO_SCRIPT_HASH') NOT NULL DEFAULT 'UNKNOWN',
     transaction_output_id INT UNSIGNED NOT NULL,
-    script BLOB,
+    script BLOB NOT NULL,
     address_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
     FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
-    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
+    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id),
+    INDEX locking_scripts_type_ix (type) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unlocking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_input_id INT UNSIGNED NOT NULL,
-    script BLOB,
+    script BLOB NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY unlocking_scripts_uq (transaction_input_id),
     FOREIGN KEY unlocking_scripts_input_id_fk (transaction_input_id) REFERENCES transaction_inputs (id)

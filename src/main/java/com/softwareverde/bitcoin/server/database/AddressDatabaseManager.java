@@ -143,7 +143,7 @@ public class AddressDatabaseManager {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-        if (scriptType == ScriptType.UNKNOWN) {
+        if (scriptType == ScriptType.CUSTOM_SCRIPT) {
             return null;
         }
 
@@ -212,11 +212,10 @@ public class AddressDatabaseManager {
         final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<ScriptWrapper, String>(lockingScripts.getSize());
         final MutableList<String> newAddresses = new MutableList<String>(lockingScripts.getSize());
 
-
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
         for (final LockingScript lockingScript : lockingScripts) {
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
-            if (scriptType == ScriptType.UNKNOWN) {
+            if (scriptType == ScriptType.CUSTOM_SCRIPT) {
                 lockingScriptAddresses.put(new ScriptWrapper(lockingScript), null);
                 continue;
             }

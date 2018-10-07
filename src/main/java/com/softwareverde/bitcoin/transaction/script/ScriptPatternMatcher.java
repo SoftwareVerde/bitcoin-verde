@@ -277,6 +277,6 @@ public class ScriptPatternMatcher {
             return ScriptType.PAY_TO_PUBLIC_KEY;
         }
 
-        return ScriptType.UNKNOWN;
+        return ScriptType.CUSTOM_SCRIPT;
     }
 }

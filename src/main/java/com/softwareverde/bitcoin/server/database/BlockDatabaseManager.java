@@ -29,9 +29,17 @@ public class BlockDatabaseManager {
     protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
-
-        transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
+        if (transactions.getSize() > 256) {
+            // Use batched inserts...
+            final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
+            transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
+        }
+        else {
+            for (final Transaction transaction : transactions) {
+                final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
+                transactionDatabaseManager.associateTransactionToBlock(transactionId, blockId);
+            }
+        }
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
