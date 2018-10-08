@@ -16,6 +16,7 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.util.HashMap;
 import java.util.Set;
@@ -27,12 +28,19 @@ public class BlockDatabaseManager {
 
 
     protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+        final MilliTimer storeBlockTimer = new MilliTimer();
+        final MilliTimer associateTransactionsTimer = new MilliTimer();
+
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
+        storeBlockTimer.start();
         if (transactions.getSize() > 256) {
             // Use batched inserts...
             final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
+            associateTransactionsTimer.start();
             transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
+            associateTransactionsTimer.stop();
+            Logger.log("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
         }
         else {
             for (final Transaction transaction : transactions) {
@@ -40,6 +48,8 @@ public class BlockDatabaseManager {
                 transactionDatabaseManager.associateTransactionToBlock(transactionId, blockId);
             }
         }
+        storeBlockTimer.stop();
+        Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
