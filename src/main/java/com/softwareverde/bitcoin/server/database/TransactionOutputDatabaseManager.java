@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -26,8 +27,13 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
+import com.softwareverde.io.Logger;
 import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.Util;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
 
 public class TransactionOutputDatabaseManager {
 
@@ -365,6 +371,67 @@ public class TransactionOutputDatabaseManager {
 
         final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIndex);
         return transactionOutputId;
+    }
+
+    public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<Transaction> transactions) throws DatabaseException {
+        final Integer transactionCount = transactions.getSize();
+        final HashMap<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(transactionCount * 2);
+        final HashSet<TransactionOutputIdentifier> unfoundPreviousTransactionOutputs = new HashSet<TransactionOutputIdentifier>(transactionCount * 2);
+        final MutableList<Sha256Hash> previousOutputTransactionHashes = new MutableList<Sha256Hash>(transactionCount * 2);
+        for (final Transaction transaction : transactions) {
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final Integer outputIndex = transactionInput.getPreviousOutputIndex();
+
+                if (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionHash)) {
+                    if (! Util.areEqual(-1, outputIndex)) { return null; }
+                    continue;
+                }
+
+                previousOutputTransactionHashes.add(transactionHash);
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
+                unfoundPreviousTransactionOutputs.add(transactionOutputIdentifier);
+                previousTransactionOutputsMap.put(transactionOutputIdentifier, null);
+            }
+        }
+
+        { // Search the UTXO set for the TransactionOutputs...
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE transaction_hash IN (" + DatabaseUtil.createInClause(previousOutputTransactionHashes) + ")")
+            );
+            for (final Row row : rows) {
+                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
+                final Integer index = row.getInteger("index");
+
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, index);
+                previousTransactionOutputsMap.put(transactionOutputIdentifier, transactionOutputId);
+                unfoundPreviousTransactionOutputs.remove(transactionOutputIdentifier);
+            }
+        }
+
+        if (! unfoundPreviousTransactionOutputs.isEmpty()) {
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+            for (final TransactionOutputIdentifier transactionOutputIdentifier : unfoundPreviousTransactionOutputs) {
+                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+                if (transactionId == null) {
+                    Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionHash);
+                    return null;
+                }
+
+                final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIdentifier.getOutputIndex());
+                if (transactionOutputId == null) {
+                    Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionId + ":" + transactionOutputIdentifier.getOutputIndex());
+                    return null;
+                }
+
+                previousTransactionOutputsMap.put(transactionOutputIdentifier, transactionOutputId);
+            }
+        }
+
+        return previousTransactionOutputsMap;
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {

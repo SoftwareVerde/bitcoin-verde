@@ -2,12 +2,12 @@ package com.softwareverde.database.util;
 
 import com.softwareverde.constable.list.List;
 
+import java.util.Collection;
+
 public class DatabaseUtil {
     protected DatabaseUtil() { }
 
-    public static String createInClause(final List<?> list) {
-        if (list.isEmpty()) { return "NULL"; }
-
+    protected static String _createInClause(final Iterable<?> list) {
         final StringBuilder stringBuilder = new StringBuilder();
 
         String prefix = "";
@@ -20,5 +20,15 @@ public class DatabaseUtil {
         }
 
         return stringBuilder.toString();
+    }
+
+    public static String createInClause(final List<?> list) {
+        if (list.isEmpty()) { return "NULL"; }
+        return _createInClause(list);
+    }
+
+    public static String createInClause(final Collection<?> list) {
+        if (list.isEmpty()) { return "NULL"; }
+        return _createInClause(list);
     }
 }
