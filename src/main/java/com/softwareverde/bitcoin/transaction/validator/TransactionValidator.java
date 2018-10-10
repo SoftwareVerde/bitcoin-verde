@@ -31,6 +31,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
+import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -261,7 +262,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, transactionOutputBeingSpentIndex);
+                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, Nullable.wrap(transactionOutputBeingSpentTransactionHash), transactionOutputBeingSpentIndex);
                 if (transactionOutputIdBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");

@@ -114,6 +114,7 @@ public class BlockValidator {
         // TODO: Enforce LOW_S (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
         // TODO: Enforce NULLFAIL (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
         // TODO: Validate transaction does not appear twice within the same Block and BlockChain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
+        // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
 
         { // Validate coinbase contains block height...
             if (Bip34.isEnabled(blockHeight)) {

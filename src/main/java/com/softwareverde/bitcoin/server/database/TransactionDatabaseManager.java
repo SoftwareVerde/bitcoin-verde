@@ -25,6 +25,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
@@ -50,8 +51,9 @@ public class TransactionDatabaseManager {
     protected void _insertTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
+        final Sha256Hash transactionHash = transaction.getHash();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
         }
     }
 
@@ -288,6 +290,12 @@ public class TransactionDatabaseManager {
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         final Integer transactionCount = transactions.getSize();
 
+        final MilliTimer selectTransactionHashesTimer = new MilliTimer();
+        final MilliTimer storeTransactionRecordsTimer = new MilliTimer();
+        final MilliTimer insertTransactionOutputsTimer = new MilliTimer();
+        final MilliTimer insertTransactionInputsTimer = new MilliTimer();
+
+        selectTransactionHashesTimer.start();
         final List<Sha256Hash> transactionHashes;
         final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
         final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
@@ -311,21 +319,28 @@ public class TransactionDatabaseManager {
                 unseenTransactionMap.remove(transactionHash);
             }
         }
+        selectTransactionHashesTimer.stop();
 
+        storeTransactionRecordsTimer.start();
         final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values());
         final List<TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
         final Integer newTransactionCount = unseenTransactions.getSize();
         if (newTransactionIds == null) { return null; }
         if (! Util.areEqual(newTransactionCount, newTransactionIds.getSize())) { return null; }
+        storeTransactionRecordsTimer.stop();
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
+        insertTransactionOutputsTimer.start();
         final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(newTransactionIds, unseenTransactions);
         if (transactionOutputIds == null) { return null; }
+        insertTransactionOutputsTimer.stop();
 
+        insertTransactionInputsTimer.start();
         final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, unseenTransactions);
         if (transactionInputIds == null) { return  null; }
+        insertTransactionInputsTimer.stop();
 
         for (int i = 0; i < newTransactionCount; ++i) {
             final Transaction unseenTransaction = unseenTransactions.get(i);
@@ -342,6 +357,11 @@ public class TransactionDatabaseManager {
 
             allTransactionIds.add(transactionId);
         }
+
+        Logger.log("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
 
         return allTransactionIds;
     }
@@ -512,11 +532,12 @@ public class TransactionDatabaseManager {
                 }
             }
 
+            final Sha256Hash transactionHash = transaction.getHash();
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 final Integer transactionOutputIndex = transactionOutput.getIndex();
                 final Boolean transactionOutputHasBeenProcessed = processedTransactionOutputIndexes.contains(transactionOutputIndex);
-                if (!transactionOutputHasBeenProcessed) {
-                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+                if (! transactionOutputHasBeenProcessed) {
+                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
                 }
             }
         }

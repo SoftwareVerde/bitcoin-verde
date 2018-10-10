@@ -96,11 +96,19 @@ CREATE TABLE transaction_outputs (
     transaction_id INT UNSIGNED NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     amount BIGINT UNSIGNED NOT NULL,
-    is_spent TINYINT(1) UNSIGNED NOT NULL DEFAULT 0,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
-    INDEX transaction_outputs_spent_tx_id_ix (is_spent, transaction_id, `index`) USING BTREE
+    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE unspent_transaction_outputs (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    transaction_output_id INT UNSIGNED NOT NULL,
+    transaction_hash CHAR(64) NOT NULL,
+    `index` INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    FOREIGN KEY unspent_transaction_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
+    INDEX transaction_outputs_spent_tx_id_ix (transaction_hash, `index`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_inputs (
