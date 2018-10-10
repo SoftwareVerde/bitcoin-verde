@@ -25,6 +25,7 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -40,10 +41,19 @@ public class TransactionInputDatabaseManager {
 
         final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
 
-        final TransactionId previousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(previousOutputTransactionHash);
-        if (previousOutputTransactionId == null) { return null; }
+        final TransactionId previousOutputTransactionId;
+        {
+            final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(previousOutputTransactionHash.asConst());
+            if (cachedTransactionId != null) {
+                previousOutputTransactionId = cachedTransactionId;
+            }
+            else {
+                previousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(previousOutputTransactionHash);
+                if (previousOutputTransactionId == null) { return null; }
+            }
+        }
 
-        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, transactionInput.getPreviousOutputIndex());
+        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, Nullable.wrap(previousOutputTransactionHash), transactionInput.getPreviousOutputIndex());
         return transactionOutputId;
     }
 

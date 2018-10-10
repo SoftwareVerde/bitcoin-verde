@@ -51,8 +51,9 @@ public class TransactionDatabaseManager {
     protected void _insertTransactionOutputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
+        final Sha256Hash transactionHash = transaction.getHash();
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
         }
     }
 
@@ -531,11 +532,12 @@ public class TransactionDatabaseManager {
                 }
             }
 
+            final Sha256Hash transactionHash = transaction.getHash();
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 final Integer transactionOutputIndex = transactionOutput.getIndex();
                 final Boolean transactionOutputHasBeenProcessed = processedTransactionOutputIndexes.contains(transactionOutputIndex);
-                if (!transactionOutputHasBeenProcessed) {
-                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionOutput);
+                if (! transactionOutputHasBeenProcessed) {
+                    transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
                 }
             }
         }
