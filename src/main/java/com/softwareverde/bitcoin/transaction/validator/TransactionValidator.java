@@ -239,12 +239,15 @@ public class TransactionValidator {
             }
         }
 
+        final Long totalTransactionInputValue;
         try {
             final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
             if (transactionId == null) {
                 Logger.log("Could not find transaction: " + transactionHash);
                 return false;
             }
+
+            long totalInputValue = 0L;
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
@@ -295,6 +298,8 @@ public class TransactionValidator {
 
                 final TransactionOutput transactionOutputBeingSpent = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputIdBeingSpent);
 
+                totalInputValue += transactionOutputBeingSpent.getAmount();
+
                 final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
                 final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
@@ -311,10 +316,28 @@ public class TransactionValidator {
                     return false;
                 }
             }
+
+            totalTransactionInputValue = totalInputValue;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
             return false;
+        }
+
+        { // Validate that the total input value is greater than or equal to the output value...
+            final Long totalTransactionOutputValue;
+            {
+                long totalOutputValue = 0L;
+                for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                    totalOutputValue += transactionOutput.getAmount();
+                }
+                totalTransactionOutputValue = totalOutputValue;
+            }
+
+            if (totalTransactionInputValue < totalTransactionOutputValue) {
+                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ")");
+                return false;
+            }
         }
 
         return true;

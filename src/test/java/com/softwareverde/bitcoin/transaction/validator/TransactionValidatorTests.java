@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
@@ -61,9 +62,9 @@ public class TransactionValidatorTests extends IntegrationTest {
         return new StoredBlock(blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block.getHash()), block);
     }
 
-    protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress) {
+    protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress, final Long amount) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-        transactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+        transactionOutput.setAmount(amount);
         transactionOutput.setIndex(0);
         transactionOutput.setLockingScript((ScriptBuilder.payToAddress(payToAddress)));
         return transactionOutput;
@@ -153,7 +154,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         //  This transaction will create an output that can be spent by our private key.
         final Transaction transactionToSpend = _createTransactionContaining(
             _createCoinbaseTransactionInput(),
-            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey))
+            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -169,7 +170,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
             _createTransactionInputThatSpendsTransaction(transactionToSpend),
-            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Sign the unsigned transaction.
@@ -198,8 +199,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create a transaction that will be spent in our signed transaction.
         //  This transaction output is being sent to an address we don't have access to.
         final Transaction transactionToSpend = _createTransactionContaining(
-                _createCoinbaseTransactionInput(),
-                _createTransactionOutput(addressInflater.fromPrivateKey(PrivateKey.createNewKey()))
+            _createCoinbaseTransactionInput(),
+            _createTransactionOutput(addressInflater.fromPrivateKey(PrivateKey.createNewKey()), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -214,8 +215,8 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
-                _createTransactionInputThatSpendsTransaction(transactionToSpend),
-                _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+            _createTransactionInputThatSpendsTransaction(transactionToSpend),
+            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
@@ -243,8 +244,8 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create a transaction that will be spent in our signed transaction.
         //  This transaction output is being sent to an address we should have access to.
         final Transaction transactionToSpend = _createTransactionContaining(
-                _createCoinbaseTransactionInput(),
-                _createTransactionOutput(addressInflater.fromPrivateKey(privateKey))
+            _createCoinbaseTransactionInput(),
+            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -259,8 +260,8 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
-                _createTransactionInputThatSpendsTransaction(transactionToSpend),
-                _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+            _createTransactionInputThatSpendsTransaction(transactionToSpend),
+            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
@@ -289,7 +290,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         //  This transaction will create an output that can be spent by our private key.
         final Transaction transactionToSpend = _createTransactionContaining(
             _createCoinbaseTransactionInput(),
-            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey))
+            _createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Store the transaction in the database so that our validator can access it.
@@ -305,7 +306,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final MutableTransaction unsignedTransaction = _createTransactionContaining(
             _createTransactionInputThatSpendsTransaction(transactionToSpend),
-            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"))
+            _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
         // Mutate the transaction so that it attempts to spend the same output twice...
@@ -332,5 +333,77 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(transactionIsValid);
+    }
+
+    @Test
+    public void should_not_validate_transaction_that_spends_the_same_input_twice() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }){
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Transaction transactionToSpend;
+        final MutableBlock mutableBlock = new MutableBlock();
+        {
+            mutableBlock.setDifficulty(lastBlock.getDifficulty());
+            mutableBlock.setNonce(lastBlock.getNonce());
+            mutableBlock.setTimestamp(lastBlock.getTimestamp());
+            mutableBlock.setPreviousBlockHash(lastBlock.getHash());
+            mutableBlock.setVersion(lastBlock.getVersion());
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            transactionToSpend = _createTransactionContaining(
+                _createCoinbaseTransactionInput(),
+                _createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 1L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(transactionToSpend);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.storeBlock(mutableBlock);
+            }
+        }
+
+        final Transaction signedTransaction;
+        {
+            // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
+            // The amount created by the input is greater than the input amount, and therefore, this Tx should not validate.
+            final MutableTransaction unsignedTransaction = _createTransactionContaining(
+                _createTransactionInputThatSpendsTransaction(transactionToSpend),
+                _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            // Sign the unsigned transaction.
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            transactionDatabaseManager.insertTransaction(signedTransaction);
+        }
+
+        // Action
+        final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), _calculateBlockHeight(databaseConnection), signedTransaction);
+
+        // Assert
+        Assert.assertFalse(isValid);
     }
 }
