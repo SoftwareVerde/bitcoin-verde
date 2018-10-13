@@ -31,7 +31,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -253,7 +252,6 @@ public class TransactionValidator {
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
-
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                 final Integer transactionOutputBeingSpentIndex = transactionInput.getPreviousOutputIndex();
 
@@ -265,7 +263,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, Nullable.wrap(transactionOutputBeingSpentTransactionHash), transactionOutputBeingSpentIndex);
+                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, transactionOutputBeingSpentTransactionHash, transactionOutputBeingSpentIndex);
                 if (transactionOutputIdBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");
@@ -287,11 +285,24 @@ public class TransactionValidator {
                     final List<TransactionInputId> spendingTransactionInputIds = _transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputIdBeingSpent);
                     for (final TransactionInputId spendingTransactionInputId : spendingTransactionInputIds) {
                         final TransactionId spendingTransactionInputIdTransactionId = _transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
-                        if (! Util.areEqual(spendingTransactionInputIdTransactionId, transactionId)) {
-                            if (_shouldLogInvalidTransactions) {
-                                Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                        final List<BlockId> blocksSpendingOutput = _transactionDatabaseManager.getBlockIds(spendingTransactionInputIdTransactionId);
+                        if (blocksSpendingOutput == null) { // Transaction is not in a block and is most likely (but not necessarily) in the mempool...
+                            if (Util.areEqual(transactionId, spendingTransactionInputIdTransactionId)) { continue; }
+                            else { return false; } // TODO: Consider checking if the transaction is actually in the mempool before failing...
+                        }
+
+                        for (final BlockId blockId : blocksSpendingOutput) {
+                            final Long blockIdBlockHeight = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                            if (Util.areEqual(blockHeight, blockIdBlockHeight)) { continue; }
+
+                            final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+                            if (blockIsConnectedToThisChain) {
+                                if (_shouldLogInvalidTransactions) {
+                                    Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
+                                }
+
+                                return false;
                             }
-                            return false;
                         }
                     }
                 }
@@ -335,7 +346,7 @@ public class TransactionValidator {
             }
 
             if (totalTransactionInputValue < totalTransactionOutputValue) {
-                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ")");
+                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ") Tx: " + transactionHash);
                 return false;
             }
         }

@@ -16,20 +16,28 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -464,4 +472,118 @@ public class BlockValidatorTests extends IntegrationTest {
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
     }
+
+    @Test
+    public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Transaction transactionToSpend;
+        final MutableBlock mutableBlock = new MutableBlock() {
+            @Override
+            public Sha256Hash getHash() {
+                return Sha256Hash.fromHexString("0000000082B5015589A3FDF2D4BAFF403E6F0BE035A5D9742C1CAE6295464449"); // Block 3's hash...
+            }
+
+            @Override
+            public Boolean isValid() {
+                return true;
+            }
+        };
+
+        {
+            mutableBlock.setDifficulty(lastBlock.getDifficulty());
+            mutableBlock.setNonce(lastBlock.getNonce());
+            mutableBlock.setTimestamp(lastBlock.getTimestamp());
+            mutableBlock.setPreviousBlockHash(lastBlock.getHash());
+            mutableBlock.setVersion(lastBlock.getVersion());
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            transactionToSpend = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(transactionToSpend);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.storeBlock(mutableBlock);
+            }
+        }
+
+        final Transaction signedTransaction;
+        {
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createTransactionInputThatSpendsTransaction(transactionToSpend),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 1L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            // Sign the transaction..
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            transactionDatabaseManager.insertTransaction(signedTransaction);
+        }
+
+        { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
+            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransaction);
+            Assert.assertTrue(isValid);
+        }
+
+        mutableBlock.addTransaction(signedTransaction);
+        mutableBlock.addTransaction(signedTransaction); // Add the valid transaction twice...
+
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try {
+                blockId = blockDatabaseManager.storeBlock(mutableBlock);
+            }
+            catch (final DatabaseException exception) {
+                return; // Failing to insert the duplicate transaction is sufficient to pass the test...
+            }
+        }
+
+        // Action
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+
+        // Assert
+        Assert.assertFalse(blockIsValid);
+    }
+
+    @Test
+    public void should_be_allowed_to_spend_transactions_with_duplicate_identifiers_in_the_same_block() {
+        // Assert.fail();
+    }
+
+    @Test
+    public void should_not_be_allowed_to_spent_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() {
+        // Assert.fail();
+    }
+
+    // TODO: Transaction should be invalid if output is spent by a mempool transaction...
+    // TODO: Transaction should not be invalid if output is spent by a transaction not in the mempool and not in a block...
+    // TODO: Transaction should not be invalid if output is spent by a transaction on another chain...
 }

@@ -62,7 +62,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return new StoredBlock(blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block.getHash()), block);
     }
 
-    protected MutableTransactionOutput _createTransactionOutput(final Address payToAddress, final Long amount) {
+    public static MutableTransactionOutput _createTransactionOutput(final Address payToAddress, final Long amount) {
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setAmount(amount);
         transactionOutput.setIndex(0);
@@ -70,16 +70,16 @@ public class TransactionValidatorTests extends IntegrationTest {
         return transactionOutput;
     }
 
-    protected TransactionInput _createCoinbaseTransactionInput() {
+    public static TransactionInput _createCoinbaseTransactionInput() {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(new MutableSha256Hash());
-        mutableTransactionInput.setPreviousOutputIndex(0);
+        mutableTransactionInput.setPreviousOutputIndex(-1);
         mutableTransactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         mutableTransactionInput.setUnlockingScript((new ScriptBuilder()).pushString("Mined via Bitcoin-Verde.").buildUnlockingScript());
         return mutableTransactionInput;
     }
 
-    protected MutableTransactionInput _createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
+    public static MutableTransactionInput _createTransactionInputThatSpendsTransaction(final Transaction transactionToSpend) {
         final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput();
         mutableTransactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
         mutableTransactionInput.setPreviousOutputIndex(0);
@@ -88,7 +88,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransactionInput;
     }
 
-    protected MutableTransaction _createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
+    public static MutableTransaction _createTransactionContaining(final TransactionInput transactionInput, final TransactionOutput transactionOutput) {
         final MutableTransaction mutableTransaction = new MutableTransaction();
         mutableTransaction.setVersion(1L);
         mutableTransaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
@@ -99,7 +99,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransaction;
     }
 
-    protected Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
     }
 
@@ -348,7 +348,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         Block lastBlock = null;
         BlockId lastBlockId = null;
-        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }){
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
             final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 lastBlockId = blockDatabaseManager.storeBlock(block);

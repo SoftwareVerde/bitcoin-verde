@@ -326,6 +326,7 @@ public class TransactionDatabaseManager {
         final List<TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
         final Integer newTransactionCount = unseenTransactions.getSize();
         if (newTransactionIds == null) { return null; }
+
         if (! Util.areEqual(newTransactionCount, newTransactionIds.getSize())) { return null; }
         storeTransactionRecordsTimer.stop();
 
