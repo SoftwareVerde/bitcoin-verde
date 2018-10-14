@@ -79,35 +79,40 @@ public class BlockValidator {
             }
         };
 
-        final TaskHandlerFactory<Transaction, Boolean> unlockedInputsTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
+        final TaskHandlerFactory<Transaction, Boolean> transactionValidationTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
             @Override
             public TaskHandler<Transaction, Boolean> newInstance() {
-                return new UnlockedInputsTaskHandler(blockChainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(blockChainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         };
 
-
         final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
-        // TODO: Synchronize the totalExpenditureValidationTaskSpawner before executing unlockedInputsValidationTaskSpawner if threadCount is 1...
 
         final ParallelledTaskSpawner<Transaction, Long> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Long>(_databaseConnectionFactory, _databaseManagerCache);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
-        final ParallelledTaskSpawner<Transaction, Boolean> unlockedInputsValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory, _databaseManagerCache);
-        unlockedInputsValidationTaskSpawner.setTaskHandlerFactory(unlockedInputsTaskHandlerFactory);
+        if (threadCount == 1) {
+            totalExpenditureValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
+        }
+
+        final ParallelledTaskSpawner<Transaction, Boolean> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory, _databaseManagerCache);
+        transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
 
         final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
         if (shouldValidateInputs) {
-            unlockedInputsValidationTaskSpawner.executeTasks(transactions, threadCount);
+            transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
         }
         else {
             Logger.log("NOTE: Trusting Block Height: " + blockHeight);
             final List<Transaction> emptyTransactionList = new MutableList<Transaction>();
-            unlockedInputsValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
+            transactionValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
         }
 
-        // TODO: The total expenditures are validated at the block-level, but it's not checked at the transaction-level...
+        if (threadCount == 1) {
+            transactionValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
+        }
+
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
         // TODO: Enforce SCRIPT_VERIFY_STRICTENC (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
@@ -122,7 +127,7 @@ public class BlockValidator {
                 if (blockVersion < 2L) {
                     Logger.log("Invalid block version.");
                     totalExpenditureValidationTaskSpawner.abort();
-                    unlockedInputsValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
                     return false;
                 }
 
@@ -134,7 +139,7 @@ public class BlockValidator {
                 if (operation.getType() != Operation.Type.OP_PUSH) {
                     Logger.log("Block coinbase does not contain block height.");
                     totalExpenditureValidationTaskSpawner.abort();
-                    unlockedInputsValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
                     return false;
                 }
                 final PushOperation pushOperation = (PushOperation) operation;
@@ -142,7 +147,7 @@ public class BlockValidator {
                 if (blockHeight.longValue() != coinbaseBlockHeight.longValue()) {
                     Logger.log("Invalid block height within coinbase.");
                     totalExpenditureValidationTaskSpawner.abort();
-                    unlockedInputsValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
                     return false;
                 }
             }
@@ -156,7 +161,7 @@ public class BlockValidator {
                 if (transactionInputs.getSize() != 1) {
                     Logger.log("Invalid coinbase transaction inputs. Count: " + transactionInputs.getSize() + "; " + "Block: " + block.getHash());
                     totalExpenditureValidationTaskSpawner.abort();
-                    unlockedInputsValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
                     return false;
                 }
             }
@@ -168,14 +173,14 @@ public class BlockValidator {
                 if (! requiredHash.equals(previousOutputTransactionHash)) {
                     Logger.log("Invalid coinbase transaction input. PreviousTransactionHash: " + previousOutputTransactionHash + "; " + "Block: " + block.getHash());
                     totalExpenditureValidationTaskSpawner.abort();
-                    unlockedInputsValidationTaskSpawner.abort();
+                    transactionValidationTaskSpawner.abort();
                     return false;
                 }
             }
         }
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
-        final List<Boolean> unlockedInputsResults = unlockedInputsValidationTaskSpawner.waitForResults();
+        final List<Boolean> unlockedInputsResults = transactionValidationTaskSpawner.waitForResults();
 
         if (expenditureResults == null) {
             Logger.log("NOTICE: Expenditure validator returned null...");

@@ -31,7 +31,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -177,6 +176,47 @@ public class TransactionValidator {
         return true;
     }
 
+    protected Integer _getOutputSpendCount(final BlockChainSegmentId blockChainSegmentId, final TransactionOutputId transactionOutputId, final Long blockHeight, final Boolean includeMemoryPoolTransactions) throws DatabaseException {
+        int spendCount = 0;
+        final List<TransactionInputId> spendingTransactionInputIds = _transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputId);
+        for (final TransactionInputId spendingTransactionInputId : spendingTransactionInputIds) {
+            final TransactionId spendingTransactionInputIdTransactionId = _transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
+
+            if (includeMemoryPoolTransactions) {
+                final Boolean transactionIsInMemoryPool = _transactionDatabaseManager.isTransactionInMemoryPool(spendingTransactionInputIdTransactionId);
+                if (transactionIsInMemoryPool) {
+                    spendCount += 1;
+                }
+            }
+
+            final List<BlockId> blocksSpendingOutput = _transactionDatabaseManager.getBlockIds(spendingTransactionInputIdTransactionId);
+            if (blocksSpendingOutput == null) { continue; }
+
+            for (final BlockId blockId : blocksSpendingOutput) {
+                final Long blockIdBlockHeight = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                if (Util.areEqual(blockHeight, blockIdBlockHeight)) { continue; }
+
+                final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+                if (blockIsConnectedToThisChain) {
+                    spendCount += 1;
+                }
+            }
+        }
+        return spendCount;
+    }
+
+    protected Integer _getOutputMinedCount(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionOutputTransactionId) throws DatabaseException {
+        int minedCount = 0;
+        final List<BlockId> blockIdsMiningTransactionOutputBeingSpent = _transactionDatabaseManager.getBlockIds(transactionOutputTransactionId);
+        for (final BlockId blockId : blockIdsMiningTransactionOutputBeingSpent) {
+            final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+            if (blockIsConnectedToThisChain) {
+                minedCount += 1;
+            }
+        }
+        return minedCount;
+    }
+
     public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
         _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
@@ -195,7 +235,7 @@ public class TransactionValidator {
         Logger.log("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
-    public Boolean validateTransaction(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction) {
+    public Boolean validateTransaction(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean shouldCheckMemoryPool) {
         final Sha256Hash transactionHash = transaction.getHash();
 
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -253,7 +293,6 @@ public class TransactionValidator {
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
-
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                 final Integer transactionOutputBeingSpentIndex = transactionInput.getPreviousOutputIndex();
 
@@ -265,7 +304,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, Nullable.wrap(transactionOutputBeingSpentTransactionHash), transactionOutputBeingSpentIndex);
+                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, transactionOutputBeingSpentTransactionHash, transactionOutputBeingSpentIndex);
                 if (transactionOutputIdBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");
@@ -273,9 +312,10 @@ public class TransactionValidator {
                     return false;
                 }
 
-                { // Validate TransactionOutput exists on blockChainSegmentId...
-                    final BlockId blockIdContainingTransactionOutputBeingSpent = _transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionOutputIdBeingSpentTransactionId);
-                    if (blockIdContainingTransactionOutputBeingSpent == null) {
+                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockChainSegmentId, transactionOutputIdBeingSpentTransactionId);
+
+                { // Validate the UTXO has been mined on this blockChain...
+                    if (outputBeingSpentMinedCount == 0) {
                         if (_shouldLogInvalidTransactions) {
                             _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutput does not exist on BlockChainSegmentId: " + blockChainSegmentId);
                         }
@@ -283,16 +323,14 @@ public class TransactionValidator {
                     }
                 }
 
+                final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockChainSegmentId, transactionOutputIdBeingSpent, blockHeight, shouldCheckMemoryPool);
+
                 { // Validate TransactionOutput hasn't already been spent...
-                    final List<TransactionInputId> spendingTransactionInputIds = _transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputIdBeingSpent);
-                    for (final TransactionInputId spendingTransactionInputId : spendingTransactionInputIds) {
-                        final TransactionId spendingTransactionInputIdTransactionId = _transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
-                        if (! Util.areEqual(spendingTransactionInputIdTransactionId, transactionId)) {
-                            if (_shouldLogInvalidTransactions) {
-                                Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
-                            }
-                            return false;
+                    if (outputBeingSpentSpendCount >= outputBeingSpentMinedCount) {
+                        if (_shouldLogInvalidTransactions) {
+                            Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
                         }
+                        return false;
                     }
                 }
 
@@ -335,7 +373,7 @@ public class TransactionValidator {
             }
 
             if (totalTransactionInputValue < totalTransactionOutputValue) {
-                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ")");
+                Logger.log("Total TransactionInput value is less than the TransactionOutput value. (" + totalTransactionInputValue + " < " + totalTransactionOutputValue + ") Tx: " + transactionHash);
                 return false;
             }
         }

@@ -28,7 +28,6 @@ import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -102,14 +101,14 @@ public class TransactionOutputDatabaseManager {
     }
 
 
-    protected void _insertUnspentTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final Nullable<Sha256Hash> nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
+    protected void _insertUnspentTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
         final Sha256Hash transactionHash;
-        if (nullableTransactionHash.isNull()) {
+        if (nullableTransactionHash == null) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
             transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
         }
         else {
-            transactionHash = nullableTransactionHash.value;
+            transactionHash = nullableTransactionHash;
         }
 
         _databaseConnection.executeSql(
@@ -138,7 +137,7 @@ public class TransactionOutputDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final Nullable<Sha256Hash> transactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
+    protected TransactionOutputId _insertTransactionOutput(final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
         final LockingScript lockingScript = transactionOutput.getLockingScript();
 
         final Integer transactionOutputIndex = transactionOutput.getIndex();
@@ -153,7 +152,7 @@ public class TransactionOutputDatabaseManager {
         final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputIdLong);
         if (transactionOutputId == null) { return null; }
 
-        _insertUnspentTransactionOutput(transactionOutputId, transactionId, transactionHash, transactionOutputIndex);
+        _insertUnspentTransactionOutput(transactionOutputId, transactionId, nullableTransactionHash, transactionOutputIndex);
 
         _insertLockingScript(transactionOutputId, lockingScript);
 
@@ -267,7 +266,7 @@ public class TransactionOutputDatabaseManager {
         return mutableTransactionOutput;
     }
 
-    protected Boolean _isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    protected Boolean _wasTransactionOutputSpentInAnyChain(final TransactionOutputId transactionOutputId) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
         final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIdsSpendingTransactionOutput(transactionOutputId);
         final Boolean transactionOutputIsSpent = (! transactionInputIds.isEmpty());
@@ -280,11 +279,11 @@ public class TransactionOutputDatabaseManager {
     }
 
     public TransactionOutputId insertTransactionOutput(final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
-        return _insertTransactionOutput(transactionId, Nullable.Null(), transactionOutput);
+        return _insertTransactionOutput(transactionId, null, transactionOutput);
     }
 
     public TransactionOutputId insertTransactionOutput(final TransactionId transactionId, final Sha256Hash transactionHash, final TransactionOutput transactionOutput) throws DatabaseException {
-        return _insertTransactionOutput(transactionId, Nullable.wrap(transactionHash), transactionOutput);
+        return _insertTransactionOutput(transactionId, transactionHash, transactionOutput);
     }
 
     public List<TransactionOutputId> insertTransactionOutputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
@@ -341,15 +340,15 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIds;
     }
 
-    public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Nullable<Sha256Hash> nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
+    public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
         final Sha256Hash transactionHash;
-        if (nullableTransactionHash.isNull()) {
+        if (nullableTransactionHash == null) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
             transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
             _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
         }
         else {
-            transactionHash = nullableTransactionHash.value;
+            transactionHash = nullableTransactionHash;
         }
 
         final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
@@ -384,7 +383,7 @@ public class TransactionOutputDatabaseManager {
                 final Integer outputIndex = transactionInput.getPreviousOutputIndex();
 
                 if (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionHash)) {
-                    if (! Util.areEqual(-1, outputIndex)) { return null; }
+                    // if (! Util.areEqual(-1, outputIndex)) { return null; } // NOTE: This isn't actually enforced in any of the other reference clients...
                     continue;
                 }
 
@@ -445,15 +444,16 @@ public class TransactionOutputDatabaseManager {
 //        );
 
         _databaseConnection.executeSql(
-            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id  = ?")
+            new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id = ?")
                 .setParameter(transactionOutputId)
         );
     }
 
     public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
 //        final Query batchedUpdateQuery = new BatchedUpdateQuery("UPDATE transaction_outputs SET is_spent = 1 WHERE id IN(?)");
+        if (transactionOutputIds.isEmpty()) { return; }
 
-        final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id IN(?)");
+        final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id IN (?)");
         for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
             batchedUpdateQuery.setParameter(transactionOutputId);
         }
@@ -493,13 +493,13 @@ public class TransactionOutputDatabaseManager {
     }
 
     public Boolean isTransactionOutputSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
-        return _isTransactionOutputSpent(transactionOutputId);
+        return _wasTransactionOutputSpentInAnyChain(transactionOutputId);
     }
 
     public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         _databaseManagerCache.invalidateTransactionOutputIdCache();
 
-        final Boolean transactionOutputWasSpent = _isTransactionOutputSpent(transactionOutputId);
+        final Boolean transactionOutputWasSpent = _wasTransactionOutputSpentInAnyChain(transactionOutputId);
         if (transactionOutputWasSpent) {
             throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
         }

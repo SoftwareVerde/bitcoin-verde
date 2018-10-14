@@ -14,7 +14,6 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.nullable.Nullable;
 
 public class SignatureContextGenerator {
     // Reference: https://en.bitcoin.it/wiki/OP_CHECKSIG
@@ -41,7 +40,7 @@ public class SignatureContextGenerator {
 
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
-            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, Nullable.wrap(transactionHash), transactionInput.getPreviousOutputIndex());
+            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionHash, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 
             signatureContext.setShouldSignInputScript(i, true, transactionOutput);

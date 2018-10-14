@@ -217,7 +217,7 @@ public class BlockProcessor {
                 final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
                 for (final TransactionId transactionId : transactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockChainSegmentId, blockHeight, transaction);
+                    final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockChainSegmentId, blockHeight, transaction, false);
                     if (!transactionIsValid) {
                         transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
                     }

@@ -93,7 +93,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                         final Boolean transactionIsValid;
                         {
                             if (transactionId != null) {
-                                transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction);
+                                transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction, true);
                             }
                             else {
                                 transactionIsValid = false;

@@ -9,7 +9,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
-public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boolean> {
+public class TransactionValidationTaskHandler implements TaskHandler<Transaction, Boolean> {
     private final BlockChainSegmentId _blockChainSegmentId;
     private final Long _blockHeight;
     private final NetworkTime _networkTime;
@@ -17,7 +17,7 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
     private TransactionValidator _transactionValidator;
     private boolean _allInputsAreUnlocked = true;
 
-    public UnlockedInputsTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidationTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockChainSegmentId = blockChainSegmentId;
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
@@ -37,7 +37,7 @@ public class UnlockedInputsTaskHandler implements TaskHandler<Transaction, Boole
         {
             boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockChainSegmentId, _blockHeight, transaction);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockChainSegmentId, _blockHeight, transaction, false);
             }
             catch (final Exception exception) { Logger.log(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;

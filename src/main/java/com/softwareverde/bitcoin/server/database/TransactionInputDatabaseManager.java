@@ -23,7 +23,6 @@ import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
-import com.softwareverde.nullable.Nullable;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -51,7 +50,7 @@ public class TransactionInputDatabaseManager {
             }
         }
 
-        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, Nullable.wrap(previousOutputTransactionHash), transactionInput.getPreviousOutputIndex());
+        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
         return transactionOutputId;
     }
 
@@ -71,6 +70,7 @@ public class TransactionInputDatabaseManager {
         final TransactionOutputId previousTransactionOutputId;
         {
             if (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash())) {
+                // if (! Util.areEqual(-1, transactionInput.getPreviousOutputIndex())) { return null; } // NOTE: This isn't actually enforced in any of the other reference clients...
                 previousTransactionOutputId = null;
             }
             else {

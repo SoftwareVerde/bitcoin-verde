@@ -16,26 +16,35 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
+import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
+import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
+import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -48,7 +57,7 @@ import java.util.TimeZone;
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.parseFromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
 
-    private class FakeNetworkTime extends MutableNetworkTime {
+    public static class FakeNetworkTime extends MutableNetworkTime {
         private final Long _fakeTime;
 
         public FakeNetworkTime(final Long fakeTime) {
@@ -66,7 +75,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
     }
 
-    private class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
+    public static class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
 
         @Override
         public MedianBlockTime subset(final Integer blockCount) {
@@ -463,5 +472,432 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
+    }
+
+    @Test
+    public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Transaction transactionToSpend;
+        final MutableBlock mutableBlock = new MutableBlock() {
+            @Override
+            public Sha256Hash getHash() {
+                return Sha256Hash.fromHexString("0000000082B5015589A3FDF2D4BAFF403E6F0BE035A5D9742C1CAE6295464449"); // Block 3's hash...
+            }
+
+            @Override
+            public Boolean isValid() {
+                return true;
+            }
+        };
+
+        {
+            mutableBlock.setDifficulty(lastBlock.getDifficulty());
+            mutableBlock.setNonce(lastBlock.getNonce());
+            mutableBlock.setTimestamp(lastBlock.getTimestamp());
+            mutableBlock.setPreviousBlockHash(lastBlock.getHash());
+            mutableBlock.setVersion(lastBlock.getVersion());
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            transactionToSpend = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(transactionToSpend);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockDatabaseManager.storeBlock(mutableBlock);
+            }
+        }
+
+        final Transaction signedTransaction;
+        {
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createTransactionInputThatSpendsTransaction(transactionToSpend),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 1L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            // Sign the transaction..
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            transactionDatabaseManager.insertTransaction(signedTransaction);
+        }
+
+        { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
+            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransaction, false);
+            Assert.assertTrue(isValid);
+        }
+
+        mutableBlock.addTransaction(signedTransaction);
+        mutableBlock.addTransaction(signedTransaction); // Add the valid transaction twice...
+
+        final BlockId blockId;
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            try {
+                blockId = blockDatabaseManager.storeBlock(mutableBlock);
+            }
+            catch (final DatabaseException exception) {
+                return; // Failing to insert the duplicate transaction is sufficient to pass the test...
+            }
+        }
+
+        // Action
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+
+        // Assert
+        Assert.assertFalse(blockIsValid);
+    }
+
+    // @Test
+    public void should_be_allowed_to_spend_transactions_with_duplicate_identifiers_in_the_same_block() throws Exception {
+         /* Excerpt from the current uncertainty surrounding whether or not this is valid.
+
+                ... According to BIP 30, duplicate transactions are only allowed if they've been previously spent
+                (except the two grandfathered instances).  ("Blocks are not allowed to contain a transaction whose
+                identifier matches that of an earlier, not-fully-spent transaction in the same chain.")
+
+                ...the person controlling the keys for the grandfathered transactions can produce a complicated scenario
+                that bends these rules (assuming they're even allowed to spend them...
+
+                Assume the grandfathered duplicate-txid coinbases are "A1" and "A2".  Also let "B1" be a new tx that
+                spends one of the A1/A2 outputs (and where "B2" is essentially a duplicate of "B1", spending the prevout
+                to the same address as B1 (so B1.txid == B2.txid)).  BIP30 prevents B2 from being accepted unless B1 has
+                already been spent.  So once B1 is spent (by "C1"), B2 becomes valid since B1 is now "spent". Normally,
+                this isn't a practical use-case since the mempool rejects duplicate txids, but if these transactions
+                were broadcast as a block (with ordering being [<Coinbase>, B1, C1, B2]), would it be considered a valid
+                block? If so, what happens if/when CTOR is implemented?
+
+            Until clear consensus is decided to handle this situation, Bitcoin-Verde considers duplicate transactions in the
+            same block an invalid block.
+
+         */
+    }
+
+    @Test
+    public void should_not_be_allowed_to_spent_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+
+        Sha256Hash lastBlockHash = null;
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+            lastBlockHash = block.getHash();
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+        Assert.assertNotNull(lastBlockHash);
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Transaction validCoinbaseWithDuplicateIdentifier;
+        final MutableBlock blockWithDuplicateTxId = new MutableBlock() {
+            @Override
+            public Boolean isValid() { return true; } // Disables basic header validation...
+        };
+
+        {
+            blockWithDuplicateTxId.setDifficulty(lastBlock.getDifficulty());
+            blockWithDuplicateTxId.setNonce(lastBlock.getNonce());
+            blockWithDuplicateTxId.setTimestamp(lastBlock.getTimestamp());
+            blockWithDuplicateTxId.setVersion(lastBlock.getVersion());
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            validCoinbaseWithDuplicateIdentifier = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            blockWithDuplicateTxId.addTransaction(validCoinbaseWithDuplicateIdentifier);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockWithDuplicateTxId.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block3
+                lastBlockHash = blockWithDuplicateTxId.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        final Transaction signedTransactionSpendingDuplicateCoinbase;
+        {
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createTransactionInputThatSpendsTransaction(validCoinbaseWithDuplicateIdentifier),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            // Sign the transaction..
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            transactionDatabaseManager.insertTransaction(signedTransactionSpendingDuplicateCoinbase);
+        }
+
+        { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
+            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
+            Assert.assertTrue(isValid);
+        }
+
+        { // Spend the soon-to-be-duplicated coinbase...
+            final MutableBlock mutableBlock = new MutableBlock(blockWithDuplicateTxId) {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+            mutableBlock.clearTransactions();
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                mutableBlock.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
+                lastBlockHash = mutableBlock.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        { // Create a valid duplicate TxId...
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockWithDuplicateTxId.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block5
+                lastBlockHash = blockWithDuplicateTxId.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        // NOTE: At this point, block3 and block5 are "valid" blocks, whose coinbases share the same identifier.
+        //  According to the protocol, this is technically valid (see BIP-30: https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) since the output has been spent in block4.
+        //  While a duplicate transaction has never actually been spent on the main net, and it is unlikely to ever happen, it is important to handle the scenario correctly.
+
+        { // Spend the duplicate tx-id a second time (should be valid)...
+            final MutableBlock mutableBlock = new MutableBlock(blockWithDuplicateTxId) {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+            mutableBlock.clearTransactions();
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1N7ABymxVuekZ3B37xkU2u2XPygDg1bwZR"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                mutableBlock.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block6
+                lastBlockHash = mutableBlock.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        { // Spend the duplicate tx-id a third time (should be invalid)...
+            final MutableBlock mutableBlock = new MutableBlock(blockWithDuplicateTxId) {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+            mutableBlock.clearTransactions();
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("18rComAH12mPMG53hyvWB6ewAN26TXK6rU"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                mutableBlock.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block7
+                lastBlockHash = mutableBlock.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                Assert.assertFalse(blockIsValid);
+            }
+        }
+    }
+
+    @Test
+    public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+
+        Sha256Hash lastBlockHash = null;
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+            lastBlockHash = block.getHash();
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+        Assert.assertNotNull(lastBlockHash);
+
+        final PrivateKey privateKey = PrivateKey.createNewKey();
+
+        final Transaction spendableCoinbase;
+        final MutableBlock blockWithSpendableCoinbase = new MutableBlock() {
+            @Override
+            public Boolean isValid() { return true; } // Disables basic header validation...
+        };
+
+        {
+            blockWithSpendableCoinbase.setDifficulty(lastBlock.getDifficulty());
+            blockWithSpendableCoinbase.setNonce(lastBlock.getNonce());
+            blockWithSpendableCoinbase.setTimestamp(lastBlock.getTimestamp());
+            blockWithSpendableCoinbase.setVersion(lastBlock.getVersion());
+
+            // Create a transaction that will be spent in our signed transaction.
+            //  This transaction will create an output that can be spent by our private key.
+            spendableCoinbase = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromPrivateKey(privateKey), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            blockWithSpendableCoinbase.addTransaction(spendableCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockWithSpendableCoinbase.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
+                lastBlockHash = blockWithSpendableCoinbase.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        final Transaction signedTransactionSpendingDuplicateCoinbase;
+        {
+            final MutableTransaction unsignedTransaction = TransactionValidatorTests._createTransactionContaining(
+                    TransactionValidatorTests._createTransactionInputThatSpendsTransaction(spendableCoinbase),
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            // Sign the transaction..
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
+            signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
+
+            transactionDatabaseManager.insertTransaction(signedTransactionSpendingDuplicateCoinbase);
+        }
+
+        { // Ensure the transaction would normally be valid on its own...
+            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
+            Assert.assertTrue(isValid);
+        }
+
+        { // Spend the coinbase...
+            final MutableBlock mutableBlock = new MutableBlock(blockWithSpendableCoinbase) {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+            mutableBlock.clearTransactions();
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
+                    TransactionValidatorTests._createCoinbaseTransactionInput(),
+                    TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("13usM2ns3f466LP65EY1h8hnTBLFiJV6rD"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                mutableBlock.setPreviousBlockHash(lastBlockHash);
+                final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
+                lastBlockHash = mutableBlock.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
+
+        { // Spend the coinbase on a separate chain...
+            final MutableBlock mutableBlock = new MutableBlock(blockWithSpendableCoinbase) {
+                @Override
+                public Boolean isValid() { return true; }
+            };
+            mutableBlock.clearTransactions();
+
+            final Transaction regularCoinbaseTransaction = TransactionValidatorTests._createTransactionContaining(
+                TransactionValidatorTests._createCoinbaseTransactionInput(),
+                TransactionValidatorTests._createTransactionOutput(addressInflater.fromBase58Check("1DgiazmkoTEdvTa6ErdzrqvmnenGS11RU2"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
+            );
+
+            mutableBlock.addTransaction(regularCoinbaseTransaction);
+            mutableBlock.addTransaction(signedTransactionSpendingDuplicateCoinbase);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                mutableBlock.setPreviousBlockHash(blockWithSpendableCoinbase.getHash());
+                final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4Prime
+                lastBlockHash = mutableBlock.getHash();
+
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                Assert.assertTrue(blockIsValid);
+            }
+        }
     }
 }

@@ -326,6 +326,7 @@ public class TransactionDatabaseManager {
         final List<TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
         final Integer newTransactionCount = unseenTransactions.getSize();
         if (newTransactionIds == null) { return null; }
+
         if (! Util.areEqual(newTransactionCount, newTransactionIds.getSize())) { return null; }
         storeTransactionRecordsTimer.stop();
 
@@ -428,6 +429,14 @@ public class TransactionDatabaseManager {
 
     public void removeTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
         _deleteTransactionFromMemoryPool(transactionId);
+    }
+
+    public Boolean isTransactionInMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM pending_transactions WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
+        return (! rows.isEmpty());
     }
 
     public List<TransactionId> getTransactionIdsFromMemoryPool() throws DatabaseException {
