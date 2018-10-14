@@ -134,7 +134,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         transactionDatabaseManager.insertTransaction(transaction);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), transaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), transaction, true);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -180,7 +180,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         transactionDatabaseManager.insertTransaction(signedTransaction);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -225,7 +225,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);
@@ -270,7 +270,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);
@@ -323,7 +323,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             Boolean isValid;
             try {
                 transactionDatabaseManager.insertTransaction(signedTransaction); // Should fail to insert transaction due to constraint transaction_inputs_tx_id_prev_tx_id_uq...
-                isValid = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction);
+                isValid = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
             }
             catch (final DatabaseException exception) {
                 isValid = false;
@@ -401,7 +401,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), _calculateBlockHeight(databaseConnection), signedTransaction);
+        final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(isValid);

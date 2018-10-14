@@ -431,6 +431,14 @@ public class TransactionDatabaseManager {
         _deleteTransactionFromMemoryPool(transactionId);
     }
 
+    public Boolean isTransactionInMemoryPool(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM pending_transactions WHERE transaction_id = ?")
+                .setParameter(transactionId)
+        );
+        return (! rows.isEmpty());
+    }
+
     public List<TransactionId> getTransactionIdsFromMemoryPool() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT transactions.id FROM transactions INNER JOIN pending_transactions ON transactions.id = pending_transactions.transaction_id")
