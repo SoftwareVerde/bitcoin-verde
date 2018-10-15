@@ -33,6 +33,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidator {
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
@@ -206,14 +207,25 @@ public class TransactionValidator {
     }
 
     protected Integer _getOutputMinedCount(final BlockChainSegmentId blockChainSegmentId, final TransactionId transactionOutputTransactionId) throws DatabaseException {
+        final NanoTimer getBlockIdsTimer = new NanoTimer();
+        final NanoTimer isConnectedToChainTimer = new NanoTimer();
+        double connectedTimerTotal = 0D;
+
         int minedCount = 0;
+        getBlockIdsTimer.start();
         final List<BlockId> blockIdsMiningTransactionOutputBeingSpent = _transactionDatabaseManager.getBlockIds(transactionOutputTransactionId);
+        getBlockIdsTimer.stop();
         for (final BlockId blockId : blockIdsMiningTransactionOutputBeingSpent) {
+            isConnectedToChainTimer.start();
             final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+            isConnectedToChainTimer.stop();
+            connectedTimerTotal += isConnectedToChainTimer.getMillisecondsElapsed();
             if (blockIsConnectedToThisChain) {
                 minedCount += 1;
             }
         }
+        // Logger.log("getBlockIdsTimer: " + getBlockIdsTimer.getMillisecondsElapsed() + "ms");
+        // Logger.log("connectedTimer: " + connectedTimerTotal + "ms");
         return minedCount;
     }
 
@@ -236,6 +248,12 @@ public class TransactionValidator {
     }
 
     public Boolean validateTransaction(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean shouldCheckMemoryPool) {
+        final NanoTimer lockTimeTimer = new NanoTimer();
+        final NanoTimer sequenceNumberTimer = new NanoTimer();
+        final NanoTimer expenditureTimer = new NanoTimer();
+        final NanoTimer spendCountTimer = new NanoTimer();
+        final NanoTimer mineCountTimer = new NanoTimer();
+
         final Sha256Hash transactionHash = transaction.getHash();
 
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -245,6 +263,7 @@ public class TransactionValidator {
 
         context.setTransaction(transaction);
 
+        lockTimeTimer.start();
         { // Validate nLockTime...
             final Boolean shouldValidateLockTime = _shouldValidateLockTime(transaction);
             if (shouldValidateLockTime) {
@@ -258,7 +277,9 @@ public class TransactionValidator {
                 }
             }
         }
+        lockTimeTimer.stop();
 
+        sequenceNumberTimer.start();
         if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
                 try {
@@ -278,7 +299,9 @@ public class TransactionValidator {
                 }
             }
         }
+        sequenceNumberTimer.stop();
 
+        expenditureTimer.start();
         final Long totalTransactionInputValue;
         try {
             final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
@@ -312,7 +335,9 @@ public class TransactionValidator {
                     return false;
                 }
 
+                mineCountTimer.start();
                 final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockChainSegmentId, transactionOutputIdBeingSpentTransactionId);
+                mineCountTimer.stop();
 
                 { // Validate the UTXO has been mined on this blockChain...
                     if (outputBeingSpentMinedCount == 0) {
@@ -323,7 +348,9 @@ public class TransactionValidator {
                     }
                 }
 
+                spendCountTimer.start();
                 final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockChainSegmentId, transactionOutputIdBeingSpent, blockHeight, shouldCheckMemoryPool);
+                spendCountTimer.stop();
 
                 { // Validate TransactionOutput hasn't already been spent...
                     if (outputBeingSpentSpendCount >= outputBeingSpentMinedCount) {
@@ -377,6 +404,13 @@ public class TransactionValidator {
                 return false;
             }
         }
+        expenditureTimer.stop();
+
+//        Logger.log("lockTimeTimer: " + lockTimeTimer.getMillisecondsElapsed() + "ms.");
+//        Logger.log("sequenceNumberTimer: " + sequenceNumberTimer.getMillisecondsElapsed() + "ms.");
+//        Logger.log("expenditureTimer: " + expenditureTimer.getMillisecondsElapsed() + "ms.");
+//        Logger.log("spendCountTimer: " + spendCountTimer.getMillisecondsElapsed() + "ms.");
+//        Logger.log("mineCountTimer: " + mineCountTimer.getMillisecondsElapsed() + "ms.");
 
         return true;
     }

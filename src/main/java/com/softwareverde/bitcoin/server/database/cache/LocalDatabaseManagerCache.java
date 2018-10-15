@@ -157,4 +157,28 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
     public HashMapCache<String, AddressId> getAddressIdCache() { return _addressIdCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
+
+    // BLOCK HEIGHT CACHE ----------------------------------------------------------------------------------------------
+
+    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeight", 500000);
+
+    @Override
+    public void cacheBlockHeight(final BlockId blockId, final Long blockHeight) {
+        _blockHeightCache.cacheItem(blockId, blockHeight);
+    }
+
+    @Override
+    public Long getCachedBlockHeight(final BlockId blockId) {
+        return _blockHeightCache.getCachedItem(blockId);
+    }
+
+    @Override
+    public void invalidateBlockHeaderCache() {
+        _blockHeightCache.invalidate();
+    }
+
+    public HashMapCache<BlockId, Long> getBlockHeightCache() { return _blockHeightCache; }
+
+    // -----------------------------------------------------------------------------------------------------------------
+
 }

@@ -14,6 +14,7 @@ public class MasterDatabaseManagerCache {
     protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DEFAULT_CACHE_SIZE);
     protected final HashMapCache<BlockId, BlockChainSegmentId> _blockIdBlockChainSegmentIdCache = new HashMapCache<BlockId, BlockChainSegmentId>("BlockId-BlockChainSegmentId", 1460);
     protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", 262144);
+    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeightCache", 500000);
 
     protected static <T, S> void _commitToCache(final Cache<T, S> cache, final HashMapCache<T, S> destination) {
         if (cache.masterCacheWasInvalidated()) {
@@ -30,6 +31,7 @@ public class MasterDatabaseManagerCache {
     public Cache<CachedTransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIdCache() { return _transactionOutputIdCache; }
     public Cache<BlockId, BlockChainSegmentId> getBlockIdBlockChainSegmentIdCache() { return _blockIdBlockChainSegmentIdCache; }
     public Cache<String, AddressId> getAddressIdCache() { return _addressIdCache; }
+    public Cache<BlockId, Long> getBlockHeightCache() { return _blockHeightCache; }
 
     public void commitLocalDatabaseManagerCache(final LocalDatabaseManagerCache localDatabaseManagerCache) {
         _commitToCache(localDatabaseManagerCache.getTransactionIdCache(), _transactionIdCache);
@@ -37,5 +39,6 @@ public class MasterDatabaseManagerCache {
         _commitToCache(localDatabaseManagerCache.getTransactionOutputIdCache(), _transactionOutputIdCache);
         _commitToCache(localDatabaseManagerCache.getBlockIdBlockChainSegmentIdCache(), _blockIdBlockChainSegmentIdCache);
         _commitToCache(localDatabaseManagerCache.getAddressIdCache(), _addressIdCache);
+        _commitToCache(localDatabaseManagerCache.getBlockHeightCache(), _blockHeightCache);
     }
 }

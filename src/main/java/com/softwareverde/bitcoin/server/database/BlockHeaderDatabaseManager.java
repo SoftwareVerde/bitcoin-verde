@@ -67,6 +67,9 @@ public class BlockHeaderDatabaseManager {
     }
 
     protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
+        final Long cachedBlockHeight = _databaseManagerCache.getCachedBlockHeight(blockId);
+        if (cachedBlockHeight != null) { return cachedBlockHeight; }
+
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, block_height FROM blocks WHERE id = ?")
                 .setParameter(blockId)
@@ -75,7 +78,9 @@ public class BlockHeaderDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return row.getLong("block_height");
+        final Long blockHeight = row.getLong("block_height");
+        _databaseManagerCache.cacheBlockHeight(blockId, blockHeight);
+        return blockHeight;
     }
 
     protected BlockId _getBlockHeaderIdFromHash(final Sha256Hash blockHash) throws DatabaseException {

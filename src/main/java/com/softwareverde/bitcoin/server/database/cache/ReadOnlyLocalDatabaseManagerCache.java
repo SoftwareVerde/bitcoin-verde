@@ -74,4 +74,19 @@ public class ReadOnlyLocalDatabaseManagerCache implements DatabaseManagerCache {
     @Override
     public void invalidateAddressIdCache() { }
 
+    @Override
+    public void cacheBlockHeight(final BlockId blockId, final Long blockHeight) {
+
+    }
+
+    @Override
+    public Long getCachedBlockHeight(final BlockId blockId) {
+        return null;
+    }
+
+    @Override
+    public void invalidateBlockHeaderCache() {
+
+    }
+
 }
