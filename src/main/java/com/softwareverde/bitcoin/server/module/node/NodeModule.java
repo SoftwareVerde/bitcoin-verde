@@ -154,12 +154,23 @@ public class NodeModule {
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
                     commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
-                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
+
+                    commandLineArguments.setInnoDbLogBufferByteCount(1 * ByteUtil.Unit.GIGABYTES);
+
+                    commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
+                    commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
+
+                    commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+
                     commandLineArguments.setQueryCacheByteCount(0L);
+
                     commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
+
                     commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
+                    commandLineArguments.addArgument("--innodb-read-io-threads=8");
+                    commandLineArguments.addArgument("--innodb-write-io-threads=8");
+
                     // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
                     // commandLineArguments.addArgument("--performance_schema");
                     // commandLineArguments.addArgument("--general_log_file=query.log");

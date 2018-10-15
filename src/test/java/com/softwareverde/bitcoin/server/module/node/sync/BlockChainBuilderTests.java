@@ -12,10 +12,10 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.SleepyService;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.time.MutableNetworkTime;

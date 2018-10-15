@@ -1,6 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
-import com.softwareverde.bitcoin.server.module.node.SleepyService;
+import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Iterator;
