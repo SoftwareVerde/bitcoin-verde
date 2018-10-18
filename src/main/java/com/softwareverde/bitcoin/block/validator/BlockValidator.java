@@ -271,7 +271,7 @@ public class BlockValidator {
                 block = nullableBlock;
                 { // Validate BlockId...
                     final Sha256Hash blockHash = block.getHash();
-                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     if (! Util.areEqual(actualBlockId, blockId)) {
                         Logger.log("ERROR: BlockId mismatch. " + blockId + " vs " + actualBlockId);
                         return false;
@@ -287,7 +287,7 @@ public class BlockValidator {
                 }
             }
 
-            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
             final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
             final Boolean headerIsValid = blockHeaderValidator.validateBlockHeader(block, blockHeight);
@@ -313,7 +313,7 @@ public class BlockValidator {
         final BlockChainSegmentId blockChainSegmentId;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
 
             if (nullableBlock != null) {
@@ -321,7 +321,7 @@ public class BlockValidator {
 
                 { // Validate BlockId...
                     final Sha256Hash blockHash = block.getHash();
-                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                    final BlockId actualBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     if (! Util.areEqual(actualBlockId, blockId)) {
                         Logger.log("ERROR: BlockId mismatch. " + blockId + " vs " + actualBlockId);
                         return false;

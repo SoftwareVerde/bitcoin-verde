@@ -164,7 +164,7 @@ public class RepairModule {
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
 
-                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                         if (blockId == null) {
                             Logger.log("Block not found: " + blockHash);
                             return;

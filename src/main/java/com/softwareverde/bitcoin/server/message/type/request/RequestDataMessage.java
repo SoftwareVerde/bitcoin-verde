@@ -6,28 +6,26 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class RequestDataMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_COUNT = 50000;
 
-    private final List<InventoryItem> _inventoryItems = new ArrayList<InventoryItem>();
+    private final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
 
     public RequestDataMessage() {
         super(MessageType.REQUEST_DATA);
     }
 
     public List<InventoryItem> getInventoryItems() {
-        return Util.copyList(_inventoryItems);
+        return _inventoryItems;
     }
 
     public void addInventoryItem(final InventoryItem inventoryItem) {
-        if (_inventoryItems.size() >= MAX_COUNT) { return; }
+        if (_inventoryItems.getSize() >= MAX_COUNT) { return; }
         _inventoryItems.add(inventoryItem);
     }
 
@@ -38,7 +36,7 @@ public class RequestDataMessage extends BitcoinProtocolMessage {
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_inventoryItems.size()), Endian.BIG);
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_inventoryItems.getSize()), Endian.BIG);
         for (final InventoryItem inventoryItem : _inventoryItems) {
             byteArrayBuilder.appendBytes(inventoryItem.getBytes(), Endian.BIG);
         }

@@ -59,7 +59,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockBytes));
         blockDatabaseManager.insertBlock(block);
-        return new StoredBlock(blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block.getHash()), block);
+        return new StoredBlock(blockHeaderDatabaseManager.getBlockHeaderId(block.getHash()), block);
     }
 
     public static MutableTransactionOutput _createTransactionOutput(final Address payToAddress, final Long amount) {

@@ -77,7 +77,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
             final BlockId blockId = blockDatabaseManager.getHeadBlockId();
             if (blockId == null) { return 0; }
 
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             return blockHeight.intValue();
         }
         catch (final DatabaseException exception) {

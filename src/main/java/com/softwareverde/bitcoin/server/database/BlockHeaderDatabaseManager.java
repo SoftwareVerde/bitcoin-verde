@@ -41,7 +41,7 @@ public class BlockHeaderDatabaseManager {
 
         Sha256Hash blockHash = headBlockHash;
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
-            final BlockId blockId = blockDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+            final BlockId blockId = blockDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { break; }
 
             final BlockHeader blockHeader = blockDatabaseManager.getBlockHeader(blockId);
@@ -66,7 +66,7 @@ public class BlockHeaderDatabaseManager {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    protected Long _getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
+    protected Long _getBlockHeight(final BlockId blockId) throws DatabaseException {
         final Long cachedBlockHeight = _databaseManagerCache.getCachedBlockHeight(blockId);
         if (cachedBlockHeight != null) { return cachedBlockHeight; }
 
@@ -83,7 +83,7 @@ public class BlockHeaderDatabaseManager {
         return blockHeight;
     }
 
-    protected BlockId _getBlockHeaderIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
+    protected BlockId _getBlockHeaderId(final Sha256Hash blockHash) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
                 .setParameter(blockHash)
@@ -95,7 +95,7 @@ public class BlockHeaderDatabaseManager {
         return BlockId.wrap(row.getLong("id"));
     }
 
-    protected Sha256Hash _getBlockHashFromId(final BlockId blockId) throws DatabaseException {
+    protected Sha256Hash _getBlockHash(final BlockId blockId) throws DatabaseException {
         if (blockId == null) { return new MutableSha256Hash(); }
 
         final java.util.List<Row> rows = _databaseConnection.query(
@@ -127,7 +127,7 @@ public class BlockHeaderDatabaseManager {
         final Sha256Hash previousBlockHash;
         {
             final BlockId previousBlockId = BlockId.wrap(row.getLong("previous_block_id"));
-            previousBlockHash = _getBlockHashFromId(previousBlockId);
+            previousBlockHash = _getBlockHash(previousBlockId);
         }
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
@@ -157,8 +157,8 @@ public class BlockHeaderDatabaseManager {
     }
 
     protected void _updateBlockHeader(final BlockId blockId, final BlockHeader blockHeader) throws DatabaseException {
-        final BlockId previousBlockId = _getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
-        final Long previousBlockHeight = _getBlockHeightForBlockId(previousBlockId);
+        final BlockId previousBlockId = _getBlockHeaderId(blockHeader.getPreviousBlockHash());
+        final Long previousBlockHeight = _getBlockHeight(previousBlockId);
         final Long blockHeight = (previousBlockHeight == null ? 0 : (previousBlockHeight + 1));
 
         _databaseConnection.executeSql(
@@ -188,8 +188,8 @@ public class BlockHeaderDatabaseManager {
     }
 
     protected BlockId _insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
-        final BlockId previousBlockId = _getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
-        final Long previousBlockHeight = _getBlockHeightForBlockId(previousBlockId);
+        final BlockId previousBlockId = _getBlockHeaderId(blockHeader.getPreviousBlockHash());
+        final Long previousBlockHeight = _getBlockHeight(previousBlockId);
         final Long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1));
         final Difficulty difficulty = blockHeader.getDifficulty();
 
@@ -289,7 +289,7 @@ public class BlockHeaderDatabaseManager {
     protected Boolean _isBlockConnectedToChain(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId, final BlockRelationship blockRelationship) throws DatabaseException {
         final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final Long blockHeight = _getBlockHeightForBlockId(blockId);
+        final Long blockHeight = _getBlockHeight(blockId);
         final BlockChainSegmentId blockIdBlockChainSegmentId = _getBlockChainSegmentId(blockId);
 
         BlockChainSegmentId queriedBlockChainSegmentId = blockChainSegmentId;
@@ -331,7 +331,7 @@ public class BlockHeaderDatabaseManager {
 
     protected BlockChainSegmentId _getParentBlockChainSegmentId(final BlockHeader block) throws DatabaseException {
         final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
-        final BlockId previousBlockId = _getBlockHeaderIdFromHash(previousBlockHash);
+        final BlockId previousBlockId = _getBlockHeaderId(previousBlockHash);
         if (previousBlockId == null) { return null; }
 
         return _getBlockChainSegmentId(previousBlockId);
@@ -384,7 +384,7 @@ public class BlockHeaderDatabaseManager {
     public BlockId storeBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
 
-        final BlockId existingBlockId = _getBlockHeaderIdFromHash(blockHeader.getHash());
+        final BlockId existingBlockId = _getBlockHeaderId(blockHeader.getHash());
 
         if (existingBlockId != null) {
             return existingBlockId;
@@ -431,8 +431,8 @@ public class BlockHeaderDatabaseManager {
         return _getHeadBlockHeaderId();
     }
 
-    public BlockId getBlockHeaderIdFromHash(final Sha256Hash blockHash) throws DatabaseException {
-        return _getBlockHeaderIdFromHash(blockHash);
+    public BlockId getBlockHeaderId(final Sha256Hash blockHash) throws DatabaseException {
+        return _getBlockHeaderId(blockHash);
     }
 
     public BlockHeader getBlockHeader(final BlockId blockId) throws DatabaseException {
@@ -443,7 +443,7 @@ public class BlockHeaderDatabaseManager {
      * Returns true if the BlockHeader has been downloaded and verified.
      */
     public Boolean blockHeaderExists(final Sha256Hash blockHash) throws DatabaseException {
-        final BlockId blockId = _getBlockHeaderIdFromHash(blockHash);
+        final BlockId blockId = _getBlockHeaderId(blockHash);
         return (blockId != null);
     }
 
@@ -459,8 +459,8 @@ public class BlockHeaderDatabaseManager {
         return _getBlockChainSegmentId(blockId);
     }
 
-    public Long getBlockHeightForBlockId(final BlockId blockId) throws DatabaseException {
-        return _getBlockHeightForBlockId(blockId);
+    public Long getBlockHeight(final BlockId blockId) throws DatabaseException {
+        return _getBlockHeight(blockId);
     }
 
     public BlockId getChildBlockId(final BlockChainSegmentId blockChainSegmentId, final BlockId previousBlockId) throws DatabaseException {
@@ -487,8 +487,8 @@ public class BlockHeaderDatabaseManager {
         return _isBlockConnectedToChain(blockId, blockChainSegmentId, blockRelationship);
     }
 
-    public Sha256Hash getBlockHashFromId(final BlockId blockId) throws DatabaseException {
-        return _getBlockHashFromId(blockId);
+    public Sha256Hash getBlockHash(final BlockId blockId) throws DatabaseException {
+        return _getBlockHash(blockId);
     }
 
     /**
@@ -503,7 +503,7 @@ public class BlockHeaderDatabaseManager {
             final BlockHeader blockHeader = _inflateBlockHeader(nextBlockId);
             if (blockHeader == null) { return null; }
 
-            nextBlockId = _getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
+            nextBlockId = _getBlockHeaderId(blockHeader.getPreviousBlockHash());
         }
         return nextBlockId;
     }

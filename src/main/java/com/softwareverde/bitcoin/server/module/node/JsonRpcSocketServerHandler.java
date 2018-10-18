@@ -85,7 +85,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
         { // Include Extra Block Metadata...
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
 
             blockJson.put("height", blockHeight);
@@ -114,7 +114,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final Json blockHashesJson = new Json(true);
             final List<BlockId> blockIds = transactionDatabaseManager.getBlockIds(transactionHash);
             for (final BlockId blockId : blockIds) {
-                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHashFromId(blockId);
+                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                 blockHashesJson.add(blockHash);
             }
             transactionJson.put("blocks", blockHashesJson);
@@ -215,7 +215,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final BlockId blockId = blockDatabaseManager.getHeadBlockId();
         if (blockId == null) { return 0L; }
 
-        return blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+        return blockHeaderDatabaseManager.getBlockHeight(blockId);
     }
 
     protected Long _calculateBlockHeaderHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
@@ -224,7 +224,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
         if (blockId == null) { return 0L; }
 
-        return blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+        return blockHeaderDatabaseManager.getBlockHeight(blockId);
     }
 
     // Requires GET:    [blockHeight=null], [maxBlockCount=10]
@@ -241,7 +241,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
                 else {
                     final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
-                    startingBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                    startingBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
                 }
             }
 
@@ -303,7 +303,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) {
                 response.put("errorMessage", "Block not found: " + blockHashString);
                 return;
@@ -363,13 +363,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) {
                 response.put("errorMessage", "Block not found: " + blockHashString);
                 return;
             }
 
-            final Boolean blockExists = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+            final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
             if (! blockExists) {
                 response.put("errorMessage", "Block not synchronized: " + blockHashString);
                 return;
@@ -455,7 +455,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) {
                 response.put("errorMessage", "Transaction not found: " + transactionHashString);
                 return;
@@ -512,7 +512,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(lastKnownBlockHash);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(lastKnownBlockHash);
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     blockTimestampInSeconds = blockHeader.getTimestamp();
                 }
@@ -525,7 +525,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     blockHeaderTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(lastKnownHeaderHash);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(lastKnownHeaderHash);
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     blockHeaderTimestampInSeconds = blockHeader.getTimestamp();
                 }

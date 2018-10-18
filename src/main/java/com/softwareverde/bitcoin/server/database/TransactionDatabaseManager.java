@@ -393,7 +393,7 @@ public class TransactionDatabaseManager {
         }
     }
 
-    public TransactionId getTransactionIdFromHash(final Sha256Hash transactionHash) throws DatabaseException {
+    public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         return _getTransactionIdFromHash(transactionHash);
     }
 

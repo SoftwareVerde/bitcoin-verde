@@ -43,7 +43,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             nextBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, nextBlockId);
             if (nextBlockId == null) { break; }
 
-            final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHashFromId(nextBlockId);
+            final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHash(nextBlockId);
             if (addedBlockHash == null) { break; }
 
             returnedBlockIds.add(nextBlockId);
@@ -65,15 +65,15 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         {
             BlockId foundBlockId = null;
             for (final Sha256Hash blockHash : blockHashes) {
-                final Boolean blockExists = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+                final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
                 if (blockExists) {
-                    foundBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                    foundBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     break;
                 }
             }
 
             if (foundBlockId != null) {
-                final BlockId desiredBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(desiredBlockHash);
+                final BlockId desiredBlockId = blockHeaderDatabaseManager.getBlockHeaderId(desiredBlockHash);
                 if (desiredBlockId != null) {
                     blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(desiredBlockId);
                 }
@@ -85,7 +85,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             else {
                 final Sha256Hash headBlockHash = blockDatabaseManager.getHeadBlockHash();
                 if (headBlockHash != null) {
-                    final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(Block.GENESIS_BLOCK_HASH);
+                    final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(Block.GENESIS_BLOCK_HASH);
                     foundBlockId = genesisBlockId;
                     blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
                 }

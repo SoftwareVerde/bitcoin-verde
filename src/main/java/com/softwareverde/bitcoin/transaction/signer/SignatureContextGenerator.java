@@ -39,7 +39,7 @@ public class SignatureContextGenerator {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionId(transactionHash);
             final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(transactionId, transactionHash, transactionInput.getPreviousOutputIndex());
             final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
 

@@ -36,7 +36,7 @@ public class DifficultyCalculator {
     protected Difficulty _calculateNewBitcoinCoreTarget(final Long blockHeight, final BlockHeader blockHeader) throws DatabaseException {
         //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
-        final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getHash());
+        final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
         final BlockChainSegmentId blockChainSegmentId = _blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
 
         //  1. Get the block that is 2016 blocks behind the head block of this chain.
@@ -49,7 +49,7 @@ public class DifficultyCalculator {
         final BlockHeader previousBlock;
         final Long blockTimestamp;
         {
-            final BlockId lastAdjustedPreviousBlockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
+            final BlockId lastAdjustedPreviousBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
             previousBlock = _blockHeaderDatabaseManager.getBlockHeader(lastAdjustedPreviousBlockId);
             blockTimestamp = previousBlock.getTimestamp();
         }
@@ -91,7 +91,7 @@ public class DifficultyCalculator {
     }
 
     protected Difficulty _calculateBitcoinCashEmergencyDifficultyAdjustment(final BlockId blockId, final Long blockHeight, final BlockHeader blockHeader) throws DatabaseException {
-        final BlockId previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
+        final BlockId previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
         if (previousBlockBlockId == null) { return null; }
 
         final BlockHeader previousBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);
@@ -176,8 +176,8 @@ public class DifficultyCalculator {
             }
         }
 
-        final BlockId firstBlockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(firstBlockHeader.getHash());
-        final BlockId lastBlockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(lastBlockHeader.getHash());
+        final BlockId firstBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getHash());
+        final BlockId lastBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(lastBlockHeader.getHash());
         final ChainWork firstChainWork = _blockHeaderDatabaseManager.getChainWork(firstBlockId);
         final ChainWork lastChainWork = _blockHeaderDatabaseManager.getChainWork(lastBlockId);
 
@@ -214,13 +214,13 @@ public class DifficultyCalculator {
 
     public Difficulty calculateRequiredDifficulty(final BlockHeader blockHeader) {
         try {
-            final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getHash());
+            final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
             if (blockId == null) {
                 Logger.log("Unable to find BlockId from Hash: "+ blockHeader.getHash());
                 return null;
             }
 
-            final Long blockHeight = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
+            final Long blockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
             if (blockHeight == null) {
                 Logger.log("Invalid BlockHeight for BlockId: "+ blockId);
                 return null;
@@ -242,7 +242,7 @@ public class DifficultyCalculator {
                 return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockId, blockHeight, blockHeader);
             }
 
-            final BlockId previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getPreviousBlockHash());
+            final BlockId previousBlockBlockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
             if (previousBlockBlockId == null) { return null; }
 
             final BlockHeader previousBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(previousBlockBlockId);

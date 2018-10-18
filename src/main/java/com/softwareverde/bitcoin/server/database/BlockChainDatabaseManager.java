@@ -86,8 +86,8 @@ public class BlockChainDatabaseManager {
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(newBlock.getHash());
-        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(newBlock.getPreviousBlockHash());
+        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(newBlock.getHash());
+        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(newBlock.getPreviousBlockHash());
 
         // 1. Check if the parent block has any children.  This determines if the new block is contentious.
         final Boolean newBlockIsContentiousBlock = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
@@ -124,7 +124,7 @@ public class BlockChainDatabaseManager {
             }
         }
         else { // 3. Else (the block is contentious)...
-            final Long previousBlockBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(previousBlockId);
+            final Long previousBlockBlockHeight = blockHeaderDatabaseManager.getBlockHeight(previousBlockId);
 
             final BlockId refactoredChainHeadBlockId;
             final BlockId refactoredChainTailBlockId;
@@ -210,7 +210,7 @@ public class BlockChainDatabaseManager {
         final Sha256Hash blockHash = newBlock.getHash();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
             Logger.log("NOTICE: Unable to update BlockChainSegment for block: " + blockHash);
             return;

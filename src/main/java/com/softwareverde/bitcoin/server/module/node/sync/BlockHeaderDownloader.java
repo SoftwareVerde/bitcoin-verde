@@ -134,7 +134,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             _blockHeight = Math.max(blockHeight, _blockHeight);
 
             TransactionUtil.commitTransaction(databaseConnection);
@@ -226,9 +226,9 @@ public class BlockHeaderDownloader extends SleepyService {
 
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             if (headBlockId != null) {
-                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(headBlockId);
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getBlockHash(headBlockId);
                 _lastBlockHash = headBlockHash;
-                _blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
+                _blockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
             }
             else {
                 _lastBlockHash = Block.GENESIS_BLOCK_HASH;

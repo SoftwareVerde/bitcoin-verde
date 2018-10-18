@@ -119,7 +119,7 @@ public class BlockDatabaseManager {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
-        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
         final BlockId blockId;
         if (existingBlockId == null) {
@@ -141,7 +141,7 @@ public class BlockDatabaseManager {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
             Logger.log("Attempting to insert transactions without BlockHeader stored: "+ blockHash);
             return false;
@@ -189,7 +189,7 @@ public class BlockDatabaseManager {
     /**
      * Returns true if the BlockHeader and its Transactions have been downloaded and verified.
      */
-    public Boolean blockExistsWithTransactions(final Sha256Hash blockHash) throws DatabaseException {
+    public Boolean blockHeaderHasTransactions(final Sha256Hash blockHash) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE blocks.hash = ? GROUP BY blocks.id")
                 .setParameter(blockHash)
@@ -210,7 +210,7 @@ public class BlockDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Sha256Hash blockHash = block.getHash();
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         if (blockId == null) {
             Logger.log("Block not found: " + blockHash);
             return;

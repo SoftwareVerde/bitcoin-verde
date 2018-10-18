@@ -62,7 +62,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     public Transaction getTransaction(final Sha256Hash transactionHash) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+            final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return null; }
 
             return transactionDatabaseManager.getTransaction(transactionId);

@@ -494,8 +494,8 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         final BlockChainSegmentId blockChainSegmentId2 = BlockChainSegmentId.wrap(2L); // Blocks 2 and 3...
         final BlockChainSegmentId blockChainSegmentId3 = BlockChainSegmentId.wrap(3L); // Blocks 2' and 3'...
 
-        final BlockId expectedBlockId1 = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block3.getHash());
-        final BlockId expectedBlockId2 = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(block3Prime.getHash());
+        final BlockId expectedBlockId1 = blockHeaderDatabaseManager.getBlockHeaderId(block3.getHash());
+        final BlockId expectedBlockId2 = blockHeaderDatabaseManager.getBlockHeaderId(block3Prime.getHash());
 
         // Action
         final BlockId blockId1 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId2, 3L);

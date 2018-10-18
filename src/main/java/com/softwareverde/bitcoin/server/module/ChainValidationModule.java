@@ -123,15 +123,15 @@ public class ChainValidationModule {
             final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
+            final Long maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
 
             Long validatedTransactionCount = 0L;
             final Long startTime = System.currentTimeMillis();
             while (true) {
                 final Sha256Hash blockHash = nextBlockHash;
 
-                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(nextBlockHash);
-                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(nextBlockHash);
+                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
                 final Integer percentComplete = (int) ((blockHeight * 100) / maxBlockHeight.floatValue());
 
@@ -163,7 +163,7 @@ public class ChainValidationModule {
                 if (nextBlockId != null) {
                     final Boolean nextBlockHasTransactions = blockDatabaseManager.hasTransactions(nextBlockId);
                     if (nextBlockHasTransactions) {
-                        nextBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(nextBlockId);
+                        nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
                     }
                 }
             }

@@ -9,12 +9,11 @@ import com.softwareverde.bitcoin.server.message.type.version.synchronize.Bitcoin
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.List;
 
 public class ProtocolMessageTests {
     @Test
@@ -171,7 +170,7 @@ public class ProtocolMessageTests {
         Assert.assertEquals(MessageType.REQUEST_BLOCK_HEADERS, requestBlockHeadersMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
-        Assert.assertEquals(30, blockHeaderHashes.size());
+        Assert.assertEquals(30, blockHeaderHashes.getSize());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
@@ -237,7 +236,7 @@ public class ProtocolMessageTests {
         Assert.assertEquals(MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = queryBlocksMessage.getBlockHeaderHashes();
-        Assert.assertEquals(30, blockHeaderHashes.size());
+        Assert.assertEquals(30, blockHeaderHashes.getSize());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());

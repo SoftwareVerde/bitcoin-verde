@@ -19,7 +19,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
     protected List<Transaction> _transactions = new MutableList<Transaction>(0);
 
     public ThinTransactionsMessage() {
-        super(MessageType.THIN_BLOCK);
+        super(MessageType.THIN_TRANSACTIONS);
     }
 
     public Sha256Hash getBlockHash() {

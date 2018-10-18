@@ -126,7 +126,7 @@ public class TransactionValidator {
 
                 final BlockId blockIdContainingOutputBeingSpent;
                 {
-                    final TransactionId previousOutputTransactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionInput.getPreviousOutputTransactionHash());
+                    final TransactionId previousOutputTransactionId = _transactionDatabaseManager.getTransactionId(transactionInput.getPreviousOutputTransactionHash());
                     if (previousOutputTransactionId == null) { return false; }
 
                     BlockId parentBlockId = null;
@@ -159,7 +159,7 @@ public class TransactionValidator {
                     }
                 }
                 else {
-                    final Long blockHeightContainingOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockIdContainingOutputBeingSpent);
+                    final Long blockHeightContainingOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeight(blockIdContainingOutputBeingSpent);
                     final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
                     final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
@@ -194,7 +194,7 @@ public class TransactionValidator {
             if (blocksSpendingOutput == null) { continue; }
 
             for (final BlockId blockId : blocksSpendingOutput) {
-                final Long blockIdBlockHeight = _blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                final Long blockIdBlockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId);
                 if (Util.areEqual(blockHeight, blockIdBlockHeight)) { continue; }
 
                 final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
@@ -293,13 +293,16 @@ public class TransactionValidator {
 
         final Long totalTransactionInputValue;
         try {
-            final TransactionId transactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+            final TransactionId transactionId = _transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) {
                 Logger.log("Could not find transaction: " + transactionHash);
                 return false;
             }
 
             long totalInputValue = 0L;
+
+            // TODO: Validate number of inputs is not zero...
+            // TODO: Validate that if the input is a coinbase that it is 100 blocks old (COINBASE_MATURITY)...
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
@@ -308,7 +311,7 @@ public class TransactionValidator {
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
                 final Integer transactionOutputBeingSpentIndex = transactionInput.getPreviousOutputIndex();
 
-                final TransactionId transactionOutputIdBeingSpentTransactionId = _transactionDatabaseManager.getTransactionIdFromHash(transactionOutputBeingSpentTransactionHash);
+                final TransactionId transactionOutputIdBeingSpentTransactionId = _transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
                 if (transactionOutputIdBeingSpentTransactionId == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
@@ -338,6 +341,7 @@ public class TransactionValidator {
                 final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockChainSegmentId, transactionOutputIdBeingSpent, blockHeight, shouldCheckMemoryPool);
 
                 { // Validate TransactionOutput hasn't already been spent...
+                    // TODO: The logic currently implemented would allow for duplicate transactions to be spent (which is partially against BIP30 and is definitely counter to how the reference client handles it).  What consensus considers "correct" is that the first duplicate becomes unspendable.
                     if (outputBeingSpentSpendCount >= outputBeingSpentMinedCount) {
                         if (_shouldLogInvalidTransactions) {
                             Logger.log("Transaction " + transactionHash + " spends already-spent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex());
@@ -380,6 +384,10 @@ public class TransactionValidator {
                 long totalOutputValue = 0L;
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
                     totalOutputValue += transactionOutput.getAmount();
+
+                    // TODO: Validate that the output indices are sequential and start at 0... (Must check reference client if it does the same.)
+                    // TODO: Validate the output count is not zero...
+                    // TODO: Validate the output value isn't negative... (Unknown if zero is allowed.)
                 }
                 totalTransactionOutputValue = totalOutputValue;
             }

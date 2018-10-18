@@ -118,7 +118,7 @@ public class NodeModule {
                 );
                 for (final Row row : rows) {
                     final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-                    transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+                    transactionDatabaseManager.getTransactionId(transactionHash);
                 }
 
                 localDatabaseManagerCache.resetLog();

@@ -30,7 +30,7 @@ public class BlockFinderHashesBuilder {
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
         if (headBlockId != null) {
             headBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(headBlockId);
-            maxBlockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(headBlockId);
+            maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
         }
         else {
             maxBlockHeight = 0L;
@@ -41,7 +41,7 @@ public class BlockFinderHashesBuilder {
         int blockHeightStep = 1;
         for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockChainSegmentId, blockHeight);
-            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHashFromId(blockId);
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
 
             blockHashes.add(blockHash);
 

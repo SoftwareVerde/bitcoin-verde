@@ -43,7 +43,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockChainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
-                    final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHashFromId(blockId);
+                    final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                     responseMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
                 }
             }

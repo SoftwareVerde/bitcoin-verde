@@ -148,7 +148,7 @@ public class BlockChainBuilder extends SleepyService {
                     final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockChainSegmentId, headBlockId);
                     if (nextBlockId != null) {
-                        final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHashFromId(nextBlockId);
+                        final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
                         _blockDownloadRequester.requestBlock(nextBlockHash);
                     }
                     break;
@@ -220,7 +220,7 @@ public class BlockChainBuilder extends SleepyService {
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
-            _hasGenesisBlock = blockDatabaseManager.blockExistsWithTransactions(BlockHeader.GENESIS_BLOCK_HASH);
+            _hasGenesisBlock = blockDatabaseManager.blockHeaderHasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

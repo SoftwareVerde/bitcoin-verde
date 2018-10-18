@@ -44,7 +44,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Container;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -119,7 +118,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 }
                 else {
                     final Long blockHeight = null;
-                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(mostRecentBlockHash);
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(mostRecentBlockHash);
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
@@ -345,7 +344,7 @@ public class BlockValidatorTests extends IntegrationTest {
             }
             final Difficulty blockDifficulty = block30240.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
-            Assert.assertEquals(2016, blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+            Assert.assertEquals(2016, blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -365,7 +364,7 @@ public class BlockValidatorTests extends IntegrationTest {
             }
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
-            Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+            Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
 
             previousBlockHash = previousBlock.getHash();
         }
@@ -409,7 +408,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final BlockId blockId;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             blockId = blockDatabaseManager.insertBlock(firstBlockWithDifficultyIncrease);
-            Assert.assertEquals(blockHeight, blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId).longValue());
+            Assert.assertEquals(blockHeight, blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
         }
 
         // Action

@@ -44,7 +44,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 switch (inventoryItem.getItemType()) {
                     case BLOCK: {
                         final Sha256Hash blockHash = inventoryItem.getItemHash();
-                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+                        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
                         if (blockId == null) {
                             notFoundDataHashes.add(inventoryItem);

@@ -10,9 +10,10 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHe
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
-import com.softwareverde.bitcoin.server.message.type.query.response.QueryResponseMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessageInflater;
@@ -44,7 +45,8 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
-        _commandInflaterMap.put(MessageType.INVENTORY, new QueryResponseMessageInflater());
+        _commandInflaterMap.put(MessageType.NOT_FOUND, new NotFoundResponseMessageInflater());
+        _commandInflaterMap.put(MessageType.INVENTORY, new InventoryMessageInflater());
         _commandInflaterMap.put(MessageType.BLOCK, new BlockMessageInflater());
         _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());

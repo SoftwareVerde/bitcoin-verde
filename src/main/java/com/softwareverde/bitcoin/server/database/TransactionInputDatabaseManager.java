@@ -45,7 +45,7 @@ public class TransactionInputDatabaseManager {
                 previousOutputTransactionId = cachedTransactionId;
             }
             else {
-                previousOutputTransactionId = transactionDatabaseManager.getTransactionIdFromHash(previousOutputTransactionHash);
+                previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
                 if (previousOutputTransactionId == null) { return null; }
             }
         }
@@ -167,8 +167,10 @@ public class TransactionInputDatabaseManager {
         final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionCount * 2);
         final MutableList<TransactionOutputId> previousTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
 
+        findPreviousTxOutputTimer.start();
         final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
         if (previousTransactionOutputsMap == null) { return null; }
+        findPreviousTxOutputTimer.stop();
 
         txInputPrepareInsertQueryTimer.start();
         int transactionInputIdCount = 0;

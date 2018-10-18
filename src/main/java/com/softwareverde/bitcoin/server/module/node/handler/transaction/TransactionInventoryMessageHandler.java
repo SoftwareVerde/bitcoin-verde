@@ -50,7 +50,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             for (final Sha256Hash transactionHash : transactionHashes) {
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                 if (transactionId == null) {
                     unseenTransactionHashes.add(transactionHash);
                 }
@@ -73,7 +73,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                     final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
                     final BlockId blockId = blockDatabaseManager.getHeadBlockId();
-                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
                     final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
 
                     // TODO: Add transaction to memory, but not to the database, if the utxo it's spending is has not been seen yet...

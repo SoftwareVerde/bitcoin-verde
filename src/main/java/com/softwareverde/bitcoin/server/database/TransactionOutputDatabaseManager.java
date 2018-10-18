@@ -365,7 +365,7 @@ public class TransactionOutputDatabaseManager {
         if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
 
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
         final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIndex);
@@ -414,7 +414,7 @@ public class TransactionOutputDatabaseManager {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
             for (final TransactionOutputIdentifier transactionOutputIdentifier : unfoundPreviousTransactionOutputs) {
                 final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionIdFromHash(transactionHash);
+                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                 if (transactionId == null) {
                     Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionHash);
                     return null;

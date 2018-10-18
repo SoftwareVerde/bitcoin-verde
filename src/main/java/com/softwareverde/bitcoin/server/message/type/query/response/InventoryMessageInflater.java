@@ -10,7 +10,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
-public class QueryResponseMessageInflater extends BitcoinProtocolMessageInflater {
+public class InventoryMessageInflater extends BitcoinProtocolMessageInflater {
     public static final Integer HASH_BYTE_COUNT = 32;
 
     @Override

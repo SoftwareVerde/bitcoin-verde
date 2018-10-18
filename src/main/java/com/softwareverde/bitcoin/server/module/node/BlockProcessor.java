@@ -80,14 +80,14 @@ public class BlockProcessor {
         final BlockId blockId;
         final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
         if (blockHeaderExists) {
-            final Boolean blockHasTransactions = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+            final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
             if (blockHasTransactions) {
                 Logger.log("Skipping known block: " + blockHash);
-                final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
-                return blockHeaderDatabaseManager.getBlockHeightForBlockId(existingBlockId);
+                final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
             }
 
-            blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
+            blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
         }
         else {
             // Store the BlockHeader...
@@ -97,11 +97,11 @@ public class BlockProcessor {
                 TransactionUtil.startTransaction(databaseConnection);
                 {
                     Logger.log("Processing Block: " + blockHash);
-                    final Boolean blockHasTransactions = blockDatabaseManager.blockExistsWithTransactions(blockHash);
+                    final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
                     if (blockHasTransactions) {
                         Logger.log("Skipping known block: " + blockHash);
-                        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHash);
-                        return blockHeaderDatabaseManager.getBlockHeightForBlockId(existingBlockId);
+                        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                     }
 
                     storeBlockHeaderTimer.start();
@@ -169,7 +169,7 @@ public class BlockProcessor {
         }
         TransactionUtil.commitTransaction(databaseConnection);
 
-        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
         final BlockDeflater blockDeflater = new BlockDeflater();
         final Integer byteCount = blockDeflater.getByteCount(block);

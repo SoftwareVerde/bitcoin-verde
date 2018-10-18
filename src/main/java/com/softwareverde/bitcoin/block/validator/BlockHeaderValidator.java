@@ -88,8 +88,8 @@ public class BlockHeaderValidator {
         final BlockId blockId;
         final Long blockHeight;
         try {
-            blockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(blockHeader.getHash());
-            blockHeight = blockHeaderDatabaseManager.getBlockHeightForBlockId(blockId);
+            blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
+            blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

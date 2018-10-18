@@ -34,7 +34,7 @@ public class TransactionTestUtil {
         final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
-        final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderIdFromHash(BlockHeader.GENESIS_BLOCK_HASH);
+        final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
         if (genesisBlockId == null) {
 
             final java.util.List<Row> rows = databaseConnection.query(
