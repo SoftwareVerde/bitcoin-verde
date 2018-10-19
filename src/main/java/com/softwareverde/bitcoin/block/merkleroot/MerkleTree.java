@@ -6,6 +6,7 @@ import com.softwareverde.constable.list.List;
 
 public interface MerkleTree<T extends Hashable> {
     void addItem(T item);
+    T getItem(int index);
     List<T> getItems();
 
     void replaceItem(int index, T item);

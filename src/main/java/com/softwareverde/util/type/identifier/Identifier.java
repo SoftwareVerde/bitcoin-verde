@@ -2,7 +2,7 @@ package com.softwareverde.util.type.identifier;
 
 import com.softwareverde.constable.Const;
 
-public class Identifier implements Const, Comparable<Long> {
+public class Identifier implements Const, Comparable<Identifier> {
     public static Identifier wrap(final Long value) {
         if (value == null) { return null; }
         return new Identifier(value);
@@ -43,7 +43,7 @@ public class Identifier implements Const, Comparable<Long> {
     }
 
     @Override
-    public int compareTo(final Long value) {
-        return _value.compareTo(value);
+    public int compareTo(final Identifier value) {
+        return _value.compareTo(value._value);
     }
 }

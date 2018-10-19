@@ -74,6 +74,11 @@ public class TransactionOutputDatabaseManager {
     }
 
     protected TransactionOutputId _findUnspentTransactionOutput(final Sha256Hash transactionHash, final Integer transactionOutputIndex) throws DatabaseException {
+        { // Attempt to find the UTXO from the in-memory cache...
+            final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
+            if (cachedUnspentTransactionOutputId != null) { return cachedUnspentTransactionOutputId; }
+        }
+
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
         if (cachedTransactionId != null) {
             final TransactionOutputId cachedTransactionOutputId = _databaseManagerCache.getCachedTransactionOutputId(cachedTransactionId, transactionOutputIndex);
@@ -376,7 +381,7 @@ public class TransactionOutputDatabaseManager {
         final Integer transactionCount = transactions.getSize();
         final HashMap<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(transactionCount * 2);
         final HashSet<TransactionOutputIdentifier> unfoundPreviousTransactionOutputs = new HashSet<TransactionOutputIdentifier>(transactionCount * 2);
-        final MutableList<Sha256Hash> previousOutputTransactionHashes = new MutableList<Sha256Hash>(transactionCount * 2);
+        final MutableList<Sha256Hash> unfoundPreviousOutputTransactionHashes = new MutableList<Sha256Hash>(transactionCount * 2);
         for (final Transaction transaction : transactions) {
             for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                 final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
@@ -387,17 +392,21 @@ public class TransactionOutputDatabaseManager {
                     continue;
                 }
 
-                previousOutputTransactionHashes.add(transactionHash);
-
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-                unfoundPreviousTransactionOutputs.add(transactionOutputIdentifier);
-                previousTransactionOutputsMap.put(transactionOutputIdentifier, null);
+
+                final TransactionOutputId cachedTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, outputIndex);
+                previousTransactionOutputsMap.put(transactionOutputIdentifier, cachedTransactionOutputId);
+
+                if (cachedTransactionOutputId == null) {
+                    unfoundPreviousOutputTransactionHashes.add(transactionHash);
+                    unfoundPreviousTransactionOutputs.add(transactionOutputIdentifier);
+                }
             }
         }
 
         { // Search the UTXO set for the TransactionOutputs...
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE transaction_hash IN (" + DatabaseUtil.createInClause(previousOutputTransactionHashes) + ")")
+                new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE transaction_hash IN (" + DatabaseUtil.createInClause(unfoundPreviousOutputTransactionHashes) + ")")
             );
             for (final Row row : rows) {
                 final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
@@ -447,6 +456,8 @@ public class TransactionOutputDatabaseManager {
             new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id = ?")
                 .setParameter(transactionOutputId)
         );
+
+        _databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputId);
     }
 
     public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
@@ -459,6 +470,8 @@ public class TransactionOutputDatabaseManager {
         }
 
         _databaseConnection.executeSql(batchedUpdateQuery);
+
+        _databaseManagerCache.invalidateUnspentTransactionOutputIds(transactionOutputIds);
     }
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {

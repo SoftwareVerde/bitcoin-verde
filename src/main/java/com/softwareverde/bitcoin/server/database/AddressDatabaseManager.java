@@ -59,7 +59,7 @@ public class AddressDatabaseManager {
                     "WHERE " +
                         "locking_scripts.address_id = ?"
             )
-                .setParameter(addressId)
+            .setParameter(addressId)
         );
 
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
@@ -102,7 +102,7 @@ public class AddressDatabaseManager {
                             "WHERE " +
                                 "previous_transaction_output_id = ?"
                     )
-                        .setParameter(spendableTransactionOutput._transactionOutputId)
+                    .setParameter(spendableTransactionOutput._transactionOutputId)
                 );
 
                 for (final Row rowSpendingTransactionOutput : rowsSpendingTransactionOutput) {

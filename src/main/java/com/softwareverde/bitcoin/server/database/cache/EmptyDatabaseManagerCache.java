@@ -8,6 +8,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 
 public class EmptyDatabaseManagerCache implements DatabaseManagerCache {
     @Override
@@ -42,6 +44,18 @@ public class EmptyDatabaseManagerCache implements DatabaseManagerCache {
 
     @Override
     public void invalidateTransactionOutputIdCache() { }
+
+    @Override
+    public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) { }
+
+    @Override
+    public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) { return null; }
+
+    @Override
+    public void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) { }
+
+    @Override
+    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) { }
 
     @Override
     public void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) { }

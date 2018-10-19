@@ -8,6 +8,8 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
@@ -19,6 +21,8 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionOutputIdCache.setMasterCache(masterCache.getTransactionOutputIdCache());
         _blockIdBlockChainSegmentIdCache.setMasterCache(masterCache.getBlockIdBlockChainSegmentIdCache());
         _addressIdCache.setMasterCache(masterCache.getAddressIdCache());
+        _blockHeightCache.setMasterCache(masterCache.getBlockHeightCache());
+        _unspentTransactionOutputCache.setMasterCache(masterCache.getUnspentTransactionOutputCache());
     }
 
     @Override
@@ -178,6 +182,34 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
     }
 
     public HashMapCache<BlockId, Long> getBlockHeightCache() { return _blockHeightCache; }
+
+    // -----------------------------------------------------------------------------------------------------------------
+
+    // UNSPENT TRANSACTION OUTPUT CACHE --------------------------------------------------------------------------------
+
+    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache = new UnspentTransactionOutputCache();
+
+    @Override
+    public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
+        _unspentTransactionOutputCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
+    }
+
+    @Override
+    public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
+        return _unspentTransactionOutputCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
+    }
+
+    @Override
+    public void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) {
+        _unspentTransactionOutputCache.invalidateUnspentTransactionOutputId(transactionOutputId);
+    }
+
+    @Override
+    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) {
+        _unspentTransactionOutputCache.invalidateUnspentTransactionOutputIds(transactionOutputIds);
+    }
+
+    public UnspentTransactionOutputCache getUnspentTransactionOutputCache() { return _unspentTransactionOutputCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
 

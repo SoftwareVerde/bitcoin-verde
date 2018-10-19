@@ -34,7 +34,7 @@ public class BlockDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         storeBlockTimer.start();
-        if (true || transactions.getSize() > 256) {
+        if (transactions.getSize() > 256) {
             // Use batched inserts...
             final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }

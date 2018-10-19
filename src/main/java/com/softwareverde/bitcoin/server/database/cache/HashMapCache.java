@@ -9,6 +9,7 @@ import java.util.HashMap;
 
 public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
     public static final Integer DEFAULT_CACHE_SIZE = 65536;
+    public static final Integer DISABLED_CACHE_SIZE = 0;
 
     public final Object MUTEX = new Object();
 
@@ -59,6 +60,8 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
     }
 
     public void cacheItem(final KEY key, final VALUE value) {
+        if (_maxItemCount < 1) { return; }
+
         synchronized (MUTEX) {
             _recentHashes.markRecent(key);
 
@@ -68,12 +71,24 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
 
             if (_itemCount >= _maxItemCount) {
                 final KEY oldestItem = _recentHashes.getOldestItem();
-                _cache.remove(oldestItem);
-                _itemCount -= 1;
+                final VALUE oldestValue = _cache.remove(oldestItem);
+                if (oldestValue != null) { // oldestValue can be null if the item was removed from the set...
+                    _itemCount -= 1;
+                }
             }
 
             _cache.put(key, value);
             _itemCount += 1;
+        }
+    }
+
+    public VALUE removeItem(final KEY key) {
+        synchronized (MUTEX) {
+            final VALUE value = _cache.remove(key);
+            if (value != null) {
+                _itemCount -=1 ;
+            }
+            return value;
         }
     }
 
@@ -103,6 +118,8 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
     public VALUE getCachedItem(final KEY key) {
         final VALUE cachedItem = _masterCache.getCachedItem(key);
         if (cachedItem != null) { return cachedItem; }
+
+        if (_maxItemCount < 1) { return null; }
 
         synchronized (MUTEX) {
             _cacheQueryCount += 1;

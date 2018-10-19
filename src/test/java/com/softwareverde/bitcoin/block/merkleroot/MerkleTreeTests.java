@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -414,5 +415,23 @@ public class MerkleTreeTests {
     @Test
     public void should_create_partial_tree_for_coinbase_transaction_with_item_count_26() {
         _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 26, 5);
+    }
+
+    @Test
+    public void should_get_items_in_order() {
+        // Setup
+        final MerkleTreeNode<Item> merkleTree = new MerkleTreeNode<Item>();
+        for (int i = 0; i < 100; ++i) {
+            merkleTree.addItem(new Item(i));
+
+            for (int j = 0; j < merkleTree.getItemCount(); ++j) {
+                final Item item = merkleTree.getItem(j);
+                Assert.assertEquals(new Item(j).getHash(), item.getHash());
+            }
+        }
+
+        // Action
+
+        // Assert
     }
 }

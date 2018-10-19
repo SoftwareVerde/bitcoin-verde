@@ -1,13 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node;
 
-import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
@@ -29,6 +26,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -47,6 +45,7 @@ import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
@@ -56,7 +55,7 @@ public class NodeModule {
         nodeModule.loop();
     }
 
-    protected final Boolean _shouldWarmUpCache = false;
+    protected final Boolean _shouldWarmUpCache = true;
 
     protected final Configuration _configuration;
     protected final Environment _environment;
@@ -97,32 +96,63 @@ public class NodeModule {
         final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-            { // Warm Up AddressDatabaseManager Cache...
-                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, localDatabaseManagerCache);
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getAddressIdCache().getMaxItemCount())
-                );
-                for (final Row row : rows) {
-                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
-                    final String address = row.getString("address");
-                    addressDatabaseManager.getAddressId(address);
+            { // Warm Up UTXO Cache...
+                final Integer batchSize = (512 * 1024);
+                Long lastRowId = Long.MAX_VALUE;
+
+                while (lastRowId > 0) {
+                    final NanoTimer nanoTimer = new NanoTimer();
+                    nanoTimer.start();
+
+                    Long batchFirstRowId = null;
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE id < ? ORDER BY id DESC LIMIT " + batchSize)
+                            .setParameter(lastRowId)
+                    );
+                    if (rows.isEmpty()) { break; }
+                    for (final Row row : rows) {
+                        final Long rowId = row.getLong("id");
+                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+                        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
+                        final Integer transactionOutputIndex = row.getInteger("index");
+                        localDatabaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
+                        lastRowId = rowId;
+
+                        if (batchFirstRowId == null) {
+                            batchFirstRowId = rowId;
+                        }
+                    }
+
+                    nanoTimer.stop();
+                    Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + nanoTimer.getMillisecondsElapsed() + "ms)");
                 }
-
-                localDatabaseManagerCache.resetLog();
             }
-
-            { // Warm Up TransactionDatabaseManager Cache...
-                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
-                final java.util.List<Row> rows = databaseConnection.query(
-                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getTransactionIdCache().getMaxItemCount())
-                );
-                for (final Row row : rows) {
-                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-                    transactionDatabaseManager.getTransactionId(transactionHash);
-                }
-
-                localDatabaseManagerCache.resetLog();
-            }
+//            { // Warm Up AddressDatabaseManager Cache...
+//                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, localDatabaseManagerCache);
+//                final java.util.List<Row> rows = databaseConnection.query(
+//                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getAddressIdCache().getMaxItemCount())
+//                );
+//                for (final Row row : rows) {
+//                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
+//                    final String address = row.getString("address");
+//                    addressDatabaseManager.getAddressId(address);
+//                }
+//
+//                localDatabaseManagerCache.resetLog();
+//            }
+//
+//            { // Warm Up TransactionDatabaseManager Cache...
+//                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
+//                final java.util.List<Row> rows = databaseConnection.query(
+//                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getTransactionIdCache().getMaxItemCount())
+//                );
+//                for (final Row row : rows) {
+//                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+//                    transactionDatabaseManager.getTransactionId(transactionHash);
+//                }
+//
+//                localDatabaseManagerCache.resetLog();
+//            }
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -162,6 +192,7 @@ public class NodeModule {
                     commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
                     commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+                    // commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
 
                     commandLineArguments.setQueryCacheByteCount(0L);
 
