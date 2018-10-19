@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <map>
 #include <list>
+#include <cstring>
 #include "com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.h"
 
 struct prevout {

@@ -1,4 +1,4 @@
 #!/bin/bash
 
-mv utxocache.dylib ../../src/main/resources/lib/.
+mv utxocache.* ../../src/main/resources/lib/.
 
