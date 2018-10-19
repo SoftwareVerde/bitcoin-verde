@@ -3,6 +3,8 @@
 #include <list>
 #include <cstring>
 #include "com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.h"
+#include "cpp-btree-1.0.1/btree_map.h"
+#include "cpp-btree-1.0.1/btree_set.h"
 
 struct prevout {
     jbyte transaction_hash[32];
@@ -43,34 +45,20 @@ struct prevout_ptr_comparator {
     }
 };
 
-typedef std::map<const prevout*, jlong, prevout_ptr_comparator> cache_t;
-typedef std::map<jlong, const prevout*> reverse_cache_t;
-typedef std::list<jlong> list_t;
+typedef btree::btree_map<const prevout*, jlong, prevout_ptr_comparator> cache_t;
+typedef btree::btree_set<const prevout*> list_t;
 
 class cache {
     private:
         cache_t _map;
-        reverse_cache_t _reverse_map;
         list_t _invalidated_items;
         const cache* _master_cache;
-
-        void _remove_transaction_output_id(const jlong transaction_output_id) {
-            const reverse_cache_t::iterator iterator = _reverse_map.find(transaction_output_id);
-            if (iterator == _reverse_map.end()) { return; }
-
-            const prevout* prevout = iterator->second;
-            _reverse_map.erase(iterator);
-
-            _map.erase(prevout);
-            delete prevout;
-        }
 
     public:
         cache() : _master_cache(0) { }
 
         void cache_utxo(const prevout* const prevout, const jlong transaction_output_id) {
             _map[prevout] = transaction_output_id;
-            _reverse_map[transaction_output_id] = prevout;
         }
 
         jlong get_cached_utxo(const prevout& prevout) const {
@@ -90,24 +78,33 @@ class cache {
             _master_cache = master_cache;
         }
 
-        void invalidate_transaction_output_id(const jlong transaction_output_id) {
-            _remove_transaction_output_id(transaction_output_id);
-            _invalidated_items.push_back(transaction_output_id);
+        void invalidate_utxo(const prevout& prevout) {
+            const cache_t::iterator iterator = _map.find(&prevout);
+            if (iterator == _map.end()) { return; }
+
+            _map.erase(iterator);
+            _invalidated_items.insert(iterator->first);
         }
 
         void commit(cache* const cache) {
             for (cache_t::iterator iterator = cache->_map.begin(); iterator != cache->_map.end(); iterator++) {
                 _map[iterator->first] = iterator->second;
-                _reverse_map[iterator->second] = iterator->first;
             }
 
             for (list_t::iterator iterator = cache->_invalidated_items.begin(); iterator != cache->_invalidated_items.end(); iterator++) {
-                _remove_transaction_output_id(*iterator);
+                _map.erase(*iterator);
+                delete (*iterator);
             }
 
             cache->_map.clear();
-            cache->_reverse_map.clear();
             cache->_invalidated_items.clear();
+        }
+
+        void commit() {
+            for (list_t::iterator iterator = _invalidated_items.begin(); iterator != _invalidated_items.end(); iterator++) {
+                delete (*iterator);
+            }
+            _invalidated_items.clear();
         }
 
         ~cache() {
@@ -202,14 +199,18 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
     }
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong transaction_output_id) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
+    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
     cache* const cache = CACHES[cache_index];
     if (cache == 0) { return; }
 
-    cache->invalidate_transaction_output_id(transaction_output_id);
+    const prevout prevout(transaction_hash, transaction_output_index);
+    cache->invalidate_utxo(prevout);
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1commit(JNIEnv* environment, jclass _class, jint commit_to_cache_index, jint cache_index) {

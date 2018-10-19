@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
@@ -31,19 +32,15 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
         }
     });
 
-    protected final TreeMap<TransactionOutputId, Sha256Hash> _reverseMap = new TreeMap<TransactionOutputId, Sha256Hash>();
-    protected final LinkedList<TransactionOutputId> _invalidatedItems = new LinkedList<TransactionOutputId>();
+    protected final LinkedList<TransactionOutputIdentifier> _invalidatedItems = new LinkedList<TransactionOutputIdentifier>();
 
     protected UnspentTransactionOutputCache _masterCache = null;
 
-    protected void _removeTransactionOutputId(final TransactionOutputId transactionOutputId) {
-        final Sha256Hash transactionHash = _reverseMap.remove(transactionOutputId);
-        if (transactionHash == null) { return; }
-
-        final Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionHash);
+    protected void _removeTransactionOutputId(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        final Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionOutputIdentifier.getTransactionHash());
         for (final Integer transactionOutputIndex : map.keySet()) {
             final TransactionOutputId mapTransactionOutputId = map.get(transactionOutputIndex);
-            if (Util.areEqual(transactionOutputId, mapTransactionOutputId)) {
+            if (Util.areEqual(transactionOutputIdentifier.getOutputIndex(), mapTransactionOutputId)) {
                 map.remove(transactionOutputIndex);
                 break;
             }
@@ -71,8 +68,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
         }
 
         map.put(transactionOutputIndex, transactionOutputId);
-        _reverseMap.put(transactionOutputId, transactionHash);
-        _invalidatedItems.remove(transactionOutputId);
+        _invalidatedItems.remove(new TransactionOutputIdentifier(transactionHash, transactionOutputIndex));
         _writeLock.unlock();
     }
 
@@ -100,7 +96,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     }
 
     @Override
-    public void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) {
+    public void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) {
         _writeLock.lock();
         _removeTransactionOutputId(transactionOutputId);
         _invalidatedItems.addLast(transactionOutputId);
@@ -108,9 +104,9 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     }
 
     @Override
-    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) {
+    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIdentifiers) {
         _writeLock.lock();
-        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+        for (final TransactionOutputIdentifier transactionOutputId : transactionOutputIdentifiers) {
             _removeTransactionOutputId(transactionOutputId);
             _invalidatedItems.addLast(transactionOutputId);
         }
@@ -139,13 +135,12 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
             }
         }
 
-        for (final TransactionOutputId transactionOutputId : sourceCache._invalidatedItems) {
+        for (final TransactionOutputIdentifier transactionOutputId : sourceCache._invalidatedItems) {
             _removeTransactionOutputId(transactionOutputId);
         }
         _writeLock.unlock();
 
         sourceCache._transactionOutputs.clear();
-        sourceCache._reverseMap.clear();
         sourceCache._invalidatedItems.clear();
         sourceCache._writeLock.unlock();
     }
@@ -154,7 +149,6 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     public void close() {
         _writeLock.lock();
         _transactionOutputs.clear();
-        _reverseMap.clear();
         _invalidatedItems.clear();
         _writeLock.unlock();
     }

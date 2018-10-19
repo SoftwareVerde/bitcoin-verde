@@ -66,10 +66,10 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 /*
  * Class:     com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache
  * Method:    _invalidateUnspentTransactionOutputId
- * Signature: (IJ)V
+ * Signature: (I[BI)V
  */
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId
-  (JNIEnv *, jclass, jint, jlong);
+  (JNIEnv *, jclass, jint, jbyteArray, jint);
 
 /*
  * Class:     com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache

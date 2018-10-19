@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
@@ -112,25 +113,25 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
     }
 
     @Override
-    public synchronized void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) {
+    public synchronized void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) {
         if (_cacheId == null) { return; }
         if (transactionOutputId == null) { return; }
 
         final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
         writeLock.lock();
-        _invalidateUnspentTransactionOutputId(_cacheId, transactionOutputId.longValue());
+        _invalidateUnspentTransactionOutputId(_cacheId, transactionOutputId.getTransactionHash().getBytes(), transactionOutputId.getOutputIndex());
         writeLock.unlock();
     }
 
     @Override
-    public synchronized void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) {
+    public synchronized void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) {
         if (_cacheId == null) { return; }
 
         final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
         writeLock.lock();
-        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+        for (final TransactionOutputIdentifier transactionOutputId : transactionOutputIds) {
             if (transactionOutputId == null) { continue; }
-            _invalidateUnspentTransactionOutputId(_cacheId, transactionOutputId.longValue());
+            _invalidateUnspentTransactionOutputId(_cacheId, transactionOutputId.getTransactionHash().getBytes(), transactionOutputId.getOutputIndex());
         }
         writeLock.unlock();
     }

@@ -446,24 +446,18 @@ public class TransactionOutputDatabaseManager {
         return _getTransactionOutput(transactionOutputId);
     }
 
-    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+    public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId, final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         if (transactionOutputId == null) { return; }
-
-//        _databaseConnection.executeSql(
-//            new Query("UPDATE transaction_outputs SET is_spent = 1 WHERE id = ?")
-//                .setParameter(transactionOutputId)
-//        );
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id = ?")
                 .setParameter(transactionOutputId)
         );
 
-        _databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputId);
+        _databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputIdentifier);
     }
 
-    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
-//        final Query batchedUpdateQuery = new BatchedUpdateQuery("UPDATE transaction_outputs SET is_spent = 1 WHERE id IN(?)");
+    public void markTransactionOutputsAsSpent(final List<TransactionOutputId> transactionOutputIds, final List<TransactionOutputIdentifier> transactionOutputIdentifiers) throws DatabaseException {
         if (transactionOutputIds.isEmpty()) { return; }
 
         final Query batchedUpdateQuery = new BatchedUpdateQuery("DELETE FROM unspent_transaction_outputs WHERE transaction_output_id IN (?)");
@@ -473,7 +467,7 @@ public class TransactionOutputDatabaseManager {
 
         _databaseConnection.executeSql(batchedUpdateQuery);
 
-        _databaseManagerCache.invalidateUnspentTransactionOutputIds(transactionOutputIds);
+        _databaseManagerCache.invalidateUnspentTransactionOutputIds(transactionOutputIdentifiers);
     }
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {

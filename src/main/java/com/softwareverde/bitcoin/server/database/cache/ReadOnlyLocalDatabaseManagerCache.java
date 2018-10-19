@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -65,10 +66,10 @@ public class ReadOnlyLocalDatabaseManagerCache implements DatabaseManagerCache {
     }
 
     @Override
-    public void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) { }
+    public void invalidateUnspentTransactionOutputId(final TransactionOutputIdentifier transactionOutputId) { }
 
     @Override
-    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) { }
+    public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) { }
 
     @Override
     public void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) { }

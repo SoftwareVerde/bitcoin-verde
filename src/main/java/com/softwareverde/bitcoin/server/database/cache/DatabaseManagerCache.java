@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
@@ -33,8 +34,8 @@ public interface DatabaseManagerCache extends AutoCloseable {
     // UNSPENT TRANSACTION OUTPUT ID CACHE -----------------------------------------------------------------------------
     void cacheUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex, TransactionOutputId transactionOutputId);
     TransactionOutputId getCachedUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex);
-    void invalidateUnspentTransactionOutputId(TransactionOutputId transactionOutputId);
-    void invalidateUnspentTransactionOutputIds(List<TransactionOutputId> transactionOutputIds);
+    void invalidateUnspentTransactionOutputId(TransactionOutputIdentifier transactionOutputId);
+    void invalidateUnspentTransactionOutputIds(List<TransactionOutputIdentifier> transactionOutputIds);
 
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
     void cacheBlockChainSegmentId(BlockId blockId, BlockChainSegmentId blockChainSegmentId);

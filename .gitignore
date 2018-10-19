@@ -11,3 +11,5 @@ tmp
 
 .password
 
+src/main/resources/lib/utxocache.*
+
