@@ -62,6 +62,7 @@ class cache {
             _reverse_map.erase(iterator);
 
             _map.erase(prevout);
+            delete prevout;
         }
 
     public:
