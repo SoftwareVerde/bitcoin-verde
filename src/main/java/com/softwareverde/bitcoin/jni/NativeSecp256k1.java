@@ -140,5 +140,4 @@ public class NativeSecp256k1 {
           _writeLock.unlock();
         }
     }
-
 }

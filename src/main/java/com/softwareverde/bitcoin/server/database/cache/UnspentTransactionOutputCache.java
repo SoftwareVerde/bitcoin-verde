@@ -14,7 +14,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class UnspentTransactionOutputCache {
     public static final Integer MAX_ITEM_COUNT = (1 << 28); // 268,435,456
 
-    protected UnspentTransactionOutputCache _masterCache = null;
+    protected final ReentrantReadWriteLock.ReadLock _readLock;
+    protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
     protected final TreeMap<Sha256Hash, Map<Integer, TransactionOutputId>> _transactionOutputs = new TreeMap<Sha256Hash, Map<Integer, TransactionOutputId>>(new Comparator<Sha256Hash>() {
         @Override
@@ -29,11 +30,10 @@ public class UnspentTransactionOutputCache {
         }
     });
 
-    protected final ReentrantReadWriteLock.ReadLock _readLock;
-    protected final ReentrantReadWriteLock.WriteLock _writeLock;
-
     protected final TreeMap<TransactionOutputId, Sha256Hash> _reverseMap = new TreeMap<TransactionOutputId, Sha256Hash>();
     protected final LinkedList<TransactionOutputId> _invalidatedItems = new LinkedList<TransactionOutputId>();
+
+    protected UnspentTransactionOutputCache _masterCache = null;
 
     protected void _removeTransactionOutputId(final TransactionOutputId transactionOutputId) {
         final Sha256Hash transactionHash = _reverseMap.remove(transactionOutputId);

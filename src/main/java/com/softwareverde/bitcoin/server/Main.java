@@ -1,9 +1,12 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.gui.VerdeWallet;
+import com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
 
@@ -128,6 +131,14 @@ public class Main {
         switch (module) {
 
             case "NODE": {
+                if (true) {
+                    NativeUnspentTransactionOutputCache.init();
+                    final NativeUnspentTransactionOutputCache transactionOutputCache = new NativeUnspentTransactionOutputCache();
+                    transactionOutputCache.cacheUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, -1, TransactionOutputId.wrap(1L));
+                    NativeUnspentTransactionOutputCache.destroy();
+                    System.out.println("Done.");
+                    break;
+                }
                 if (_arguments.length != 2) {
                     _printUsage();
                     BitcoinUtil.exitFailure();
