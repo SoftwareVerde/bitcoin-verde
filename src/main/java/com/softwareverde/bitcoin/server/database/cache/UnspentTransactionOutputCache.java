@@ -119,7 +119,7 @@ public class UnspentTransactionOutputCache {
 
         _writeLock.lock();
         for (final Sha256Hash transactionHash : sourceCache._transactionOutputs.keySet()) {
-            final Map<Integer, TransactionOutputId> sourceMap = sourceCache._transactionOutputs.remove(transactionHash);
+            final Map<Integer, TransactionOutputId> sourceMap = sourceCache._transactionOutputs.get(transactionHash);
             final Map<Integer, TransactionOutputId> existingMap = _transactionOutputs.get(transactionHash);
             if (existingMap == null) {
                 _transactionOutputs.put(transactionHash, new TreeMap<Integer, TransactionOutputId>(sourceMap));
@@ -134,6 +134,7 @@ public class UnspentTransactionOutputCache {
         }
         _writeLock.unlock();
 
+        sourceCache._transactionOutputs.clear();
         sourceCache._reverseMap.clear();
         sourceCache._invalidatedItems.clear();
         sourceCache._writeLock.unlock();

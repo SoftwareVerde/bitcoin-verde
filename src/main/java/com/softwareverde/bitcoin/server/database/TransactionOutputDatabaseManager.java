@@ -447,6 +447,8 @@ public class TransactionOutputDatabaseManager {
     }
 
     public void markTransactionOutputAsSpent(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        if (transactionOutputId == null) { return; }
+
 //        _databaseConnection.executeSql(
 //            new Query("UPDATE transaction_outputs SET is_spent = 1 WHERE id = ?")
 //                .setParameter(transactionOutputId)

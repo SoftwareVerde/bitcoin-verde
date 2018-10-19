@@ -90,7 +90,10 @@ public class TransactionInputDatabaseManager {
         final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputIdLong);
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
-        transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
+
+        if (previousTransactionOutputId != null) {
+            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
+        }
 
         final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
         _insertUnlockingScript(transactionInputId, unlockingScript);
@@ -343,7 +346,10 @@ public class TransactionInputDatabaseManager {
         //  While keeping this TransactionOutput marked as spent may lead to an unspent TransactionOutput being marked as spent it is fairly safe
         //  since this method is a performance improvement more so than a true representation of state.
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
-        transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
+
+        if (previousTransactionOutputId != null) {
+            transactionOutputDatabaseManager.markTransactionOutputAsSpent(previousTransactionOutputId);
+        }
 
         _updateUnlockingScript(transactionInputId, unlockingScript);
     }
