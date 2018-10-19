@@ -52,7 +52,17 @@ class cache {
         cache_t _map;
         reverse_cache_t _reverse_map;
         list_t _invalidated_items;
-        cache* _master_cache;
+        const cache* _master_cache;
+
+        void _remove_transaction_output_id(const jlong transaction_output_id) {
+            const reverse_cache_t::iterator iterator = _reverse_map.find(transaction_output_id);
+            if (iterator == _reverse_map.end()) { return; }
+
+            const prevout* prevout = iterator->second;
+            _reverse_map.erase(iterator);
+
+            _map.erase(prevout);
+        }
 
     public:
         cache() : _master_cache(0) { }
@@ -60,6 +70,43 @@ class cache {
         void cache_utxo(const prevout* const prevout, const jlong transaction_output_id) {
             _map[prevout] = transaction_output_id;
             _reverse_map[transaction_output_id] = prevout;
+        }
+
+        jlong get_cached_utxo(const prevout& prevout) const {
+            cache_t::const_iterator iterator = _map.find(&prevout);
+            if (iterator != _map.end()) {
+                return iterator->second;
+            }
+
+            if (_master_cache != 0) {
+                return _master_cache->get_cached_utxo(prevout);
+            }
+
+            return -1;
+        }
+
+        void set_master_cache(const cache* const master_cache) {
+            _master_cache = master_cache;
+        }
+
+        void invalidate_transaction_output_id(const jlong transaction_output_id) {
+            _remove_transaction_output_id(transaction_output_id);
+            _invalidated_items.push_back(transaction_output_id);
+        }
+
+        void commit(cache* const cache) {
+            for (cache_t::iterator iterator = cache->_map.begin(); iterator != cache->_map.end(); iterator++) {
+                _map[iterator->first] = iterator->second;
+                _reverse_map[iterator->second] = iterator->first;
+            }
+
+            for (list_t::iterator iterator = cache->_invalidated_items.begin(); iterator != cache->_invalidated_items.end(); iterator++) {
+                _remove_transaction_output_id(*iterator);
+            }
+
+            cache->_map.clear();
+            cache->_reverse_map.clear();
+            cache->_invalidated_items.clear();
         }
 
         ~cache() {
@@ -72,12 +119,12 @@ class cache {
 
 cache** CACHES = 0;
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1init(JNIEnv* enviconment, jclass _class) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1init(JNIEnv* environment, jclass _class) {
     CACHES = new cache*[256];
     memset(CACHES, 0, 256 * sizeof(cache*));
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1destroy(JNIEnv *, jclass) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1destroy(JNIEnv* environment, jclass _class) {
     for (int i=0; i<256; ++i) {
         if (CACHES[i] != 0) {
             delete CACHES[i];
@@ -116,15 +163,68 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
-    cache* cache = CACHES[cache_index];
+    cache* const cache = CACHES[cache_index];
     if (cache == 0) { return; }
-
-    printf("Caching: ");
-    for (int i = 0; i < length; ++i) {
-        printf("%02X", transaction_hash[i]);
-    }
-    printf(":%d -> %ld\n", transaction_output_index, transaction_output_id);
 
     const prevout* prevout = new struct prevout(transaction_hash, transaction_output_index);
     cache->cache_utxo(prevout, transaction_output_id);
 }
+
+JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1getCachedUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
+    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
+    if (cache_index >= 256) { return -1; }
+    if (cache_index < 0) { return -1; }
+
+    const cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return -1; }
+
+    const prevout prevout(transaction_hash, transaction_output_index);
+    return cache->get_cached_utxo(prevout);
+}
+
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1setMasterCache(JNIEnv* environment, jclass _class, jint cache_index, jint master_cache_index) {
+    if (cache_index >= 256) { return; }
+    if (cache_index < 0) { return; }
+
+    cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return; }
+
+    if (master_cache_index >= 256) { return; }
+
+    if (master_cache_index >= 0) {
+        const class cache* const master_cache = CACHES[master_cache_index];
+        cache->set_master_cache(master_cache);
+    }
+    else {
+        cache->set_master_cache(0);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong transaction_output_id) {
+    if (cache_index >= 256) { return; }
+    if (cache_index < 0) { return; }
+
+    cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return; }
+
+    cache->invalidate_transaction_output_id(transaction_output_id);
+}
+
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1commit(JNIEnv* environment, jclass _class, jint commit_to_cache_index, jint cache_index) {
+    if (commit_to_cache_index >= 256) { return; }
+    if (commit_to_cache_index < 0) { return; }
+
+    cache* const commit_to_cache = CACHES[commit_to_cache_index];
+    if (commit_to_cache == 0) { return; }
+
+    if (cache_index >= 256) { return; }
+    if (cache_index < 0) { return; }
+
+    cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return; }
+
+    commit_to_cache->commit(cache);
+}
+

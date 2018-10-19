@@ -133,8 +133,27 @@ public class Main {
             case "NODE": {
                 if (true) {
                     NativeUnspentTransactionOutputCache.init();
+                    final NativeUnspentTransactionOutputCache masterTransactionOutputCache = new NativeUnspentTransactionOutputCache();
+                    masterTransactionOutputCache.cacheUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, -1, TransactionOutputId.wrap(1L));
+                    {
+                        final TransactionOutputId cachedTransactionOutputId = masterTransactionOutputCache.getCachedUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, -1);
+                        System.out.println("Received Cached Item: " + cachedTransactionOutputId);
+                    }
+
                     final NativeUnspentTransactionOutputCache transactionOutputCache = new NativeUnspentTransactionOutputCache();
-                    transactionOutputCache.cacheUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, -1, TransactionOutputId.wrap(1L));
+                    transactionOutputCache.cacheUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, 0, TransactionOutputId.wrap(2L));
+                    transactionOutputCache.setMasterCache(masterTransactionOutputCache);
+                    {
+                        final TransactionOutputId cachedTransactionOutputId = transactionOutputCache.getCachedUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, -1);
+                        System.out.println("Received Cached Item: " + cachedTransactionOutputId);
+                    }
+                    {
+                        final TransactionOutputId cachedTransactionOutputId = transactionOutputCache.getCachedUnspentTransactionOutputId(Sha256Hash.EMPTY_HASH, 0);
+                        System.out.println("Received Cached Item: " + cachedTransactionOutputId);
+                    }
+                    transactionOutputCache.delete();
+
+                    masterTransactionOutputCache.delete();
                     NativeUnspentTransactionOutputCache.destroy();
                     System.out.println("Done.");
                     break;

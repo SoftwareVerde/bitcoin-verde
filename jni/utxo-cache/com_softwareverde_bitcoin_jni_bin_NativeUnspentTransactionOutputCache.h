@@ -47,6 +47,38 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1cacheUnspentTransactionOutputId
   (JNIEnv *, jclass, jint, jbyteArray, jint, jlong);
 
+/*
+ * Class:     com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache
+ * Method:    _getCachedUnspentTransactionOutputId
+ * Signature: (I[BI)J
+ */
+JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1getCachedUnspentTransactionOutputId
+  (JNIEnv *, jclass, jint, jbyteArray, jint);
+
+/*
+ * Class:     com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache
+ * Method:    _setMasterCache
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1setMasterCache
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache
+ * Method:    _invalidateUnspentTransactionOutputId
+ * Signature: (IJ)V
+ */
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId
+  (JNIEnv *, jclass, jint, jlong);
+
+/*
+ * Class:     com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache
+ * Method:    _commit
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1commit
+  (JNIEnv *, jclass, jint, jint);
+
 #ifdef __cplusplus
 }
 #endif
