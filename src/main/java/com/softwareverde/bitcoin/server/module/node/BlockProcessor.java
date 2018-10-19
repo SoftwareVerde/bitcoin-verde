@@ -65,213 +65,213 @@ public class BlockProcessor {
     }
 
     protected Long _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final Sha256Hash blockHash = block.getHash();
+        try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache)) {
+            final Sha256Hash blockHash = block.getHash();
+            _processedBlockCount += 1;
 
-        _processedBlockCount += 1;
-        final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
+            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
 
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
-        final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
-
-        final BlockId blockId;
-        final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
-        if (blockHeaderExists) {
-            final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
-            if (blockHasTransactions) {
-                Logger.log("Skipping known block: " + blockHash);
-                final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
-            }
-
-            blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        }
-        else {
-            // Store the BlockHeader...
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                final NanoTimer storeBlockHeaderTimer = new NanoTimer();
-
-                TransactionUtil.startTransaction(databaseConnection);
-                {
-                    Logger.log("Processing Block: " + blockHash);
-                    final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
-                    if (blockHasTransactions) {
-                        Logger.log("Skipping known block: " + blockHash);
-                        final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-                        return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
-                    }
-
-                    storeBlockHeaderTimer.start();
-                    blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
-
-                    if (blockId == null) {
-                        Logger.log("Error storing BlockHeader: " + blockHash);
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        return null;
-                    }
-
-                    final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                    final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
-                    if (!blockHeaderIsValid) {
-                        Logger.log("Invalid BlockHeader: " + blockHash);
-                        TransactionUtil.rollbackTransaction(databaseConnection);
-                        return null;
-                    }
-
-                    storeBlockHeaderTimer.stop();
-                }
-                TransactionUtil.commitTransaction(databaseConnection);
-            }
-        }
-
-        final NanoTimer storeBlockTimer = new NanoTimer();
-        final NanoTimer blockValidationTimer = new NanoTimer();
-        TransactionUtil.startTransaction(databaseConnection);
-        {
-            storeBlockTimer.start();
-            final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
-            storeBlockTimer.stop();
-
-            if (!transactionsStoredSuccessfully) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                Logger.log("Invalid block. Unable to store transactions for block: " + blockHash);
-                return null;
-            }
-
-            final int transactionCount = block.getTransactions().getSize();
-            Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
-
-            final Boolean blockIsValid;
-
-            final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
-            try (final MysqlDatabaseConnectionPool readUncommittedDatabaseConnectionPool = new MysqlDatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
-                final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                blockValidator.setMaxThreadCount(_maxThreadCount);
-                blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
-
-                blockValidationTimer.start();
-                blockIsValid = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
-                blockValidationTimer.stop();
-
-                // localDatabaseManagerCache.log();
-                localDatabaseManagerCache.resetLog();
-
-            }
-
-            if (! blockIsValid) {
-                TransactionUtil.rollbackTransaction(databaseConnection);
-                Logger.log("Invalid block. Transactions did not validate for block: " + blockHash);
-                return null;
-            }
-        }
-        TransactionUtil.commitTransaction(databaseConnection);
-
-        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-
-        final BlockDeflater blockDeflater = new BlockDeflater();
-        final Integer byteCount = blockDeflater.getByteCount(block);
-        blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
-
-        _medianBlockTime.addBlock(block);
-
-        final BlockChainSegmentId newHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
-        final Boolean bestBlockChainHasChanged = (! Util.areEqual(newHeadBlockChainSegmentId, originalHeadBlockChainSegmentId));
-
-        { // Maintain memory-pool correctness...
-            if (bestBlockChainHasChanged) {
-                // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
-                // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
-                BlockId nextBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(originalHeadBlockChainSegmentId);
-
-                while (nextBlockId != null) {
-                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
-                    for (int i = 1; i < transactionIds.getSize(); ++i) {
-                        final TransactionId transactionId = transactionIds.get(i);
-                        transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
-                    }
-
-                    // 2. Continue to traverse up the chain until the block is connected to the new headBlockChain...
-                    nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
-                    final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
-                    if (nextBlockIsConnectedToNewHeadBlockChain) { break; }
+            final BlockId blockId;
+            final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
+            if (blockHeaderExists) {
+                final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
+                if (blockHasTransactions) {
+                    Logger.log("Skipping known block: " + blockHash);
+                    final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                    return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
                 }
 
-                // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
-                while (nextBlockId != null) {
-                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
-                    for (int i = 1; i < transactionIds.getSize(); ++i) {
-                        final TransactionId transactionId = transactionIds.get(i);
-                        transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
-                    }
-
-                    nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
-                }
-
-                // 4. Validate that the transactions are still valid on the new chain...
-                final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                transactionValidator.setLoggingEnabled(false);
-
-                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
-                for (final TransactionId transactionId : transactionIds) {
-                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockChainSegmentId, blockHeight, transaction, false);
-                    if (!transactionIsValid) {
-                        transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
-                    }
-                }
+                blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             }
             else {
-                // Remove any transactions in the memory pool that were included in this block...
-                final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
-                for (int i = 1; i < transactionIds.getSize(); ++i) {
-                    final TransactionId transactionId = transactionIds.get(i);
-                    transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                // Store the BlockHeader...
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    final NanoTimer storeBlockHeaderTimer = new NanoTimer();
+
+                    TransactionUtil.startTransaction(databaseConnection);
+                    {
+                        Logger.log("Processing Block: " + blockHash);
+                        final Boolean blockHasTransactions = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
+                        if (blockHasTransactions) {
+                            Logger.log("Skipping known block: " + blockHash);
+                            final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                            return blockHeaderDatabaseManager.getBlockHeight(existingBlockId);
+                        }
+
+                        storeBlockHeaderTimer.start();
+                        blockId = blockHeaderDatabaseManager.storeBlockHeader(block);
+
+                        if (blockId == null) {
+                            Logger.log("Error storing BlockHeader: " + blockHash);
+                            TransactionUtil.rollbackTransaction(databaseConnection);
+                            return null;
+                        }
+
+                        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                        final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
+                        if (!blockHeaderIsValid) {
+                            Logger.log("Invalid BlockHeader: " + blockHash);
+                            TransactionUtil.rollbackTransaction(databaseConnection);
+                            return null;
+                        }
+
+                        storeBlockHeaderTimer.stop();
+                    }
+                    TransactionUtil.commitTransaction(databaseConnection);
                 }
             }
-        }
 
-        final Integer blockTransactionCount = block.getTransactions().getSize();
-
-        final Float averageBlocksPerSecond;
-        final Float averageTransactionsPerSecond;
-        synchronized (_statisticsMutex) {
-            _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed()));
-            _transactionsPerBlock.add(blockTransactionCount);
-
-            final Integer blockCount = _blocksPerSecond.size();
-            final Long validationTimeElapsed;
+            final NanoTimer storeBlockTimer = new NanoTimer();
+            final NanoTimer blockValidationTimer = new NanoTimer();
+            TransactionUtil.startTransaction(databaseConnection);
             {
-                long value = 0L;
-                for (final Long elapsed : _blocksPerSecond) {
-                    value += elapsed;
+                storeBlockTimer.start();
+                final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
+                storeBlockTimer.stop();
+
+                if (!transactionsStoredSuccessfully) {
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    Logger.log("Invalid block. Unable to store transactions for block: " + blockHash);
+                    return null;
                 }
-                validationTimeElapsed = value;
+
+                final int transactionCount = block.getTransactions().getSize();
+                Logger.log("Stored " + transactionCount + " transactions in " + (String.format("%.2f", storeBlockTimer.getMillisecondsElapsed())) + "ms (" + String.format("%.2f", ((((double) transactionCount) / storeBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+
+                final Boolean blockIsValid;
+
+                final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
+                try (final MysqlDatabaseConnectionPool readUncommittedDatabaseConnectionPool = new MysqlDatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
+                    final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                    blockValidator.setMaxThreadCount(_maxThreadCount);
+                    blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+
+                    blockValidationTimer.start();
+                    blockIsValid = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                    blockValidationTimer.stop();
+
+                    // localDatabaseManagerCache.log();
+                    localDatabaseManagerCache.resetLog();
+
+                }
+
+                if (! blockIsValid) {
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    Logger.log("Invalid block. Transactions did not validate for block: " + blockHash);
+                    return null;
+                }
+            }
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+
+            final BlockDeflater blockDeflater = new BlockDeflater();
+            final Integer byteCount = blockDeflater.getByteCount(block);
+            blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
+
+            _medianBlockTime.addBlock(block);
+
+            final BlockChainSegmentId newHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+            final Boolean bestBlockChainHasChanged = (! Util.areEqual(newHeadBlockChainSegmentId, originalHeadBlockChainSegmentId));
+
+            { // Maintain memory-pool correctness...
+                if (bestBlockChainHasChanged) {
+                    // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
+                    // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
+                    BlockId nextBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(originalHeadBlockChainSegmentId);
+
+                    while (nextBlockId != null) {
+                        final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
+                        for (int i = 1; i < transactionIds.getSize(); ++i) {
+                            final TransactionId transactionId = transactionIds.get(i);
+                            transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
+                        }
+
+                        // 2. Continue to traverse up the chain until the block is connected to the new headBlockChain...
+                        nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
+                        final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
+                        if (nextBlockIsConnectedToNewHeadBlockChain) { break; }
+                    }
+
+                    // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
+                    while (nextBlockId != null) {
+                        final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
+                        for (int i = 1; i < transactionIds.getSize(); ++i) {
+                            final TransactionId transactionId = transactionIds.get(i);
+                            transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                        }
+
+                        nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
+                    }
+
+                    // 4. Validate that the transactions are still valid on the new chain...
+                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
+                    transactionValidator.setLoggingEnabled(false);
+
+                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
+                    for (final TransactionId transactionId : transactionIds) {
+                        final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                        final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockChainSegmentId, blockHeight, transaction, false);
+                        if (!transactionIsValid) {
+                            transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                        }
+                    }
+                }
+                else {
+                    // Remove any transactions in the memory pool that were included in this block...
+                    final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
+                    for (int i = 1; i < transactionIds.getSize(); ++i) {
+                        final TransactionId transactionId = transactionIds.get(i);
+                        transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
+                    }
+                }
             }
 
-            final Integer totalTransactionCount;
-            {
-                int value = 0;
-                for (final Integer transactionCount : _transactionsPerBlock) {
-                    value += transactionCount;
+            final Integer blockTransactionCount = block.getTransactions().getSize();
+
+            final Float averageBlocksPerSecond;
+            final Float averageTransactionsPerSecond;
+            synchronized (_statisticsMutex) {
+                _blocksPerSecond.add(Math.round(blockValidationTimer.getMillisecondsElapsed() + storeBlockTimer.getMillisecondsElapsed()));
+                _transactionsPerBlock.add(blockTransactionCount);
+
+                final Integer blockCount = _blocksPerSecond.size();
+                final Long validationTimeElapsed;
+                {
+                    long value = 0L;
+                    for (final Long elapsed : _blocksPerSecond) {
+                        value += elapsed;
+                    }
+                    validationTimeElapsed = value;
                 }
-                totalTransactionCount = value;
+
+                final Integer totalTransactionCount;
+                {
+                    int value = 0;
+                    for (final Integer transactionCount : _transactionsPerBlock) {
+                        value += transactionCount;
+                    }
+                    totalTransactionCount = value;
+                }
+
+                averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+                averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
             }
 
-            averageBlocksPerSecond = ( (blockCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
-            averageTransactionsPerSecond = ( (totalTransactionCount.floatValue() / validationTimeElapsed.floatValue()) * 1000F );
+            // _averageBlocksPerSecond.value = averageBlocksPerSecond;
+            final Long now = System.currentTimeMillis();
+            _averageBlocksPerSecond.value = ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
+            _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
+
+            _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+
+            return blockHeight;
         }
-
-        // _averageBlocksPerSecond.value = averageBlocksPerSecond;
-        final Long now = System.currentTimeMillis();
-        _averageBlocksPerSecond.value = ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
-        _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
-
-        _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
-
-        return blockHeight;
     }
 
     public Long processBlock(final Block block) {

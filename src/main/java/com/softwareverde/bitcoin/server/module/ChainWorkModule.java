@@ -132,6 +132,8 @@ public class ChainWorkModule {
             BitcoinUtil.exitFailure();
         }
 
+        masterDatabaseManagerCache.close();
+
         System.exit(0);
     }
 }

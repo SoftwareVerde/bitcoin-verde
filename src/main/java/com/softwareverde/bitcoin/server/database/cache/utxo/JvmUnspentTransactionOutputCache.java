@@ -1,8 +1,9 @@
-package com.softwareverde.bitcoin.server.database.cache;
+package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.Comparator;
@@ -11,7 +12,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class UnspentTransactionOutputCache {
+public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
     public static final Integer MAX_ITEM_COUNT = (1 << 28); // 268,435,456
 
     protected final ReentrantReadWriteLock.ReadLock _readLock;
@@ -49,16 +50,18 @@ public class UnspentTransactionOutputCache {
         }
     }
 
-    public UnspentTransactionOutputCache() {
+    public JvmUnspentTransactionOutputCache() {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
         _writeLock = readWriteLock.writeLock();
     }
 
+    @Override
     public void setMasterCache(final UnspentTransactionOutputCache masterCache) {
         _masterCache = masterCache;
     }
 
+    @Override
     public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
         _writeLock.lock();
         Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionHash);
@@ -73,6 +76,7 @@ public class UnspentTransactionOutputCache {
         _writeLock.unlock();
     }
 
+    @Override
     public TransactionOutputId getCachedUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
         _readLock.lock();
         final Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionHash);
@@ -95,6 +99,7 @@ public class UnspentTransactionOutputCache {
         return null;
     }
 
+    @Override
     public void invalidateUnspentTransactionOutputId(final TransactionOutputId transactionOutputId) {
         _writeLock.lock();
         _removeTransactionOutputId(transactionOutputId);
@@ -102,6 +107,7 @@ public class UnspentTransactionOutputCache {
         _writeLock.unlock();
     }
 
+    @Override
     public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputId> transactionOutputIds) {
         _writeLock.lock();
         for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
@@ -111,10 +117,14 @@ public class UnspentTransactionOutputCache {
         _writeLock.unlock();
     }
 
-    /**
-     * Absorbs and clears the sourceCache.
-     */
-    public void commit(final UnspentTransactionOutputCache sourceCache) {
+    @Override
+    public void commit(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        if (! (unspentTransactionOutputCache instanceof JvmUnspentTransactionOutputCache)) {
+            Logger.log("NOTICE: Attempted to commit cache of different type.");
+            return;
+        }
+
+        final JvmUnspentTransactionOutputCache sourceCache = (JvmUnspentTransactionOutputCache) unspentTransactionOutputCache;
         sourceCache._writeLock.lock();
 
         _writeLock.lock();
@@ -140,8 +150,12 @@ public class UnspentTransactionOutputCache {
         sourceCache._writeLock.unlock();
     }
 
-    public void clear() {
+    @Override
+    public void close() {
+        _writeLock.lock();
+        _transactionOutputs.clear();
         _reverseMap.clear();
         _invalidatedItems.clear();
+        _writeLock.unlock();
     }
 }

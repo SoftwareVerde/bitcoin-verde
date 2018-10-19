@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
@@ -160,6 +161,7 @@ public class NodeModule {
         }
 
         masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+        localDatabaseManagerCache.close();
     }
 
     protected NodeModule(final String configurationFilename) {
@@ -191,8 +193,8 @@ public class NodeModule {
                     commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
                     commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
-                    commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
-                    // commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
+                    // commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
 
                     commandLineArguments.setQueryCacheByteCount(0L);
 
@@ -224,6 +226,16 @@ public class NodeModule {
             }
         }
 
+        { // Initialize the NativeUnspentTransactionOutputCache...
+            final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+            if (nativeCacheIsEnabled) {
+                NativeUnspentTransactionOutputCache.init();
+            }
+            else {
+                Logger.log("NOTICE: NativeUtxoCache not enabled.");
+            }
+        }
+
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache();
         final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
@@ -232,8 +244,6 @@ public class NodeModule {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
 
         _banFilter = new BanFilter(databaseConnectionFactory);
-
-        // final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final MutableMedianBlockTime medianBlockTime;
         final MutableMedianBlockTime medianBlockHeaderTime;
@@ -459,6 +469,8 @@ public class NodeModule {
             final MysqlDatabaseConnectionPool databaseConnectionPool = _openDatabaseConnectionPools.remove(0);
             databaseConnectionPool.close();
         }
+
+        _environment.getMasterDatabaseManagerCache().close();
 
         System.exit(0);
     }

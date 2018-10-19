@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -13,9 +16,13 @@ import com.softwareverde.constable.list.List;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
-    public LocalDatabaseManagerCache() { }
+    public LocalDatabaseManagerCache() {
+        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache() : new JvmUnspentTransactionOutputCache());
+    }
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {
+        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache() : new JvmUnspentTransactionOutputCache());
+
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());
         _transactionCache.setMasterCache(masterCache.getTransactionCache());
         _transactionOutputIdCache.setMasterCache(masterCache.getTransactionOutputIdCache());
@@ -41,6 +48,10 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionOutputIdCache.resetDebug();
         _blockIdBlockChainSegmentIdCache.resetDebug();
         _addressIdCache.resetDebug();
+    }
+
+    public void destroy() {
+
     }
 
 
@@ -187,7 +198,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // UNSPENT TRANSACTION OUTPUT CACHE --------------------------------------------------------------------------------
 
-    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache = new UnspentTransactionOutputCache();
+    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
 
     @Override
     public void cacheUnspentTransactionOutputId(final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
@@ -212,5 +223,10 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
     public UnspentTransactionOutputCache getUnspentTransactionOutputCache() { return _unspentTransactionOutputCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
+
+    @Override
+    public void close() {
+        _unspentTransactionOutputCache.close();
+    }
 
 }

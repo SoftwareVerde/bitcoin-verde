@@ -101,12 +101,13 @@ public class ChainValidationModule {
     public void run() {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection();
+                final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
+
             final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
@@ -173,6 +174,8 @@ public class ChainValidationModule {
             Logger.log("Last validated block: " + nextBlockHash);
             BitcoinUtil.exitFailure();
         }
+
+        _environment.getMasterDatabaseManagerCache().close();
 
         System.exit(0);
     }

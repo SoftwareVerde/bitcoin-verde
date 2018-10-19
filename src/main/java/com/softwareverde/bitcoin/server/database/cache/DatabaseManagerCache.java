@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 
-public interface DatabaseManagerCache {
+public interface DatabaseManagerCache extends AutoCloseable {
     void log();
     void resetLog();
 
@@ -53,4 +53,7 @@ public interface DatabaseManagerCache {
     void cacheBlockHeight(BlockId blockId, Long blockHeight);
     Long getCachedBlockHeight(BlockId blockId);
     void invalidateBlockHeaderCache();
+
+    @Override
+    void close();
 }

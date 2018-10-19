@@ -190,6 +190,7 @@ public class RepairModule {
             catch (final InterruptedException exception) { break; }
         }
 
+        _environment.getMasterDatabaseManagerCache().close();
         System.exit(0);
     }
 }

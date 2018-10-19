@@ -83,4 +83,7 @@ public class EmptyDatabaseManagerCache implements DatabaseManagerCache {
 
     @Override
     public void invalidateBlockHeaderCache() { }
+
+    @Override
+    public void close() { }
 }

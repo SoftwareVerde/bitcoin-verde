@@ -1,8 +1,7 @@
 #include <jni.h>
-#include <stdio.h>
 #include <map>
 #include <list>
-#include "com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache.h"
+#include "com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.h"
 
 struct prevout {
     jbyte transaction_hash[32];
@@ -119,12 +118,12 @@ class cache {
 
 cache** CACHES = 0;
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1init(JNIEnv* environment, jclass _class) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1init(JNIEnv* environment, jclass _class) {
     CACHES = new cache*[256];
     memset(CACHES, 0, 256 * sizeof(cache*));
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1destroy(JNIEnv* environment, jclass _class) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1destroy(JNIEnv* environment, jclass _class) {
     for (int i=0; i<256; ++i) {
         if (CACHES[i] != 0) {
             delete CACHES[i];
@@ -134,10 +133,9 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     delete[] CACHES;
 }
 
-JNIEXPORT jint JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1createCache(JNIEnv* environment, jclass _class) {
+JNIEXPORT jint JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1createCache(JNIEnv* environment, jclass _class) {
     for (int i=0; i<256; ++i) {
         if (CACHES[i] == 0) {
-            printf("Allocating cache at index: %d\n", i);
             CACHES[i] = new cache();
             return i;
         }
@@ -146,7 +144,7 @@ JNIEXPORT jint JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     return -1;
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1deleteCache(JNIEnv* environment, jclass _class, jint cache_index) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1deleteCache(JNIEnv* environment, jclass _class, jint cache_index) {
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
@@ -156,7 +154,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     }
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1cacheUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index, jlong transaction_output_id) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1cacheUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index, jlong transaction_output_id) {
     const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
     const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
 
@@ -170,7 +168,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     cache->cache_utxo(prevout, transaction_output_id);
 }
 
-JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1getCachedUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
+JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1getCachedUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
     const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
     const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
 
@@ -184,7 +182,7 @@ JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTran
     return cache->get_cached_utxo(prevout);
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1setMasterCache(JNIEnv* environment, jclass _class, jint cache_index, jint master_cache_index) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1setMasterCache(JNIEnv* environment, jclass _class, jint cache_index, jint master_cache_index) {
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
@@ -202,7 +200,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     }
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong transaction_output_id) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong transaction_output_id) {
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
@@ -212,7 +210,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTrans
     cache->invalidate_transaction_output_id(transaction_output_id);
 }
 
-JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_bin_NativeUnspentTransactionOutputCache__1commit(JNIEnv* environment, jclass _class, jint commit_to_cache_index, jint cache_index) {
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1commit(JNIEnv* environment, jclass _class, jint commit_to_cache_index, jint cache_index) {
     if (commit_to_cache_index >= 256) { return; }
     if (commit_to_cache_index < 0) { return; }
 
