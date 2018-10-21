@@ -34,8 +34,7 @@ public class BlockDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         storeBlockTimer.start();
-        if (transactions.getSize() > 256) {
-            // Use batched inserts...
+        {
             final List<TransactionId> transactionIds = transactionDatabaseManager.storeTransactions(transactions);
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }
 
@@ -43,12 +42,6 @@ public class BlockDatabaseManager {
             transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
             associateTransactionsTimer.stop();
             Logger.log("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
-        }
-        else {
-            for (final Transaction transaction : transactions) {
-                final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
-                transactionDatabaseManager.associateTransactionToBlock(transactionId, blockId);
-            }
         }
         storeBlockTimer.stop();
         Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");

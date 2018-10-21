@@ -25,6 +25,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.Map;
 
@@ -32,27 +33,27 @@ public class TransactionInputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected TransactionOutputId _getPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
-
-        final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-
-        final TransactionId previousOutputTransactionId;
-        {
-            final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(previousOutputTransactionHash.asConst());
-            if (cachedTransactionId != null) {
-                previousOutputTransactionId = cachedTransactionId;
-            }
-            else {
-                previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
-                if (previousOutputTransactionId == null) { return null; }
-            }
-        }
-
-        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-        return transactionOutputId;
-    }
+//    protected TransactionOutputId _getPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
+//        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+//        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+//
+//        final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+//
+//        final TransactionId previousOutputTransactionId;
+//        {
+//            final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(previousOutputTransactionHash.asConst());
+//            if (cachedTransactionId != null) {
+//                previousOutputTransactionId = cachedTransactionId;
+//            }
+//            else {
+//                previousOutputTransactionId = transactionDatabaseManager.getTransactionId(previousOutputTransactionHash);
+//                if (previousOutputTransactionId == null) { return null; }
+//            }
+//        }
+//
+//        final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousOutputTransactionId, previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+//        return transactionOutputId;
+//    }
 
     protected TransactionInputId _findTransactionInputId(final TransactionId transactionId, final TransactionOutputId previousTransactionOutputId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
@@ -74,7 +75,8 @@ public class TransactionInputDatabaseManager {
                 previousTransactionOutputId = null;
             }
             else {
-                previousTransactionOutputId = _getPreviousTransactionOutputId(transactionInput);
+                final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+                previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
                 if (previousTransactionOutputId == null) {
                     throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
                 }
@@ -143,7 +145,8 @@ public class TransactionInputDatabaseManager {
     }
 
     public TransactionInputId getTransactionInputId(final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
-        final TransactionOutputId previousTransactionOutputId = _getPreviousTransactionOutputId(transactionInput);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final TransactionOutputId previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
         return _findTransactionInputId(transactionId, previousTransactionOutputId);
     }
 
@@ -155,12 +158,13 @@ public class TransactionInputDatabaseManager {
         if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
 
-        final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
-        final MilliTimer findPreviousTxOutputTimer = new MilliTimer();
+        // final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
+        final NanoTimer findPreviousTxOutputTimer = new NanoTimer();
         final MilliTimer txInputPrepareInsertQueryTimer = new MilliTimer();
         final MilliTimer insertTxInputTimer = new MilliTimer();
         final MilliTimer insertUnlockingScriptsTimer = new MilliTimer();
         final MilliTimer markOutputsAsSpentTimer = new MilliTimer();
+        double totalFindPreviousTxOutputTime = 0D;
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
@@ -173,10 +177,10 @@ public class TransactionInputDatabaseManager {
         final MutableList<TransactionOutputId> newlySpentTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
         final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionCount * 2);
 
-        findPreviousTxOutputTimer.start();
-        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
-        if (previousTransactionOutputsMap == null) { return null; }
-        findPreviousTxOutputTimer.stop();
+//        findPreviousTxOutputTimer.start();
+//        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
+//        if (previousTransactionOutputsMap == null) { return null; }
+//        findPreviousTxOutputTimer.stop();
 
         txInputPrepareInsertQueryTimer.start();
         int transactionInputIdCount = 0;
@@ -190,7 +194,20 @@ public class TransactionInputDatabaseManager {
                 unlockingScripts.add(unlockingScript);
 
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
+                final Boolean isCoinbase = Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash());
+
+                // final TransactionOutputId previousTransactionOutputId = previousTransactionOutputsMap.get(transactionOutputIdentifier);
+                final TransactionOutputId previousTransactionOutputId;
+                if (isCoinbase) {
+                    previousTransactionOutputId = null;
+                }
+                else {
+                    findPreviousTxOutputTimer.start();
+                    previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
+                    findPreviousTxOutputTimer.stop();
+                    totalFindPreviousTxOutputTime += findPreviousTxOutputTimer.getMillisecondsElapsed();
+                    if (previousTransactionOutputId == null) { return null; }
+                }
 
                 if (previousTransactionOutputId != null) { // Should only true for the coinbase input...
                     newlySpentTransactionOutputIds.add(previousTransactionOutputId);
@@ -225,8 +242,9 @@ public class TransactionInputDatabaseManager {
         transactionOutputDatabaseManager.markTransactionOutputsAsSpent(newlySpentTransactionOutputIds, newlySpentTransactionOutputIdentifiers);
         markOutputsAsSpentTimer.stop();
 
-        Logger.log("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
+        // Logger.log("findPreviousTransactionsTimer: " + findPreviousTransactionsTimer.getMillisecondsElapsed() + "ms");
+        // Logger.log("findPreviousTxOutputTimer: " + findPreviousTxOutputTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("findPreviousTxOutputTimer: " + totalFindPreviousTxOutputTime + "ms");
         Logger.log("txInputPrepareInsertQueryTimer: " + txInputPrepareInsertQueryTimer.getMillisecondsElapsed() + "ms");
         Logger.log("insertTxInputTimer: " + insertTxInputTimer.getMillisecondsElapsed() + "ms");
         Logger.log("insertUnlockingScriptsTimer: " + insertUnlockingScriptsTimer.getMillisecondsElapsed() + "ms");
@@ -304,7 +322,8 @@ public class TransactionInputDatabaseManager {
     }
 
     public TransactionOutputId findPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
-        return _getPreviousTransactionOutputId(transactionInput);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+        return transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
     }
 
     public List<TransactionInputId> getTransactionInputIds(final TransactionId transactionId) throws DatabaseException {
@@ -329,7 +348,8 @@ public class TransactionInputDatabaseManager {
                 previousTransactionOutputId = null;
             }
             else {
-                previousTransactionOutputId = _getPreviousTransactionOutputId(transactionInput);
+                final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+                previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
                 if (previousTransactionOutputId == null) {
                     throw new DatabaseException("Could not find TransactionInput.previousOutputTransaction: " + transactionId + " " + transactionInput.getPreviousOutputIndex() + ":" + transactionInput.getPreviousOutputTransactionHash());
                 }

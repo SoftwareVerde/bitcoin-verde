@@ -46,6 +46,7 @@ import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
@@ -116,6 +117,7 @@ public class NodeModule {
                         final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
                         final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
                         final Integer transactionOutputIndex = row.getInteger("index");
+
                         localDatabaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
                         lastRowId = rowId;
 

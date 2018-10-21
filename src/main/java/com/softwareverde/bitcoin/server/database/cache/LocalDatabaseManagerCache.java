@@ -105,7 +105,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION OUTPUT ID CACHE -------------------------------------------------------------------------------------
 
-    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
 
     @Override
     public void cacheTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
@@ -153,7 +153,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // ADDRESS ID CACHE ------------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", 262144);
+    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
 
     @Override
     public void cacheAddressId(final String address, final AddressId addressId) {

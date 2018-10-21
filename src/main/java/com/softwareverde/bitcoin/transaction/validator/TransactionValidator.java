@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumberType;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
@@ -309,17 +310,15 @@ public class TransactionValidator {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
                 final Sha256Hash transactionOutputBeingSpentTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final Integer transactionOutputBeingSpentIndex = transactionInput.getPreviousOutputIndex();
-
-                final TransactionId transactionOutputIdBeingSpentTransactionId = _transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
-                if (transactionOutputIdBeingSpentTransactionId == null) {
+                final TransactionId transactionOutputBeingSpentTransactionId = _transactionDatabaseManager.getTransactionId(transactionOutputBeingSpentTransactionHash);
+                if (transactionOutputBeingSpentTransactionId == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
                     }
                     return false;
                 }
 
-                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdBeingSpentTransactionId, transactionOutputBeingSpentTransactionHash, transactionOutputBeingSpentIndex);
+                final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
                 if (transactionOutputIdBeingSpent == null) {
                     if (_shouldLogInvalidTransactions) {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionOutputId not found.");
@@ -327,7 +326,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockChainSegmentId, transactionOutputIdBeingSpentTransactionId);
+                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockChainSegmentId, transactionOutputBeingSpentTransactionId);
 
                 { // Validate the UTXO has been mined on this blockChain...
                     if (outputBeingSpentMinedCount == 0) {

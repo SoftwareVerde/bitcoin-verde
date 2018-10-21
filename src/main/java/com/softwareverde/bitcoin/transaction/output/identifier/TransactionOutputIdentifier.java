@@ -1,10 +1,15 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.util.Util;
 
 public class TransactionOutputIdentifier implements Const {
+    public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
+        return new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+    }
+
     protected final Sha256Hash _transactionHash;
     protected final Integer _outputIndex;
 

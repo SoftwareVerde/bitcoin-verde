@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -49,11 +50,7 @@ public class TransactionOutputDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    /**
-     * Attempts to first find an unspent TransactionOutput that matches the TransactionId/Index combination.
-     *  If an unspent TransactionOutput is not found, the search is repeated for spent TransactionOutputs.
-     */
-    protected TransactionOutputId _findTransactionOutput(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
+    protected TransactionOutputId _getTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         final TransactionOutputId cachedTransactionOutputId = _databaseManagerCache.getCachedTransactionOutputId(transactionId, transactionOutputIndex);
         if (cachedTransactionOutputId != null) { return cachedTransactionOutputId; }
 
@@ -77,6 +74,9 @@ public class TransactionOutputDatabaseManager {
         { // Attempt to find the UTXO from the in-memory cache...
             final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
             if (cachedUnspentTransactionOutputId != null) { return cachedUnspentTransactionOutputId; }
+            Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+            // Logger.log(new Exception());
+            // BitcoinUtil.exitFailure();
         }
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -122,6 +122,8 @@ public class TransactionOutputDatabaseManager {
                 .setParameter(transactionHash)
                 .setParameter(transactionOutputIndex)
         );
+
+        _databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
     }
 
     protected void _insertUnspentTransactionOutputs(final List<TransactionOutputId> transactionOutputIds, final List<UnspentTransactionOutputs> unspentTransactionOutputsList) throws DatabaseException {
@@ -134,6 +136,8 @@ public class TransactionOutputDatabaseManager {
                 batchedInsertQuery.setParameter(transactionOutputId);
                 batchedInsertQuery.setParameter(unspentTransactionOutputs.transactionHash);
                 batchedInsertQuery.setParameter(unspentTransactionOutputIndex);
+
+                _databaseManagerCache.cacheUnspentTransactionOutputId(unspentTransactionOutputs.transactionHash, unspentTransactionOutputIndex, transactionOutputId);
 
                 transactionOutputIdIndex += 1;
             }
@@ -345,23 +349,6 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIds;
     }
 
-    public TransactionOutputId findTransactionOutput(final TransactionId transactionId, final Sha256Hash nullableTransactionHash, final Integer transactionOutputIndex) throws DatabaseException {
-        final Sha256Hash transactionHash;
-        if (nullableTransactionHash == null) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
-            transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
-            _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
-        }
-        else {
-            transactionHash = nullableTransactionHash;
-        }
-
-        final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
-        if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
-
-        return _findTransactionOutput(transactionId, transactionOutputIndex);
-    }
-
     public TransactionOutputId findTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) throws DatabaseException {
         final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
         final Integer transactionOutputIndex = transactionOutputIdentifier.getOutputIndex();
@@ -369,11 +356,13 @@ public class TransactionOutputDatabaseManager {
         final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
         if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
 
+        Logger.log("INFO: Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
         if (transactionId == null) { return null; }
 
-        final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIndex);
+        final TransactionOutputId transactionOutputId = _getTransactionOutputId(transactionId, transactionOutputIndex);
         return transactionOutputId;
     }
 
@@ -429,7 +418,7 @@ public class TransactionOutputDatabaseManager {
                     return null;
                 }
 
-                final TransactionOutputId transactionOutputId = _findTransactionOutput(transactionId, transactionOutputIdentifier.getOutputIndex());
+                final TransactionOutputId transactionOutputId = _getTransactionOutputId(transactionId, transactionOutputIdentifier.getOutputIndex());
                 if (transactionOutputId == null) {
                     Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionId + ":" + transactionOutputIdentifier.getOutputIndex());
                     return null;
