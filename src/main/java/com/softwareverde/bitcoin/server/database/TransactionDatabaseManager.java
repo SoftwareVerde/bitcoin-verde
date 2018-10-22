@@ -29,6 +29,7 @@ import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -151,8 +152,8 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
-    protected List<TransactionId> _storeTransactionsRecords(final List<Transaction> transactions) throws DatabaseException {
-        if (transactions.isEmpty()) { return new MutableList<TransactionId>(0); }
+    protected Map<Sha256Hash, TransactionId> _storeTransactionsRecords(final List<Transaction> transactions) throws DatabaseException {
+        if (transactions.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
 
         final Integer transactionCount = transactions.getSize();
 
@@ -172,29 +173,33 @@ public class TransactionDatabaseManager {
         final Long firstTransactionId = _databaseConnection.executeSql(batchedInsertQuery);
         if (firstTransactionId == null) { return null; }
 
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
-        );
-        if (! Util.areEqual(transactionCount, rows.size())) { return null; }
+        final Integer affectedRowCount = _databaseConnection.getRowsAffectedCount();
 
-        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(transactionCount);
+        final List<Long> transactionIdRange;
+        {
+            final ImmutableListBuilder<Long> rowIds = new ImmutableListBuilder<Long>(affectedRowCount);
+            for (int i = 0; i < affectedRowCount; ++i) {
+                rowIds.add(firstTransactionId + i);
+            }
+            transactionIdRange = rowIds.build();
+        }
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
+        );
+        if (! Util.areEqual(affectedRowCount, rows.size())) { return null; }
+
+        final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
             final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
             transactionHashMap.put(transactionHash, transactionId);
-        }
-
-        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactionCount);
-        for (final Transaction transaction : transactions) {
-            final Sha256Hash transactionHash = transaction.getHash();
-            final TransactionId transactionId = transactionHashMap.get(transactionHash);
-
-            transactionIds.add(transactionId);
 
             _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
-            _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
+            // _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
         }
-        return transactionIds;
+
+        return transactionHashMap;
     }
 
     protected Transaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
@@ -291,11 +296,13 @@ public class TransactionDatabaseManager {
         final Integer transactionCount = transactions.getSize();
 
         final MilliTimer selectTransactionHashesTimer = new MilliTimer();
+        final MilliTimer txHashMapTimer = new MilliTimer();
+        final MilliTimer txHashMapTimer2 = new MilliTimer();
         final MilliTimer storeTransactionRecordsTimer = new MilliTimer();
         final MilliTimer insertTransactionOutputsTimer = new MilliTimer();
         final MilliTimer insertTransactionInputsTimer = new MilliTimer();
 
-        selectTransactionHashesTimer.start();
+        txHashMapTimer.start();
         final List<Sha256Hash> transactionHashes;
         final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
         final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
@@ -307,10 +314,14 @@ public class TransactionDatabaseManager {
                 unseenTransactionMap.put(transactionHash, transaction);
             }
             transactionHashes = transactionHashesBuilder.build();
+            txHashMapTimer.stop();
 
+            selectTransactionHashesTimer.start();
             final java.util.List<Row> rows = _databaseConnection.query(
                 new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
             );
+            selectTransactionHashesTimer.stop();
+            txHashMapTimer2.start();
             for (final Row row : rows) {
                 final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
                 final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
@@ -318,16 +329,13 @@ public class TransactionDatabaseManager {
                 existingTransactions.put(transactionHash, transactionId);
                 unseenTransactionMap.remove(transactionHash);
             }
+            txHashMapTimer2.stop();
         }
-        selectTransactionHashesTimer.stop();
 
         storeTransactionRecordsTimer.start();
         final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values());
-        final List<TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
-        final Integer newTransactionCount = unseenTransactions.getSize();
+        final Map<Sha256Hash, TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
         if (newTransactionIds == null) { return null; }
-
-        if (! Util.areEqual(newTransactionCount, newTransactionIds.getSize())) { return null; }
         storeTransactionRecordsTimer.stop();
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
@@ -343,23 +351,28 @@ public class TransactionDatabaseManager {
         if (transactionInputIds == null) { return  null; }
         insertTransactionInputsTimer.stop();
 
-        for (int i = 0; i < newTransactionCount; ++i) {
-            final Transaction unseenTransaction = unseenTransactions.get(i);
-            final TransactionId transactionId = newTransactionIds.get(i);
-
-            final Sha256Hash transactionHash = unseenTransaction.getHash();
+        for (final Sha256Hash transactionHash : newTransactionIds.keySet()) {
+            final TransactionId transactionId = newTransactionIds.get(transactionHash);
             existingTransactions.put(transactionHash, transactionId);
         }
 
         final MutableList<TransactionId> allTransactionIds = new MutableList<TransactionId>(transactionCount);
         for (final Sha256Hash transactionHash : transactionHashes) {
             final TransactionId transactionId = existingTransactions.get(transactionHash);
-            if (transactionId == null) { return null; }
+            if (transactionId == null) { // Should only happen (rarely) when another thread is attempting to insert the same Transaction at the same time as this thread...
+                final TransactionId missingTransactionId = _getTransactionIdFromHash(transactionHash);
+                if (missingTransactionId == null) { return null; }
 
-            allTransactionIds.add(transactionId);
+                allTransactionIds.add(missingTransactionId);
+            }
+            else {
+                allTransactionIds.add(transactionId);
+            }
         }
 
         Logger.log("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
+        Logger.log("txHashMapTimer2: " + txHashMapTimer2.getMillisecondsElapsed() + "ms");
         Logger.log("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
         Logger.log("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
         Logger.log("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");

@@ -154,8 +154,8 @@ public class TransactionInputDatabaseManager {
         return _insertTransactionInput(transactionId, transactionInput);
     }
 
-    public List<TransactionInputId> insertTransactionInputs(final List<TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
-        if (! Util.areEqual(transactionIds.getSize(), transactions.getSize())) { return null; }
+    public List<TransactionInputId> insertTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
+        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) { return null; }
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
 
         // final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
@@ -186,7 +186,9 @@ public class TransactionInputDatabaseManager {
         int transactionInputIdCount = 0;
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
-            final TransactionId transactionId = transactionIds.get(i);
+            final Sha256Hash transactionHash = transaction.getHash();
+            if (! transactionIds.containsKey(transactionHash)) { return null; }
+            final TransactionId transactionId = transactionIds.get(transactionHash);
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
             for (final TransactionInput transactionInput : transactionInputs) {

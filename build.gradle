@@ -18,6 +18,7 @@ dependencies {
     compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.2.4'
     compile     group: 'com.github.softwareverde',  name: 'java-tls',               version: 'v0.2.+'
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.+'
+    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v2.1.7'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v0.1.5'
     compile     group: 'com.github.softwareverde',  name: 'java-socket',            version: 'v0.2.1'
     compile     group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
