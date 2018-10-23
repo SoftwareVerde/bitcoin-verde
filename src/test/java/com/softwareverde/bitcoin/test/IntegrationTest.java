@@ -2,7 +2,9 @@ package com.softwareverde.bitcoin.test;
 
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
+import com.softwareverde.io.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 
 public class IntegrationTest {
@@ -11,6 +13,14 @@ public class IntegrationTest {
 
     static {
         _resetDatabase();
+
+        final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+        if (nativeCacheIsEnabled) {
+            NativeUnspentTransactionOutputCache.init();
+        }
+        else {
+            Logger.log("NOTICE: NativeUtxoCache not enabled.");
+        }
     }
 
     protected static void _resetDatabase() {
