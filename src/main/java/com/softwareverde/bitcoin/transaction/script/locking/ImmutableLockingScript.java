@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class ImmutableLockingScript extends ImmutableScript implements LockingScript {
 
@@ -11,7 +12,7 @@ public class ImmutableLockingScript extends ImmutableScript implements LockingSc
         super();
     }
 
-    public ImmutableLockingScript(final byte[] bytes) {
+    public ImmutableLockingScript(final ByteArray bytes) {
         super(bytes);
     }
 

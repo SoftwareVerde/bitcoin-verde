@@ -7,12 +7,13 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputDeflater {
-    protected byte[] _toBytes(final TransactionOutput transactionOutput) {
+    protected ByteArray _toBytes(final TransactionOutput transactionOutput) {
         final byte[] valueBytes = new byte[8];
         ByteUtil.setBytes(valueBytes, ByteUtil.longToBytes(transactionOutput.getAmount()));
 
@@ -23,7 +24,7 @@ public class TransactionOutputDeflater {
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(lockingScriptBytes.getByteCount()), Endian.BIG);
         byteArrayBuilder.appendBytes(lockingScriptBytes, Endian.BIG);
 
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public Integer getByteCount(final TransactionOutput transactionOutput) {
@@ -41,7 +42,7 @@ public class TransactionOutputDeflater {
         return (valueByteCount + scriptByteCount);
     }
 
-    public byte[] toBytes(final TransactionOutput transactionOutput) {
+    public ByteArray toBytes(final TransactionOutput transactionOutput) {
         return _toBytes(transactionOutput);
     }
 

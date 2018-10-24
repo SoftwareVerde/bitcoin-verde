@@ -69,8 +69,8 @@ public class TransactionValidator {
             Logger.log("\n------------");
             Logger.log("Tx Hash:\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
             Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
-            Logger.log("Tx Input:\t\t" + (transactionInput != null ? HexUtil.toHexString(transactionInputDeflater.toBytes(transactionInput)) : null));
-            Logger.log("Tx Output:\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + HexUtil.toHexString(transactionOutputDeflater.toBytes(outputToSpend))) : (null)));
+            Logger.log("Tx Input:\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
+            Logger.log("Tx Output:\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
             Logger.log("Block Height:\t\t" + context.getBlockHeight());
             Logger.log("Tx Input Index\t\t" + transactionInputIndex);
             Logger.log("Locking Script:\t\t" + lockingScript);

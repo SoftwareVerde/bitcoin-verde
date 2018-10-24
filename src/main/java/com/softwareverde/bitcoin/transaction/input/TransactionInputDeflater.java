@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
@@ -30,10 +31,10 @@ public class TransactionInputDeflater {
         tailBytes.appendBytes(sequenceBytes, Endian.LITTLE);
     }
 
-    protected byte[] _toBytes(final TransactionInput transactionInput) {
+    protected ByteArray _toBytes(final TransactionInput transactionInput) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         _toFragmentedBytes(transactionInput, byteArrayBuilder, byteArrayBuilder);
-        return byteArrayBuilder.build();
+        return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
     public Integer getByteCount(final TransactionInput transactionInput) {
@@ -56,7 +57,7 @@ public class TransactionInputDeflater {
         return (indexByteCount + previousTransactionOutputHashByteCount + scriptByteCount + sequenceByteCount);
     }
 
-    public byte[] toBytes(final TransactionInput transactionInput) {
+    public ByteArray toBytes(final TransactionInput transactionInput) {
         return _toBytes(transactionInput);
     }
 

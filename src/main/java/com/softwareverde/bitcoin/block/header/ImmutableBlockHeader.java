@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableBlockHeader implements BlockHeader, Const {
     protected final Sha256Hash _hash;
@@ -15,6 +16,8 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     protected final Long _timestamp;
     protected final Difficulty _difficulty;
     protected final Long _nonce;
+
+    protected Integer _cachedHashCode = null;
 
     public ImmutableBlockHeader(final BlockHeader blockHeader) {
         _hash = blockHeader.getHash();
@@ -79,5 +82,19 @@ public class ImmutableBlockHeader implements BlockHeader, Const {
     public Json toJson() {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         return blockHeaderDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        if (_cachedHashCode != null) { return _cachedHashCode; }
+
+        _cachedHashCode = _hash.hashCode();
+        return _cachedHashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof BlockHeader)) { return false; }
+        return Util.areEqual(this.getHash(), ((BlockHeader) object).getHash());
     }
 }

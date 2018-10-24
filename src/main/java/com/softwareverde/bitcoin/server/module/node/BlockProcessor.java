@@ -11,6 +11,7 @@ import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
@@ -39,6 +40,7 @@ public class BlockProcessor {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
+    protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
     protected Integer _maxThreadCount = 4;
     protected Integer _trustedBlockHeight = 0;
@@ -46,7 +48,7 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime) {
+    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
 
@@ -54,6 +56,8 @@ public class BlockProcessor {
         _networkTime = networkTime;
 
         _startTime = System.currentTimeMillis();
+
+        _orphanedTransactionsCache = orphanedTransactionsCache;
     }
 
     public void setMaxThreadCount(final Integer maxThreadCount) {
@@ -276,7 +280,13 @@ public class BlockProcessor {
 
     public Long processBlock(final Block block) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            return _processBlock(block, databaseConnection);
+            final Long newBlockHeight = _processBlock(block, databaseConnection);
+            final Boolean blockWasValid = (newBlockHeight != null);
+            if ((blockWasValid) && (_orphanedTransactionsCache != null)) {
+                for (final Transaction transaction : block.getTransactions()) {
+                    _orphanedTransactionsCache.onTransactionAdded(transaction);
+                }
+            }
         }
         catch (final Exception exception) {
             Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());

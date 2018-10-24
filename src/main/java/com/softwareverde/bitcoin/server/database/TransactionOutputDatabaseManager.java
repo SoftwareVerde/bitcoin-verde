@@ -16,8 +16,8 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -263,7 +263,7 @@ public class TransactionOutputDatabaseManager {
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            lockingScript = new ImmutableLockingScript(row.getBytes("script"));
+            lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
         }
 
         final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput();
@@ -563,7 +563,7 @@ public class TransactionOutputDatabaseManager {
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return new ImmutableLockingScript(row.getBytes("script"));
+        return new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
     }
 
     public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptId) throws DatabaseException {
@@ -574,7 +574,7 @@ public class TransactionOutputDatabaseManager {
 
         final ImmutableListBuilder<LockingScript> lockingScriptsBuilder = new ImmutableListBuilder<LockingScript>(rows.size());
         for (final Row row : rows) {
-            final LockingScript lockingScript = new ImmutableLockingScript(row.getBytes("script"));
+            final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
             lockingScriptsBuilder.add(lockingScript);
         }
 

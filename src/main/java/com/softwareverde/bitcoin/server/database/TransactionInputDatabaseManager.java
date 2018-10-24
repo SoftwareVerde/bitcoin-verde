@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -309,7 +310,7 @@ public class TransactionInputDatabaseManager {
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            unlockingScript = new MutableUnlockingScript(row.getBytes("script"));
+            unlockingScript = new MutableUnlockingScript(MutableByteArray.wrap(row.getBytes("script")));
         }
 
         final SequenceNumber sequenceNumber = new ImmutableSequenceNumber(transactionInputRow.getLong("sequence_number"));

@@ -11,12 +11,15 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableTransaction implements Transaction {
     protected Long _version = Transaction.VERSION;
-    protected final MutableList<MutableTransactionInput> _transactionInputs = new MutableList<MutableTransactionInput>();
-    protected final MutableList<MutableTransactionOutput> _transactionOutputs = new MutableList<MutableTransactionOutput>();
+    protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
+    protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
     protected LockTime _lockTime = new ImmutableLockTime();
+
+    protected Integer _cachedHashCode = null;
 
     /**
      * NOTE: Math with Satoshis
@@ -48,37 +51,59 @@ public class MutableTransaction implements Transaction {
 
     @Override
     public Long getVersion() { return _version; }
-    public void setVersion(final Long version) { _version = version; }
+
+    public void setVersion(final Long version) {
+        _version = version;
+        _cachedHashCode = null;
+    }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {
         return ConstUtil.downcastList(_transactionInputs);
     }
+
     public void addTransactionInput(final TransactionInput transactionInput) {
-        _transactionInputs.add(new MutableTransactionInput(transactionInput));
+        _transactionInputs.add(transactionInput.asConst());
+        _cachedHashCode = null;
     }
-    public void clearTransactionInputs() { _transactionInputs.clear(); }
+
+    public void clearTransactionInputs() {
+        _transactionInputs.clear();
+        _cachedHashCode = null;
+    }
 
     public void setTransactionInput(final Integer index, final TransactionInput transactionInput) {
-        _transactionInputs.set(index, new MutableTransactionInput(transactionInput));
+        _transactionInputs.set(index, transactionInput.asConst());
+        _cachedHashCode = null;
     }
 
     @Override
     public final List<TransactionOutput> getTransactionOutputs() {
-        return ConstUtil.downcastList(_transactionOutputs);
+        return _transactionOutputs;
     }
+
     public void addTransactionOutput(final TransactionOutput transactionOutput) {
-        _transactionOutputs.add(new MutableTransactionOutput(transactionOutput));
+        _transactionOutputs.add(transactionOutput.asConst());
+        _cachedHashCode = null;
     }
-    public void clearTransactionOutputs() { _transactionOutputs.clear(); }
+
+    public void clearTransactionOutputs() {
+        _transactionOutputs.clear();
+        _cachedHashCode = null;
+    }
 
     public void setTransactionOutput(final Integer index, final TransactionOutput transactionOutput) {
-        _transactionOutputs.set(index, new MutableTransactionOutput(transactionOutput));
+        _transactionOutputs.set(index, transactionOutput.asConst());
+        _cachedHashCode = null;
     }
 
     @Override
     public LockTime getLockTime() { return _lockTime; }
-    public void setLockTime(final LockTime lockTime) { _lockTime = lockTime; }
+
+    public void setLockTime(final LockTime lockTime) {
+        _lockTime = lockTime;
+        _cachedHashCode = null;
+    }
 
     @Override
     public Long getTotalOutputValue() {
@@ -100,5 +125,22 @@ public class MutableTransaction implements Transaction {
     public Json toJson() {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         return transactionDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        final TransactionHasher transactionHasher = new TransactionHasher();
+        final Integer hashCode = transactionHasher.hashTransaction(this).hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Transaction)) { return false; }
+        return Util.areEqual(this.getHash(), ((Transaction) object).getHash());
     }
 }

@@ -12,6 +12,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableSha256Hash _hash;
@@ -19,6 +20,8 @@ public class ImmutableTransaction implements Transaction, Const {
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
+
+    protected Integer _cachedHashCode;
 
     public ImmutableTransaction(final Transaction transaction) {
         _hash = transaction.getHash().asConst();
@@ -70,5 +73,20 @@ public class ImmutableTransaction implements Transaction, Const {
     public Json toJson() {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         return transactionDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        _cachedHashCode = _hash.hashCode();
+        return _cachedHashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Transaction)) { return false; }
+        return Util.areEqual(this.getHash(), ((Transaction) object).getHash());
     }
 }

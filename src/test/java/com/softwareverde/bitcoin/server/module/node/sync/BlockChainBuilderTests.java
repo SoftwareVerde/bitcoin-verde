@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -73,7 +74,9 @@ public class BlockChainBuilderTests extends IntegrationTest {
             final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
             final BitcoinNodeManager nodeManager = null;
 
-            final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, masterCache, networkTime, medianBlockTime);
+            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
+
+            final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, masterCache, networkTime, medianBlockTime, orphanedTransactionsCache);
             final SleepyService.StatusMonitor blockDownloaderStatusMonitor = new SleepyService.StatusMonitor() {
                 @Override
                 public SleepyService.Status getStatus() {

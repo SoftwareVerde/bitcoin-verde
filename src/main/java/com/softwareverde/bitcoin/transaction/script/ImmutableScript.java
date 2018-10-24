@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.type.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
@@ -28,8 +27,8 @@ public class ImmutableScript implements Script, Const {
         _bytes = new MutableByteArray(0);
     }
 
-    public ImmutableScript(final byte[] bytes) {
-        _bytes = new ImmutableByteArray(bytes);
+    public ImmutableScript(final ByteArray bytes) {
+        _bytes = bytes.asConst();
     }
 
     public ImmutableScript(final Script script) {

@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.time.ImmutableNetworkTime;
@@ -121,8 +122,8 @@ public class HistoricTransactionsTests {
         // Setup
         final Context context = initContext(testConfig);
 
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes));
-        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes));
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
+        final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
 
         final ScriptRunner scriptRunner = new ScriptRunner();
 

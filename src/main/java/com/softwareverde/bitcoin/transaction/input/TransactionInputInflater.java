@@ -17,7 +17,7 @@ public class TransactionInputInflater {
         transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
-        transactionInput._unlockingScript = new ImmutableUnlockingScript(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
+        transactionInput._unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG)));
         transactionInput._sequenceNumber = new ImmutableSequenceNumber(byteArrayReader.readLong(4, Endian.LITTLE));
 
         if (byteArrayReader.didOverflow()) { return null; }

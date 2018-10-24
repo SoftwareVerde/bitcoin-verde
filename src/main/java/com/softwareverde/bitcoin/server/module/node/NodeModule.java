@@ -278,9 +278,9 @@ public class NodeModule {
             inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
-        { // Initialize NodeInitializer...
-            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
+        final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
 
+        { // Initialize NodeInitializer...
             final TransactionInventoryMessageHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, orphanedTransactionsCache, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
@@ -295,7 +295,7 @@ public class NodeModule {
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
+            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
             blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
         }

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableBlockHeader implements BlockHeader {
     protected Long _version;
@@ -15,6 +16,8 @@ public class MutableBlockHeader implements BlockHeader {
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
+
+    protected Integer _cachedHashCode = null;
 
     public MutableBlockHeader() {
         _version = VERSION;
@@ -31,27 +34,43 @@ public class MutableBlockHeader implements BlockHeader {
 
     @Override
     public Long getVersion() { return _version; }
-    public void setVersion(final Long version) { _version = version; }
+
+    public void setVersion(final Long version) {
+        _version = version;
+        _cachedHashCode = null;
+    }
 
     @Override
     public Sha256Hash getPreviousBlockHash() { return _previousBlockHash; }
+
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
-        _previousBlockHash = previousBlockHash;
+        _previousBlockHash = previousBlockHash.asConst();
+        _cachedHashCode = null;
     }
 
     @Override
     public MerkleRoot getMerkleRoot() { return _merkleRoot; }
+
     public void setMerkleRoot(final MerkleRoot merkleRoot) {
-        _merkleRoot = merkleRoot;
+        _merkleRoot = merkleRoot.asConst();
+        _cachedHashCode = null;
     }
 
     @Override
     public Long getTimestamp() { return _timestamp; }
-    public void setTimestamp(final Long timestamp) { _timestamp = timestamp; }
+
+    public void setTimestamp(final Long timestamp) {
+        _timestamp = timestamp;
+        _cachedHashCode = null;
+    }
 
     @Override
     public Difficulty getDifficulty() { return _difficulty; }
-    public void setDifficulty(final Difficulty difficulty) { _difficulty = difficulty; }
+
+    public void setDifficulty(final Difficulty difficulty) {
+        _difficulty = difficulty.asConst();
+        _cachedHashCode = null;
+    }
 
     @Override
     public Long getNonce() { return  _nonce; }
@@ -79,5 +98,22 @@ public class MutableBlockHeader implements BlockHeader {
     public Json toJson() {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         return blockHeaderDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        final Integer hashCode = blockHeaderDeflater.toBytes(this).hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof BlockHeader)) { return false; }
+        return Util.areEqual(this.getHash(), ((BlockHeader) object).getHash());
     }
 }

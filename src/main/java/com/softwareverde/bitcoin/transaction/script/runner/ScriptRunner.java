@@ -84,7 +84,7 @@ public class ScriptRunner {
                 try {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
                     if (payToScriptHashStack.didOverflow()) { return false; }
-                    final Script redeemScript = new ImmutableScript(redeemScriptValue.getBytes());
+                    final Script redeemScript = new ImmutableScript(redeemScriptValue);
 
                     mutableContext.setCurrentScript(redeemScript);
                     final List<Operation> redeemScriptOperations = redeemScript.getOperations();
