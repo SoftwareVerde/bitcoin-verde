@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
@@ -195,8 +196,8 @@ public class NodeModule {
                     commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
                     commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
-                    // commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
-                    commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
+                    commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+                    // commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
 
                     commandLineArguments.setQueryCacheByteCount(0L);
 
@@ -278,7 +279,9 @@ public class NodeModule {
         }
 
         { // Initialize NodeInitializer...
-            final TransactionInventoryMessageHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
+            final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
+
+            final TransactionInventoryMessageHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, orphanedTransactionsCache, _mutableNetworkTime, medianBlockTime);
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);

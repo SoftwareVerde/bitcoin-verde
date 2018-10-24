@@ -436,6 +436,18 @@ public class TransactionDatabaseManager {
         return _inflateTransaction(transactionId);
     }
 
+    public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
+            if (transactionOutputId == null) { return false; }
+        }
+
+        return true;
+    }
+
     public void addTransactionToMemoryPool(final TransactionId transactionId) throws DatabaseException {
         _insertTransactionIntoMemoryPool(transactionId);
     }

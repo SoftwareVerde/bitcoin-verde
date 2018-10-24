@@ -74,9 +74,7 @@ public class TransactionOutputDatabaseManager {
         { // Attempt to find the UTXO from the in-memory cache...
             final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
             if (cachedUnspentTransactionOutputId != null) { return cachedUnspentTransactionOutputId; }
-            Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
-            // Logger.log(new Exception());
-            // BitcoinUtil.exitFailure();
+            // Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
         }
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -357,7 +355,7 @@ public class TransactionOutputDatabaseManager {
         final TransactionOutputId unspentTransactionOutputId = _findUnspentTransactionOutput(transactionHash, transactionOutputIndex);
         if (unspentTransactionOutputId != null) { return unspentTransactionOutputId; }
 
-        Logger.log("INFO: Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+        // Logger.log("INFO: Unspent Index Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
 
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);

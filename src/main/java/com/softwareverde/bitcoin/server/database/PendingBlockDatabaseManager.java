@@ -18,7 +18,17 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 public class PendingBlockDatabaseManager {
+    public static final ReentrantReadWriteLock.ReadLock READ_LOCK;
+    public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        READ_LOCK = readWriteLock.readLock();
+        WRITE_LOCK = readWriteLock.writeLock();
+    }
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnection _databaseConnection;
 
@@ -153,131 +163,267 @@ public class PendingBlockDatabaseManager {
     }
 
     public PendingBlockId getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
-        return _getPendingBlockId(blockHash);
+        try {
+            READ_LOCK.lock();
+
+            return _getPendingBlockId(blockHash);
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public Boolean hasBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
-        return _hasBlockData(pendingBlockId);
+        try {
+            READ_LOCK.lock();
+
+            return _hasBlockData(pendingBlockId);
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public Boolean pendingBlockExists(final Sha256Hash blockHash) throws DatabaseException {
-        final PendingBlockId pendingBlockId = _getPendingBlockId(blockHash);
-        return (pendingBlockId != null);
+        try {
+            READ_LOCK.lock();
+
+            final PendingBlockId pendingBlockId = _getPendingBlockId(blockHash);
+            return (pendingBlockId != null);
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public List<PendingBlockId> getPendingBlockIdsWithPreviousBlockHash(final Sha256Hash previousBlockHash) throws DatabaseException {
-        return _getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
+        try {
+            READ_LOCK.lock();
+
+            return _getPendingBlockIdsWithPreviousBlockHash(previousBlockHash);
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public PendingBlockId insertBlockHash(final Sha256Hash blockHash) throws DatabaseException {
-        return _storePendingBlock(blockHash, null);
+        try {
+            WRITE_LOCK.lock();
+
+            return _storePendingBlock(blockHash, null);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash) throws DatabaseException {
-        final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
-        if (existingPendingBlockId != null) { return existingPendingBlockId; }
+        try {
+            WRITE_LOCK.lock();
 
-        return _storePendingBlock(blockHash, null);
+            final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
+            if (existingPendingBlockId != null) { return existingPendingBlockId; }
+
+            return _storePendingBlock(blockHash, null);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
-        final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
-        if (existingPendingBlockId != null) { return existingPendingBlockId; }
+        try {
+            WRITE_LOCK.lock();
 
-        return _storePendingBlock(blockHash, previousBlockHash);
+            final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
+            if (existingPendingBlockId != null) { return existingPendingBlockId; }
+
+            return _storePendingBlock(blockHash, previousBlockHash);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public PendingBlockId storeBlock(final Block block) throws DatabaseException {
-        final Sha256Hash blockHash = block.getHash();
-        final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+        try {
+            WRITE_LOCK.lock();
 
-        final PendingBlockId pendingBlockId;
-        {
-            final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
-            if (existingPendingBlockId != null) {
-                _updatePendingBlock(existingPendingBlockId, previousBlockHash);
-                pendingBlockId = existingPendingBlockId;
+            final Sha256Hash blockHash = block.getHash();
+            final Sha256Hash previousBlockHash = block.getPreviousBlockHash();
+
+            final PendingBlockId pendingBlockId;
+            {
+                final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
+                if (existingPendingBlockId != null) {
+                    _updatePendingBlock(existingPendingBlockId, previousBlockHash);
+                    pendingBlockId = existingPendingBlockId;
+                }
+                else {
+                    pendingBlockId = _storePendingBlock(blockHash, previousBlockHash);
+                }
             }
-            else {
-                pendingBlockId = _storePendingBlock(blockHash, previousBlockHash);
-            }
+
+            final BlockDeflater blockDeflater = new BlockDeflater();
+            _insertPendingBlockData(pendingBlockId, blockDeflater.toBytes(block));
+            return pendingBlockId;
+
         }
-
-        final BlockDeflater blockDeflater = new BlockDeflater();
-        _insertPendingBlockData(pendingBlockId, blockDeflater.toBytes(block));
-        return pendingBlockId;
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public List<PendingBlockId> selectIncompletePendingBlocks(final Integer maxCount) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE pending_block_data.id IS NULL ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
-        );
+        try {
+            READ_LOCK.lock();
 
-        final ImmutableListBuilder<PendingBlockId> pendingBlockIdsBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());
-        for (final Row row : rows) {
-            pendingBlockIdsBuilder.add(PendingBlockId.wrap(row.getLong("id")));
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE pending_block_data.id IS NULL ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
+            );
+
+            final ImmutableListBuilder<PendingBlockId> pendingBlockIdsBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());
+            for (final Row row : rows) {
+                pendingBlockIdsBuilder.add(PendingBlockId.wrap(row.getLong("id")));
+            }
+            return pendingBlockIdsBuilder.build();
+
         }
-        return pendingBlockIdsBuilder.build();
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public PendingBlockId selectCandidatePendingBlockId() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 1")
-        );
-        if (rows.isEmpty()) { return null; }
+        try {
+            READ_LOCK.lock();
 
-        final Row row = rows.get(0);
-        return PendingBlockId.wrap(row.getLong("id"));
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN blocks ON blocks.hash = pending_blocks.previous_block_hash INNER JOIN block_transactions ON block_transactions.block_id = blocks.id GROUP BY block_transactions.block_id ORDER BY pending_blocks.priority ASC LIMIT 1")
+            );
+            if (rows.isEmpty()) { return null; }
+
+            final Row row = rows.get(0);
+            return PendingBlockId.wrap(row.getLong("id"));
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public Sha256Hash getPendingBlockHash(final PendingBlockId pendingBlockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, hash FROM pending_blocks WHERE id = ?")
-                .setParameter(pendingBlockId)
-        );
-        if (rows.isEmpty()) { return null; }
+        try {
+            READ_LOCK.lock();
 
-        final Row row = rows.get(0);
-        return Sha256Hash.fromHexString(row.getString("hash"));
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id, hash FROM pending_blocks WHERE id = ?")
+                    .setParameter(pendingBlockId)
+            );
+            if (rows.isEmpty()) { return null; }
+
+            final Row row = rows.get(0);
+            return Sha256Hash.fromHexString(row.getString("hash"));
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public void incrementFailedDownloadCount(final PendingBlockId pendingBlockId) throws DatabaseException {
-        _databaseConnection.executeSql(
-            new Query("UPDATE pending_blocks SET failed_download_count = failed_download_count + 1, priority = priority + 60 WHERE id = ?")
-                .setParameter(pendingBlockId)
-        );
+        try {
+            WRITE_LOCK.lock();
+
+            _databaseConnection.executeSql(
+                new Query("UPDATE pending_blocks SET failed_download_count = failed_download_count + 1, priority = priority + 60 WHERE id = ?")
+                    .setParameter(pendingBlockId)
+            );
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public void setPriority(final PendingBlockId pendingBlockId, final Long priority) throws DatabaseException {
-        _databaseConnection.executeSql(
-            new Query("UPDATE pending_blocks SET priority = ? WHERE id = ?")
-                .setParameter(priority)
-                .setParameter(pendingBlockId)
-        );
+        try {
+            WRITE_LOCK.lock();
+
+            _databaseConnection.executeSql(
+                new Query("UPDATE pending_blocks SET priority = ? WHERE id = ?")
+                    .setParameter(priority)
+                    .setParameter(pendingBlockId)
+            );
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public void purgeFailedPendingBlocks(final Integer maxFailedDownloadCount) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE pending_blocks.failed_download_count > ? AND pending_block_data.id IS NULL")
-                .setParameter(maxFailedDownloadCount)
-        );
+        try {
+            WRITE_LOCK.lock();
 
-        for (final Row row : rows) {
-            final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
-            Logger.log("Deleting Failed Pending Block: " + pendingBlockId);
-            _deletePendingBlock(pendingBlockId);
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE pending_blocks.failed_download_count > ? AND pending_block_data.id IS NULL")
+                    .setParameter(maxFailedDownloadCount)
+            );
+
+            for (final Row row : rows) {
+                final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
+                Logger.log("Deleting Failed Pending Block: " + pendingBlockId);
+                _deletePendingBlock(pendingBlockId);
+            }
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
         }
     }
 
     public PendingBlock getPendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
-        return _getPendingBlock(pendingBlockId, true);
+        try {
+            READ_LOCK.lock();
+
+            return _getPendingBlock(pendingBlockId, true);
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
     }
 
     public void deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
-        _deletePendingBlock(pendingBlockId);
+        try {
+            WRITE_LOCK.lock();
+
+            _deletePendingBlock(pendingBlockId);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 
     public void deletePendingBlockData(final PendingBlockId pendingBlockId) throws DatabaseException {
-        _deletePendingBlockData(pendingBlockId);
+        try {
+            WRITE_LOCK.lock();
+
+            _deletePendingBlockData(pendingBlockId);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
     }
 }

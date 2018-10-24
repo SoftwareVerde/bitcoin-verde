@@ -21,6 +21,8 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
+import java.util.Set;
+
 public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
     public static final Object MUTEX = new Object();
 
@@ -29,16 +31,22 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
         public void onResult(final List<Sha256Hash> result) { }
     };
 
+    interface TransactionProcessor {
+        void processTransaction(Transaction transaction) throws DatabaseException;
+    }
+
     protected final BitcoinNode _bitcoinNode;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final OrphanedTransactionsCache orphanedTransactionsCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _bitcoinNode = bitcoinNode;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
+        _orphanedTransactionsCache = orphanedTransactionsCache;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
@@ -76,38 +84,63 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
                     final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
 
-                    // TODO: Add transaction to memory, but not to the database, if the utxo it's spending is has not been seen yet...
-
-                    synchronized (MUTEX) {
-                        TransactionUtil.startTransaction(databaseConnection);
-                        final TransactionId transactionId;
-                        {
-                            TransactionId newTransactionId = null;
-                            try {
-                                newTransactionId = transactionDatabaseManager.insertTransaction(transaction);
+                    final TransactionProcessor transactionProcessor = new TransactionProcessor() {
+                        @Override
+                        public void processTransaction(final Transaction transaction) throws DatabaseException {
+                            TransactionUtil.startTransaction(databaseConnection);
+                            final TransactionId transactionId;
+                            {
+                                TransactionId newTransactionId = null;
+                                try {
+                                    newTransactionId = transactionDatabaseManager.insertTransaction(transaction);
+                                }
+                                catch (final DatabaseException exception) { }
+                                transactionId = newTransactionId;
                             }
-                            catch (final DatabaseException exception) { }
-                            transactionId = newTransactionId;
-                        }
 
-                        final Boolean transactionIsValid;
-                        {
-                            if (transactionId != null) {
-                                transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction, true);
+                            final Boolean transactionIsValid;
+                            {
+                                if (transactionId != null) {
+                                    transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction, true);
+                                }
+                                else {
+                                    transactionIsValid = false;
+                                }
+                            }
+
+                            if (transactionIsValid) {
+                                transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
+                                Logger.log("Added Transaction To Memory Pool: " + transaction.getHash());
+                                TransactionUtil.commitTransaction(databaseConnection);
+
+                                final Set<Transaction> possiblyValidTransactions = _orphanedTransactionsCache.onTransactionAdded(transaction);
+
+                                for (final Transaction possiblyValidTransaction : possiblyValidTransactions) {
+                                    final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
+                                    if (! canBeInserted) {
+                                        _orphanedTransactionsCache.add(transaction, databaseConnection);
+                                        continue;
+                                    }
+
+                                    this.processTransaction(possiblyValidTransaction);
+                                }
                             }
                             else {
-                                transactionIsValid = false;
+                                TransactionUtil.rollbackTransaction(databaseConnection);
                             }
                         }
+                    };
 
-                        if (transactionIsValid) {
-                            transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
-                            TransactionUtil.commitTransaction(databaseConnection);
+                    synchronized (MUTEX) {
+                        final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
+                        if (! canBeInserted) {
+                            _orphanedTransactionsCache.add(transaction, databaseConnection);
+                            return;
                         }
-                        else {
-                            TransactionUtil.rollbackTransaction(databaseConnection);
-                        }
+
+                        transactionProcessor.processTransaction(transaction);
                     }
+
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
