@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -181,19 +182,22 @@ public class TransactionOutputDatabaseManager {
         //     addressId = null;
         // }
 
+        final ScriptTypeId scriptTypeId = ScriptType.UNKNOWN.getScriptTypeId();
+
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         _databaseConnection.executeSql(
-            new Query("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
-                .setParameter(ScriptType.UNKNOWN)                   // scriptType
+            new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
+                .setParameter(scriptTypeId)
                 .setParameter(transactionOutputId)
                 .setParameter(lockingScriptByteArray.getBytes())
-                .setParameter(null)                                 // addressId
+                .setParameter(null)
         );
     }
 
     protected void _updateLockingScript(final TransactionOutputId transactionOutputId, final LockingScript lockingScript) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+        final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
 
         final AddressId addressId;
         if (scriptType != ScriptType.CUSTOM_SCRIPT) {
@@ -206,8 +210,8 @@ public class TransactionOutputDatabaseManager {
 
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         _databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET type = ?, script = ?, address_id = ? WHERE transaction_output_id = ?")
-                .setParameter(scriptType)
+            new Query("UPDATE locking_scripts SET script_type_id = ?, script = ?, address_id = ? WHERE transaction_output_id = ?")
+                .setParameter(scriptTypeId)
                 .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(addressId)
                 .setParameter(transactionOutputId)
@@ -219,7 +223,7 @@ public class TransactionOutputDatabaseManager {
             throw new DatabaseException("Attempted to insert LockingScripts without matching TransactionOutputIds.");
         }
 
-        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (type, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)");
+        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)");
 
         // final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(_databaseConnection, _databaseManagerCache);
         // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
@@ -232,8 +236,11 @@ public class TransactionOutputDatabaseManager {
             // final AddressId addressId = addressIds.get(i);
             // final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
 
+            final ScriptType scriptType = ScriptType.UNKNOWN;
+            final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
+
             final ByteArray lockingScriptByteArray = lockingScript.getBytes();
-            batchInsertQuery.setParameter(ScriptType.UNKNOWN);                  // scriptType
+            batchInsertQuery.setParameter(scriptTypeId);
             batchInsertQuery.setParameter(transactionOutputId);
             batchInsertQuery.setParameter(lockingScriptByteArray.getBytes());
             batchInsertQuery.setParameter(null);                                // addressId
@@ -513,9 +520,12 @@ public class TransactionOutputDatabaseManager {
     }
 
     public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
+        final ScriptType scriptType = ScriptType.UNKNOWN;
+        final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
+
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM locking_scripts WHERE type = ? LIMIT " + Util.coalesce(maxCount, 1))
-                .setParameter(ScriptType.UNKNOWN)
+            new Query("SELECT id FROM locking_scripts WHERE script_type_id = ? LIMIT " + Util.coalesce(maxCount, 1))
+                .setParameter(scriptTypeId)
         );
 
         final ImmutableListBuilder<LockingScriptId> lockingScriptIds = new ImmutableListBuilder<LockingScriptId>(rows.size());
@@ -528,9 +538,11 @@ public class TransactionOutputDatabaseManager {
     }
 
     public void setLockingScriptType(final LockingScriptId lockingScriptId, final ScriptType scriptType, final AddressId addressId) throws DatabaseException {
+        final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
+
         _databaseConnection.executeSql(
-            new Query("UPDATE locking_scripts SET type = ?, address_id = ? WHERE id = ?")
-                .setParameter(scriptType)
+            new Query("UPDATE locking_scripts SET script_type_id = ?, address_id = ? WHERE id = ?")
+                .setParameter(scriptTypeId)
                 .setParameter(addressId)
                 .setParameter(lockingScriptId)
         );
@@ -544,11 +556,12 @@ public class TransactionOutputDatabaseManager {
         for (int i = 0; i < lockingScriptCount; ++i) {
             final LockingScriptId lockingScriptId = lockingScriptIds.get(i);
             final ScriptType scriptType = scriptTypes.get(i);
+            final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
             final AddressId addressId = addressIds.get(i);
 
             _databaseConnection.executeSql(
-                new Query("UPDATE locking_scripts SET type = ?, address_id = ? WHERE id = ?")
-                    .setParameter(scriptType)
+                new Query("UPDATE locking_scripts SET script_type_id = ?, address_id = ? WHERE id = ?")
+                    .setParameter(scriptTypeId)
                     .setParameter(addressId)
                     .setParameter(lockingScriptId)
             );
@@ -566,18 +579,20 @@ public class TransactionOutputDatabaseManager {
         return new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
     }
 
-    public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptId) throws DatabaseException {
+    public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
+        final int scriptCount = lockingScriptIds.getSize();
+        final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptId) + ")")
+            new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptIds, keyMap) + ")")
         );
-        if (rows.isEmpty()) { return null; }
+        if (rows.size() != scriptCount) { return null; }
 
-        final ImmutableListBuilder<LockingScript> lockingScriptsBuilder = new ImmutableListBuilder<LockingScript>(rows.size());
         for (final Row row : rows) {
+            final LockingScriptId lockingScriptId = LockingScriptId.wrap(row.getLong("id"));
             final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(row.getBytes("script")));
-            lockingScriptsBuilder.add(lockingScript);
+            keyMap.put(lockingScriptId, lockingScript);
         }
 
-        return lockingScriptsBuilder.build();
+        return DatabaseUtil.sortMappedRows(rows, lockingScriptIds, keyMap);
     }
 }

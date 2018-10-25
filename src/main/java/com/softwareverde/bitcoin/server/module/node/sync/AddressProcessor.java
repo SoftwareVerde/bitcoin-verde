@@ -37,14 +37,14 @@ public class AddressProcessor extends SleepyService {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final MilliTimer processTimer = new MilliTimer();
 
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
+            final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
             final Integer lockingScriptCount;
             processTimer.start();
             TransactionUtil.startTransaction(databaseConnection);
             {
-                final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
-                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
-                final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-
                 final List<LockingScriptId> lockingScriptIds = transactionOutputDatabaseManager.getLockingScriptsWithUnprocessedTypes(BATCH_SIZE);
                 if (lockingScriptIds.isEmpty()) { return false; }
 

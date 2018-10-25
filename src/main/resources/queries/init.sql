@@ -122,14 +122,23 @@ CREATE TABLE transaction_inputs (
     FOREIGN KEY transaction_inputs_tx_out_fk (previous_transaction_output_id) REFERENCES transaction_outputs (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
+CREATE TABLE script_types (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    type varchar(255) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY script_types_uq (type)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+INSERT INTO script_types (id, type) VALUES (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH');
+
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    type ENUM('UNKNOWN', 'CUSTOM_SCRIPT', 'PAY_TO_PUBLIC_KEY', 'PAY_TO_PUBLIC_KEY_HASH', 'PAY_TO_SCRIPT_HASH') NOT NULL DEFAULT 'UNKNOWN',
+    script_type_id INT UNSIGNED NOT NULL,
     transaction_output_id INT UNSIGNED NOT NULL,
     script BLOB NOT NULL,
     address_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
+    FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
     FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
     FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id),
     INDEX locking_scripts_type_ix (type) USING BTREE
