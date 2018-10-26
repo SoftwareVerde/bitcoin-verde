@@ -37,6 +37,8 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidator {
+    public static final Long COINBASE_MATURITY = 100L;
+
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
 
     protected final BlockChainDatabaseManager _blockChainDatabaseManager;
@@ -248,7 +250,7 @@ public class TransactionValidator {
         Logger.log("Transaction " + transactionHash + " references non-existent output: " + transactionInput.getPreviousOutputTransactionHash() + ":" + transactionInput.getPreviousOutputIndex() + " (" + extraMessage + ")");
     }
 
-    public Boolean validateTransaction(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean shouldCheckMemoryPool) {
+    public Boolean validateTransaction(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
         final Sha256Hash transactionHash = transaction.getHash();
 
         final ScriptRunner scriptRunner = new ScriptRunner();
@@ -302,10 +304,10 @@ public class TransactionValidator {
 
             long totalInputValue = 0L;
 
-            // TODO: Validate number of inputs is not zero...
-            // TODO: Validate that if the input is a coinbase that it is 100 blocks old (COINBASE_MATURITY)...
-
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+
+            if (transactionInputs.isEmpty()) { return false; }
+
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
 
@@ -316,6 +318,16 @@ public class TransactionValidator {
                         _logTransactionOutputNotFound(transactionHash, transactionInput, "TransactionId not found.");
                     }
                     return false;
+                }
+
+                if (validateForMemoryPool) { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
+                    final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash()));
+                    if (transactionOutputBeingSpentIsCoinbaseTransaction) {
+                        final BlockId transactionOutputBeingSpentBlockId = _transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionOutputBeingSpentTransactionId);
+                        final Long blockHeightOfTransactionOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeight(transactionOutputBeingSpentBlockId);
+                        final Long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
+                        if (coinbaseMaturity <= COINBASE_MATURITY) { return false; }
+                    }
                 }
 
                 final TransactionOutputId transactionOutputIdBeingSpent = _transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
@@ -337,7 +349,7 @@ public class TransactionValidator {
                     }
                 }
 
-                final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockChainSegmentId, transactionOutputIdBeingSpent, blockHeight, shouldCheckMemoryPool);
+                final Integer outputBeingSpentSpendCount = _getOutputSpendCount(blockChainSegmentId, transactionOutputIdBeingSpent, blockHeight, validateForMemoryPool);
 
                 { // Validate TransactionOutput hasn't already been spent...
                     // TODO: The logic currently implemented would allow for duplicate transactions to be spent (which is partially against BIP30 and is definitely counter to how the reference client handles it).  What consensus considers "correct" is that the first duplicate becomes unspendable.
