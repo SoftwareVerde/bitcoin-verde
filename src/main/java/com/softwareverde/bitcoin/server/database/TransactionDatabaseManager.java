@@ -224,24 +224,14 @@ public class TransactionDatabaseManager {
         transaction.setVersion(version);
         transaction.setLockTime(lockTime);
 
-        // TODO: Move query to TransactionInputDatabaseManager...
-        final java.util.List<Row> transactionInputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
-                .setParameter(transactionId)
-        );
-        for (final Row transactionInputRow : transactionInputRows) {
-            final TransactionInputId transactionInputId = TransactionInputId.wrap(transactionInputRow.getLong("id"));
+        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+        for (final TransactionInputId transactionInputId : transactionInputIds) {
             final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
             transaction.addTransactionInput(transactionInput);
         }
 
-        // TODO: Move query to TransactionOutputDatabaseManager...
-        final java.util.List<Row> transactionOutputRows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
-                .setParameter(transactionId)
-        );
-        for (final Row transactionOutputRow : transactionOutputRows) {
-            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(transactionOutputRow.getLong("id"));
+        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
             final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
             transaction.addTransactionOutput(transactionOutput);
         }

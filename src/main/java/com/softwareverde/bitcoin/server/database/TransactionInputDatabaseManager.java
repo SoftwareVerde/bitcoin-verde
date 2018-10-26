@@ -17,6 +17,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -417,5 +418,19 @@ public class TransactionInputDatabaseManager {
             transactionInputIds.add(transactionInputId);
         }
         return transactionInputIds;
+    }
+
+    public List<TransactionInputId> getTransactionInputs(final TransactionId transactionId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
+                .setParameter(transactionId)
+        );
+
+        final ImmutableListBuilder<TransactionInputId> transactionInputIds = new ImmutableListBuilder<TransactionInputId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
+            transactionInputIds.add(transactionInputId);
+        }
+        return transactionInputIds.build();
     }
 }

@@ -467,17 +467,17 @@ public class TransactionOutputDatabaseManager {
 
     public List<TransactionOutputId> getTransactionOutputIds(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ?")
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
                 .setParameter(transactionId)
         );
 
-        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(rows.size());
+        final ImmutableListBuilder<TransactionOutputId> transactionOutputIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("id"));
             transactionOutputIds.add(transactionOutputId);
         }
 
-        return transactionOutputIds;
+        return transactionOutputIds.build();
     }
 
     public void updateTransactionOutput(final TransactionOutputId transactionOutputId, final TransactionId transactionId, final TransactionOutput transactionOutput) throws DatabaseException {
