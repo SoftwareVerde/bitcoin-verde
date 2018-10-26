@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -151,12 +152,12 @@ public class CryptographicOperation extends SubTypedOperation {
                     bytesToRemoveFromScript = signatureBytesBuilder.build();
                 }
 
+                final Long blockHeight = context.getBlockHeight();
+
                 final Boolean signatureIsValid;
                 {
                     final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
 
-
-                    final Long blockHeight = context.getBlockHeight();
                     if (Buip55.isEnabled(blockHeight)) {
                         final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
                         if (! meetsStrictEncodingStandard) { return false; }
@@ -177,6 +178,12 @@ public class CryptographicOperation extends SubTypedOperation {
                     if (! signatureIsValid) { return false; }
                 }
                 else {
+                    { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+                        if (HF20171113.isEnabled(blockHeight)) {
+                            if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
+                        }
+                    }
+
                     stack.push(Value.fromBoolean(signatureIsValid));
                 }
 
@@ -208,13 +215,20 @@ public class CryptographicOperation extends SubTypedOperation {
                     signatureCount = signatureCountValue.asInteger();
                 }
 
+                final boolean allSignaturesWereEmpty;
                 final List<ByteArray> bytesToRemoveFromScript;
                 final List<ScriptSignature> signatures;
                 {
+                    boolean signaturesAreEmpty = true;
                     final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
                     final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
                     for (int i = 0; i < signatureCount; ++i) {
                         final Value signatureValue = stack.pop();
+
+                        if (! signatureValue.isEmpty()) {
+                            signaturesAreEmpty = false;
+                        }
+
                         final ScriptSignature signature = signatureValue.asScriptSignature();
                         // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
 
@@ -223,10 +237,12 @@ public class CryptographicOperation extends SubTypedOperation {
                     }
                     signatures = listBuilder.build();
                     bytesToRemoveFromScript = signatureBytesBuilder.build();
+                    allSignaturesWereEmpty = signaturesAreEmpty;
                 }
 
                 stack.pop(); // Pop an extra value due to bug in the protocol...
 
+                final Long blockHeight = context.getBlockHeight();
 
                 final boolean signaturesAreValid;
                 {   // Signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
@@ -234,7 +250,6 @@ public class CryptographicOperation extends SubTypedOperation {
                     //          P1, P2, P3 <-> S1, S3
                     //          P1, P2, P3 <-> S1, S2
                     //          P1, P2, P3 <-> S1, S2, S3
-
                     boolean signaturesHaveMatchedPublicKeys = true;
                     int nextPublicKeyIndex = 0;
                     for (int i = 0; i < signatureCount; ++i) {
@@ -247,7 +262,6 @@ public class CryptographicOperation extends SubTypedOperation {
                             final PublicKey publicKey = publicKeys.get(j);
                             final boolean signatureIsValid;
                             {
-                                final Long blockHeight = context.getBlockHeight();
                                 if (Buip55.isEnabled(blockHeight)) {
                                     final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
                                     if (! meetsStrictEncodingStandard) { return false; }
@@ -279,6 +293,12 @@ public class CryptographicOperation extends SubTypedOperation {
                     if (! signaturesAreValid) { return false; }
                 }
                 else {
+                    { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+                        if (HF20171113.isEnabled(blockHeight)) {
+                            if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
+                        }
+                    }
+
                     stack.push(Value.fromBoolean(signaturesAreValid));
                     // stack.push(Value.fromBoolean(true));
                 }
