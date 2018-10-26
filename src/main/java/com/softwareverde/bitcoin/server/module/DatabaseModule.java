@@ -4,13 +4,13 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.ByteUtil;
 
 import java.io.File;
 
@@ -51,13 +51,20 @@ public class DatabaseModule {
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
-                    commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
-                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+//                    commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
+//                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
+//                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
+//                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
+//                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
+//                    commandLineArguments.setQueryCacheByteCount(0L);
+//                    commandLineArguments.addArgument("--performance_schema");
+
+                    commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
+                    commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
+                    commandLineArguments.setInnoDbLogBufferByteCount(1 * com.softwareverde.util.ByteUtil.Unit.GIGABYTES);
+                    commandLineArguments.setInnoDbLogFileByteCount(32 * com.softwareverde.util.ByteUtil.Unit.GIGABYTES);
                     commandLineArguments.setQueryCacheByteCount(0L);
-                    commandLineArguments.addArgument("--performance_schema");
+                    commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
                 }
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

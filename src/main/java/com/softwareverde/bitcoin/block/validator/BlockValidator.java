@@ -115,7 +115,6 @@ public class BlockValidator {
 
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
-        // TODO: Enforce SCRIPT_VERIFY_STRICTENC (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
         // TODO: Enforce LOW_S (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
         // TODO: Enforce NULLFAIL (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
         // TODO: Validate transaction does not appear twice within the same Block and BlockChain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)

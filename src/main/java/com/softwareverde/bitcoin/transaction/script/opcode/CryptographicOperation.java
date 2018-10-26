@@ -67,6 +67,20 @@ public class CryptographicOperation extends SubTypedOperation {
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
+    protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
+        // NOTE: enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
+        if (scriptSignature == null) { return false; }
+
+        final HashType hashType = scriptSignature.getHashType();
+        if (hashType == null) { return false; }
+
+        if (hashType.getMode() == null) { return false; }
+
+        if (! hashType.isBitcoinCashType()) { return false; }
+
+        return true;
+    }
+
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         switch (_opcode) {
@@ -133,6 +147,13 @@ public class CryptographicOperation extends SubTypedOperation {
                 final Boolean signatureIsValid;
                 {
                     final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+
+                    final Long blockHeight = context.getBlockHeight();
+                    if (Bip55.isEnabled(blockHeight)) {
+                        final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
+                        if (! meetsStrictEncodingStandard) { return false; }
+                    }
+
                     if (scriptSignature != null) {
                         final PublicKey publicKey = publicKeyValue.asPublicKey();
                         signatureIsValid = checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
@@ -218,6 +239,12 @@ public class CryptographicOperation extends SubTypedOperation {
                             final PublicKey publicKey = publicKeys.get(j);
                             final boolean signatureIsValid;
                             {
+                                final Long blockHeight = context.getBlockHeight();
+                                if (Bip55.isEnabled(blockHeight)) {
+                                    final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
+                                    if (! meetsStrictEncodingStandard) { return false; }
+                                }
+
                                 if (signature != null) {
                                     signatureIsValid = checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
                                 }

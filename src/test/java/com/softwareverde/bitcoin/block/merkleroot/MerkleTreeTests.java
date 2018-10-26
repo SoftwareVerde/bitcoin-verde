@@ -235,14 +235,13 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
-    // @Test
-    // TODO: Unsure why this test fails...  Considering this is block #300,000, it's possibly a change in the protocol.
+    @Test
     public void should_calculate_the_merkle_root_with_over_a_hundred_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
         final String blockData = IoUtil.getResource("/blocks/000000000000000082CCF8F1557C5D40B21EDABB18D2D691CFBF87118BAC7254");
 
-        final byte[] expectedMerkleRoot = HexUtil.hexStringToByteArray("3DDE8912B6BF03E04DFFF24408B4643DE1E3419C84585FB96E4EC7ACA6CC29A9");
+        final byte[] expectedMerkleRoot = HexUtil.hexStringToByteArray("915C887A2D9EC3F566A648BEDCF4ED30D0988E22268CFE43AB5B0CF8638999D3");
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 

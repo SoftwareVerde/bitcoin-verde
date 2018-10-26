@@ -140,8 +140,7 @@ CREATE TABLE locking_scripts (
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
     FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
     FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
-    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id),
-    INDEX locking_scripts_type_ix (type) USING BTREE
+    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unlocking_scripts (
