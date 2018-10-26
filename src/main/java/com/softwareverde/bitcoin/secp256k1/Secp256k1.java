@@ -72,7 +72,7 @@ public class Secp256k1 {
 
     protected static Boolean _verifySignatureViaJni(final Signature signature, final PublicKey publicKey, final byte[] message) {
         try {
-            return NativeSecp256k1.verify(message, signature.toCanonical().encodeAsDer().getBytes(), publicKey.getBytes());
+            return NativeSecp256k1.verify(message, signature.asCanonical().encodeAsDer().getBytes(), publicKey.getBytes());
         }
         catch (Exception e) {
             Logger.log(e);

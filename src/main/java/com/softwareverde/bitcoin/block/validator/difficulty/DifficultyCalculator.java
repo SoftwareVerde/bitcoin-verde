@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.difficulty;
 
-import com.softwareverde.bitcoin.bip.Bip55;
+import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -238,7 +238,7 @@ public class DifficultyCalculator {
                 return _calculateNewBitcoinCoreTarget(blockHeight, blockHeader);
             }
 
-            if (Bip55.isEnabled(blockHeight)) {
+            if (Buip55.isEnabled(blockHeight)) {
                 return _calculateBitcoinCashEmergencyDifficultyAdjustment(blockId, blockHeight, blockHeader);
             }
 

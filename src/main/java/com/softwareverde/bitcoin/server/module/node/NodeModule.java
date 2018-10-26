@@ -196,7 +196,7 @@ public class NodeModule {
                     commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
                     commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
 
-                    commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
+                    // commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
                     // commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
 
                     commandLineArguments.setQueryCacheByteCount(0L);

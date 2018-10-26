@@ -99,6 +99,12 @@ public class Signature implements Const, Constable<Signature> {
     protected final ByteArray _r;
     protected final ByteArray _s;
 
+    protected Boolean _isCanonical() {
+        final BigInteger halfCurveOrder = curveN.shiftRight(1);
+        final BigInteger s = new BigInteger(1, _s.getBytes());
+        return (s.compareTo(halfCurveOrder) <= 0);
+    }
+
     private Signature(final MutableByteArray r, final MutableByteArray s) {
         _r = r;
         _s = s;
@@ -143,13 +149,16 @@ public class Signature implements Const, Constable<Signature> {
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 
-    public Signature toCanonical() {
-        final BigInteger halfCurveOrder = curveN.shiftRight(1);
-        final BigInteger s = new BigInteger(1, _s.getBytes());
-        if (s.compareTo(halfCurveOrder) <= 0) { return this; }
+    public Signature asCanonical() {
+        if (_isCanonical()) { return this; }
 
+        final BigInteger s = new BigInteger(1, _s.getBytes());
         final BigInteger newS = curveN.subtract(s);
         return new Signature(_r.getBytes(), newS.toByteArray());
+    }
+
+    public Boolean isCanonical() {
+        return _isCanonical();
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.Bip55;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
@@ -51,7 +52,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final HashType hashType = scriptSignature.getHashType();
 
         final Long blockHeight = context.getBlockHeight();
-        if (Bip55.isEnabled(blockHeight)) {
+        if (Buip55.isEnabled(blockHeight)) {
             if (! hashType.isBitcoinCashType()) {
                 return false;
             }
@@ -68,15 +69,21 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
-        // NOTE: enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
-        if (scriptSignature == null) { return false; }
+        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
+            if (scriptSignature == null) { return false; }
 
-        final HashType hashType = scriptSignature.getHashType();
-        if (hashType == null) { return false; }
+            final HashType hashType = scriptSignature.getHashType();
+            if (hashType == null) { return false; }
 
-        if (hashType.getMode() == null) { return false; }
+            if (hashType.getMode() == null) { return false; }
+            if (! hashType.isBitcoinCashType()) { return false; }
+        }
 
-        if (! hashType.isBitcoinCashType()) { return false; }
+        { // Enforce LOW_S Signature Encoding... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
+            final Signature signature = scriptSignature.getSignature();
+            final Boolean isCanonical = signature.isCanonical();
+            if (! isCanonical) { return false; }
+        }
 
         return true;
     }
@@ -148,8 +155,9 @@ public class CryptographicOperation extends SubTypedOperation {
                 {
                     final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
 
+
                     final Long blockHeight = context.getBlockHeight();
-                    if (Bip55.isEnabled(blockHeight)) {
+                    if (Buip55.isEnabled(blockHeight)) {
                         final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
                         if (! meetsStrictEncodingStandard) { return false; }
                     }
@@ -240,7 +248,7 @@ public class CryptographicOperation extends SubTypedOperation {
                             final boolean signatureIsValid;
                             {
                                 final Long blockHeight = context.getBlockHeight();
-                                if (Bip55.isEnabled(blockHeight)) {
+                                if (Buip55.isEnabled(blockHeight)) {
                                     final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
                                     if (! meetsStrictEncodingStandard) { return false; }
                                 }

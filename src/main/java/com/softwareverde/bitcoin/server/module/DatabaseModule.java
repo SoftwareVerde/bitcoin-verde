@@ -62,7 +62,7 @@ public class DatabaseModule {
                     commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
                     commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
                     commandLineArguments.setInnoDbLogBufferByteCount(1 * com.softwareverde.util.ByteUtil.Unit.GIGABYTES);
-                    commandLineArguments.setInnoDbLogFileByteCount(32 * com.softwareverde.util.ByteUtil.Unit.GIGABYTES);
+                    // commandLineArguments.setInnoDbLogFileByteCount(32 * com.softwareverde.util.ByteUtil.Unit.GIGABYTES);
                     commandLineArguments.setQueryCacheByteCount(0L);
                     commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
                 }
