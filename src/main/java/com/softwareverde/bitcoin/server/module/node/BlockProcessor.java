@@ -43,7 +43,7 @@ public class BlockProcessor {
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
 
     protected Integer _maxThreadCount = 4;
-    protected Integer _trustedBlockHeight = 0;
+    protected Long _trustedBlockHeight = 0L;
 
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
@@ -64,7 +64,7 @@ public class BlockProcessor {
         _maxThreadCount = maxThreadCount;
     }
 
-    public void setTrustedBlockHeight(final Integer trustedBlockHeight) {
+    public void setTrustedBlockHeight(final Long trustedBlockHeight) {
         _trustedBlockHeight = trustedBlockHeight;
     }
 

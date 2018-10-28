@@ -35,6 +35,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BlockValidator {
+    public static final Long DO_NOT_TRUST_BLOCKS = -1L;
+
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
@@ -43,7 +45,7 @@ public class BlockValidator {
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
-    protected Integer _trustedBlockHeight = 0;
+    protected Long _trustedBlockHeight = 0L;
 
     protected Boolean _validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block, final Long blockHeight) {
         if (! block.isValid()) {
@@ -253,7 +255,7 @@ public class BlockValidator {
         _maxThreadCount = maxThreadCount;
     }
 
-    public void setTrustedBlockHeight(final Integer trustedBlockHeight) {
+    public void setTrustedBlockHeight(final Long trustedBlockHeight) {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
@@ -279,7 +281,7 @@ public class BlockValidator {
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 block = blockDatabaseManager.getBlock(blockId);
                 if (block == null) {
-                    Logger.log("No transactions for block id: " + blockId);
+                    Logger.log("Could not inflate Block. BlockId: " + blockId);
                     return false;
                 }
             }

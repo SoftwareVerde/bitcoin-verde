@@ -54,6 +54,8 @@ public class BlockDatabaseManager {
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
         for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            if (transaction == null) { return null; }
+
             listBuilder.add(transaction);
         }
         return listBuilder.build();
@@ -88,9 +90,18 @@ public class BlockDatabaseManager {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
 
-        if (blockHeader == null) { return null; }
+        if (blockHeader == null) {
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            Logger.log("ERROR: Unable to inflate block. BlockId: " + blockId + " Hash: " + blockHash);
+            return null;
+        }
 
         final List<Transaction> transactions = _getBlockTransactions(blockId);
+        if (transactions == null) {
+            Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
+            return null;
+        }
+
         final MutableBlock block = new MutableBlock(blockHeader, transactions);
 
         if (! Util.areEqual(blockHeader.getHash(), block.getHash())) {

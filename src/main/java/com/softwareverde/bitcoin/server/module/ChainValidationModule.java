@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -28,7 +29,6 @@ import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
@@ -71,14 +71,7 @@ public class ChainValidationModule {
                 });
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                {
-                    commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
-                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setQueryCacheByteCount(0L);
-                    commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
-                }
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties);
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
@@ -92,6 +85,16 @@ public class ChainValidationModule {
             }
             else {
                 BitcoinUtil.exitFailure();
+            }
+        }
+
+        { // Initialize the NativeUnspentTransactionOutputCache...
+            final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+            if (nativeCacheIsEnabled) {
+                NativeUnspentTransactionOutputCache.init();
+            }
+            else {
+                Logger.log("NOTICE: NativeUtxoCache not enabled.");
             }
         }
 
@@ -120,6 +123,7 @@ public class ChainValidationModule {
             final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, databaseManagerCache, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(serverProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
+            blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
 
             final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
 
@@ -149,7 +153,7 @@ public class ChainValidationModule {
                         transactionsPerSecond = (validatedTransactionCount / (seconds.floatValue() + 1));
                     }
 
-                    Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ( "+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
+                    Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
                 validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
@@ -157,6 +161,7 @@ public class ChainValidationModule {
 
                 if (! blockIsValid) {
                     Logger.error("Invalid block found: " + blockHash);
+                    break;
                 }
 
                 nextBlockHash = null;

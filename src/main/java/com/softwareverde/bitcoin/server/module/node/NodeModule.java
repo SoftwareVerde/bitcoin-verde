@@ -1,16 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.module.CacheWarmer;
+import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
 import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
@@ -28,13 +29,9 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
@@ -47,8 +44,6 @@ import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.File;
 
@@ -95,76 +90,11 @@ public class NodeModule {
 
     protected void _warmUpCache() {
         Logger.log("[Warming Cache]");
+        final CacheWarmer cacheWarmer = new CacheWarmer();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-
-        try (final MysqlDatabaseConnection databaseConnection = _environment.getDatabase().newConnection()) {
-            { // Warm Up UTXO Cache...
-                final Integer batchSize = (512 * 1024);
-                Long lastRowId = Long.MAX_VALUE;
-
-                while (lastRowId > 0) {
-                    final NanoTimer nanoTimer = new NanoTimer();
-                    nanoTimer.start();
-
-                    Long batchFirstRowId = null;
-                    final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE id < ? ORDER BY id DESC LIMIT " + batchSize)
-                            .setParameter(lastRowId)
-                    );
-                    if (rows.isEmpty()) { break; }
-                    for (final Row row : rows) {
-                        final Long rowId = row.getLong("id");
-                        final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                        final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
-                        final Integer transactionOutputIndex = row.getInteger("index");
-
-                        localDatabaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
-                        lastRowId = rowId;
-
-                        if (batchFirstRowId == null) {
-                            batchFirstRowId = rowId;
-                        }
-                    }
-
-                    nanoTimer.stop();
-                    Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + nanoTimer.getMillisecondsElapsed() + "ms)");
-                }
-            }
-//            { // Warm Up AddressDatabaseManager Cache...
-//                final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, localDatabaseManagerCache);
-//                final java.util.List<Row> rows = databaseConnection.query(
-//                    new Query("SELECT id, address FROM addresses ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getAddressIdCache().getMaxItemCount())
-//                );
-//                for (final Row row : rows) {
-//                    final AddressId addressId = AddressId.wrap(row.getLong("id"));
-//                    final String address = row.getString("address");
-//                    addressDatabaseManager.getAddressId(address);
-//                }
-//
-//                localDatabaseManagerCache.resetLog();
-//            }
-//
-//            { // Warm Up TransactionDatabaseManager Cache...
-//                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
-//                final java.util.List<Row> rows = databaseConnection.query(
-//                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT " + localDatabaseManagerCache.getTransactionIdCache().getMaxItemCount())
-//                );
-//                for (final Row row : rows) {
-//                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-//                    transactionDatabaseManager.getTransactionId(transactionHash);
-//                }
-//
-//                localDatabaseManagerCache.resetLog();
-//            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.log(exception);
-            BitcoinUtil.exitFailure();
-        }
-
-        masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
-        localDatabaseManagerCache.close();
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
+        cacheWarmer.warmUpCache(masterDatabaseManagerCache, databaseConnectionFactory);
     }
 
     protected NodeModule(final String configurationFilename) {
@@ -184,34 +114,8 @@ public class NodeModule {
                     public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
                 });
 
-                final Integer maxDatabaseThreadCount = Math.max(128, (serverProperties.getMaxPeerCount() * 8));
-
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                {
-                    commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
-
-                    commandLineArguments.setInnoDbLogBufferByteCount(1 * ByteUtil.Unit.GIGABYTES);
-
-                    commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
-                    commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
-
-                    // commandLineArguments.setInnoDbLogFileByteCount(32 * ByteUtil.Unit.GIGABYTES);
-                    // commandLineArguments.setInnoDbLogFileByteCount(48 * ByteUtil.Unit.MEGABYTES);
-
-                    commandLineArguments.setQueryCacheByteCount(0L);
-
-                    commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
-
-                    commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
-                    commandLineArguments.addArgument("--innodb-read-io-threads=8");
-                    commandLineArguments.addArgument("--innodb-write-io-threads=8");
-
-                    // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-                    // commandLineArguments.addArgument("--performance_schema");
-                    // commandLineArguments.addArgument("--general_log_file=query.log");
-                    // commandLineArguments.addArgument("--general_log=1");
-                }
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties);
 
                 // databaseInstance = new DebugEmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

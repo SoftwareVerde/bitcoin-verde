@@ -320,7 +320,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                if (validateForMemoryPool) { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
+                { // Enforcing Coinbase Maturity... (If the input is a coinbase then the coinbase must be at least 100 blocks old.)
                     final Boolean transactionOutputBeingSpentIsCoinbaseTransaction = (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionInput.getPreviousOutputTransactionHash()));
                     if (transactionOutputBeingSpentIsCoinbaseTransaction) {
                         final BlockId transactionOutputBeingSpentBlockId = _transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionOutputBeingSpentTransactionId);

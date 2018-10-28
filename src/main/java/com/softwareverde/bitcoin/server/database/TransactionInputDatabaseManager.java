@@ -332,7 +332,7 @@ public class TransactionInputDatabaseManager {
 
     public List<TransactionInputId> getTransactionInputIds(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ?")
+            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
                 .setParameter(transactionId)
         );
 

@@ -242,7 +242,6 @@ public class TransactionDatabaseManager {
             final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
             if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
                 Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
-                Logger.log(transaction.toJson());
                 return null;
             }
         }
