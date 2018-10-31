@@ -47,13 +47,13 @@ public class BlockDatabaseManager {
         Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
     }
 
-    protected List<Transaction> _getBlockTransactions(final BlockId blockId) throws DatabaseException {
+    protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
         final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
 
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
         for (final TransactionId transactionId : transactionIds) {
-            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+            final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, shouldUpdateUnspentOutputCache);
             if (transaction == null) { return null; }
 
             listBuilder.add(transaction);
@@ -81,12 +81,7 @@ public class BlockDatabaseManager {
         return Sha256Hash.fromHexString(row.getString("hash"));
     }
 
-    public BlockDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = databaseManagerCache;
-    }
-
-    public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
+    protected MutableBlock _getBlock(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
 
@@ -96,7 +91,7 @@ public class BlockDatabaseManager {
             return null;
         }
 
-        final List<Transaction> transactions = _getBlockTransactions(blockId);
+        final List<Transaction> transactions = _getBlockTransactions(blockId, shouldUpdateUnspentOutputCache);
         if (transactions == null) {
             Logger.log("ERROR: Unable to inflate block: " + blockHeader.getHash());
             return null;
@@ -110,6 +105,19 @@ public class BlockDatabaseManager {
         }
 
         return block;
+    }
+
+    public BlockDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+        _databaseConnection = databaseConnection;
+        _databaseManagerCache = databaseManagerCache;
+    }
+
+    public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
+        return _getBlock(blockId, false);
+    }
+
+    public MutableBlock getBlock(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+        return _getBlock(blockId, shouldUpdateUnspentOutputCache);
     }
 
     /**

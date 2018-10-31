@@ -75,7 +75,7 @@ public class TransactionOutputDatabaseManager {
         { // Attempt to find the UTXO from the in-memory cache...
             final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
             if (cachedUnspentTransactionOutputId != null) { return cachedUnspentTransactionOutputId; }
-            // Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+            Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
         }
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -370,71 +370,6 @@ public class TransactionOutputDatabaseManager {
 
         final TransactionOutputId transactionOutputId = _getTransactionOutputId(transactionId, transactionOutputIndex);
         return transactionOutputId;
-    }
-
-    public Map<TransactionOutputIdentifier, TransactionOutputId> getPreviousTransactionOutputs(final List<Transaction> transactions) throws DatabaseException {
-        final Integer transactionCount = transactions.getSize();
-        final HashMap<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = new HashMap<TransactionOutputIdentifier, TransactionOutputId>(transactionCount * 2);
-        final HashSet<TransactionOutputIdentifier> unfoundPreviousTransactionOutputs = new HashSet<TransactionOutputIdentifier>(transactionCount * 2);
-        final MutableList<Sha256Hash> unfoundPreviousOutputTransactionHashes = new MutableList<Sha256Hash>(transactionCount * 2);
-        for (final Transaction transaction : transactions) {
-            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final Integer outputIndex = transactionInput.getPreviousOutputIndex();
-
-                if (Util.areEqual(Sha256Hash.EMPTY_HASH, transactionHash)) {
-                    // if (! Util.areEqual(-1, outputIndex)) { return null; } // NOTE: This isn't actually enforced in any of the other reference clients...
-                    continue;
-                }
-
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, outputIndex);
-
-                final TransactionOutputId cachedTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, outputIndex);
-                previousTransactionOutputsMap.put(transactionOutputIdentifier, cachedTransactionOutputId);
-
-                if (cachedTransactionOutputId == null) {
-                    unfoundPreviousOutputTransactionHashes.add(transactionHash);
-                    unfoundPreviousTransactionOutputs.add(transactionOutputIdentifier);
-                }
-            }
-        }
-
-        { // Search the UTXO set for the TransactionOutputs...
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE transaction_hash IN (" + DatabaseUtil.createInClause(unfoundPreviousOutputTransactionHashes) + ")")
-            );
-            for (final Row row : rows) {
-                final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("transaction_hash"));
-                final Integer index = row.getInteger("index");
-
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, index);
-                previousTransactionOutputsMap.put(transactionOutputIdentifier, transactionOutputId);
-                unfoundPreviousTransactionOutputs.remove(transactionOutputIdentifier);
-            }
-        }
-
-        if (! unfoundPreviousTransactionOutputs.isEmpty()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
-            for (final TransactionOutputIdentifier transactionOutputIdentifier : unfoundPreviousTransactionOutputs) {
-                final Sha256Hash transactionHash = transactionOutputIdentifier.getTransactionHash();
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                if (transactionId == null) {
-                    Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionHash);
-                    return null;
-                }
-
-                final TransactionOutputId transactionOutputId = _getTransactionOutputId(transactionId, transactionOutputIdentifier.getOutputIndex());
-                if (transactionOutputId == null) {
-                    Logger.log("Could not find Transaction for PreviousTransactionOutput: " + transactionId + ":" + transactionOutputIdentifier.getOutputIndex());
-                    return null;
-                }
-
-                previousTransactionOutputsMap.put(transactionOutputIdentifier, transactionOutputId);
-            }
-        }
-
-        return previousTransactionOutputsMap;
     }
 
     public TransactionOutput getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {

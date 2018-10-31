@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
@@ -16,6 +17,7 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -104,6 +106,7 @@ public class ChainValidationModule {
     public void run() {
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        final UnspentTransactionOutputCache unspentTransactionOutputCache = masterDatabaseManagerCache.getUnspentTransactionOutputCache();
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
 
@@ -156,8 +159,10 @@ public class ChainValidationModule {
                     Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
+                final Block block = blockDatabaseManager.getBlock(blockId, true);
+
                 validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, null);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
 
                 if (! blockIsValid) {
                     Logger.error("Invalid block found: " + blockHash);

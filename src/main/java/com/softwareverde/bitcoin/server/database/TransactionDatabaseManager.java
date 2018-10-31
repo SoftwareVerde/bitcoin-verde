@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -13,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -202,7 +204,7 @@ public class TransactionDatabaseManager {
         return transactionHashMap;
     }
 
-    protected Transaction _inflateTransaction(final TransactionId transactionId) throws DatabaseException {
+    protected Transaction _inflateTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
         final Transaction cachedTransaction = _databaseManagerCache.getCachedTransaction(transactionId);
         if (cachedTransaction != null) { return cachedTransaction; }
 
@@ -219,35 +221,57 @@ public class TransactionDatabaseManager {
         final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
 
-        final MutableTransaction transaction = new MutableTransaction();
+        final List<TransactionInputId> transactionInputIds;
+        final List<TransactionOutputId> transactionOutputIds;
 
-        transaction.setVersion(version);
-        transaction.setLockTime(lockTime);
+        final ImmutableSha256Hash transactionHash;
+        final ImmutableTransaction transaction;
+        {
+            final MutableTransaction mutableTransaction = new MutableTransaction();
 
-        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
-        for (final TransactionInputId transactionInputId : transactionInputIds) {
-            final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
-            transaction.addTransactionInput(transactionInput);
-        }
+            mutableTransaction.setVersion(version);
+            mutableTransaction.setLockTime(lockTime);
 
-        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
-            final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
-            transaction.addTransactionOutput(transactionOutput);
-        }
+            transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+            for (final TransactionInputId transactionInputId : transactionInputIds) {
+                final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+                mutableTransaction.addTransactionInput(transactionInput);
+            }
 
-        final Sha256Hash transactionHash = transaction.getHash();
+            transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+            for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+                final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+                mutableTransaction.addTransactionOutput(transactionOutput);
+            }
 
-        { // Validate inflated transaction hash...
-            final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-            if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
-                Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
-                return null;
+            transaction = mutableTransaction.asConst();
+            transactionHash = transaction.getHash();
+
+            { // Validate inflated transaction hash...
+                final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
+                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    return null;
+                }
             }
         }
 
-        _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
-        _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
+        if (shouldUpdateUnspentOutputCache) {
+            for (int i = 0; i < transactionOutputIds.getSize(); ++i) {
+                final Integer transactionOutputIndex = i;
+                final TransactionOutputId transactionOutputId = transactionOutputIds.get(i);
+
+                _databaseManagerCache.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
+            }
+
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+                _databaseManagerCache.invalidateUnspentTransactionOutputId(transactionOutputIdentifier);
+            }
+        }
+
+        _databaseManagerCache.cacheTransactionId(transactionHash, transactionId);
+        _databaseManagerCache.cacheTransaction(transactionId, transaction);
 
         return transaction;
     }
@@ -422,7 +446,11 @@ public class TransactionDatabaseManager {
     }
 
     public Transaction getTransaction(final TransactionId transactionId) throws DatabaseException {
-        return _inflateTransaction(transactionId);
+        return _inflateTransaction(transactionId, false);
+    }
+
+    public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
+        return _inflateTransaction(transactionId, shouldUpdateUnspentOutputCache);
     }
 
     public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
