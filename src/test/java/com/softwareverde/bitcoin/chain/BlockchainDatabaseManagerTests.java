@@ -901,6 +901,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        final BlockId block1Id;
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -913,14 +914,14 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockCount().intValue());
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockDatabaseManager.storeBlock(block1);
+            block1Id = blockDatabaseManager.storeBlock(block1);
         }
 
         Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockHeight().intValue());
         Assert.assertEquals(2, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockCount().intValue());
 
         // Action
-        blockchainDatabaseManager.updateBlockchainsForNewBlock(block1);
+        blockchainDatabaseManager.updateBlockchainsForNewBlock(block1Id);
 
         // Assert
         Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockHeight().intValue());

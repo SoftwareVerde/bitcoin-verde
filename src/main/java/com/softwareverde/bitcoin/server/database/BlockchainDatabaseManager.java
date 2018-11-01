@@ -1,19 +1,16 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 
 public class BlockchainDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -167,13 +164,42 @@ public class BlockchainDatabaseManager {
         return blockchainSegmentIds.build();
     }
 
+    protected Boolean _areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final BlockchainSegmentId blockchainSegmentId1, final BlockRelationship blockRelationship) throws DatabaseException {
+        final Query query;
+        switch (blockRelationship) {
+            case ANCESTOR: {
+                query = new Query("SELECT (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS B")
+                    .setParameter(blockchainSegmentId0)
+                    .setParameter(blockchainSegmentId1);
+            } break;
+
+            case DESCENDANT: {
+                query = new Query("SELECT (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS B")
+                    .setParameter(blockchainSegmentId0)
+                    .setParameter(blockchainSegmentId1);
+            } break;
+
+            default: {
+                query = new Query("SELECT (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) OR (A.nested_set_left >= B.nested_set_left AND A.nested_set_right <= B.nested_set_right) AS are_connected FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A, (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS B")
+                    .setParameter(blockchainSegmentId0)
+                    .setParameter(blockchainSegmentId1);
+            }
+        }
+
+        final java.util.List<Row> rows = _databaseConnection.query(query);
+        if (rows.isEmpty()) { throw new DatabaseException("No blockchain segment matches returned."); }
+
+        final Row row = rows.get(0);
+        return row.getBoolean("are_connected");
+    }
+
     public BlockchainDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }
 
     public void updateBlockchainsForNewBlock(final BlockId blockId) throws DatabaseException {
-        if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to storeBlock without obtaining lock."); }
+        if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to updateBlockchainsForNewBlock without obtaining lock."); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
@@ -231,5 +257,9 @@ public class BlockchainDatabaseManager {
         }
 
         return blockchainSegmentId;
+    }
+
+    public Boolean areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final BlockchainSegmentId blockchainSegmentId1, final BlockRelationship blockRelationship) throws DatabaseException {
+        return _areBlockchainSegmentsConnected(blockchainSegmentId0, blockchainSegmentId1, blockRelationship);
     }
 }

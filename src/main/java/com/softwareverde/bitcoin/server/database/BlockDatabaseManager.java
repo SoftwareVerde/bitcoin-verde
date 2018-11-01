@@ -138,7 +138,7 @@ public class BlockDatabaseManager {
             blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
 
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
-            blockchainDatabaseManager.updateBlockchainsForNewBlock(block);
+            blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
         }
         else {
             blockId = existingBlockId;
@@ -178,7 +178,7 @@ public class BlockDatabaseManager {
         if (blockId == null) { return null; }
 
         final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
-        blockchainDatabaseManager.updateBlockchainsForNewBlock(block);
+        blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
 
         _storeBlockTransactions(blockId, block.getTransactions());
         return blockId;
