@@ -38,7 +38,7 @@ CREATE TABLE blocks (
     version INT UNSIGNED NOT NULL DEFAULT '1',
     timestamp BIGINT UNSIGNED NOT NULL,
     difficulty CHAR(8) NOT NULL,
-    nonce BIGINT UNSIGNED NOT NULL,
+    nonce INT UNSIGNED NOT NULL,
     chain_work CHAR(64) NOT NULL,
     byte_count INT UNSIGNED,
     PRIMARY KEY (id),
@@ -50,14 +50,11 @@ CREATE TABLE blocks (
 
 CREATE TABLE blockchain_segments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    head_block_id INT UNSIGNED NOT NULL,
-    tail_block_id INT UNSIGNED NOT NULL,
-    block_height INT UNSIGNED NOT NULL,
-    block_count INT UNSIGNED NOT NULL,
+    parent_blockchain_segment_id INT UNSIGNED NULL,
+    nested_set_left INT UNSIGNED NOT NULL,
+    nested_set_right INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY blockchain_segments_block_ids_uq (head_block_id, tail_block_id),
-    FOREIGN KEY blockchain_segments_head_block_id_fk (head_block_id) REFERENCES blocks (id),
-    FOREIGN KEY blockchain_segments_tail_block_id_fk (tail_block_id) REFERENCES blocks (id)
+    FOREIGN KEY (blockchain_segments_parent_blockchain_segment_id) REFERENCES blockchain_segments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 ALTER TABLE blocks ADD CONSTRAINT blocks_blockchain_segments_fk FOREIGN KEY (blockchain_segment_id) REFERENCES blockchain_segments (id);

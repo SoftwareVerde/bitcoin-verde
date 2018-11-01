@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -32,173 +34,137 @@ public class BlockchainDatabaseManager {
         return blockchainSegment;
     }
 
-    protected void _updateBlockchainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
-        /*
-            Each fork creates 2 new BlockchainSegments.
-                Segment 0: Contains the blocks before the fork, but excluding any blocks from either side of the fork.
-                    The head of this segment stops before the block causing the fork; therefore, this segment does not
-                    contain the new block.  In the diagram below, this segment would include blocks 3 and 4.
-
-                Segment 1: Contains the blocks existing before the fork and are siblings to the new block causing the
-                    fork.  In the diagram below, this segment would include blocks 5 and 6.
-
-                Segment 2: Contains the new block that is causing the fork.  In the diagram below, this segment would
-                    include only block 5'.
-
-            // Assuming block 5' arrives after 5, 6 have been created...
-
-            [6]         // [5,6] = refactoredChainSegment
-             |
-            [5] [5']    // 5' = newBlock, [5'] = newChainSegment
-             |   |
-             +--[4]     // 4 = previousBlock, [...,3,4,5,6] = previousBlockchainSegment, [...,3,4] = baseBlockchainSegment
-                 |
-                [3]
-         */
-
-        // 1. Check if the parent block has any children.  This determines if the new block is contentious.
-        // 2. If the block is not contentious...
-        //      2.1 If the newBlock is not the genesis block...
-        //          2.1.1 Update the blockchainSegment's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-        //          2.1.2 Update the newBlock so its blockchain_segment_id points to the previousBlockchain's id.
-        //      2.2 Else (the newBlock is the genesis block)...
-        //          2.2.1 Create a new blockchainSegment and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
-        //          2.2.2 Update the newBlock so its blockchain_segment_id points to the new blockchainSegment's id.
-        //          2.2.3 Create a new
-        // 3. Else (the block is contentious)...
-        //      3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockchainSegment... ("refactoredBlocks")
-        //      3.2 Update/revert the baseBlockchain.
-        //          The head_block_id should point to the previousBlock.
-        //          The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-        //      3.3 If there are blocks that need to be refactored...
-        //          3.3.1 Create a new block chain to house all of the already-existing blocks after the previousBlock.
-        //              The tail_block_id of this chain should be set to the head_block_id of the baseChain.
-        //              The block_count should be the number of refactored blocks (which excludes the head block of the baseChain).
-        //              The block_height is the total number of blocks below this chain and all connected chains; this is equivalent to the original block height for this chain before it was refactored.
-        //          3.3.2 Update the refactoredBlocks to belong to the new block chain.
-        //      3.3 Update the new block chain to point to the correct tail_block_id, head_block_id, block_height, and block_count.
-        //          3.3.1 Update the new block chain to point to the correct tail_block_id, head_block_id, block_height, and block_count.
-        //          3.3.2 Update the refactoredBlocks to belong to the new refactoredBlockchain.
-        //      3.4 Create a new block chain to house the newBlock (and its future children)...
-        //          Set its head_block_id to the new block, and its tail_block_id to the previousBlockId (the head_block_id of the baseChain).
-        //          Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
-        //      3.5 Set the newBlock's blockchain_segment_id to the newBlockchain's id created in 3.4.
-
+    protected BlockchainSegmentId _updateBlockchainSegment(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(newBlock.getHash());
-        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(newBlock.getPreviousBlockHash());
+        final BlockId priorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+        final BlockchainSegmentId priorBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(priorBlockId);
 
-        // 1. Check if the parent block has any children.  This determines if the new block is contentious.
-        final Boolean newBlockIsContentiousBlock = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(previousBlockId) > 1);
-
-        final BlockchainSegmentId previousBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(previousBlockId);
-        if (! newBlockIsContentiousBlock) { // 2. If the block is not contentious...
-
-            if (previousBlockchainSegmentId != null) { // 2.1 If the newBlock is not the genesis block...
-                // 2.1.1 Update the blockchain's head_block_id to point to the newBlock, and increase its block_height and block_count by 1.
-                _databaseConnection.executeSql(
-                    new Query("UPDATE blockchain_segments SET head_block_id = ?, block_height = (block_height + 1), block_count = (block_count + 1) WHERE id = ?")
-                        .setParameter(newBlockId)
-                        .setParameter(previousBlockchainSegmentId)
-                );
-
-                // 2.1.2 Update the newBlock so its blockchain_segment_id points to the previousBlockchain's id.
-                blockHeaderDatabaseManager.setBlockchainSegmentId(newBlockId, previousBlockchainSegmentId);
-            }
-            else { // 2.2 Else (the newBlock is the genesis block)...
-                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newBlockId);
-                if (blockchainSegmentId == null) { // If this block is not already assigned a blockchainSegment, create a new one...
-                    // 2.2.1 Create a new blockchain and set its block_count to 1, its block_height to 0, and its head_block_id and tail_block_id to the newBlock's id.
-                    final BlockchainSegmentId genesisBlockchainSegmentId = BlockchainSegmentId.wrap(_databaseConnection.executeSql(
-                        new Query("INSERT INTO blockchain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
-                            .setParameter(newBlockId)
-                            .setParameter(newBlockId)
-                            .setParameter(0)
-                            .setParameter(1)
-                    ));
-
-                    // 2.2.2 Update the newBlock so its blockchain_segment_id points to the new blockchain's id.
-                    blockHeaderDatabaseManager.setBlockchainSegmentId(newBlockId, genesisBlockchainSegmentId);
-                }
-            }
+        final Boolean hasChildren = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(priorBlockId) > 0);
+        if (! hasChildren) {
+            // The blockchainSegment has no children, so it safe to create on the same segment...
+            return priorBlockSegmentId;
         }
-        else { // 3. Else (the block is contentious)...
-            final Long previousBlockBlockHeight = blockHeaderDatabaseManager.getBlockHeight(previousBlockId);
 
-            final BlockId refactoredChainHeadBlockId;
-            final BlockId refactoredChainTailBlockId;
-            final Long refactoredChainBlockHeight;
-            final Integer refactoredChainBlockCount;
-            { // 3.1 Find all blocks after the previousBlock belonging to the previousBlock's blockchain... ("refactoredBlocks")
-                final java.util.List<Row> rows = _databaseConnection.query(
-                    new Query("SELECT id, block_height FROM blocks WHERE blockchain_segment_id = ? AND block_height > ? ORDER BY block_height ASC")
-                        .setParameter(previousBlockchainSegmentId)
-                        .setParameter(previousBlockBlockHeight)
-                );
+        // Eg: Inserting new contentious block, C', whose parent is B...
+        //
+        //           A    [#0]                   A    [#0]
+        //           |                           |
+        //           B                           B
+        //           |                 [#1] +----+----+ [#3]
+        //           C            ->        |         |
+        //           |                      C         C'
+        // [#1] +----+----+ [#2]            |
+        //      |         |       [#4] +----+----+ [#5]
+        //      D         D'           |         |
+        //      |         |            D         D'
+        //      E         E'           |         |
+        //                             E         E'
 
-                refactoredChainBlockCount = rows.size();
-                refactoredChainTailBlockId = previousBlockId;
-
-                if (refactoredChainBlockCount > 0) {
-                    final Row headBlockRow = rows.get(rows.size() - 1);
-                    refactoredChainHeadBlockId = BlockId.wrap(headBlockRow.getLong("id"));
-                    refactoredChainBlockHeight = headBlockRow.getLong("block_height");
-                }
-                else {
-                    refactoredChainHeadBlockId = null;
-                    refactoredChainBlockHeight = null;
-                }
-            }
-
-            // 3.2 Update/revert the baseBlockchain.
-            //  The head_block_id should point to the previousBlock.
-            //  The block_height is the total number of blocks below this chain; this is equivalent to the original block height minus the number of blocks moved to the refactoredChain.
-            _databaseConnection.executeSql(
-                new Query("UPDATE blockchain_segments SET head_block_id = ?, block_height = ?, block_count = (block_count - ?) WHERE id = ?")
-                    .setParameter(previousBlockId)
-                    .setParameter(previousBlockBlockHeight)
-                    .setParameter(refactoredChainBlockCount)
-                    .setParameter(previousBlockchainSegmentId)
+        final Boolean hasSiblingOnBlockchainSegment;
+        {
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id FROM blocks WHERE previous_block_id = ? AND blockchain_segment_id = ?")
+                    .setParameter(priorBlockId)
+                    .setParameter(priorBlockSegmentId)
             );
-
-            if (refactoredChainBlockCount > 0) { // 3.3 If there are blocks that need to be refactored...
-                // 3.3.1 Create a new block chain to house all of the already-existing blocks after the previousBlock.
-                //  The tail_block_id of this chain should be set to the head_block_id of the baseChain.
-                //  The block_count should be the number of refactored blocks (which excludes the head block of the baseChain).
-                //  The block_height is the total number of blocks below this chain and all connected chains; this is equivalent to the original block height for this chain before it was refactored.
-                final Long refactoredBlockchainSegmentId = _databaseConnection.executeSql(
-                    new Query("INSERT INTO blockchain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
-                        .setParameter(refactoredChainHeadBlockId)
-                        .setParameter(refactoredChainTailBlockId)
-                        .setParameter(refactoredChainBlockHeight)
-                        .setParameter(refactoredChainBlockCount)
-                );
-
-                // 3.3.2 Update the refactoredBlocks to belong to the new refactoredBlockchain.
-                _databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE blockchain_segment_id = ? AND block_height > ?")
-                        .setParameter(refactoredBlockchainSegmentId)
-                        .setParameter(previousBlockchainSegmentId)
-                        .setParameter(previousBlockBlockHeight)
-                );
-                _databaseManagerCache.invalidateBlockIdBlockchainSegmentIdCache(); // Invalidate BlockchainSegmentId cache after update...
-            }
-
-            // 3.4 Create a new block chain to house the newBlock (and its future children)...
-            //  Set its head_block_id to the new block, and its tail_block_id to the previousBlockId (the head_block_id of the baseChain).
-            //  Set its block_height to the baseChain's block_height plus 1, and its block_count to 1.
-            final BlockchainSegmentId newChainId = BlockchainSegmentId.wrap(_databaseConnection.executeSql(
-                new Query("INSERT INTO blockchain_segments (head_block_id, tail_block_id, block_height, block_count) VALUES (?, ?, ?, ?)")
-                    .setParameter(newBlockId)
-                    .setParameter(previousBlockId)
-                    .setParameter(previousBlockBlockHeight + 1)
-                    .setParameter(1)
-            ));
-
-            // 3.5 Set the newBlock's blockchain_id to the newBlockchain's id created in 3.4.
-            blockHeaderDatabaseManager.setBlockchainSegmentId(newBlockId, newChainId);
+            hasSiblingOnBlockchainSegment = (rows.size() > 0);
         }
+
+        if (hasSiblingOnBlockchainSegment) {
+            // The contentious block is splitting an existing blockchainSegment, therefore make a new segment and update the existing segments...
+            _moveChildrenToNewBlockchainSegment(priorBlockSegmentId, priorBlockId);
+        }
+
+        return _createNewBlockchainSegment(priorBlockSegmentId);
+    }
+
+    protected void _moveChildrenToNewBlockchainSegment(final BlockchainSegmentId startingBlockchainSegmentId, final BlockId blockId) throws DatabaseException {
+        final BlockchainSegmentId newBlockchainSegmentId = _createNewBlockchainSegment(startingBlockchainSegmentId);
+
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final Long contentiousBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+
+        // Move the blocks after the contentious block height to the new segment...
+        _databaseConnection.executeSql(
+            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE blockchain_segment_id = ? AND block_height > ?")
+                .setParameter(newBlockchainSegmentId)
+                .setParameter(startingBlockchainSegmentId)
+                .setParameter(contentiousBlockHeight)
+        );
+    }
+
+    protected BlockchainSegmentId _createNewBlockchainSegment(final BlockchainSegmentId parentBlockchainSegmentId) throws DatabaseException {
+        final Long blockchainSegmentId = _databaseConnection.executeSql(
+            new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id, nested_set_left, nested_set_right) VALUES (?, 0, 0)")
+                .setParameter(parentBlockchainSegmentId)
+        );
+
+        _renumberBlockchainSegments();
+
+        return BlockchainSegmentId.wrap(blockchainSegmentId);
+    }
+
+    protected void _renumberBlockchainSegments() throws DatabaseException {
+        final BlockchainSegmentId rootSegmentId = _getRootBlockchainSegmentId();
+        _setLeftNumber(rootSegmentId, 1);
+        final Integer endingNumber = _numberBlockChainSegmentChildren(rootSegmentId, 2);
+        _setRightNumber(rootSegmentId, endingNumber);
+    }
+
+    protected BlockchainSegmentId _getRootBlockchainSegmentId() throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blockchain_segments WHERE parent_blockchain_segment_id is NULL")
+        );
+        if (rows.size() != 1) { throw new DatabaseException("Invalid database state: " + rows.size() + " root BlockchainSegments found."); }
+
+        final Row row = rows.get(0);
+        return BlockchainSegmentId.wrap(row.getLong("id"));
+    }
+
+    protected Integer _numberBlockChainSegmentChildren(final BlockchainSegmentId blockchainSegmentId, final Integer startingNumber) throws DatabaseException {
+        Integer number = startingNumber;
+        final List<BlockchainSegmentId> childBlockChainSegmentIds = _getChildSegmentIds(blockchainSegmentId);
+        for (final BlockchainSegmentId childBlockchainSegmentId : childBlockChainSegmentIds) {
+            _setLeftNumber(childBlockchainSegmentId, number);
+            number += 1;
+
+            number = _numberBlockChainSegmentChildren(childBlockchainSegmentId, number);
+
+            _setRightNumber(childBlockchainSegmentId, number);
+            number += 1;
+        }
+        return number;
+    }
+
+    protected void _setLeftNumber(final BlockchainSegmentId blockchainSegmentId, final Integer value) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE blockchain_segments SET nested_set_left = ? WHERE id = ?")
+                .setParameter(value)
+                .setParameter(blockchainSegmentId)
+        );
+    }
+
+    protected void _setRightNumber(final BlockchainSegmentId blockchainSegmentId, final Integer value) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE blockchain_segments SET nested_set_right = ? WHERE id = ?")
+                .setParameter(value)
+                .setParameter(blockchainSegmentId)
+        );
+    }
+
+    protected List<BlockchainSegmentId> _getChildSegmentIds(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM blockchain_segments WHERE parent_blockchain_segment_id = ?")
+                .setParameter(blockchainSegmentId)
+        );
+
+        final ImmutableListBuilder<BlockchainSegmentId> blockchainSegmentIds = new ImmutableListBuilder<BlockchainSegmentId>(rows.size());
+        for (final Row row : rows) {
+            final BlockchainSegmentId blockChainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
+            blockchainSegmentIds.add(blockChainSegmentId);
+        }
+        return blockchainSegmentIds.build();
     }
 
     public BlockchainDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
@@ -206,20 +172,16 @@ public class BlockchainDatabaseManager {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public void updateBlockchainsForNewBlock(final BlockHeader newBlock) throws DatabaseException {
-        final Sha256Hash blockHash = newBlock.getHash();
+    public void updateBlockchainsForNewBlock(final BlockId blockId) throws DatabaseException {
+        if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to storeBlock without obtaining lock."); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-        if (blockId == null) {
-            Logger.log("NOTICE: Unable to update BlockchainSegment for block: " + blockHash);
-            return;
-        }
 
-        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        if (blockchainSegmentId != null) { return; }
+        final BlockchainSegmentId existingBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+        if (existingBlockchainSegmentId != null) { return; }
 
-        _updateBlockchainsForNewBlock(newBlock);
+        final BlockchainSegmentId blockchainSegmentId = _updateBlockchainSegment(blockId);
+        blockHeaderDatabaseManager.setBlockchainSegmentId(blockId, blockchainSegmentId);
     }
 
     public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
@@ -270,5 +232,4 @@ public class BlockchainDatabaseManager {
 
         return blockchainSegmentId;
     }
-
 }
