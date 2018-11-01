@@ -303,7 +303,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
         final Boolean shouldRequestThinBlocks;
         {
-            if (! _synchronizationStatusHandler.isBlockChainSynchronized()) {
+            if (! _synchronizationStatusHandler.isBlockchainSynchronized()) {
                 shouldRequestThinBlocks = false;
             }
             else {

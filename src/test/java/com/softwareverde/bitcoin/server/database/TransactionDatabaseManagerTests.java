@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidatorTests;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -132,12 +132,12 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
         }
 
         { // Assert transaction0 is valid before adding to mempool...
-            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction0, true);
+            final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction0, true);
             Assert.assertTrue(isValid);
         }
 
         { // Assert transaction1 is valid as well...
-            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);
+            final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);
             Assert.assertTrue(isValid);
         }
 
@@ -145,7 +145,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
         transactionDatabaseManager.addTransactionToMemoryPool(transactionId0);
 
         // Assert
-        final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);
+        final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);
         Assert.assertFalse(isValid); // Should no longer be valid since transaction0 was added to the mempool...
     }
 }

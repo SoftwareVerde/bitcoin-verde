@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
@@ -171,11 +171,11 @@ public class BlockValidatorTests extends IntegrationTest {
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 previousPrerequisiteBlock1Id = blockDatabaseManager.insertBlock(previousPrerequisiteBlock1); // This block must be stored so that the prerequisiteBlock will have the correct hash (without this block, prerequisiteBlock's previous_block value is zeroed).
             }
-            final BlockChainSegmentId firstBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(previousPrerequisiteBlock1Id);
+            final BlockchainSegmentId firstBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(previousPrerequisiteBlock1Id);
 
             // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
             final Block prerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000F5790162A682DDD5086265D254F7F59023D35D07DF7C95DC9779942D00000000193028D8B78007269D52B2A1068E32EDD21D0772C2C157954F7174761B78A51A30CE6E49FFFF001D3A2E34480201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027C05FFFFFFFF0100F2052A01000000434104B43BB206B71F34E2FAB9359B156FF683BED889021A06C315722A7C936B9743AD88A8882DC13EECAFCDAD4F082D2D0CC54AA177204F79DC7305F1F4857B7B8802AC00000000010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
-            TransactionTestUtil.createRequiredTransactionInputs(firstBlockChainSegmentId, prerequisiteBlock.getTransactions().get(1), databaseConnection);
+            TransactionTestUtil.createRequiredTransactionInputs(firstBlockchainSegmentId, prerequisiteBlock.getTransactions().get(1), databaseConnection);
             final BlockId prerequisiteBlockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
@@ -266,14 +266,14 @@ public class BlockValidatorTests extends IntegrationTest {
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
         final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
-        final BlockChainSegmentId genesisBlockChainSegmentId;
+        final BlockchainSegmentId genesisBlockchainSegmentId;
         {
             final BlockId genesisBlockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
             }
-            genesisBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId);
-            // Assert.assertTrue(blockValidator.validateBlock(genesisBlockChainSegmentId, genesisBlock)); // NOTE: This assertion is disabled for the genesis block. (The difficulty calculation for this block fails, but it's the genesis block, so it's likely not applicable.)
+            genesisBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId);
+            // Assert.assertTrue(blockValidator.validateBlock(genesisBlockchainSegmentId, genesisBlock)); // NOTE: This assertion is disabled for the genesis block. (The difficulty calculation for this block fails, but it's the genesis block, so it's likely not applicable.)
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -549,7 +549,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
-            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransaction, false);
+            final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransaction, false);
             Assert.assertTrue(isValid);
         }
 
@@ -674,7 +674,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
-            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
+            final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
             Assert.assertTrue(isValid);
         }
 
@@ -845,7 +845,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         { // Ensure the transaction would normally be valid on its own...
-            final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
+            final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), signedTransactionSpendingDuplicateCoinbase, false);
             Assert.assertTrue(isValid);
         }
 

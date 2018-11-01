@@ -36,7 +36,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     }
 
     @Override
-    public Boolean isBlockChainSynchronized() {
+    public Boolean isBlockchainSynchronized() {
         return (_state == State.WAITING_FOR_BLOCK);
     }
 

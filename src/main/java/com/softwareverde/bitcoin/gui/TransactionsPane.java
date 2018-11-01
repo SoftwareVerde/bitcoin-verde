@@ -5,9 +5,9 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -148,8 +148,8 @@ public class TransactionsPane extends GridPane {
 
                                     final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
                                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-                                    final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, databaseManagerCache);
-                                    final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                                    final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
+                                    final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
                                     for (AddressDatabaseManager.SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
                                         final TransactionId transactionId = spendableTransactionOutput.getTransactionId();
@@ -159,7 +159,7 @@ public class TransactionsPane extends GridPane {
 
                                         final String transactionDateString;
                                         {
-                                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockChainSegmentId, transactionId);
+                                            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
                                             if (blockId == null) {
                                                 transactionDateString = "UNCONFIRMED";
                                             }

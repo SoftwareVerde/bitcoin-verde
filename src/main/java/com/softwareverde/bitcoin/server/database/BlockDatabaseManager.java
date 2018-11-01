@@ -137,8 +137,8 @@ public class BlockDatabaseManager {
         if (existingBlockId == null) {
             blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
 
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
-            blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
+            blockchainDatabaseManager.updateBlockchainsForNewBlock(block);
         }
         else {
             blockId = existingBlockId;
@@ -177,8 +177,8 @@ public class BlockDatabaseManager {
         final BlockId blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
         if (blockId == null) { return null; }
 
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block);
+        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
+        blockchainDatabaseManager.updateBlockchainsForNewBlock(block);
 
         _storeBlockTransactions(blockId, block.getTransactions());
         return blockId;

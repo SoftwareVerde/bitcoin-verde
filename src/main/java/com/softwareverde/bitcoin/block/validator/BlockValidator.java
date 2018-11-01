@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.thread.*;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -47,7 +47,7 @@ public class BlockValidator {
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = 0L;
 
-    protected Boolean _validateBlock(final BlockChainSegmentId blockChainSegmentId, final Block block, final Long blockHeight) {
+    protected Boolean _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
         if (! block.isValid()) {
             Logger.log("Block header is invalid.");
             return false;
@@ -84,7 +84,7 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, Boolean> transactionValidationTaskHandlerFactory = new TaskHandlerFactory<Transaction, Boolean>() {
             @Override
             public TaskHandler<Transaction, Boolean> newInstance() {
-                return new TransactionValidationTaskHandler(blockChainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         };
 
@@ -117,7 +117,7 @@ public class BlockValidator {
 
         // TODO: Validate block size...
         // TODO: Validate max operations per block... (https://bitcoin.stackexchange.com/questions/35691/if-block-sizes-go-up-wont-sigop-limits-have-to-change-too)
-        // TODO: Validate transaction does not appear twice within the same Block and BlockChain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
+        // TODO: Validate transaction does not appear twice within the same Block and Blockchain... (https://github.com/bitcoin/bips/blob/master/bip-0030.mediawiki) (https://github.com/bitcoin/bitcoin/commit/ab91bf39b7c11e9c86bb2043c24f0f377f1cf514)
         // TODO: Create test for PreviousTransactionOutput being EmptyHash/-1 when not coinbase.
 
         { // Validate coinbase contains block height...
@@ -262,7 +262,7 @@ public class BlockValidator {
     public Boolean validateBlock(final BlockId blockId, final Block nullableBlock) {
         final Block block;
         final Long blockHeight;
-        final BlockChainSegmentId blockChainSegmentId;
+        final BlockchainSegmentId blockchainSegmentId;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -295,7 +295,7 @@ public class BlockValidator {
                 return false;
             }
 
-            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+            blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         }
         catch (final DatabaseException databaseException) {
             Logger.log("Error encountered validating block:");
@@ -303,17 +303,17 @@ public class BlockValidator {
             return false;
         }
 
-        return _validateBlock(blockChainSegmentId, block, blockHeight);
+        return _validateBlock(blockchainSegmentId, block, blockHeight);
     }
 
     public Boolean validateBlockTransactions(final BlockId blockId, final Block nullableBlock) {
         final Block block;
         final Long blockHeight;
-        final BlockChainSegmentId blockChainSegmentId;
+        final BlockchainSegmentId blockchainSegmentId;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+            blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
             if (nullableBlock != null) {
                 block = nullableBlock;
@@ -342,7 +342,7 @@ public class BlockValidator {
             return false;
         }
 
-        return _validateBlock(blockChainSegmentId, block, blockHeight);
+        return _validateBlock(blockchainSegmentId, block, blockHeight);
     }
 
     public void setShouldLogValidBlocks(final Boolean shouldLogValidBlocks) {

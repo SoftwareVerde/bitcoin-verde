@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -26,21 +26,21 @@ public class BlockFinderHashesBuilder {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final Long maxBlockHeight;
-        final BlockChainSegmentId headBlockChainSegmentId;
+        final BlockchainSegmentId headBlockchainSegmentId;
         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
         if (headBlockId != null) {
-            headBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(headBlockId);
+            headBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(headBlockId);
             maxBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
         }
         else {
             maxBlockHeight = 0L;
-            headBlockChainSegmentId = null;
+            headBlockchainSegmentId = null;
         }
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(BitcoinUtil.log2(maxBlockHeight.intValue() + 10));
         int blockHeightStep = 1;
         for (Long blockHeight = maxBlockHeight; blockHeight > 0L; blockHeight -= blockHeightStep) {
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockChainSegmentId, blockHeight);
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
 
             blockHashes.add(blockHash);

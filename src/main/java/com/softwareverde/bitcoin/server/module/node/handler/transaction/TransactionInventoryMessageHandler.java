@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -82,7 +82,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
 
                     final BlockId blockId = blockDatabaseManager.getHeadBlockId();
                     final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                    final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+                    final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
                     final TransactionProcessor transactionProcessor = new TransactionProcessor() {
                         @Override
@@ -101,7 +101,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                             final Boolean transactionIsValid;
                             {
                                 if (transactionId != null) {
-                                    transactionIsValid = transactionValidator.validateTransaction(blockChainSegmentId, blockHeight, transaction, true);
+                                    transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, blockHeight, transaction, true);
                                 }
                                 else {
                                     transactionIsValid = false;

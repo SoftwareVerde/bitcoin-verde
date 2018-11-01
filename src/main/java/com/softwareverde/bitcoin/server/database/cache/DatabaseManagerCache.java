@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -38,9 +38,9 @@ public interface DatabaseManagerCache extends AutoCloseable {
     void invalidateUnspentTransactionOutputIds(List<TransactionOutputIdentifier> transactionOutputIds);
 
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
-    void cacheBlockChainSegmentId(BlockId blockId, BlockChainSegmentId blockChainSegmentId);
-    BlockChainSegmentId getCachedBlockChainSegmentId(BlockId blockId);
-    void invalidateBlockIdBlockChainSegmentIdCache();
+    void cacheBlockchainSegmentId(BlockId blockId, BlockchainSegmentId blockchainSegmentId);
+    BlockchainSegmentId getCachedBlockchainSegmentId(BlockId blockId);
+    void invalidateBlockIdBlockchainSegmentIdCache();
 
     // ADDRESS ID CACHE ------------------------------------------------------------------------------------------------
     void cacheAddressId(String address, AddressId addressId);

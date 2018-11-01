@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -118,13 +118,13 @@ public class TransactionValidatorTests extends IntegrationTest {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        final BlockChainSegmentId blockChainSegmentId;
+        final BlockchainSegmentId blockchainSegmentId;
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) { // Store the transaction output being spent by the transaction...
             final StoredBlock storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
-            blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+            blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
             final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
-            TransactionTestUtil.createRequiredTransactionInputs(blockChainSegmentId, previousTransaction, databaseConnection);
+            TransactionTestUtil.createRequiredTransactionInputs(blockchainSegmentId, previousTransaction, databaseConnection);
             final TransactionId transactionId = transactionDatabaseManager.insertTransaction(previousTransaction);
             transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
         }
@@ -134,7 +134,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         transactionDatabaseManager.insertTransaction(transaction);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), transaction, true);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockchainSegmentId, _calculateBlockHeight(databaseConnection), transaction, true);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -163,7 +163,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         }
-        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -180,7 +180,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         transactionDatabaseManager.insertTransaction(signedTransaction);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockchainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertTrue(inputsAreUnlocked);
@@ -209,7 +209,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         }
-        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -225,7 +225,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockchainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);
@@ -254,7 +254,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         }
-        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -270,7 +270,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
         // Action
-        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
+        final Boolean inputsAreUnlocked = transactionValidator.validateTransaction(blockchainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(inputsAreUnlocked);
@@ -299,7 +299,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             storedBlock = _storeBlock(BlockData.MainChain.BLOCK_1);
         }
-        final BlockChainSegmentId blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(storedBlock.blockId);
+        final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transactionToSpend);
         transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
@@ -323,7 +323,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             Boolean isValid;
             try {
                 transactionDatabaseManager.insertTransaction(signedTransaction); // Should fail to insert transaction due to constraint transaction_inputs_tx_id_prev_tx_id_uq...
-                isValid = transactionValidator.validateTransaction(blockChainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
+                isValid = transactionValidator.validateTransaction(blockchainSegmentId, _calculateBlockHeight(databaseConnection), signedTransaction, true);
             }
             catch (final DatabaseException exception) {
                 isValid = false;
@@ -401,7 +401,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean isValid = transactionValidator.validateTransaction(BlockChainSegmentId.wrap(1L), _calculateBlockHeight(databaseConnection), signedTransaction, true);
+        final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), _calculateBlockHeight(databaseConnection), signedTransaction, true);
 
         // Assert
         Assert.assertFalse(isValid);

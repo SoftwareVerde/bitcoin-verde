@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
@@ -30,7 +30,7 @@ import com.softwareverde.util.Util;
 
 public class TransactionTestUtil {
 
-    protected static BlockId _getGenesisBlockId(final BlockChainSegmentId blockChainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
@@ -38,8 +38,8 @@ public class TransactionTestUtil {
         if (genesisBlockId == null) {
 
             final java.util.List<Row> rows = databaseConnection.query(
-                new Query("SELECT id FROM blocks WHERE block_height = 0 AND block_chain_segment_id = ?")
-                    .setParameter(blockChainSegmentId)
+                new Query("SELECT id FROM blocks WHERE block_height = 0 AND blockchain_segment_id = ?")
+                    .setParameter(blockchainSegmentId)
             );
             if (! rows.isEmpty()) {
                 final Long blockId = rows.get(0).getLong("id");
@@ -57,9 +57,9 @@ public class TransactionTestUtil {
             }
 
             databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ?, block_chain_segment_id = ? WHERE id = ?")
+                new Query("UPDATE blocks SET block_height = ?, blockchain_segment_id = ? WHERE id = ?")
                     .setParameter(Integer.MAX_VALUE)
-                    .setParameter(blockChainSegmentId)
+                    .setParameter(blockchainSegmentId)
                     .setParameter(blockId)
             );
 
@@ -77,15 +77,15 @@ public class TransactionTestUtil {
         return transactionHashes;
     }
 
-    public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        createRequiredTransactionInputs(blockChainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
     }
 
-    public static void createRequiredTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
-        final BlockId genesisBlockId = _getGenesisBlockId(blockChainSegmentId, databaseConnection);
+        final BlockId genesisBlockId = _getGenesisBlockId(blockchainSegmentId, databaseConnection);
 
         // Ensure that all of the Transaction's TransactionInput's have outputs that exist...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {

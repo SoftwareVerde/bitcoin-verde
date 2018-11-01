@@ -28,7 +28,7 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
 
             for (final Sha256Hash blockHash : blockHashes) {
-                // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockChainSynchronizer...
+                // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockchainSynchronizer...
                 final Boolean blockExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
                 if (blockExists) { continue; }
                 final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);

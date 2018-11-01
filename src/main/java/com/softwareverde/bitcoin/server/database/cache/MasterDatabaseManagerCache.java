@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
@@ -15,7 +15,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
     protected final HashMapCache<ImmutableSha256Hash, TransactionId> _transactionIdCache = new HashMapCache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", HashMapCache.DEFAULT_CACHE_SIZE);
     protected final HashMapCache<TransactionId, ImmutableTransaction> _transactionCache = new HashMapCache<TransactionId, ImmutableTransaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
     protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
-    protected final HashMapCache<BlockId, BlockChainSegmentId> _blockIdBlockChainSegmentIdCache = new HashMapCache<BlockId, BlockChainSegmentId>("BlockId-BlockChainSegmentId", 1460);
+    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 1460);
     protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
     protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeightCache", 500000);
     protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
@@ -37,7 +37,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
     public Cache<TransactionId, ImmutableTransaction> getTransactionCache() { return _transactionCache; }
     public Cache<ImmutableSha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
     public Cache<CachedTransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIdCache() { return _transactionOutputIdCache; }
-    public Cache<BlockId, BlockChainSegmentId> getBlockIdBlockChainSegmentIdCache() { return _blockIdBlockChainSegmentIdCache; }
+    public Cache<BlockId, BlockchainSegmentId> getBlockIdBlockchainSegmentIdCache() { return _blockIdBlockchainSegmentIdCache; }
     public Cache<String, AddressId> getAddressIdCache() { return _addressIdCache; }
     public Cache<BlockId, Long> getBlockHeightCache() { return _blockHeightCache; }
     public UnspentTransactionOutputCache getUnspentTransactionOutputCache() { return _unspentTransactionOutputCache; }
@@ -46,7 +46,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         _commitToCache(localDatabaseManagerCache.getTransactionIdCache(), _transactionIdCache);
         _commitToCache(localDatabaseManagerCache.getTransactionCache(), _transactionCache);
         _commitToCache(localDatabaseManagerCache.getTransactionOutputIdCache(), _transactionOutputIdCache);
-        _commitToCache(localDatabaseManagerCache.getBlockIdBlockChainSegmentIdCache(), _blockIdBlockChainSegmentIdCache);
+        _commitToCache(localDatabaseManagerCache.getBlockIdBlockchainSegmentIdCache(), _blockIdBlockchainSegmentIdCache);
         _commitToCache(localDatabaseManagerCache.getAddressIdCache(), _addressIdCache);
         _commitToCache(localDatabaseManagerCache.getBlockHeightCache(), _blockHeightCache);
 

@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -99,13 +99,13 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         { // Sanity check for the expected chainSegmentIds...
-            Assert.assertEquals(1, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[0]).longValue()); // Block A
-            Assert.assertEquals(1, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[1]).longValue()); // Block B
-            Assert.assertEquals(2, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[2]).longValue()); // Block C
-            Assert.assertEquals(2, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[4]).longValue()); // Block D
-            Assert.assertEquals(3, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[3]).longValue()); // Block C''
-            Assert.assertEquals(4, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[5]).longValue()); // Block E
-            Assert.assertEquals(5, blockHeaderDatabaseManager.getBlockChainSegmentId(blockIds[6]).longValue()); // Block E'
+            Assert.assertEquals(1, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[0]).longValue()); // Block A
+            Assert.assertEquals(1, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[1]).longValue()); // Block B
+            Assert.assertEquals(2, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[2]).longValue()); // Block C
+            Assert.assertEquals(2, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[4]).longValue()); // Block D
+            Assert.assertEquals(3, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[3]).longValue()); // Block C''
+            Assert.assertEquals(4, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[5]).longValue()); // Block E
+            Assert.assertEquals(5, blockHeaderDatabaseManager.getBlockchainSegmentId(blockIds[6]).longValue()); // Block E'
         }
 
         return new ScenarioData(blockIds);
@@ -166,10 +166,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.C;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANCESTOR);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -187,10 +187,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.C2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -208,10 +208,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.E;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(2L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(2L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -229,10 +229,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.E;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -250,10 +250,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.E2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -271,10 +271,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.C2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.DESCENDANT);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
 
         // Assert
         Assert.assertTrue(isBlockConnected);
@@ -292,10 +292,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.C2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(5L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(5L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -313,10 +313,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.E2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -334,10 +334,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.E;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(3L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -355,10 +355,10 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         final BlockId blockId = scenarioData.C2;
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(4L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
 
         // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockChainSegmentId, BlockRelationship.ANY);
+        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
 
         // Assert
         Assert.assertFalse(isBlockConnected);
@@ -379,14 +379,14 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
             }
         }
 
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
 
         final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
         final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
         final Block block = blockInflater.fromBytes(blockBytes);
         final List<Sha256Hash> excludedHashes = TransactionTestUtil.getTransactionHashes(block.getTransactions());
         for (final Transaction transaction : block.getTransactions()) {
-            TransactionTestUtil.createRequiredTransactionInputs(blockChainSegmentId, transaction, databaseConnection, excludedHashes);
+            TransactionTestUtil.createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, excludedHashes);
         }
 
         // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
@@ -410,7 +410,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     }
 
     @Test
-    public void should_store_block_if_input_exist_on_prior_block_chain_segment_after_fork() throws Exception {
+    public void should_store_block_if_input_exist_on_prior_blockchain_segment_after_fork() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
@@ -436,7 +436,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
         }
 
         // This block is valid to store (although the proof of work is invalid). It contains a transaction that spends
-        //  an input that is a part of the same chain, but a different blockChainSegment...
+        //  an input that is a part of the same chain, but a different blockchainSegment...
         final Block fakeBlock7Prime;
         {
             final TransactionInflater transactionInflater = new TransactionInflater();
@@ -468,7 +468,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     }
 
     @Test
-    public void should_find_block_at_height_across_block_chain_segments() throws Exception {
+    public void should_find_block_at_height_across_blockchain_segments() throws Exception {
         // Setup
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
 
@@ -490,16 +490,16 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
             }
         }
 
-        final BlockChainSegmentId blockChainSegmentId1 = BlockChainSegmentId.wrap(1L); // Blocks 0 and 1...
-        final BlockChainSegmentId blockChainSegmentId2 = BlockChainSegmentId.wrap(2L); // Blocks 2 and 3...
-        final BlockChainSegmentId blockChainSegmentId3 = BlockChainSegmentId.wrap(3L); // Blocks 2' and 3'...
+        final BlockchainSegmentId blockchainSegmentId1 = BlockchainSegmentId.wrap(1L); // Blocks 0 and 1...
+        final BlockchainSegmentId blockchainSegmentId2 = BlockchainSegmentId.wrap(2L); // Blocks 2 and 3...
+        final BlockchainSegmentId blockchainSegmentId3 = BlockchainSegmentId.wrap(3L); // Blocks 2' and 3'...
 
         final BlockId expectedBlockId1 = blockHeaderDatabaseManager.getBlockHeaderId(block3.getHash());
         final BlockId expectedBlockId2 = blockHeaderDatabaseManager.getBlockHeaderId(block3Prime.getHash());
 
         // Action
-        final BlockId blockId1 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId2, 3L);
-        final BlockId blockId2 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId3, 3L);
+        final BlockId blockId1 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId2, 3L);
+        final BlockId blockId2 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId3, 3L);
 
         // Assert
         Assert.assertEquals(expectedBlockId1, blockId1);

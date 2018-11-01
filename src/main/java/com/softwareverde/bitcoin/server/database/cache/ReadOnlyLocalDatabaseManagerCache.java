@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -72,15 +72,15 @@ public class ReadOnlyLocalDatabaseManagerCache implements DatabaseManagerCache {
     public void invalidateUnspentTransactionOutputIds(final List<TransactionOutputIdentifier> transactionOutputIds) { }
 
     @Override
-    public void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) { }
+    public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) { }
 
     @Override
-    public BlockChainSegmentId getCachedBlockChainSegmentId(final BlockId blockId) {
-        return _masterDatabaseManagerCache.getBlockIdBlockChainSegmentIdCache().getCachedItem(blockId);
+    public BlockchainSegmentId getCachedBlockchainSegmentId(final BlockId blockId) {
+        return _masterDatabaseManagerCache.getBlockIdBlockchainSegmentIdCache().getCachedItem(blockId);
     }
 
     @Override
-    public void invalidateBlockIdBlockChainSegmentIdCache() { }
+    public void invalidateBlockIdBlockchainSegmentIdCache() { }
 
     public void cacheAddressId(final String address, final AddressId addressId) { }
 

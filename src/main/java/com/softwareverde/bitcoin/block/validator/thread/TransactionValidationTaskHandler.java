@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -10,15 +10,15 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, Boolean> {
-    private final BlockChainSegmentId _blockChainSegmentId;
+    private final BlockchainSegmentId _blockchainSegmentId;
     private final Long _blockHeight;
     private final NetworkTime _networkTime;
     private final MedianBlockTime _medianBlockTime;
     private TransactionValidator _transactionValidator;
     private boolean _allInputsAreUnlocked = true;
 
-    public TransactionValidationTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
-        _blockChainSegmentId = blockChainSegmentId;
+    public TransactionValidationTaskHandler(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+        _blockchainSegmentId = blockchainSegmentId;
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
@@ -37,7 +37,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         {
             boolean inputsAreUnlocked = false;
             try {
-                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockChainSegmentId, _blockHeight, transaction, false);
+                inputsAreUnlocked = _transactionValidator.validateTransaction(_blockchainSegmentId, _blockHeight, transaction, false);
             }
             catch (final Exception exception) { Logger.log(exception); }
             transactionInputsAreUnlocked = inputsAreUnlocked;

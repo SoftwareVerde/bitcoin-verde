@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -26,7 +26,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class BlockChainBuilderTests extends IntegrationTest {
+public class BlockchainBuilderTests extends IntegrationTest {
     static class FakeBlockDownloadRequester extends BlockDownloadRequester {
         @Override
         protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Long priority) {
@@ -68,7 +68,7 @@ public class BlockChainBuilderTests extends IntegrationTest {
             pendingBlockDatabaseManager.storeBlock(block);
         }
 
-        final BlockChainBuilder blockChainBuilder;
+        final BlockchainBuilder blockchainBuilder;
         {
             final NetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
@@ -83,22 +83,22 @@ public class BlockChainBuilderTests extends IntegrationTest {
                     return SleepyService.Status.ACTIVE;
                 }
             };
-            blockChainBuilder = new BlockChainBuilder(nodeManager, databaseConnectionFactory, databaseCache, blockProcessor, blockDownloaderStatusMonitor, new FakeBlockDownloadRequester());
+            blockchainBuilder = new BlockchainBuilder(nodeManager, databaseConnectionFactory, databaseCache, blockProcessor, blockDownloaderStatusMonitor, new FakeBlockDownloadRequester());
         }
 
-        Assert.assertTrue(blockChainBuilder._hasGenesisBlock);
+        Assert.assertTrue(blockchainBuilder._hasGenesisBlock);
 
         // Action
-        blockChainBuilder.start();
+        blockchainBuilder.start();
         Thread.sleep(1000L);
-        blockChainBuilder.stop();
+        blockchainBuilder.stop();
 
         // Assert
-        final BlockChainSegmentId blockChainSegmentId = BlockChainSegmentId.wrap(1L);
-        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 1L));
-        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 2L));
-        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 3L));
-        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 4L));
-        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, 5L));
+        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 1L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 2L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 3L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 4L));
+        Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 5L));
     }
 }

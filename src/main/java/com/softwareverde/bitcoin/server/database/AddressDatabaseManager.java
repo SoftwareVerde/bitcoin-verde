@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
@@ -64,10 +64,10 @@ public class AddressDatabaseManager {
 
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
 
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockChainSegmentId headBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<SpendableTransactionOutput>(rows.size());
 
@@ -83,7 +83,7 @@ public class AddressDatabaseManager {
             }
 
             if (spendableTransactionOutput.isMined()) {
-                final Boolean transactionWasMinedOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockChainSegmentId, BlockRelationship.ANY);
+                final Boolean transactionWasMinedOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
 
                 if (! transactionWasMinedOnMainChain) {
                     continue;
@@ -117,7 +117,7 @@ public class AddressDatabaseManager {
                         transactionOutputHasBeenSpent = true;
                     }
                     else {
-                        final Boolean spendingTransactionIsMinedOnMainChain = (blockHeaderDatabaseManager.isBlockConnectedToChain(spendingBlockId, headBlockChainSegmentId, BlockRelationship.ANY));
+                        final Boolean spendingTransactionIsMinedOnMainChain = (blockHeaderDatabaseManager.isBlockConnectedToChain(spendingBlockId, headBlockchainSegmentId, BlockRelationship.ANY));
                         transactionOutputHasBeenSpent = spendingTransactionIsMinedOnMainChain;
                     }
 

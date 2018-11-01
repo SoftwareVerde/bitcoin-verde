@@ -72,7 +72,7 @@ public class BitcoinNode extends Node {
         public State getState() { return State.ONLINE; }
 
         @Override
-        public Boolean isBlockChainSynchronized() { return false; }
+        public Boolean isBlockchainSynchronized() { return false; }
 
         @Override
         public Boolean isReadyForTransactions() { return false; }

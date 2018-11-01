@@ -2,16 +2,16 @@ package com.softwareverde.bitcoin.chain.segment;
 
 import com.softwareverde.bitcoin.block.BlockId;
 
-public class BlockChainSegment {
-    protected BlockChainSegmentId _id;
+public class BlockchainSegment {
+    protected BlockchainSegmentId _id;
     protected BlockId _headBlockId;
     protected BlockId _tailBlockId;
     protected Long _blockHeight;
     protected Long _blockCount;
 
-    protected BlockChainSegment() { }
+    protected BlockchainSegment() { }
 
-    public BlockChainSegmentId getId() {
+    public BlockchainSegmentId getId() {
         return _id;
     }
 

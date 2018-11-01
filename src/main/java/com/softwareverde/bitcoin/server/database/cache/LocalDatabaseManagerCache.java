@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
@@ -27,7 +27,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());
         _transactionCache.setMasterCache(masterCache.getTransactionCache());
         _transactionOutputIdCache.setMasterCache(masterCache.getTransactionOutputIdCache());
-        _blockIdBlockChainSegmentIdCache.setMasterCache(masterCache.getBlockIdBlockChainSegmentIdCache());
+        _blockIdBlockchainSegmentIdCache.setMasterCache(masterCache.getBlockIdBlockchainSegmentIdCache());
         _addressIdCache.setMasterCache(masterCache.getAddressIdCache());
         _blockHeightCache.setMasterCache(masterCache.getBlockHeightCache());
         _unspentTransactionOutputCache.setMasterCache(masterCache.getUnspentTransactionOutputCache());
@@ -38,7 +38,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionIdCache.debug();
         _transactionCache.debug();
         _transactionOutputIdCache.debug();
-        _blockIdBlockChainSegmentIdCache.debug();
+        _blockIdBlockchainSegmentIdCache.debug();
         _addressIdCache.debug();
     }
 
@@ -47,7 +47,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionIdCache.resetDebug();
         _transactionCache.resetDebug();
         _transactionOutputIdCache.resetDebug();
-        _blockIdBlockChainSegmentIdCache.resetDebug();
+        _blockIdBlockchainSegmentIdCache.resetDebug();
         _addressIdCache.resetDebug();
     }
 
@@ -130,24 +130,24 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
 
-    protected final HashMapCache<BlockId, BlockChainSegmentId> _blockIdBlockChainSegmentIdCache = new HashMapCache<BlockId, BlockChainSegmentId>("BlockId-BlockChainSegmentId", 1460);
+    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 1460);
 
     @Override
-    public void cacheBlockChainSegmentId(final BlockId blockId, final BlockChainSegmentId blockChainSegmentId) {
-        _blockIdBlockChainSegmentIdCache.cacheItem(blockId, blockChainSegmentId);
+    public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) {
+        _blockIdBlockchainSegmentIdCache.cacheItem(blockId, blockchainSegmentId);
     }
 
     @Override
-    public BlockChainSegmentId getCachedBlockChainSegmentId(final BlockId blockId) {
-        return _blockIdBlockChainSegmentIdCache.getCachedItem(blockId);
+    public BlockchainSegmentId getCachedBlockchainSegmentId(final BlockId blockId) {
+        return _blockIdBlockchainSegmentIdCache.getCachedItem(blockId);
     }
 
     @Override
-    public void invalidateBlockIdBlockChainSegmentIdCache() {
-        _blockIdBlockChainSegmentIdCache.invalidate();
+    public void invalidateBlockIdBlockchainSegmentIdCache() {
+        _blockIdBlockchainSegmentIdCache.invalidate();
     }
 
-    public HashMapCache<BlockId, BlockChainSegmentId> getBlockIdBlockChainSegmentIdCache() { return _blockIdBlockChainSegmentIdCache; }
+    public HashMapCache<BlockId, BlockchainSegmentId> getBlockIdBlockchainSegmentIdCache() { return _blockIdBlockchainSegmentIdCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
 

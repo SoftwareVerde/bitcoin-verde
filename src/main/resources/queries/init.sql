@@ -33,7 +33,7 @@ CREATE TABLE blocks (
     hash CHAR(64) NOT NULL,
     previous_block_id INT UNSIGNED,
     block_height INT UNSIGNED NOT NULL,
-    block_chain_segment_id INT UNSIGNED,
+    blockchain_segment_id INT UNSIGNED,
     merkle_root CHAR(64) NOT NULL,
     version INT UNSIGNED NOT NULL DEFAULT '1',
     timestamp BIGINT UNSIGNED NOT NULL,
@@ -43,24 +43,24 @@ CREATE TABLE blocks (
     byte_count INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY block_hash_uq (hash),
-    UNIQUE KEY block_hash_uq2 (block_chain_segment_id, block_height),
+    UNIQUE KEY block_hash_uq2 (blockchain_segment_id, block_height),
     FOREIGN KEY block_previous_block_id_fk (previous_block_id) REFERENCES blocks (id),
     INDEX blocks_height_ix (block_height) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-CREATE TABLE block_chain_segments (
+CREATE TABLE blockchain_segments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     head_block_id INT UNSIGNED NOT NULL,
     tail_block_id INT UNSIGNED NOT NULL,
     block_height INT UNSIGNED NOT NULL,
     block_count INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY block_chain_segments_block_ids_uq (head_block_id, tail_block_id),
-    FOREIGN KEY block_chain_segments_head_block_id_fk (head_block_id) REFERENCES blocks (id),
-    FOREIGN KEY block_chain_segments_tail_block_id_fk (tail_block_id) REFERENCES blocks (id)
+    UNIQUE KEY blockchain_segments_block_ids_uq (head_block_id, tail_block_id),
+    FOREIGN KEY blockchain_segments_head_block_id_fk (head_block_id) REFERENCES blocks (id),
+    FOREIGN KEY blockchain_segments_tail_block_id_fk (tail_block_id) REFERENCES blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-ALTER TABLE blocks ADD CONSTRAINT blocks_block_chain_segments_fk FOREIGN KEY (block_chain_segment_id) REFERENCES block_chain_segments (id);
+ALTER TABLE blocks ADD CONSTRAINT blocks_blockchain_segments_fk FOREIGN KEY (blockchain_segment_id) REFERENCES blockchain_segments (id);
 
 CREATE TABLE transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,

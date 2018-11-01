@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -18,11 +18,11 @@ import com.softwareverde.io.Logger;
 
 public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     protected static class StartingBlock {
-        public final BlockChainSegmentId selectedBlockChainSegmentId;
+        public final BlockchainSegmentId selectedBlockchainSegmentId;
         public final BlockId startingBlockId;
 
-        public StartingBlock(final BlockChainSegmentId blockChainSegmentId, final BlockId startingBlockId) {
-            this.selectedBlockChainSegmentId = blockChainSegmentId;
+        public StartingBlock(final BlockchainSegmentId blockchainSegmentId, final BlockId startingBlockId) {
+            this.selectedBlockchainSegmentId = blockchainSegmentId;
             this.startingBlockId = startingBlockId;
         }
     }
@@ -35,12 +35,12 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         _databaseManagerCache = databaseManagerCache;
     }
 
-    protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockChainSegmentId blockChainSegmentId, final Integer maxCount, final BlockHeaderDatabaseManager blockDatabaseManager) throws DatabaseException {
+    protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final BlockHeaderDatabaseManager blockDatabaseManager) throws DatabaseException {
         final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
 
         BlockId nextBlockId = blockId;
         while (true) {
-            nextBlockId = blockDatabaseManager.getChildBlockId(blockChainSegmentId, nextBlockId);
+            nextBlockId = blockDatabaseManager.getChildBlockId(blockchainSegmentId, nextBlockId);
             if (nextBlockId == null) { break; }
 
             final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHash(nextBlockId);
@@ -58,9 +58,9 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
     protected StartingBlock _getStartingBlock(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
 
-        final BlockChainSegmentId blockChainSegmentId;
+        final BlockchainSegmentId blockchainSegmentId;
         final BlockId startingBlockId;
         {
             BlockId foundBlockId = null;
@@ -75,11 +75,11 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             if (foundBlockId != null) {
                 final BlockId desiredBlockId = blockHeaderDatabaseManager.getBlockHeaderId(desiredBlockHash);
                 if (desiredBlockId != null) {
-                    blockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(desiredBlockId);
+                    blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(desiredBlockId);
                 }
                 else {
-                    final BlockChainSegmentId foundBlockBlockChainSegmentId = blockHeaderDatabaseManager.getBlockChainSegmentId(foundBlockId);
-                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentIdOfBlockChainSegment(foundBlockBlockChainSegmentId);
+                    final BlockchainSegmentId foundBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(foundBlockId);
+                    blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentIdOfBlockchainSegment(foundBlockBlockchainSegmentId);
                 }
             }
             else {
@@ -87,22 +87,22 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
                 if (headBlockHash != null) {
                     final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(Block.GENESIS_BLOCK_HASH);
                     foundBlockId = genesisBlockId;
-                    blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+                    blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
                 }
                 else {
                     foundBlockId = null;
-                    blockChainSegmentId = null;
+                    blockchainSegmentId = null;
                 }
             }
 
             startingBlockId = foundBlockId;
         }
 
-        if ( (blockChainSegmentId == null) || (startingBlockId == null) ) {
-            Logger.log("QueryBlocksHandler._getStartingBlock: " + blockChainSegmentId + " " + startingBlockId);
+        if ( (blockchainSegmentId == null) || (startingBlockId == null) ) {
+            Logger.log("QueryBlocksHandler._getStartingBlock: " + blockchainSegmentId + " " + startingBlockId);
             return null;
         }
 
-        return new StartingBlock(blockChainSegmentId, startingBlockId);
+        return new StartingBlock(blockchainSegmentId, startingBlockId);
     }
 }

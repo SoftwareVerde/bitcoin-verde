@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.chain;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.*;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.miner.Miner;
-import com.softwareverde.bitcoin.server.database.BlockChainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -37,7 +37,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class BlockChainDatabaseManagerTests extends IntegrationTest {
+public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
     @Before
     public void setup() {
@@ -77,7 +77,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         // Assert
         Assert.assertEquals(1L, genesisBlockId.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
         Assert.assertEquals(1, rows.size());
 
         final Row row = rows.get(0);
@@ -86,7 +86,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(0L, row.getLong("block_height").longValue());
         Assert.assertEquals(1L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
     }
 
     @Test
@@ -135,7 +135,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1L, genesisBlockId.longValue());
         Assert.assertEquals(2L, block1Id.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
         Assert.assertEquals(1, rows.size());
 
         final Row row = rows.get(0);
@@ -144,8 +144,8 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(1L, row.getLong("block_height").longValue());
         Assert.assertEquals(2L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
     }
 
     @Test
@@ -201,7 +201,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(2L, block1Id.longValue());
         Assert.assertEquals(3L, block2Id.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments"));
         Assert.assertEquals(1, rows.size());
 
         final Row row = rows.get(0);
@@ -210,9 +210,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(2L, row.getLong("block_height").longValue());
         Assert.assertEquals(3L, row.getLong("block_count").longValue());
 
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
     }
 
     @Test
@@ -230,9 +230,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
                   |
 
             The established chains should be:
-                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockChain")
-                [0,1]   - Chain #2 (Block Height: 1) ("refactoredBlockChain")
-                [0,1']  - Chain #3 (Block Height: 1) ("newBlockChain")
+                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockchain")
+                [0,1]   - Chain #2 (Block Height: 1) ("refactoredBlockchain")
+                [0,1']  - Chain #3 (Block Height: 1) ("newBlockchain")
 
          */
 
@@ -272,10 +272,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(2L, block1Id.longValue());
         Assert.assertEquals(3L, block1PrimeId.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
         Assert.assertEquals(3, rows.size());
 
-        { // Chain #1 (baseBlockChain)
+        { // Chain #1 (baseBlockchain)
             final Row row = rows.get(0);
             Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -283,7 +283,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #2 (refactoredBlockChain)
+        { // Chain #2 (refactoredBlockchain)
             final Row row = rows.get(1);
             Assert.assertEquals(block1Id, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -291,7 +291,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #3 (newBlockChain)
+        { // Chain #3 (newBlockchain)
             final Row row = rows.get(2);
             Assert.assertEquals(block1PrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -299,9 +299,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
     }
 
     @Test
@@ -322,9 +322,9 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
                   |
 
             The established chains should be:
-                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockChain")
-                [0,2]   - Chain #2 (Block Height: 2) ("refactoredBlockChain")
-                [0,1']  - Chain #3 (Block Height: 1) ("newBlockChain")
+                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockchain")
+                [0,2]   - Chain #2 (Block Height: 2) ("refactoredBlockchain")
+                [0,1']  - Chain #3 (Block Height: 1) ("newBlockchain")
 
          */
 
@@ -370,10 +370,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(3L, block2Id.longValue());
         Assert.assertEquals(4L, block1PrimeId.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
         Assert.assertEquals(3, rows.size());
 
-        { // Chain #1 (baseBlockChain)
+        { // Chain #1 (baseBlockchain)
             final Row row = rows.get(0);
             Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -381,7 +381,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #2 (refactoredBlockChain)
+        { // Chain #2 (refactoredBlockchain)
             final Row row = rows.get(1);
             Assert.assertEquals(block2Id, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -389,7 +389,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(2L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #3 (newBlockChain)
+        { // Chain #3 (newBlockchain)
             final Row row = rows.get(2);
             Assert.assertEquals(block1PrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -397,10 +397,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
     }
 
     @Test
@@ -426,10 +426,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
                   |
 
             The established chains should be:
-                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockChain")
-                [0,3]   - Chain #2 (Block Height: 3) ("refactoredBlockChain")
-                [0,2']  - Chain #3 (Block Height: 2) ("newBlockChain")
-                [0,1''] - Chain #4 (Block Height: 1) ("newestBlockChain")
+                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockchain")
+                [0,3]   - Chain #2 (Block Height: 3) ("refactoredBlockchain")
+                [0,2']  - Chain #3 (Block Height: 2) ("newBlockchain")
+                [0,1''] - Chain #4 (Block Height: 1) ("newestBlockchain")
 
          */
 
@@ -499,10 +499,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(6L, block2PrimeId.longValue());
         Assert.assertEquals(7L, block1DoublePrimeId.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
         Assert.assertEquals(4, rows.size());
 
-        { // Chain #1 (baseBlockChain)
+        { // Chain #1 (baseBlockchain)
             final Row row = rows.get(0);
             Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -510,7 +510,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #2 (refactoredBlockChain)
+        { // Chain #2 (refactoredBlockchain)
             final Row row = rows.get(1);
             Assert.assertEquals(block3Id, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -518,7 +518,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(3L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #3 (newBlockChain)
+        { // Chain #3 (newBlockchain)
             final Row row = rows.get(2);
             Assert.assertEquals(block2PrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -526,7 +526,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(2L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #4 (newestBlockChain)
+        { // Chain #4 (newestBlockchain)
             final Row row = rows.get(3);
             Assert.assertEquals(block1DoublePrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -535,19 +535,19 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -587,10 +587,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
                   |
 
             The established chains should be:
-                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockChain")
-                [0,3]   - Chain #2 (Block Height: 3) ("refactoredBlockChain")
-                [0,2']  - Chain #3 (Block Height: 2) ("newBlockChain")
-                [0,1''] - Chain #4 (Block Height: 1) ("newestBlockChain")
+                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockchain")
+                [0,3]   - Chain #2 (Block Height: 3) ("refactoredBlockchain")
+                [0,2']  - Chain #3 (Block Height: 2) ("newBlockchain")
+                [0,1''] - Chain #4 (Block Height: 1) ("newestBlockchain")
 
          */
 
@@ -657,10 +657,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(6L, block2Id.longValue());
         Assert.assertEquals(7L, block3Id.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
         Assert.assertEquals(4, rows.size());
 
-        { // Chain #1 (baseBlockChain)
+        { // Chain #1 (baseBlockchain)
             final Row row = rows.get(0);
             Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -668,7 +668,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #2 (refactoredBlockChain)
+        { // Chain #2 (refactoredBlockchain)
             final Row row = rows.get(1);
             Assert.assertEquals(block3Id, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -676,7 +676,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(3L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #3 (newBlockChain)
+        { // Chain #3 (newBlockchain)
             final Row row = rows.get(2);
             Assert.assertEquals(block2PrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -684,7 +684,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(2L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #4 (newestBlockChain)
+        { // Chain #4 (newestBlockchain)
             final Row row = rows.get(3);
             Assert.assertEquals(block1DoublePrimeId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -693,19 +693,19 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1PrimeId).longValue());
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -739,13 +739,13 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
     ---------------------------------------------
 
             The established chains during setup should originally be:
-                [0,1]   - Chain #1 (Block Height: 1) ("baseBlockChain")
-                [1,4]   - Chain #2 (Block Height: 4) ("refactoredBlockChain")
+                [0,1]   - Chain #1 (Block Height: 1) ("baseBlockchain")
+                [1,4]   - Chain #2 (Block Height: 4) ("refactoredBlockchain")
                 [1,3']  - Chain #3 (Block Height: 3) ("originalForkedChain")
 
             The established chains should be:
-                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockChain")
-                [1,4]   - Chain #2 (Block Height: 4) ("refactoredBlockChain")
+                [0,0]   - Chain #1 (Block Height: 0) ("baseBlockchain")
+                [1,4]   - Chain #2 (Block Height: 4) ("refactoredBlockchain")
                 [1,3']  - Chain #3 (Block Height: 3) ("originalForkedChain")
                 [0,1]   - Chain #4 (Block Height: 1) ("refactoredBaseChain")
                 [0,1''] - Chain #5 (Block Height: 1) ("mostRecentlyForkedChain")
@@ -828,10 +828,10 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(7L, block3PrimeId.longValue());
         Assert.assertEquals(8L, block1DoublePrimeId.longValue());
 
-        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM block_chain_segments ORDER BY id ASC"));
+        final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT * FROM blockchain_segments ORDER BY id ASC"));
         Assert.assertEquals(5, rows.size());
 
-        { // Chain #1 (baseBlockChain)
+        { // Chain #1 (baseBlockchain)
             final Row row = rows.get(0);
             Assert.assertEquals(genesisBlockId, row.getLong("head_block_id"));
             Assert.assertEquals(genesisBlockId, row.getLong("tail_block_id"));
@@ -839,7 +839,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(1L, row.getLong("block_count").longValue());
         }
 
-        { // Chain #2 (refactoredBlockChain)
+        { // Chain #2 (refactoredBlockchain)
             final Row row = rows.get(1);
             Assert.assertEquals(block4Id, row.getLong("head_block_id"));
             Assert.assertEquals(block1Id, row.getLong("tail_block_id"));
@@ -872,22 +872,22 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         }
 
         // Chain 1
-        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockChainSegmentId(genesisBlockId).longValue());
+        Assert.assertEquals(1L, blockHeaderDatabaseManager.getBlockchainSegmentId(genesisBlockId).longValue());
 
         // Chain 2
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3Id).longValue());
-        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockChainSegmentId(block4Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3Id).longValue());
+        Assert.assertEquals(2L, blockHeaderDatabaseManager.getBlockchainSegmentId(block4Id).longValue());
 
         // Chain 3
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block2PrimeId).longValue());
-        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockChainSegmentId(block3PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block2PrimeId).longValue());
+        Assert.assertEquals(3L, blockHeaderDatabaseManager.getBlockchainSegmentId(block3PrimeId).longValue());
 
         // Chain 4
-        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1Id).longValue());
+        Assert.assertEquals(4L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1Id).longValue());
 
         // Chain 5
-        Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockChainSegmentId(block1DoublePrimeId).longValue());
+        Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
     }
 
     @Test
@@ -898,7 +898,7 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -907,24 +907,24 @@ public class BlockChainDatabaseManagerTests extends IntegrationTest {
             blockDatabaseManager.storeBlock(genesisBlock);
         }
 
-        final BlockChainSegmentId blockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-        Assert.assertEquals(0, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
-        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
+        Assert.assertEquals(0, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockCount().intValue());
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             blockDatabaseManager.storeBlock(block1);
         }
 
-        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
-        Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
+        Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(2, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockCount().intValue());
 
         // Action
-        blockChainDatabaseManager.updateBlockChainsForNewBlock(block1);
+        blockchainDatabaseManager.updateBlockchainsForNewBlock(block1);
 
         // Assert
-        Assert.assertEquals(1, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockHeight().intValue());
-        Assert.assertEquals(2, blockChainDatabaseManager.getBlockChainSegment(blockChainSegmentId).getBlockCount().intValue());
+        Assert.assertEquals(1, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockHeight().intValue());
+        Assert.assertEquals(2, blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId).getBlockCount().intValue());
     }
 }
 

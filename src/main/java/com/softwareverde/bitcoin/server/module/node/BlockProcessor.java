@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
@@ -73,12 +73,12 @@ public class BlockProcessor {
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;
 
-            final BlockChainDatabaseManager blockChainDatabaseManager = new BlockChainDatabaseManager(databaseConnection, localDatabaseManagerCache);
+            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, localDatabaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, localDatabaseManagerCache);
 
-            final BlockChainSegmentId originalHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
+            final BlockchainSegmentId originalHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
             final BlockId blockId;
             final Boolean blockHeaderExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
@@ -180,14 +180,14 @@ public class BlockProcessor {
 
             _medianBlockTime.addBlock(block);
 
-            final BlockChainSegmentId newHeadBlockChainSegmentId = blockChainDatabaseManager.getHeadBlockChainSegmentId();
-            final Boolean bestBlockChainHasChanged = (! Util.areEqual(newHeadBlockChainSegmentId, originalHeadBlockChainSegmentId));
+            final BlockchainSegmentId newHeadBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+            final Boolean bestBlockchainHasChanged = (! Util.areEqual(newHeadBlockchainSegmentId, originalHeadBlockchainSegmentId));
 
             { // Maintain memory-pool correctness...
-                if (bestBlockChainHasChanged) {
+                if (bestBlockchainHasChanged) {
                     // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
                     // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
-                    BlockId nextBlockId = blockChainDatabaseManager.getHeadBlockIdOfBlockChainSegment(originalHeadBlockChainSegmentId);
+                    BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(originalHeadBlockchainSegmentId);
 
                     while (nextBlockId != null) {
                         final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(nextBlockId);
@@ -196,10 +196,10 @@ public class BlockProcessor {
                             transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
                         }
 
-                        // 2. Continue to traverse up the chain until the block is connected to the new headBlockChain...
+                        // 2. Continue to traverse up the chain until the block is connected to the new headBlockchain...
                         nextBlockId = blockHeaderDatabaseManager.getAncestorBlockId(nextBlockId, 1);
-                        final Boolean nextBlockIsConnectedToNewHeadBlockChain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockChainSegmentId, BlockRelationship.ANCESTOR);
-                        if (nextBlockIsConnectedToNewHeadBlockChain) { break; }
+                        final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
+                        if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
                     }
 
                     // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
@@ -210,7 +210,7 @@ public class BlockProcessor {
                             transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
                         }
 
-                        nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockChainSegmentId, nextBlockId);
+                        nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                     }
 
                     // 4. Validate that the transactions are still valid on the new chain...
@@ -220,7 +220,7 @@ public class BlockProcessor {
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
                     for (final TransactionId transactionId : transactionIds) {
                         final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                        final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockChainSegmentId, blockHeight, transaction, false);
+                        final Boolean transactionIsValid = transactionValidator.validateTransaction(newHeadBlockchainSegmentId, blockHeight, transaction, false);
                         if (!transactionIsValid) {
                             transactionDatabaseManager.removeTransactionFromMemoryPool(transactionId);
                         }

@@ -24,7 +24,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockChainBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -63,7 +63,7 @@ public class NodeModule {
     protected final JsonSocketServer _jsonRpcSocketServer;
     protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
-    protected final BlockChainBuilder _blockChainBuilder;
+    protected final BlockchainBuilder _blockchainBuilder;
     protected final AddressProcessor _addressProcessor;
 
     protected final NodeInitializer _nodeInitializer;
@@ -219,13 +219,13 @@ public class NodeModule {
         {
             // final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
             // final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
-            _blockChainBuilder = new BlockChainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester);
+            _blockchainBuilder = new BlockchainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester);
         }
 
         _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
         { // Set the synchronization elements to cascade to each component...
-            _blockChainBuilder.setNewBlockProcessedCallback(new BlockChainBuilder.NewBlockProcessedCallback() {
+            _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
                 public void onNewBlock(final Long blockHeight) {
                     _addressProcessor.wakeUp();
@@ -247,7 +247,7 @@ public class NodeModule {
             _blockDownloader.setNewBlockAvailableCallback(new Runnable() {
                 @Override
                 public void run() {
-                    _blockChainBuilder.wakeUp();
+                    _blockchainBuilder.wakeUp();
                 }
             });
 
@@ -294,7 +294,7 @@ public class NodeModule {
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockChainBuilder);
+            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder);
             final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
             final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
@@ -351,7 +351,7 @@ public class NodeModule {
         if (! serverProperties.skipNetworking()) {
             _blockHeaderDownloader.start();
             _blockDownloader.start();
-            _blockChainBuilder.start();
+            _blockchainBuilder.start();
             _addressProcessor.start();
             Logger.log("[Started Syncing Headers]");
         }
@@ -361,7 +361,7 @@ public class NodeModule {
         }
 
         _addressProcessor.stop();
-        _blockChainBuilder.stop();
+        _blockchainBuilder.stop();
         _blockDownloader.stop();
         _blockHeaderDownloader.stop();
 

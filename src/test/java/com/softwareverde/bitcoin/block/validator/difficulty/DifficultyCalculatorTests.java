@@ -363,7 +363,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
         databaseConnection.executeSql(
-            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
+            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(blockHeaders.length + 3)
                 .setParameter(479808L)
@@ -503,7 +503,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
         databaseConnection.executeSql(
-            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
+            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(11)
                 .setParameter(504032L)
@@ -650,7 +650,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
         databaseConnection.executeSql(
-            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
+            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(11)
                 .setParameter(504033L)
@@ -784,7 +784,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
         databaseConnection.executeSql(
-            new Query("UPDATE block_chain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
+            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(1L)
                 .setParameter(11)
                 .setParameter(505090L)
@@ -862,7 +862,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         }
 
         databaseConnection.executeSql(
-            new Query("UPDATE block_chain_segments SET block_height = ?, block_count = ? WHERE id = ?")
+            new Query("UPDATE blockchain_segments SET block_height = ?, block_count = ? WHERE id = ?")
                 .setParameter(547203L)
                 .setParameter(547204L)
                 .setParameter(1L)

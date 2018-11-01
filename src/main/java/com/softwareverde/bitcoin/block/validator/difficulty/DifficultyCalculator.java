@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
@@ -37,11 +37,11 @@ public class DifficultyCalculator {
         //  Calculate the new difficulty. https://bitcoin.stackexchange.com/questions/5838/how-is-difficulty-calculated
 
         final BlockId blockId = _blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getHash());
-        final BlockChainSegmentId blockChainSegmentId = _blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockchainSegmentId blockchainSegmentId = _blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         //  1. Get the block that is 2016 blocks behind the head block of this chain.
         final long previousBlockHeight = (blockHeight - BLOCK_COUNT_PER_DIFFICULTY_ADJUSTMENT); // NOTE: This is 2015 blocks worth of time (not 2016) because of a bug in Satoshi's implementation and is now part of the protocol definition.
-        final BlockId lastAdjustedBlockId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, previousBlockHeight);
+        final BlockId lastAdjustedBlockId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, previousBlockHeight);
         final BlockHeader lastAdjustedBlockHeader = _blockHeaderDatabaseManager.getBlockHeader(lastAdjustedBlockId);
         if (lastAdjustedBlockHeader == null) { return null; }
 
@@ -127,7 +127,7 @@ public class DifficultyCalculator {
         final BlockHeader[] lastBlockHeaders = new BlockHeader[3];
         final BlockHeader[] firstBlockHeaders = new BlockHeader[3];
 
-        final BlockChainSegmentId blockChainSegmentId = _blockHeaderDatabaseManager.getBlockChainSegmentId(blockId);
+        final BlockchainSegmentId blockchainSegmentId = _blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
         for (int i = 0; i < lastBlockHeaders.length; ++i) {
             final BlockId ancestorBlockId = _blockHeaderDatabaseManager.getAncestorBlockId(blockId, (i + 1));
@@ -139,7 +139,7 @@ public class DifficultyCalculator {
 
         for (int i = 0; i < firstBlockHeaders.length; ++i) {
             final Long parentBlockHeight = (blockHeight - 1);
-            final BlockId blockHeaderId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockChainSegmentId, (parentBlockHeight - 144L - i));
+            final BlockId blockHeaderId = _blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, (parentBlockHeight - 144L - i));
             if (blockHeaderId == null) { return null; }
 
             final BlockHeader blockHeader = _blockHeaderDatabaseManager.getBlockHeader(blockHeaderId);
@@ -220,13 +220,13 @@ public class DifficultyCalculator {
                 return null;
             }
 
-            final Long blockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId); // blockChainSegment.getBlockHeight();  // NOTE: blockChainSegment.getBlockHeight() is not safe when replaying block-validation.
+            final Long blockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId); // blockchainSegment.getBlockHeight();  // NOTE: blockchainSegment.getBlockHeight() is not safe when replaying block-validation.
             if (blockHeight == null) {
                 Logger.log("Invalid BlockHeight for BlockId: "+ blockId);
                 return null;
             }
 
-            final Boolean isFirstBlock = (Util.areEqual(blockHeader.getHash(), BlockHeader.GENESIS_BLOCK_HASH)); // (blockChainSegment.getBlockHeight() == 0);
+            final Boolean isFirstBlock = (Util.areEqual(blockHeader.getHash(), BlockHeader.GENESIS_BLOCK_HASH)); // (blockchainSegment.getBlockHeight() == 0);
             if (isFirstBlock) { return Difficulty.BASE_DIFFICULTY; }
 
             if (HF20171113.isEnabled(blockHeight)) {
