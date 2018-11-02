@@ -1,43 +1,37 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentInflater;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.util.Util;
 
 public class BlockchainDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected BlockchainSegment _inflateBlockchainSegmentFromId(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT * FROM blockchain_segments WHERE id = ?")
-                .setParameter(blockchainSegmentId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final BlockchainSegmentInflater blockchainSegmentInflater = new BlockchainSegmentInflater();
-        final BlockchainSegment blockchainSegment = blockchainSegmentInflater.fromRow(row);
-
-        return blockchainSegment;
-    }
-
-    protected BlockchainSegmentId _updateBlockchainSegment(final BlockId blockId) throws DatabaseException {
+    protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final BlockId priorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
-        final BlockchainSegmentId priorBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(priorBlockId);
+        if (priorBlockId == null) {
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            if (! Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) { throw new DatabaseException("Invalid GenesisBlock hash: " + blockHash); }
+            // Create the Genesis BlockchainSegment...
+            return _createNewBlockchainSegment(null);
+        }
 
-        final Boolean hasChildren = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(priorBlockId) > 0);
+        final BlockchainSegmentId priorBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(priorBlockId);
+        if (priorBlockSegmentId == null) { return null; }
+
+        final Boolean hasChildren = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(priorBlockId) > 1);
         if (! hasChildren) {
             // The blockchainSegment has no children, so it safe to create on the same segment...
             return priorBlockSegmentId;
@@ -92,6 +86,13 @@ public class BlockchainDatabaseManager {
     }
 
     protected BlockchainSegmentId _createNewBlockchainSegment(final BlockchainSegmentId parentBlockchainSegmentId) throws DatabaseException {
+        if (parentBlockchainSegmentId == null) {
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT id FROM blockchain_segments WHERE parent_blockchain_segment_id IS NULL")
+            );
+            if (! rows.isEmpty()) {  throw new DatabaseException("Application constraint failed: Only one root BlockchainSegment may exist."); }
+        }
+
         final Long blockchainSegmentId = _databaseConnection.executeSql(
             new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id, nested_set_left, nested_set_right) VALUES (?, 0, 0)")
                 .setParameter(parentBlockchainSegmentId)
@@ -206,57 +207,40 @@ public class BlockchainDatabaseManager {
         final BlockchainSegmentId existingBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
         if (existingBlockchainSegmentId != null) { return; }
 
-        final BlockchainSegmentId blockchainSegmentId = _updateBlockchainSegment(blockId);
+        final BlockchainSegmentId blockchainSegmentId = _calculateBlockchainSegment(blockId);
         blockHeaderDatabaseManager.setBlockchainSegmentId(blockId, blockchainSegmentId);
-    }
-
-    public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        return _inflateBlockchainSegmentFromId(blockchainSegmentId);
     }
 
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM blockchain_segments ORDER BY block_height DESC LIMIT 1")
+            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY block_height DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return BlockchainSegmentId.wrap(row.getLong("id"));
+        return BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
     }
 
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, head_block_id FROM blockchain_segments WHERE id = ?")
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY block_height DESC LIMIT 1")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("head_block_id"));
+        return BlockId.wrap(row.getLong("id"));
     }
 
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
-        final BlockchainSegment blockchainSegment = _inflateBlockchainSegmentFromId(blockchainSegmentId);
-        if (blockchainSegment == null) { return null; }
-
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM blockchain_segments ORDER BY block_height DESC")
+            new Query("SELECT blocks.id, blocks.blockchain_segment_id FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A INNER JOIN (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments) AS B ON (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) INNER JOIN blocks ON blocks.blockchain_segment_id = B.id ORDER BY blocks.block_height DESC LIMIT 1")
+                .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final BlockId blockId = blockchainSegment.getHeadBlockId();
-
-        for (final Row row : rows) {
-            final BlockchainSegmentId headBlockchainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
-            final Boolean blockIsConnectedToChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANCESTOR);
-
-            if (blockIsConnectedToChain) {
-                return headBlockchainSegmentId;
-            }
-        }
-
-        return blockchainSegmentId;
+        final Row row = rows.get(0);
+        return BlockchainSegmentId.wrap(row.getLong("blockchain_segment_id"));
     }
 
     public Boolean areBlockchainSegmentsConnected(final BlockchainSegmentId blockchainSegmentId0, final BlockchainSegmentId blockchainSegmentId1, final BlockRelationship blockRelationship) throws DatabaseException {

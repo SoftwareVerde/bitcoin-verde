@@ -323,6 +323,17 @@ public class BlockHeaderDatabaseManager {
         return (rows.size());
     }
 
+    protected BlockId _getPreviousBlockId(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, previous_block_id FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return BlockId.wrap(row.getLong("previous_block_id"));
+    }
+
     public BlockId insertBlockHeader(final BlockHeader blockHeader) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to insertBlockHeader without obtaining lock."); }
 
@@ -454,6 +465,11 @@ public class BlockHeaderDatabaseManager {
      */
     public BlockId getAncestorBlockId(final BlockId blockId, final Integer parentCount) throws DatabaseException {
         if (blockId == null) { return null; }
+
+        if (parentCount == 1) {
+            // Optimization/Specialization for parentBlockId...
+            return _getPreviousBlockId(blockId);
+        }
 
         BlockId nextBlockId = blockId;
         for (int i = 0; i < parentCount; ++i) {

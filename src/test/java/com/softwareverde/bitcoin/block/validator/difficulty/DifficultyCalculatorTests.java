@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -79,6 +80,16 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         Assert.assertEquals(block478573.getHash(), block478574.getPreviousBlockHash());
         Assert.assertEquals(block478574.getHash(), block478575.getPreviousBlockHash());
         Assert.assertEquals(block478575.getHash(), block478576.getPreviousBlockHash());
+
+        blockHeaderDatabaseManager.storeBlockHeader(blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK)));
+        blockHeaderDatabaseManager.storeBlockHeader(new MutableBlockHeader(blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1))) {
+            @Override
+            public Sha256Hash getHash() {
+                return Sha256Hash.fromHexString("000000000000000000B8741CEEA1D56D63E2B3FB1FB851487351B4652C15762C");
+            }
+            @Override
+            public Boolean isValid() { return true; }
+        });
 
         final BlockHeader[] allBlockHeaders = { block478550, block478551, block478552, block478553, block478554, block478555, block478556, block478557, block478558, block478559, block478560, block478561, block478562, block478563, block478564, block478565, block478566, block478567, block478568, block478569, block478570, block478571, block478572, block478573, block478574, block478575, block478576 };
 
@@ -362,14 +373,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
-        databaseConnection.executeSql(
-            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
-                .setParameter(1L)
-                .setParameter(blockHeaders.length + 3)
-                .setParameter(479808L)
-                .setParameter(479808L)
-                .setParameter(1L)
-        );
+
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(479808L).setParameter(blockHeader.getHash()));
 
         // Action
@@ -502,14 +506,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
-        databaseConnection.executeSql(
-            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
-                .setParameter(1L)
-                .setParameter(11)
-                .setParameter(504032L)
-                .setParameter(504032L)
-                .setParameter(1L)
-        );
+
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504032L).setParameter(blockHeader.getHash()));
 
         // Action
@@ -649,14 +646,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
-        databaseConnection.executeSql(
-            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
-                .setParameter(1L)
-                .setParameter(11)
-                .setParameter(504033L)
-                .setParameter(504033L)
-                .setParameter(1L)
-        );
+
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504033L).setParameter(blockHeader.getHash()));
 
         // Action
@@ -783,14 +773,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
         }
-        databaseConnection.executeSql(
-            new Query("UPDATE blockchain_segments SET head_block_id = ?, tail_block_id = ?, block_height = ?, block_count = ? WHERE id = ?")
-                .setParameter(1L)
-                .setParameter(11)
-                .setParameter(505090L)
-                .setParameter(505090L)
-                .setParameter(1L)
-        );
+
         databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(505090L).setParameter(blockHeader.getHash()));
 
         // Action
@@ -860,13 +843,6 @@ public class DifficultyCalculatorTests extends IntegrationTest {
             blockHeaderDatabaseManager.storeBlockHeader(block547202);
             blockHeaderDatabaseManager.storeBlockHeader(block547203);
         }
-
-        databaseConnection.executeSql(
-            new Query("UPDATE blockchain_segments SET block_height = ?, block_count = ? WHERE id = ?")
-                .setParameter(547203L)
-                .setParameter(547204L)
-                .setParameter(1L)
-        );
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);

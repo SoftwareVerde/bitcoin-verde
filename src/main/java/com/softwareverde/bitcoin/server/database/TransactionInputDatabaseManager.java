@@ -210,7 +210,10 @@ public class TransactionInputDatabaseManager {
                     previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
                     findPreviousTxOutputTimer.stop();
                     totalFindPreviousTxOutputTime += findPreviousTxOutputTimer.getMillisecondsElapsed();
-                    if (previousTransactionOutputId == null) { return null; }
+                    if (previousTransactionOutputId == null) {
+                        Logger.log("Unable to find TransactionOutput: " + transactionOutputIdentifier.getTransactionHash() + ":"+ transactionOutputIdentifier.getOutputIndex());
+                        return null;
+                    }
                 }
 
                 if (previousTransactionOutputId != null) { // Should only true for the coinbase input...

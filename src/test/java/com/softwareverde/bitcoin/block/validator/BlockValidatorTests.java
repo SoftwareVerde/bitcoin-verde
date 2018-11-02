@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -159,7 +160,17 @@ public class BlockValidatorTests extends IntegrationTest {
 
             { // Store the block header before the prerequisite block so that it may be inflated by the difficultyCalculator. Block Hash: 0000000009B905F3DB4990848B9B14FE39582147FCF6A6CB8D73BD227D75369E
                 final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-                final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0100000042490A3DE212575A7CADE89BED6AC18A4466E667F3D679BC1DA1B2BD00000000EDB0A433B741049D6E7C0B44838A188AD809C60FFE5076F4C881CB93AB70B247ECC66E49FFFF001D06FAFE08"));
+                final BlockHeader templateBlockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0100000042490A3DE212575A7CADE89BED6AC18A4466E667F3D679BC1DA1B2BD00000000EDB0A433B741049D6E7C0B44838A188AD809C60FFE5076F4C881CB93AB70B247ECC66E49FFFF001D06FAFE08"));
+                final BlockHeader blockHeader = new MutableBlockHeader(templateBlockHeader) {
+                    @Override
+                    public Sha256Hash getPreviousBlockHash() {
+                        return BlockHeader.GENESIS_BLOCK_HASH;
+                    }
+                    @Override
+                    public Sha256Hash getHash() {
+                        return templateBlockHeader.getHash();
+                    }
+                };
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
                 }

@@ -54,7 +54,7 @@ CREATE TABLE blockchain_segments (
     nested_set_left INT UNSIGNED NOT NULL,
     nested_set_right INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY (blockchain_segments_parent_blockchain_segment_id) REFERENCES blockchain_segments (id)
+    FOREIGN KEY blockchain_segments_parent_blockchain_segment_id (parent_blockchain_segment_id) REFERENCES blockchain_segments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 ALTER TABLE blocks ADD CONSTRAINT blocks_blockchain_segments_fk FOREIGN KEY (blockchain_segment_id) REFERENCES blockchain_segments (id);

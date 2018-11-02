@@ -3,15 +3,21 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.MutableBlock;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
@@ -31,7 +37,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         _resetDatabase();
     }
 
-    public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final HashSet<Sha256Hash> excludedTransactionHashes = new HashSet<Sha256Hash>(transactions.getSize());
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
@@ -49,7 +55,13 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         }
 
         {
-            long transactionId = 2L;
+            long transactionId;
+            {
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS count FROM transactions"));
+                final Row row = rows.get(0);
+                transactionId = (row.getLong("count") + 1);
+            }
+
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)");
             for (final Sha256Hash transactionHash : transactionHashes.keySet()) {
                 batchedInsertQuery.setParameter(transactionHash);
@@ -79,6 +91,13 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         }
 
         {
+            long transactionOutputId;
+            {
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT COUNT(*) AS count FROM transaction_outputs"));
+                final Row row = rows.get(0);
+                transactionOutputId = (row.getLong("count") + 1);
+            }
+
             int transactionIndex = 0;
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)");
             for (final Transaction transaction : transactions) {
@@ -89,13 +108,17 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
                 for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                     final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                    final Integer previousOutputIndex = transactionInput.getPreviousOutputIndex();
                     if (excludedTransactionHashes.contains(previousOutputTransactionHash)) { continue; }
 
                     final TransactionId transactionId = transactionHashes.get(previousOutputTransactionHash);
 
                     batchedInsertQuery.setParameter(transactionId);
-                    batchedInsertQuery.setParameter(transactionInput.getPreviousOutputIndex());
+                    batchedInsertQuery.setParameter(previousOutputIndex);
                     batchedInsertQuery.setParameter(Long.MAX_VALUE);
+
+                    databaseManagerCache.cacheUnspentTransactionOutputId(previousOutputTransactionHash, previousOutputIndex, TransactionOutputId.wrap(transactionOutputId));
+                    transactionOutputId += 1L;
                 }
             }
             databaseConnection.executeSql(batchedInsertQuery);
@@ -111,17 +134,29 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         setupTimer.start();
 
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache();
         final BlockInflater blockInflater = new BlockInflater();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             blockDatabaseManager.storeBlock(blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK)));
+            blockDatabaseManager.storeBlock(new MutableBlock(blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1))) {
+                @Override
+                public Sha256Hash getHash() {
+                    return Sha256Hash.fromHexString("00000000000000000008658CDABA34569F00748085DF3923CB5287E55A2FE27C");
+                }
+
+                @Override
+                public Boolean isValid() {
+                    return true;
+                }
+            });
         }
 
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(IoUtil.getResource("/blocks/000000000000000001C37467F0843DD9E09536C21938C5C20551191788A70541")));
 
-        _createRequiredTransactionInputs(block.getTransactions(), databaseConnection);
+        _createRequiredTransactionInputs(block.getTransactions(), databaseConnection, databaseManagerCache);
 
         setupTimer.stop();
         System.out.println("Setup Duration: " + setupTimer.getMillisecondsElapsed() + "ms");
@@ -144,6 +179,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         // 174s - "Better" Batched Address Inserting (Inefficient Script::equals & Script::hashcode)
         //  24s - Better Batched Address Inserting
         //  26s - Added Duplicate-transaction detection
+        //  20s - Added Native UtxoCache
 
         // Final Timing Results:
         // Script Pattern Matching: 1ms
@@ -171,6 +207,10 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
         // Assert
         Assert.assertNotNull(blockId);
+
+        final Block reinflatedBlock = blockDatabaseManager.getBlock(blockId);
+        Assert.assertNotNull(reinflatedBlock);
+        Assert.assertEquals(block.getHash(), reinflatedBlock.getHash());
     }
 
 }
