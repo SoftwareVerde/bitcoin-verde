@@ -6,7 +6,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
@@ -150,7 +150,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      */
     protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
 

@@ -273,6 +273,7 @@ public class BlockProcessor {
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 
             _masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseManagerCache);
+            _masterDatabaseManagerCache.commit();
 
             return blockHeight;
         }

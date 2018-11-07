@@ -159,8 +159,7 @@ public class BlockchainDatabaseManager {
 
         final ImmutableListBuilder<BlockchainSegmentId> blockchainSegmentIds = new ImmutableListBuilder<BlockchainSegmentId>(rows.size());
         for (final Row row : rows) {
-            final BlockchainSegmentId blockChainSegmentId = BlockchainSegmentId.wrap(row.getLong("id"));
-            blockchainSegmentIds.add(blockChainSegmentId);
+            blockchainSegmentIds.add(BlockchainSegmentId.wrap(row.getLong("id")));
         }
         return blockchainSegmentIds.build();
     }

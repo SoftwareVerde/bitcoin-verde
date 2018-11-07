@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
@@ -24,9 +25,9 @@ import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -43,7 +44,6 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.ByteUtil;
 
 import java.io.File;
 
@@ -93,8 +93,9 @@ public class NodeModule {
         final CacheWarmer cacheWarmer = new CacheWarmer();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
-        cacheWarmer.warmUpCache(masterDatabaseManagerCache, databaseConnectionFactory);
+        cacheWarmer.warmUpCache(serverProperties.getMaxCachedUnspentTransactionOutputCount(), masterDatabaseManagerCache, databaseConnectionFactory);
     }
 
     protected NodeModule(final String configurationFilename) {
@@ -143,6 +144,7 @@ public class NodeModule {
             }
         }
 
+        NativeUnspentTransactionOutputCache.MAX_ITEM_COUNT = serverProperties.getMaxCachedUnspentTransactionOutputCount();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache();
         final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
@@ -314,8 +316,11 @@ public class NodeModule {
     }
 
     public void loop() {
+        final Runtime runtime = Runtime.getRuntime();
+
         if (_shouldWarmUpCache) {
             _warmUpCache();
+            runtime.gc();
         }
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -357,7 +362,11 @@ public class NodeModule {
         }
 
         while (! Thread.currentThread().isInterrupted()) {
-            try { Thread.sleep(5000); } catch (final Exception e) { break; }
+            try { Thread.sleep(60000); } catch (final Exception e) { break; }
+
+            runtime.gc();
+            Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes");
+            Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
         }
 
         _addressProcessor.stop();

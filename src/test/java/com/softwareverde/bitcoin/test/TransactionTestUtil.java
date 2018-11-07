@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -31,7 +31,7 @@ import com.softwareverde.util.Util;
 public class TransactionTestUtil {
 
     protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
@@ -82,7 +82,7 @@ public class TransactionTestUtil {
     }
 
     public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
-        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
         final BlockId genesisBlockId = _getGenesisBlockId(blockchainSegmentId, databaseConnection);

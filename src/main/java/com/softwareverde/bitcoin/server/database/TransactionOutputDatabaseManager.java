@@ -35,6 +35,7 @@ import com.softwareverde.util.Util;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class TransactionOutputDatabaseManager {
 
@@ -71,11 +72,15 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputId;
     }
 
+    public static final AtomicInteger cacheMiss = new AtomicInteger(0);
+    public static final AtomicInteger cacheHit = new AtomicInteger(0);
+
     protected TransactionOutputId _findUnspentTransactionOutput(final Sha256Hash transactionHash, final Integer transactionOutputIndex) throws DatabaseException {
         { // Attempt to find the UTXO from the in-memory cache...
             final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
-            if (cachedUnspentTransactionOutputId != null) { return cachedUnspentTransactionOutputId; }
-            Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+            if (cachedUnspentTransactionOutputId != null) { cacheHit.incrementAndGet(); return cachedUnspentTransactionOutputId; }
+            // Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
+            cacheMiss.incrementAndGet();
         }
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());

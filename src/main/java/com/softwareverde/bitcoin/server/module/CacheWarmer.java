@@ -14,21 +14,37 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class CacheWarmer {
-    public void warmUpCache(final MasterDatabaseManagerCache masterDatabaseManagerCache, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public void warmUpCache(final Long maxUnspentTransactionOutputCount, final MasterDatabaseManagerCache masterDatabaseManagerCache, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+        final Runtime runtime = Runtime.getRuntime();
+
         try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
                 final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
 
             { // Warm Up UTXO Cache...
-                final Integer batchSize = (512 * 1024);
-                Long lastRowId = Long.MAX_VALUE;
+                final Long maxUnspentTransactionOutputId;
+                {
+                    final java.util.List<Row> rows = databaseConnection.query(
+                        new Query("SELECT id FROM unspent_transaction_outputs ORDER BY id DESC LIMIT 1")
+                    );
+                    if (rows.isEmpty()) {
+                        maxUnspentTransactionOutputId = 0L;
+                    }
+                    else {
+                        final Row row = rows.get(0);
+                        maxUnspentTransactionOutputId = row.getLong("id");
+                    }
+                }
 
-                while (lastRowId > 0) {
+                final Integer batchSize = (512 * 1024);
+                Long lastRowId = Math.max(0L, (maxUnspentTransactionOutputId - (maxUnspentTransactionOutputCount * 3L / 2L)));
+
+                while (lastRowId < maxUnspentTransactionOutputId) {
                     final NanoTimer nanoTimer = new NanoTimer();
                     nanoTimer.start();
 
                     Long batchFirstRowId = null;
                     final java.util.List<Row> rows = databaseConnection.query(
-                        new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE id < ? ORDER BY id DESC LIMIT " + batchSize)
+                        new Query("SELECT id, transaction_output_id, transaction_hash, `index` FROM unspent_transaction_outputs WHERE id > ? ORDER BY id ASC LIMIT " + batchSize)
                             .setParameter(lastRowId)
                     );
                     if (rows.isEmpty()) { break; }
@@ -49,6 +65,7 @@ public class CacheWarmer {
 
                     nanoTimer.stop();
                     Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+                    runtime.gc();
                 }
             }
 

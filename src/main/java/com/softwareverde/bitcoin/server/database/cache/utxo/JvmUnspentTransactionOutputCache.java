@@ -146,6 +146,13 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     }
 
     @Override
+    public void commit() {
+        _writeLock.lock();
+        _invalidatedItems.clear();
+        _writeLock.unlock();
+    }
+
+    @Override
     public void close() {
         _writeLock.lock();
         _transactionOutputs.clear();

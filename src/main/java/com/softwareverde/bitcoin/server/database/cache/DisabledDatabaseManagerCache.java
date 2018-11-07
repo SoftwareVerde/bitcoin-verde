@@ -12,7 +12,7 @@ import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 
-public class EmptyDatabaseManagerCache implements DatabaseManagerCache {
+public class DisabledDatabaseManagerCache implements DatabaseManagerCache {
     @Override
     public void log() { }
 

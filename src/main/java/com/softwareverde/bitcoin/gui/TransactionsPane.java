@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.EmptyDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.StringUtil;
@@ -61,7 +61,7 @@ public class TransactionsPane extends GridPane {
         super();
 
         _databaseConnectionFactory = databaseConnectionFactory;
-        final DatabaseManagerCache databaseManagerCache = new EmptyDatabaseManagerCache();
+        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
 
         this.setPadding(new Insets(10, 10, 10, 10));
         this.setVgap(20);

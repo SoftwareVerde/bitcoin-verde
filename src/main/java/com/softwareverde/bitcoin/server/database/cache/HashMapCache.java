@@ -7,13 +7,13 @@ import com.softwareverde.io.Logger;
 
 import java.util.HashMap;
 
-public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
+public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache<KEY, VALUE> {
     public static final Integer DEFAULT_CACHE_SIZE = 65536;
     public static final Integer DISABLED_CACHE_SIZE = 0;
 
     public final Object MUTEX = new Object();
 
-    protected Cache<KEY, VALUE> _masterCache = new EmptyCache<KEY, VALUE>();
+    protected Cache<KEY, VALUE> _masterCache = new DisabledCache<KEY, VALUE>();
     protected Boolean _wasMasterCacheInvalidated = false;
 
     protected final String _name;
@@ -40,12 +40,13 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
         _recentHashes = new RecentItemTracker<KEY>(_maxItemCount);
     }
 
+    @Override
     public void invalidate() {
         _cache.clear();
         _itemCount = 0;
         _recentHashes.clear();
 
-        _masterCache = new EmptyCache<KEY, VALUE>();
+        _masterCache = new DisabledCache<KEY, VALUE>();
         _wasMasterCacheInvalidated = true;
 
         _resetDebug();
@@ -59,6 +60,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
         _cache.remove(key);
     }
 
+    @Override
     public void cacheItem(final KEY key, final VALUE value) {
         if (_maxItemCount < 1) { return; }
 
@@ -82,6 +84,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE> {
         }
     }
 
+    @Override
     public VALUE removeItem(final KEY key) {
         synchronized (MUTEX) {
             final VALUE value = _cache.remove(key);

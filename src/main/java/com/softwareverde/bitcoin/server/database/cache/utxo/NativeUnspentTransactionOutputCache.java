@@ -14,6 +14,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
 
 public class NativeUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
+    public static Long MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
+
     private static final boolean LIBRARY_LOADED_CORRECTLY;
     private static final Object MASTER_MUTEX = new Object();
     private static final ConcurrentHashMap<Integer, ReentrantReadWriteLock> MUTEXES = new ConcurrentHashMap<Integer, ReentrantReadWriteLock>(256);
@@ -72,6 +74,11 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         }
 
         MUTEXES.put(_cacheId, new ReentrantReadWriteLock());
+        _setMaxItemCount(_cacheId, MAX_ITEM_COUNT);
+    }
+
+    public void setMaxItemCount(final Long maxItemCount) {
+        _setMaxItemCount(_cacheId, maxItemCount);
     }
 
     @Override
@@ -87,6 +94,8 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     @Override
     public synchronized void setMasterCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        if (_cacheId == null) { return; }
+
         if (! (unspentTransactionOutputCache instanceof NativeUnspentTransactionOutputCache)) {
             Logger.log("NOTICE: Attempted to set master cache of different type.");
             return;
@@ -118,6 +127,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         if (transactionOutputId == null) { return; }
 
         final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
+
         writeLock.lock();
         _invalidateUnspentTransactionOutputId(_cacheId, transactionOutputId.getTransactionHash().getBytes(), transactionOutputId.getOutputIndex());
         writeLock.unlock();
@@ -128,6 +138,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         if (_cacheId == null) { return; }
 
         final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
+
         writeLock.lock();
         for (final TransactionOutputIdentifier transactionOutputId : transactionOutputIds) {
             if (transactionOutputId == null) { continue; }
@@ -138,6 +149,8 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     @Override
     public synchronized void commit(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        if (_cacheId == null) { return; }
+
         if (! (unspentTransactionOutputCache instanceof NativeUnspentTransactionOutputCache)) {
             Logger.log("NOTICE: Attempted to commit cache of different type.");
             return;
@@ -154,9 +167,21 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         sourceCacheWriteLock.unlock();
     }
 
+    @Override
+    public synchronized void commit() {
+        if (_cacheId == null) { return; }
+
+        final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
+
+        writeLock.lock();
+        _commit(_cacheId);
+        writeLock.unlock();
+    }
 
     @Override
     public synchronized void close() {
+        if (_cacheId == null) { return; }
+
         synchronized (MASTER_MUTEX) {
             _deleteCache(_cacheId);
         }

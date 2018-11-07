@@ -14,6 +14,7 @@ public interface UnspentTransactionOutputCache extends AutoCloseable {
     void invalidateUnspentTransactionOutputId(TransactionOutputIdentifier transactionOutputIdentifier);
     void invalidateUnspentTransactionOutputIds(List<TransactionOutputIdentifier> transactionOutputIdentifiers);
     void commit(UnspentTransactionOutputCache sourceCache);
+    void commit();
 
     @Override
     void close();
