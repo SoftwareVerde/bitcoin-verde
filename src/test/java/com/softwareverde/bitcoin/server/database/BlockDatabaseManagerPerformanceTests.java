@@ -134,7 +134,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         setupTimer.start();
 
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache();
+        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(0L);
         final BlockInflater blockInflater = new BlockInflater();
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);

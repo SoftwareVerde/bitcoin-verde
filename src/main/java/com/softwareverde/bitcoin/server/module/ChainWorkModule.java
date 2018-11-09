@@ -88,7 +88,7 @@ public class ChainWorkModule {
             }
         }
 
-        _environment = new Environment(database, new MasterDatabaseManagerCache());
+        _environment = new Environment(database, new MasterDatabaseManagerCache(0L));
     }
 
     public void loop() {

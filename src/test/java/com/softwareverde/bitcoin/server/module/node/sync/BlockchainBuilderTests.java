@@ -46,7 +46,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
     @Test
     public void should_synchronize_pending_blocks() throws Exception {
         // Setup
-        final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCache();
+        final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCache(0L);
         final DatabaseManagerCache databaseCache = new ReadOnlyLocalDatabaseManagerCache(masterCache);
 
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();

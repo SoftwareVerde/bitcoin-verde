@@ -14,8 +14,6 @@ import java.util.TreeMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
-    public static final Integer MAX_ITEM_COUNT = (1 << 28); // 268,435,456
-
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
@@ -47,6 +45,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
         }
     }
 
+    // TODO: Support a max-UTXO count...
     public JvmUnspentTransactionOutputCache() {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _readLock = readWriteLock.readLock();
@@ -70,6 +69,12 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
         map.put(transactionOutputIndex, transactionOutputId);
         _invalidatedItems.remove(new TransactionOutputIdentifier(transactionHash, transactionOutputIndex));
         _writeLock.unlock();
+    }
+
+    @Override
+    public void cacheUnspentTransactionOutputId(final Long insertId, final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
+        // TODO: Use the insertId to dictate when the UTXO is ejected by a newer UTXO...
+        this.cacheUnspentTransactionOutputId(transactionHash, transactionOutputIndex, transactionOutputId);
     }
 
     @Override

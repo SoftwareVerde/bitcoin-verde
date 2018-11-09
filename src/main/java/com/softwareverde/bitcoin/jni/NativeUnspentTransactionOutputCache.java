@@ -13,6 +13,9 @@ public class NativeUnspentTransactionOutputCache {
     public static native void _commit(int instanceId, int masterCacheId);
     public static native void _commit(int instanceId);
 
+    // Used for the initial load of UTXOs (usually in reverse order)...
+    public static native void _loadUnspentTransactionOutputId(int instanceId, long insertId, byte[] transactionHash, int transactionOutputIndex, long transactionOutputId);
+
     public static native void _setMaxItemCount(int instanceId, long maxItemCount);
 
     // ~53,750,000 items.  11GB loaded, 4GB disabled. ~139 bytes per item

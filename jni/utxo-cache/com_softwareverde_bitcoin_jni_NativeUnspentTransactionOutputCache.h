@@ -89,6 +89,14 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 
 /*
  * Class:     com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache
+ * Method:    _loadUnspentTransactionOutputId
+ * Signature: (IJ[BIJ)V
+ */
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1loadUnspentTransactionOutputId
+  (JNIEnv *, jclass, jint, jlong, jbyteArray, jint, jlong);
+
+/*
+ * Class:     com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache
  * Method:    _setMaxItemCount
  * Signature: (IJ)V
  */

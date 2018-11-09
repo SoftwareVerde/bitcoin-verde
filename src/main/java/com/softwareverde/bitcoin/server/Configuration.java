@@ -34,24 +34,22 @@ public class Configuration {
         private Integer _bitcoinRpcPort;
         private SeedNodeProperties[] _seedNodeProperties;
         private Integer _maxPeerCount;
-        private Integer _maxBlockQueueSize;
         private Integer _maxThreadCount;
         private Long _trustedBlockHeight;
         private Long _maxMemoryByteCount;
         private Boolean _shouldSkipNetworking;
-        private Long _maxCachedUnspentTransactionOutputCount;
+        private Long _maxUtxoCacheByteCount;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
         public Integer getStratumPort() { return _stratumPort; }
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
         public Integer getMaxPeerCount() { return _maxPeerCount; }
-        public Integer getMaxBlockQueueSize() { return _maxBlockQueueSize; }
         public Integer getMaxThreadCount() { return _maxThreadCount; }
         public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
         public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
         public Boolean skipNetworking() { return _shouldSkipNetworking; }
-        public Long getMaxCachedUnspentTransactionOutputCount() { return _maxCachedUnspentTransactionOutputCount; }
+        public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     }
 
     public static class ExplorerProperties {
@@ -126,12 +124,11 @@ public class Configuration {
         }
 
         _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
-        _serverProperties._maxBlockQueueSize = Util.parseInt(_properties.getProperty("bitcoin.maxBlockQueueSize", "56"));
         _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _serverProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
         _serverProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
-        _serverProperties._maxCachedUnspentTransactionOutputCount = Util.parseLong(_properties.getProperty("bitcoin.maxCachedUnspentTransactionOutputCount", String.valueOf((1L << 24))));
+        _serverProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
     }
 
     private void _loadExplorerProperties() {

@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
@@ -18,12 +17,13 @@ import com.softwareverde.constable.list.List;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
-    public LocalDatabaseManagerCache() {
-        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache() : new JvmUnspentTransactionOutputCache());
+    public LocalDatabaseManagerCache(final Long maxUtxoCount) {
+        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache(maxUtxoCount) : new JvmUnspentTransactionOutputCache());
     }
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {
-        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache() : new JvmUnspentTransactionOutputCache());
+        final Long maxUtxoCount = masterCache.getMaxCachedUtxoCount();
+        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache(maxUtxoCount) : new JvmUnspentTransactionOutputCache());
 
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());
         _transactionCache.setMasterCache(masterCache.getTransactionCache());

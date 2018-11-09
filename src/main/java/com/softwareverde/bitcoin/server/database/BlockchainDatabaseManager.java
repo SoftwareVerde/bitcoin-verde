@@ -94,7 +94,7 @@ public class BlockchainDatabaseManager {
         }
 
         final Long blockchainSegmentId = _databaseConnection.executeSql(
-            new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id, nested_set_left, nested_set_right) VALUES (?, 0, 0)")
+            new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id) VALUES (?)")
                 .setParameter(parentBlockchainSegmentId)
         );
 

@@ -9,21 +9,35 @@
 
 std::atomic<unsigned long> PREVOUT_ID(0L);
 
+template<typename T>
+void atomic_set_max(std::atomic<T>& maximum_value, T const& value) {
+    T prev_value = maximum_value;
+    while( (prev_value < value) && (! maximum_value.compare_exchange_weak(prev_value, value)) );
+}
+
 struct prevout {
     jbyte transaction_hash[32];
     jint transaction_output_index;
     unsigned long insert_id;
 
-    prevout(const jbyte* param_transaction_hash, const jint param_transaction_output_index) {
-        memcpy(transaction_hash, param_transaction_hash, 32 * sizeof(jbyte));
-        transaction_output_index = param_transaction_output_index;
-        insert_id = PREVOUT_ID++;
+    prevout(const unsigned long insert_id, const jbyte* transaction_hash, const jint transaction_output_index) {
+        atomic_set_max(PREVOUT_ID, insert_id + 1); // Gaurantee that the next PREVOUT_ID is greater than the insert_id...
+
+        memcpy(this->transaction_hash, transaction_hash, 32 * sizeof(jbyte));
+        this->transaction_output_index = transaction_output_index;
+        this->insert_id = insert_id;
+    }
+
+    prevout(const jbyte* transaction_hash, const jint transaction_output_index) {
+        memcpy(this->transaction_hash, transaction_hash, 32 * sizeof(jbyte));
+        this->transaction_output_index = transaction_output_index;
+        this->insert_id = PREVOUT_ID++;
     }
 
     prevout(const prevout& prevout) {
-        memcpy(transaction_hash, prevout.transaction_hash, 32 * sizeof(jbyte));
-        transaction_output_index = prevout.transaction_output_index;
-        insert_id = PREVOUT_ID++;
+        memcpy(this->transaction_hash, prevout.transaction_hash, 32 * sizeof(jbyte));
+        this->transaction_output_index = prevout.transaction_output_index;
+        this->insert_id = PREVOUT_ID++;
     }
 
     bool operator==(const prevout& prevout) const {
@@ -57,8 +71,10 @@ struct prevout_id_comparator {
     }
 };
 
-typedef btree::btree_map<const prevout*, jlong, prevout_ptr_comparator> cache_t;
-typedef btree::btree_set<const prevout*, prevout_id_comparator> cache_age_t;
+#define btree_node_size 256
+#define allocator_t std::allocator< std::pair<const prevout*, jlong> >
+typedef btree::btree_map<const prevout*, jlong, prevout_ptr_comparator, allocator_t, btree_node_size> cache_t;
+typedef btree::btree_set<const prevout*, prevout_id_comparator, allocator_t, btree_node_size> cache_age_t;
 
 typedef btree::btree_set<const prevout*> list_t;
 
@@ -312,4 +328,18 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
     if (cache == 0) { return; }
     
     cache->set_max_item_count(max_item_count);
+}
+
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1loadUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong insert_id, jbyteArray jni_transaction_hash, jint transaction_output_index, jlong transaction_output_id) {
+    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
+    if (cache_index >= 256) { return; }
+    if (cache_index < 0) { return; }
+
+    cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return; }
+
+    const prevout* const prevout = new struct prevout(insert_id, transaction_hash, transaction_output_index);
+    cache->cache_utxo(prevout, transaction_output_id);
 }

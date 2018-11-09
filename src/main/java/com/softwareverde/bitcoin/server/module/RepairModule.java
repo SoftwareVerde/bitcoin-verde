@@ -109,7 +109,8 @@ public class RepairModule {
             }
         }
 
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache();
+        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
         _environment = new Environment(database, masterDatabaseManagerCache);
 
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);

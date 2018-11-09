@@ -12,14 +12,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 
 public class MasterDatabaseManagerCache implements AutoCloseable {
-    protected final MutableCache<ImmutableSha256Hash, TransactionId> _transactionIdCache                            = new HashMapCache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", 32000);
-    protected final MutableCache<TransactionId, ImmutableTransaction> _transactionCache                             = new HashMapCache<TransactionId, ImmutableTransaction>("TransactionCache", 32000);
-    protected final MutableCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache  = new DisabledCache<CachedTransactionOutputIdentifier, TransactionOutputId>(); // new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
-    protected final MutableCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache                     = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 2016);
-    protected final MutableCache<String, AddressId> _addressIdCache                                                 = new DisabledCache<String, AddressId>(); // new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
-    protected final MutableCache<BlockId, Long> _blockHeightCache                                                   = new HashMapCache<BlockId, Long>("BlockHeightCache", 550000);
-    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
-
     protected static <T, S> void _commitToCache(final MutableCache<T, S> cache, final MutableCache<T, S> destination) {
         if (cache.masterCacheWasInvalidated()) {
             destination.invalidate();
@@ -30,8 +22,20 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         }
     }
 
-    public MasterDatabaseManagerCache() {
-        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache() : new JvmUnspentTransactionOutputCache());
+    protected final MutableCache<ImmutableSha256Hash, TransactionId> _transactionIdCache                            = new HashMapCache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", 128000);
+    protected final MutableCache<TransactionId, ImmutableTransaction> _transactionCache                             = new HashMapCache<TransactionId, ImmutableTransaction>("TransactionCache", 128000);
+    protected final MutableCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache  = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", 128000);
+    protected final MutableCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache                     = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 2048);
+    protected final MutableCache<String, AddressId> _addressIdCache                                                 = new DisabledCache<String, AddressId>();
+    protected final MutableCache<BlockId, Long> _blockHeightCache                                                   = new HashMapCache<BlockId, Long>("BlockHeightCache", 2048);
+    protected final UnspentTransactionOutputCache _unspentTransactionOutputCache;
+
+    protected final Long _maxCachedUtxoCount;
+
+    public MasterDatabaseManagerCache(final Long maxUtxoCacheByteCount) {
+        final Long maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
+        _maxCachedUtxoCount = maxUtxoCount;
+        _unspentTransactionOutputCache = ((NativeUnspentTransactionOutputCache.isEnabled()) ? new NativeUnspentTransactionOutputCache(maxUtxoCount) : new JvmUnspentTransactionOutputCache());
     }
 
     public Cache<TransactionId, ImmutableTransaction> getTransactionCache() { return _transactionCache; }
@@ -55,6 +59,10 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
 
     public void commit() {
         _unspentTransactionOutputCache.commit();
+    }
+
+    public Long getMaxCachedUtxoCount() {
+        return _maxCachedUtxoCount;
     }
 
     @Override

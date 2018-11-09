@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
@@ -100,7 +100,9 @@ public class ChainValidationModule {
             }
         }
 
-        _environment = new Environment(database, new MasterDatabaseManagerCache());
+
+        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        _environment = new Environment(database, new MasterDatabaseManagerCache(maxUtxoCacheByteCount));
     }
 
     public void run() {

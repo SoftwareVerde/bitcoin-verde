@@ -10,6 +10,7 @@ public interface UnspentTransactionOutputCache extends AutoCloseable {
     void setMasterCache(UnspentTransactionOutputCache masterCache);
 
     void cacheUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex, TransactionOutputId transactionOutputId);
+    void cacheUnspentTransactionOutputId(Long insertId, Sha256Hash transactionHash, Integer transactionOutputIndex, TransactionOutputId transactionOutputId);
     TransactionOutputId getCachedUnspentTransactionOutputId(Sha256Hash transactionHash, Integer transactionOutputIndex);
     void invalidateUnspentTransactionOutputId(TransactionOutputIdentifier transactionOutputIdentifier);
     void invalidateUnspentTransactionOutputIds(List<TransactionOutputIdentifier> transactionOutputIdentifiers);

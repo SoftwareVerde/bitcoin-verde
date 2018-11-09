@@ -80,7 +80,6 @@ public class TransactionOutputDatabaseManager {
             final TransactionOutputId cachedUnspentTransactionOutputId = _databaseManagerCache.getCachedUnspentTransactionOutputId(transactionHash, transactionOutputIndex);
             if (cachedUnspentTransactionOutputId != null) { cacheHit.incrementAndGet(); return cachedUnspentTransactionOutputId; }
             // Logger.log("INFO: Cache Miss for Output: " + transactionHash + ":" + transactionOutputIndex);
-            cacheMiss.incrementAndGet();
         }
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -106,6 +105,7 @@ public class TransactionOutputDatabaseManager {
             _databaseManagerCache.cacheTransactionOutputId(cachedTransactionId, transactionOutputIndex, transactionOutputId);
         }
 
+        cacheMiss.incrementAndGet();
         return transactionOutputId;
     }
 
@@ -353,6 +353,7 @@ public class TransactionOutputDatabaseManager {
             transactionOutputIds.add(transactionOutputId);
         }
 
+        // TODO: Do not cache provably unspendable outputs...
         _insertUnspentTransactionOutputs(transactionOutputIds, unspentTransactionOutputs);
 
         _insertLockingScripts(transactionOutputIds, lockingScripts);

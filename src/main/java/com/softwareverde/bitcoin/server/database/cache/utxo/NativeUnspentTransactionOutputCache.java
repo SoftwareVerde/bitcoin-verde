@@ -14,7 +14,16 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
 
 public class NativeUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
-    public static Long MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
+    public static Long DEFAULT_MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
+
+    public static Long calculateMaxUtxoCountFromMemoryUsage(final Long maxByteCount) {
+        // B-Tree UTXO Cache Memory Usage: https://docs.google.com/spreadsheets/d/1cB_BbJ1Tg6AuV4Ge3yVG081WXUJ-T9YFwYN95I6VcoI
+        final Double megabyteCount = (maxByteCount / 1024D / 1024D);
+
+        // utxoCount = -1.03E6 + 9330 * megabytes - 1.43 * megabytes^2 + 1.48E-4 * megabytes^3
+        // utxoCount = -1030000.0 + 9330 * megabytes - 1.43 * megabytes^2 + 0.000148 * megabytes^3
+        return Math.max(0, ((long) ((9330 * megabyteCount) - (1.43D * Math.pow(megabyteCount, 2)) + 0.000148D * Math.pow(megabyteCount, 3))) - 1030000L);
+    }
 
     private static final boolean LIBRARY_LOADED_CORRECTLY;
     private static final Object MASTER_MUTEX = new Object();
@@ -63,7 +72,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     protected Integer _cacheId;
 
-    public NativeUnspentTransactionOutputCache() {
+    public NativeUnspentTransactionOutputCache(final Long maxUtxoCount) {
         synchronized (MASTER_MUTEX) {
             _cacheId = _createCache();
         }
@@ -74,7 +83,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         }
 
         MUTEXES.put(_cacheId, new ReentrantReadWriteLock());
-        _setMaxItemCount(_cacheId, MAX_ITEM_COUNT);
+        _setMaxItemCount(_cacheId, maxUtxoCount);
     }
 
     public void setMaxItemCount(final Long maxItemCount) {
@@ -186,5 +195,16 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
             _deleteCache(_cacheId);
         }
         _cacheId = null;
+    }
+
+    @Override
+    public synchronized void cacheUnspentTransactionOutputId(final Long insertId, final Sha256Hash transactionHash, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
+        if (_cacheId == null) { return; }
+
+        final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
+
+        writeLock.lock();
+        _loadUnspentTransactionOutputId(_cacheId, insertId, transactionHash.getBytes(), transactionOutputIndex, transactionOutputId.longValue());
+        writeLock.unlock();
     }
 }

@@ -93,9 +93,8 @@ public class NodeModule {
         final CacheWarmer cacheWarmer = new CacheWarmer();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
-        cacheWarmer.warmUpCache(serverProperties.getMaxCachedUnspentTransactionOutputCount(), masterDatabaseManagerCache, databaseConnectionFactory);
+        cacheWarmer.warmUpCache(masterDatabaseManagerCache, databaseConnectionFactory);
     }
 
     protected NodeModule(final String configurationFilename) {
@@ -144,8 +143,8 @@ public class NodeModule {
             }
         }
 
-        NativeUnspentTransactionOutputCache.MAX_ITEM_COUNT = serverProperties.getMaxCachedUnspentTransactionOutputCount();
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache();
+        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
         final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         _environment = new Environment(database, masterDatabaseManagerCache);
@@ -179,7 +178,7 @@ public class NodeModule {
 
         final InventoryMessageHandler inventoryMessageHandler;
         {
-            final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
+            // final Integer maxConnectionCount = Integer.MAX_VALUE; // (serverProperties.getMaxPeerCount() * 2);
             // final MysqlDatabaseConnectionPool databaseConnectionPool = _createDatabaseConnectionPool(databaseConnectionFactory, maxConnectionCount);
             inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
@@ -365,7 +364,7 @@ public class NodeModule {
             try { Thread.sleep(60000); } catch (final Exception e) { break; }
 
             runtime.gc();
-            Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes");
+            Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
         }
 
