@@ -31,5 +31,8 @@ public class DisabledUnspentTransactionOutputCache implements UnspentTransaction
     public void commit() { }
 
     @Override
+    public void pruneHalf() { }
+
+    @Override
     public void close() { }
 }

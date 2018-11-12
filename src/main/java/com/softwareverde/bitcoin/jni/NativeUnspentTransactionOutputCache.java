@@ -17,6 +17,7 @@ public class NativeUnspentTransactionOutputCache {
     public static native void _loadUnspentTransactionOutputId(int instanceId, long insertId, byte[] transactionHash, int transactionOutputIndex, long transactionOutputId);
 
     public static native void _setMaxItemCount(int instanceId, long maxItemCount);
+    public static native void _pruneHalf(int instanceId);
 
     // ~53,750,000 items.  11GB loaded, 4GB disabled. ~139 bytes per item
     // 711,238,950

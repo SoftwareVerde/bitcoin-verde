@@ -86,10 +86,10 @@ class cache {
         const cache* _master_cache;
         unsigned long _max_item_count;
 
-        void _ensure_capacity() {
-            if (_max_item_count < 1) { return; }
+        void _ensure_capacity(const unsigned long max_item_count) {
+            if (max_item_count < 1) { return; }
 
-            while (_map.size() >= _max_item_count) {
+            while (_map.size() >= max_item_count) {
                 const cache_age_t::iterator oldest_prevout_iterator = _map_age.begin();
                 const prevout* const oldest_prevout = (*oldest_prevout_iterator);
                 _map.erase(oldest_prevout);
@@ -106,7 +106,7 @@ class cache {
         }
 
         void cache_utxo(const prevout* const prevout, const jlong transaction_output_id) {
-            _ensure_capacity();
+            _ensure_capacity(_max_item_count);
 
             const cache_t::iterator iterator = _map.find(prevout);
             if (iterator != _map.end()) {
@@ -164,7 +164,7 @@ class cache {
                     delete prevout;
                 }
                 else {
-                    _ensure_capacity();
+                    _ensure_capacity(_max_item_count);
                     _map[prevout] = transaction_output_id;
                     _map_age.insert(prevout);
                 }
@@ -182,6 +182,10 @@ class cache {
                 delete prevout;
             }
             _invalidated_items.clear();
+        }
+
+        void prune_half() {
+            _ensure_capacity(_map.size() / 2);
         }
 
         ~cache() {
@@ -342,4 +346,14 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 
     const prevout* const prevout = new struct prevout(insert_id, transaction_hash, transaction_output_index);
     cache->cache_utxo(prevout, transaction_output_id);
+}
+
+JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1pruneHalf(JNIEnv* environment, jclass _class, jint cache_index) {
+    if (cache_index >= 256) { return; }
+    if (cache_index < 0) { return; }
+
+    cache* const cache = CACHES[cache_index];
+    if (cache == 0) { return; }
+    
+    cache->prune_half();
 }

@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -134,7 +135,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         setupTimer.start();
 
         final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(0L);
+        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(UtxoCount.wrap(0L));
         final BlockInflater blockInflater = new BlockInflater();
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);

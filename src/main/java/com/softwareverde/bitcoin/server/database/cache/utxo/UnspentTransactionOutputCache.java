@@ -17,6 +17,8 @@ public interface UnspentTransactionOutputCache extends AutoCloseable {
     void commit(UnspentTransactionOutputCache sourceCache);
     void commit();
 
+    void pruneHalf();
+
     @Override
     void close();
 }

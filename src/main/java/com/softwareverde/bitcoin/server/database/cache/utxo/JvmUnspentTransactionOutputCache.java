@@ -158,6 +158,25 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     }
 
     @Override
+    public void pruneHalf() {
+        boolean shouldPrune = true;
+        for (final Sha256Hash key0 : _transactionOutputs.keySet()) {
+            final Map<Integer, TransactionOutputId> subMap = _transactionOutputs.get(key0);
+
+            for (final Integer key1 : subMap.keySet()) {
+                if (shouldPrune) {
+                    subMap.remove(key1);
+                }
+                shouldPrune = (! shouldPrune);
+            }
+
+            if (subMap.isEmpty()) {
+                _transactionOutputs.remove(key0);
+            }
+        }
+    }
+
+    @Override
     public void close() {
         _writeLock.lock();
         _transactionOutputs.clear();
