@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
+import com.softwareverde.bitcoin.server.database.cache.conscientious.ConscientiousUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -72,6 +73,29 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     protected Integer _cacheId;
 
+    protected NativeUnspentTransactionOutputCache _unwrapCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        if (unspentTransactionOutputCache instanceof NativeUnspentTransactionOutputCache) {
+            return ((NativeUnspentTransactionOutputCache) unspentTransactionOutputCache);
+        }
+
+        if (unspentTransactionOutputCache instanceof ConscientiousUnspentTransactionOutputCache) {
+            final ConscientiousUnspentTransactionOutputCache wrappedCache = (ConscientiousUnspentTransactionOutputCache) unspentTransactionOutputCache;
+            final UnspentTransactionOutputCache unwrappedCached = wrappedCache.unwrap();
+            if (unwrappedCached instanceof NativeUnspentTransactionOutputCache) {
+                return ((NativeUnspentTransactionOutputCache) unwrappedCached);
+            }
+        }
+
+        return null;
+    }
+
+    protected Integer _unwrapCacheId(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        final NativeUnspentTransactionOutputCache unwrappedCache = _unwrapCache(unspentTransactionOutputCache);
+        if (unwrappedCache == null) { return null; }
+
+        return unwrappedCache._cacheId;
+    }
+
     public NativeUnspentTransactionOutputCache(final UtxoCount maxUtxoCount) {
         synchronized (MASTER_MUTEX) {
             _cacheId = _createCache();
@@ -105,14 +129,14 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
     public synchronized void setMasterCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
         if (_cacheId == null) { return; }
 
-        if (! (unspentTransactionOutputCache instanceof NativeUnspentTransactionOutputCache)) {
-            Logger.log("NOTICE: Attempted to set master cache of different type.");
+        final Integer masterCacheId = _unwrapCacheId(unspentTransactionOutputCache);
+        if (masterCacheId == null) {
+            Logger.log("NOTICE: Attempted to set master cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
             return;
         }
 
-        final NativeUnspentTransactionOutputCache masterCache = (NativeUnspentTransactionOutputCache) unspentTransactionOutputCache;
         synchronized (MASTER_MUTEX) {
-            _setMasterCache(_cacheId, masterCache._cacheId);
+            _setMasterCache(_cacheId, masterCacheId);
         }
     }
 
@@ -160,12 +184,12 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
     public synchronized void commit(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
         if (_cacheId == null) { return; }
 
-        if (! (unspentTransactionOutputCache instanceof NativeUnspentTransactionOutputCache)) {
-            Logger.log("NOTICE: Attempted to commit cache of different type.");
+        final NativeUnspentTransactionOutputCache sourceCache = _unwrapCache(unspentTransactionOutputCache);
+        if (sourceCache == null) {
+            Logger.log("NOTICE: Attempted to commit cache of different type: " + unspentTransactionOutputCache.getClass().getSimpleName());
             return;
         }
 
-        final NativeUnspentTransactionOutputCache sourceCache = (NativeUnspentTransactionOutputCache) unspentTransactionOutputCache;
         final ReentrantReadWriteLock.WriteLock sourceCacheWriteLock = MUTEXES.get(sourceCache._cacheId).writeLock();
         final ReentrantReadWriteLock.WriteLock writeLock = MUTEXES.get(_cacheId).writeLock();
 

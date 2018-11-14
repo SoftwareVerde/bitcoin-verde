@@ -20,7 +20,7 @@ public class DatabaseConfigurer {
 
         commandLineArguments.setQueryCacheByteCount(0L);
 
-        commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
+        commandLineArguments.setMaxAllowedPacketByteCount(128 * ByteUtil.Unit.MEGABYTES);
 
         commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
         commandLineArguments.addArgument("--innodb-read-io-threads=8");

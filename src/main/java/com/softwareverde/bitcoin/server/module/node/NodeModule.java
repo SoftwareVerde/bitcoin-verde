@@ -118,6 +118,7 @@ public class NodeModule {
                 DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties);
 
                 // databaseInstance = new DebugEmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
+                Logger.log("[Initializing Database]");
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
             catch (final DatabaseException exception) {
