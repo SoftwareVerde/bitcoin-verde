@@ -82,11 +82,11 @@ public class BitcoinNode extends Node {
     };
 
     public interface QueryBlocksCallback {
-        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
+        void run(List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
 
     public interface QueryBlockHeadersCallback {
-        void run(com.softwareverde.constable.list.List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
+        void run(List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, NodeConnection nodeConnection);
     }
 
     public interface RequestDataCallback {
@@ -752,8 +752,15 @@ public class BitcoinNode extends Node {
     public void disconnect() {
         super.disconnect();
 
-        _downloadBlockRequests.clear();
-        _downloadBlockHeadersRequests.clear();
+        { // Unset all callback and handlers...
+            _queryBlocksCallback = null;
+            _queryBlockHeadersCallback = null;
+            _requestDataMessageCallback = null;
+            _blockInventoryMessageHandler = null;
+            _requestExtraThinBlockCallback = null;
+            _requestExtraThinTransactionCallback = null;
+            _transactionsAnnouncementCallback = null;
+        }
 
         synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
         synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }

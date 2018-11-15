@@ -106,7 +106,7 @@ public class BlockDownloader extends SleepyService {
                 _currentBlockDownloadSet.put(blockHash, timer);
 
                 timer.start();
-                _bitcoinNodeManager.requestBlock(blockHash, _blockDownloadedCallback);
+                _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
             }
         }
         catch (final DatabaseException exception) {

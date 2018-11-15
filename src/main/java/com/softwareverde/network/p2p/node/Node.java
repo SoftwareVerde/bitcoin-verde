@@ -103,6 +103,7 @@ public abstract class Node {
         _nodeHandshakeCompleteCallback = null;
         _nodeDisconnectedCallback = null;
 
+        _connection.setMessageReceivedCallback(null);
         _connection.disconnect();
 
         _handshakeIsComplete = false;
