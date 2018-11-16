@@ -108,6 +108,9 @@ public enum Opcode {
                                                 //  Its benefit seems rare and borderline useless, and is likely a security risk.
                                                 //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
 
+    CHECK_DATA_SIGNATURE                (0xBA),
+    CHECK_DATA_SIGNATURE_THEN_VERIFY    (0xBB),
+
     // LOCK TIME
     CHECK_LOCK_TIME_THEN_VERIFY         (0xB1),
     CHECK_SEQUENCE_NUMBER_THEN_VERIFY   (0xB2),

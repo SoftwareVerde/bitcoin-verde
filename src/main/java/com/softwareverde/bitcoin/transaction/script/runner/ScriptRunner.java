@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.bip.Bip16;
+import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -26,26 +27,33 @@ public class ScriptRunner {
         final MutableContext mutableContext = new MutableContext(context);
 
         final ControlState controlState = new ControlState();
+
+        final Stack traditionalStack;
         final Stack payToScriptHashStack;
 
         { // Normal Script-Validation...
-            final Stack stack = new Stack();
+            traditionalStack = new Stack();
             try {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
+
+                if (HF20181115.isEnabled(context.getBlockHeight())) {
+                    final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
+                    if (unlockingScriptContainsNonPushOperations) { return false; } // Only push operations are allowed in the unlocking script. (BIP 62)
+                }
 
                 mutableContext.setCurrentScript(unlockingScript);
                 for (final Operation operation : unlockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
-                    final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
+                    final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
-                    final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                    final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
                     if (! wasSuccessful) { return false; }
                 }
 
-                payToScriptHashStack = new Stack(stack);
+                payToScriptHashStack = new Stack(traditionalStack);
 
                 final List<Operation> lockingScriptOperations = lockingScript.getOperations();
                 if (lockingScriptOperations == null) { return false; }
@@ -54,10 +62,10 @@ public class ScriptRunner {
                 for (final Operation operation : lockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
-                    final Boolean shouldExecute = operation.shouldExecute(stack, controlState, mutableContext);
+                    final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
-                    final Boolean wasSuccessful = operation.applyTo(stack, controlState, mutableContext);
+                    final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
                     if (! wasSuccessful) { return false; }
                 }
             }
@@ -67,17 +75,19 @@ public class ScriptRunner {
             }
 
             { // Validate Stack...
-                if (stack.isEmpty()) { return false; }
-                final Value topStackValue = stack.pop();
+                if (traditionalStack.isEmpty()) { return false; }
+                final Value topStackValue = traditionalStack.pop();
                 if (! topStackValue.asBoolean()) { return false; }
             }
         }
 
+        final Boolean shouldRunPayToScriptHashScript;
         { // Pay-To-Script-Hash Validation
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
             final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
-            if ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash)) {
+            shouldRunPayToScriptHashScript = ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash));
+            if (shouldRunPayToScriptHashScript) {
                 final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                 if (unlockingScriptContainsNonPushOperations) { return false; }
 
@@ -114,6 +124,11 @@ public class ScriptRunner {
         }
 
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
+
+        if (HF20181115.isEnabled(context.getBlockHeight())) {
+            final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
+            if (! stack.isEmpty()) { return false; } // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
+        }
 
         return true;
     }

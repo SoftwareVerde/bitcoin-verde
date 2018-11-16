@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -70,7 +72,7 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
-        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md)
+        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding)
             if (scriptSignature == null) { return false; }
 
             final HashType hashType = scriptSignature.getHashType();
@@ -87,6 +89,206 @@ public class CryptographicOperation extends SubTypedOperation {
         }
 
         return true;
+    }
+
+    protected Boolean _executeCheckSignature(final Stack stack, final Context context) {
+        final Value publicKeyValue = stack.pop();
+        final Value signatureValue = stack.pop();
+
+        if (stack.didOverflow()) { return false; }
+
+        final List<ByteArray> bytesToRemoveFromScript;
+        { // NOTE: All instances of the signature should be purged from the signed script...
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(1);
+            signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes()));
+            bytesToRemoveFromScript = signatureBytesBuilder.build();
+        }
+
+        final Long blockHeight = context.getBlockHeight();
+
+        final Boolean signatureIsValid;
+        {
+            final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+
+            if (Buip55.isEnabled(blockHeight)) {
+                final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
+                if (! meetsStrictEncodingStandard) { return false; }
+            }
+
+            if (scriptSignature != null) {
+                final PublicKey publicKey = publicKeyValue.asPublicKey();
+                signatureIsValid = checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
+            }
+            else {
+                // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                //  Example Transaction: 9FB65B7304AAA77AC9580823C2C06B259CC42591E5CCE66D76A81B6F51CC5C28
+                signatureIsValid = false;
+            }
+        }
+
+        if (_opcode == Opcode.CHECK_SIGNATURE_THEN_VERIFY) {
+            if (! signatureIsValid) { return false; }
+        }
+        else {
+            { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+                if (HF20171113.isEnabled(blockHeight)) {
+                    if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
+                }
+            }
+
+            stack.push(Value.fromBoolean(signatureIsValid));
+        }
+
+        return (! stack.didOverflow());
+    }
+
+    protected Boolean _executeCheckMultiSignature(final Stack stack, final Context context) {
+        final Integer publicKeyCount;
+        {
+            final Value publicKeyCountValue = stack.pop();
+            publicKeyCount = publicKeyCountValue.asInteger();
+        }
+
+        final List<PublicKey> publicKeys;
+        {
+            final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
+            for (int i = 0; i < publicKeyCount; ++i) {
+                final Value publicKeyValue = stack.pop();
+                final PublicKey publicKey = publicKeyValue.asPublicKey();
+                listBuilder.add(publicKey);
+            }
+            publicKeys = listBuilder.build();
+        }
+
+        final Integer signatureCount;
+        {
+            final Value signatureCountValue = stack.pop();
+            signatureCount = signatureCountValue.asInteger();
+        }
+
+        final boolean allSignaturesWereEmpty;
+        final List<ByteArray> bytesToRemoveFromScript;
+        final List<ScriptSignature> signatures;
+        {
+            boolean signaturesAreEmpty = true;
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
+            final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
+            for (int i = 0; i < signatureCount; ++i) {
+                final Value signatureValue = stack.pop();
+
+                if (! signatureValue.isEmpty()) {
+                    signaturesAreEmpty = false;
+                }
+
+                final ScriptSignature signature = signatureValue.asScriptSignature();
+                // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+
+                signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes())); // NOTE: All instances of the signature should be purged from the signed script...
+                listBuilder.add(signature);
+            }
+            signatures = listBuilder.build();
+            bytesToRemoveFromScript = signatureBytesBuilder.build();
+            allSignaturesWereEmpty = signaturesAreEmpty;
+        }
+
+        stack.pop(); // Pop an extra value due to bug in the protocol...
+
+        final Long blockHeight = context.getBlockHeight();
+
+        final boolean signaturesAreValid;
+        {   // Signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
+            // Example: P1, P2, P3 <-> S2, S3
+            //          P1, P2, P3 <-> S1, S3
+            //          P1, P2, P3 <-> S1, S2
+            //          P1, P2, P3 <-> S1, S2, S3
+            boolean signaturesHaveMatchedPublicKeys = true;
+            int nextPublicKeyIndex = 0;
+            for (int i = 0; i < signatureCount; ++i) {
+                final ScriptSignature signature = signatures.get(i);
+
+                boolean signatureHasPublicKeyMatch = false;
+                for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
+                    nextPublicKeyIndex += 1;
+
+                    final PublicKey publicKey = publicKeys.get(j);
+                    final boolean signatureIsValid;
+                    {
+                        if (Buip55.isEnabled(blockHeight)) {
+                            final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
+                            if (! meetsStrictEncodingStandard) { return false; }
+                        }
+
+                        if (signature != null) {
+                            signatureIsValid = checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
+                        }
+                        else {
+                            signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                        }
+                    }
+                    if (signatureIsValid) {
+                        signatureHasPublicKeyMatch = true;
+                        break;
+                    }
+                }
+
+                if (! signatureHasPublicKeyMatch) {
+                    signaturesHaveMatchedPublicKeys = false;
+                    break;
+                }
+            }
+
+            signaturesAreValid = signaturesHaveMatchedPublicKeys;
+        }
+
+        if (_opcode == Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY) {
+            if (! signaturesAreValid) { return false; }
+        }
+        else {
+            { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+                if (HF20171113.isEnabled(blockHeight)) {
+                    if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
+                }
+            }
+
+            stack.push(Value.fromBoolean(signaturesAreValid));
+            // stack.push(Value.fromBoolean(true));
+        }
+
+        return (! stack.didOverflow());
+    }
+
+    protected Boolean _executeCheckDataSignature(final Stack stack) {
+        final Value publicKeyValue = stack.pop();
+        final Value messageValue = stack.pop();
+        final Value signatureValue = stack.pop();
+
+        final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+
+
+
+        final byte[] messageHash = BitcoinUtil.sha256(messageValue.getBytes());
+
+        final Boolean signatureIsValid;
+        if (scriptSignature != null) {
+            final PublicKey publicKey = publicKeyValue.asPublicKey();
+            if (publicKey == null) { return false; } // The PublicKey must be a valid for OP_CHECKDATASIG...
+
+            signatureIsValid = Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, messageHash);
+        }
+        else {
+            signatureIsValid = false;
+        }
+
+        if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; } // Enforce NULLFAIL...
+
+        if (_opcode == Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY) {
+            if (! signatureIsValid) { return false; }
+        }
+        else {
+            stack.push(Value.fromBoolean(signatureIsValid));
+        }
+
+        return (! stack.didOverflow());
     }
 
     @Override
@@ -138,172 +340,21 @@ public class CryptographicOperation extends SubTypedOperation {
                 return true;
             }
 
-            case CHECK_SIGNATURE_THEN_VERIFY:
-            case CHECK_SIGNATURE: {
-                final Value publicKeyValue = stack.pop();
-                final Value signatureValue = stack.pop();
-
-                if (stack.didOverflow()) { return false; }
-
-                final List<ByteArray> bytesToRemoveFromScript;
-                { // NOTE: All instances of the signature should be purged from the signed script...
-                    final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(1);
-                    signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes()));
-                    bytesToRemoveFromScript = signatureBytesBuilder.build();
-                }
-
-                final Long blockHeight = context.getBlockHeight();
-
-                final Boolean signatureIsValid;
-                {
-                    final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
-
-                    if (Buip55.isEnabled(blockHeight)) {
-                        final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
-                        if (! meetsStrictEncodingStandard) { return false; }
-                    }
-
-                    if (scriptSignature != null) {
-                        final PublicKey publicKey = publicKeyValue.asPublicKey();
-                        signatureIsValid = checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
-                    }
-                    else {
-                        // NOTE: An invalid scriptSignature is permitted, and just simply fails...
-                        //  Example Transaction: 9FB65B7304AAA77AC9580823C2C06B259CC42591E5CCE66D76A81B6F51CC5C28
-                        signatureIsValid = false;
-                    }
-                }
-
-                if (_opcode == Opcode.CHECK_SIGNATURE_THEN_VERIFY) {
-                    if (! signatureIsValid) { return false; }
-                }
-                else {
-                    { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
-                        if (HF20171113.isEnabled(blockHeight)) {
-                            if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
-                        }
-                    }
-
-                    stack.push(Value.fromBoolean(signatureIsValid));
-                }
-
-                return (! stack.didOverflow());
+            case CHECK_SIGNATURE:
+            case CHECK_SIGNATURE_THEN_VERIFY:{
+                return _executeCheckSignature(stack, context);
             }
 
             case CHECK_MULTISIGNATURE:
             case CHECK_MULTISIGNATURE_THEN_VERIFY: {
-                final Integer publicKeyCount;
-                {
-                    final Value publicKeyCountValue = stack.pop();
-                    publicKeyCount = publicKeyCountValue.asInteger();
-                }
+                return _executeCheckMultiSignature(stack, context);
+            }
 
-                final List<PublicKey> publicKeys;
-                {
-                    final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
-                    for (int i = 0; i < publicKeyCount; ++i) {
-                        final Value publicKeyValue = stack.pop();
-                        final PublicKey publicKey = publicKeyValue.asPublicKey();
-                        listBuilder.add(publicKey);
-                    }
-                    publicKeys = listBuilder.build();
-                }
+            case CHECK_DATA_SIGNATURE:
+            case CHECK_DATA_SIGNATURE_THEN_VERIFY: {
+                if (! HF20181115.isEnabled(context.getBlockHeight())) { return false; }
 
-                final Integer signatureCount;
-                {
-                    final Value signatureCountValue = stack.pop();
-                    signatureCount = signatureCountValue.asInteger();
-                }
-
-                final boolean allSignaturesWereEmpty;
-                final List<ByteArray> bytesToRemoveFromScript;
-                final List<ScriptSignature> signatures;
-                {
-                    boolean signaturesAreEmpty = true;
-                    final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
-                    final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
-                    for (int i = 0; i < signatureCount; ++i) {
-                        final Value signatureValue = stack.pop();
-
-                        if (! signatureValue.isEmpty()) {
-                            signaturesAreEmpty = false;
-                        }
-
-                        final ScriptSignature signature = signatureValue.asScriptSignature();
-                        // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
-
-                        signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes())); // NOTE: All instances of the signature should be purged from the signed script...
-                        listBuilder.add(signature);
-                    }
-                    signatures = listBuilder.build();
-                    bytesToRemoveFromScript = signatureBytesBuilder.build();
-                    allSignaturesWereEmpty = signaturesAreEmpty;
-                }
-
-                stack.pop(); // Pop an extra value due to bug in the protocol...
-
-                final Long blockHeight = context.getBlockHeight();
-
-                final boolean signaturesAreValid;
-                {   // Signatures must appear in the same order as their paired public key, but the number of signatures may be less than the number of public keys.
-                    // Example: P1, P2, P3 <-> S2, S3
-                    //          P1, P2, P3 <-> S1, S3
-                    //          P1, P2, P3 <-> S1, S2
-                    //          P1, P2, P3 <-> S1, S2, S3
-                    boolean signaturesHaveMatchedPublicKeys = true;
-                    int nextPublicKeyIndex = 0;
-                    for (int i = 0; i < signatureCount; ++i) {
-                        final ScriptSignature signature = signatures.get(i);
-
-                        boolean signatureHasPublicKeyMatch = false;
-                        for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
-                            nextPublicKeyIndex += 1;
-
-                            final PublicKey publicKey = publicKeys.get(j);
-                            final boolean signatureIsValid;
-                            {
-                                if (Buip55.isEnabled(blockHeight)) {
-                                    final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
-                                    if (! meetsStrictEncodingStandard) { return false; }
-                                }
-
-                                if (signature != null) {
-                                    signatureIsValid = checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
-                                }
-                                else {
-                                    signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
-                                }
-                            }
-                            if (signatureIsValid) {
-                                signatureHasPublicKeyMatch = true;
-                                break;
-                            }
-                        }
-
-                        if (! signatureHasPublicKeyMatch) {
-                            signaturesHaveMatchedPublicKeys = false;
-                            break;
-                        }
-                    }
-
-                    signaturesAreValid = signaturesHaveMatchedPublicKeys;
-                }
-
-                if (_opcode == Opcode.CHECK_MULTISIGNATURE_THEN_VERIFY) {
-                    if (! signaturesAreValid) { return false; }
-                }
-                else {
-                    { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
-                        if (HF20171113.isEnabled(blockHeight)) {
-                            if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
-                        }
-                    }
-
-                    stack.push(Value.fromBoolean(signaturesAreValid));
-                    // stack.push(Value.fromBoolean(true));
-                }
-
-                return (! stack.didOverflow());
+                return _executeCheckDataSignature(stack);
             }
 
             default: { return false; }

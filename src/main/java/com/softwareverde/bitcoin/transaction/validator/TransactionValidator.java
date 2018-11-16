@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.validator;
 
 import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip68;
+import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -260,6 +261,14 @@ public class TransactionValidator {
 
         context.setTransaction(transaction);
 
+        { // Validate Transaction Byte Count...
+            if (HF20181115.isEnabled(blockHeight)) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
+                if (transactionByteCount < 100) { return false; }
+            }
+        }
+
         { // Validate nLockTime...
             final Boolean shouldValidateLockTime = _shouldValidateLockTime(transaction);
             if (shouldValidateLockTime) {
@@ -293,6 +302,8 @@ public class TransactionValidator {
                 }
             }
         }
+
+        // TODO: Consider enforcing Canonical Transaction Order (HF20181115)...
 
         final Long totalTransactionInputValue;
         try {
