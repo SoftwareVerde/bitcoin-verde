@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -159,6 +160,11 @@ public class ArithmeticOperation extends SubTypedOperation {
             }
 
             case MULTIPLY: {
+                if (! HF20181115SV.isEnabled(context.getBlockHeight())) { // OP_MUL is enabled on the Bitcoin SV fork...
+                    Logger.log("NOTICE: Opcode is disabled: " + _opcode);
+                    return false;
+                }
+
                 final Value value1 = stack.pop();
                 final Value value0 = stack.pop();
 

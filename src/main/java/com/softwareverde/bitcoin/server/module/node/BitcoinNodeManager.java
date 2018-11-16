@@ -132,6 +132,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             nodeDatabaseManager.updateLastHandshake(node);
             nodeDatabaseManager.updateNodeFeatures(node);
+            nodeDatabaseManager.updateUserAgent(node);
         }
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);

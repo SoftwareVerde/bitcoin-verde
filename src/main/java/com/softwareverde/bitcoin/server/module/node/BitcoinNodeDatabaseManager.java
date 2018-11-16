@@ -42,6 +42,7 @@ public class BitcoinNodeDatabaseManager {
     public void storeNode(final BitcoinNode node) throws DatabaseException {
         final String host = node.getHost();
         final Integer port = node.getPort();
+        final String userAgent = node.getUserAgent(); // May be null...
 
         synchronized (MUTEX) {
             final Long hostId;
@@ -73,11 +74,12 @@ public class BitcoinNodeDatabaseManager {
                 final Long now = _systemTime.getCurrentTimeInSeconds();
 
                 _databaseConnection.executeSql(
-                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp) VALUES (?, ?, ?, ?)")
+                    new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
                         .setParameter(hostId)
                         .setParameter(port)
                         .setParameter(now)
                         .setParameter(now)
+                        .setParameter(userAgent)
                 );
             }
             else {
@@ -156,6 +158,29 @@ public class BitcoinNodeDatabaseManager {
                 );
             }
         }
+    }
+
+    public void updateUserAgent(final BitcoinNode node) throws DatabaseException {
+        final String host = node.getHost();
+        final Integer port = node.getPort();
+        final String userAgent = node.getUserAgent();
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
+                .setParameter(host)
+                .setParameter(port)
+        );
+
+        if (rows.isEmpty()) { return; }
+
+        final Row row = rows.get(0);
+        final Long nodeId = row.getLong("id");
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE nodes SET user_agent = ? WHERE id = ?")
+                .setParameter(userAgent)
+                .setParameter(nodeId)
+        );
     }
 
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Integer maxCount) throws DatabaseException {

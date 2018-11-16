@@ -167,6 +167,7 @@ CREATE TABLE nodes (
     last_seen_timestamp BIGINT UNSIGNED NOT NULL,
     connection_count INT UNSIGNED NOT NULL DEFAULT 1,
     last_handshake_timestamp BIGINT UNSIGNED,
+    user_agent varchar(255) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY nodes_uq (host_id, port),
     FOREIGN KEY nodes_host_id_fk (host_id) REFERENCES hosts (id)

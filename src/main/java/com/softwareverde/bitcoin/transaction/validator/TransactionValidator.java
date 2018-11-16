@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.validator;
 import com.softwareverde.bitcoin.bip.Bip113;
 import com.softwareverde.bitcoin.bip.Bip68;
 import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -262,10 +263,15 @@ public class TransactionValidator {
         context.setTransaction(transaction);
 
         { // Validate Transaction Byte Count...
-            if (HF20181115.isEnabled(blockHeight)) {
+            if ( (HF20181115.isEnabled(blockHeight)) && (! HF20181115SV.isEnabled(blockHeight)) ) {
                 final TransactionDeflater transactionDeflater = new TransactionDeflater();
                 final Integer transactionByteCount = transactionDeflater.getByteCount(transaction);
-                if (transactionByteCount < 100) { return false; }
+                if (transactionByteCount < 100) {
+                    if (_shouldLogInvalidTransactions) {
+                        Logger.log("Invalid Transaction Byte Count: " + transactionByteCount + " " + transactionHash);
+                    }
+                    return false;
+                }
             }
         }
 
@@ -317,7 +323,12 @@ public class TransactionValidator {
 
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
-            if (transactionInputs.isEmpty()) { return false; }
+            if (transactionInputs.isEmpty()) {
+                if (_shouldLogInvalidTransactions) {
+                    Logger.log("Invalid Transaction (No Inputs) " + transactionHash);
+                }
+                return false;
+            }
 
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
                 final TransactionInput transactionInput = transactionInputs.get(i);
@@ -337,7 +348,12 @@ public class TransactionValidator {
                         final BlockId transactionOutputBeingSpentBlockId = _transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionOutputBeingSpentTransactionId);
                         final Long blockHeightOfTransactionOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeight(transactionOutputBeingSpentBlockId);
                         final Long coinbaseMaturity = (blockHeight - blockHeightOfTransactionOutputBeingSpent);
-                        if (coinbaseMaturity <= COINBASE_MATURITY) { return false; }
+                        if (coinbaseMaturity <= COINBASE_MATURITY) {
+                            if (_shouldLogInvalidTransactions) {
+                                Logger.log("Invalid Transaction. Attempted to spend coinbase before maturity." + transactionHash);
+                            }
+                            return false;
+                        }
                     }
                 }
 
@@ -386,7 +402,7 @@ public class TransactionValidator {
                 final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
                 if (! inputIsUnlocked) {
                     if (_shouldLogInvalidTransactions) {
-                        Logger.log("Transaction failed to verify.");
+                        Logger.log("Transaction failed to verify: " + transactionHash);
                     }
                     _logInvalidTransaction(transaction, context);
                     return false;

@@ -65,15 +65,7 @@ public class Value extends ImmutableByteArray implements Const {
         return ( (mostSignificantByte & ((byte) 0x80)) != ((byte) 0x00) );
     }
 
-    protected Value(final byte[] bytes) {
-        super(bytes);
-    }
-
-    /**
-     * Interprets _bytes as a signed, little-endian, variable-length integer value.
-     * If _bytes is empty, zero is returned.
-     */
-    public Integer asInteger() {
+    protected Integer _asInteger() {
         if (_bytes.length == 0) { return 0; }
 
         final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
@@ -88,7 +80,7 @@ public class Value extends ImmutableByteArray implements Const {
         return (isNegative ? -value : value);
     }
 
-    public Long asLong() {
+    protected Long _asLong() {
         if (_bytes.length == 0) { return 0L; }
 
         final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
@@ -103,7 +95,7 @@ public class Value extends ImmutableByteArray implements Const {
         return (isNegative ? -value : value);
     }
 
-    public Boolean asBoolean() {
+    protected Boolean _asBoolean() {
         if (_bytes.length == 0) { return false; }
 
         for (int i=0; i<_bytes.length; ++i) {
@@ -111,6 +103,38 @@ public class Value extends ImmutableByteArray implements Const {
             if (_bytes[i] != 0x00) { return true; }
         }
         return false;
+    }
+
+    protected Value(final byte[] bytes) {
+        super(bytes);
+    }
+
+    /**
+     * Interprets _bytes as a signed, little-endian, variable-length integer value.
+     * If _bytes is empty, zero is returned.
+     */
+    public Integer asInteger() {
+        return _asInteger();
+    }
+
+    public Long asLong() {
+        return _asLong();
+    }
+
+    public Boolean asBoolean() {
+        return _asBoolean();
+    }
+
+    public Boolean isMinimallyEncodedInteger() {
+        final Integer asInteger = _asInteger();
+        final byte[] minimallyEncodedBytes = _longToBytes(asInteger.longValue());
+        return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
+    }
+
+    public Boolean isMinimallyEncodedLong() {
+        final Long asLong = _asLong();
+        final byte[] minimallyEncodedBytes = _longToBytes(asLong);
+        return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
     }
 
     public LockTime asLockTime() {

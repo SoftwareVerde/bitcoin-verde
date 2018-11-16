@@ -54,12 +54,12 @@ public enum Opcode {
     STRING_PUSH_LENGTH                  (0x82),
 
     // BITWISE
-    BITWISE_INVERT                      (0x83, false),
+    BITWISE_INVERT                      (0x83),
     BITWISE_AND                         (0x84),
     BITWISE_OR                          (0x85),
     BITWISE_XOR                         (0x86),
-    SHIFT_LEFT                          (0x98, false),
-    SHIFT_RIGHT                         (0x99, false),
+    SHIFT_LEFT                          (0x98),
+    SHIFT_RIGHT                         (0x99),
 
 
     // COMPARISON
@@ -87,7 +87,7 @@ public enum Opcode {
     NOT                                 (0x91),
     ADD                                 (0x93),
     SUBTRACT                            (0x94),
-    MULTIPLY                            (0x95, false),
+    MULTIPLY                            (0x95),
     DIVIDE                              (0x96),
     MODULUS                             (0x97),
     MIN                                 (0xA3),
