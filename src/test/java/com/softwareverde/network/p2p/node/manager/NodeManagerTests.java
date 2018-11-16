@@ -83,6 +83,11 @@ public class NodeManagerTests {
                 }
 
                 @Override
+                public String getUserAgent() {
+                    return "TestAgent";
+                }
+
+                @Override
                 public ByteArray getBytes() {
                     return new MutableByteArray(0);
                 }

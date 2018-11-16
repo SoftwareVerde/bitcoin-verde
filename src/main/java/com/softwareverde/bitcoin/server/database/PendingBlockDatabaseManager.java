@@ -286,8 +286,12 @@ public class PendingBlockDatabaseManager {
         try {
             READ_LOCK.lock();
 
+            final Long minSecondsBetweenDownloadAttempts = 5L;
+            final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE pending_block_data.id IS NULL ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
+                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
+                    .setParameter(currentTimestamp)
+                    .setParameter(minSecondsBetweenDownloadAttempts)
             );
 
             final ImmutableListBuilder<PendingBlockId> pendingBlockIdsBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());
@@ -345,6 +349,23 @@ public class PendingBlockDatabaseManager {
 
             _databaseConnection.executeSql(
                 new Query("UPDATE pending_blocks SET failed_download_count = failed_download_count + 1, priority = priority + 60 WHERE id = ?")
+                    .setParameter(pendingBlockId)
+            );
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    public void updateLastDownloadAttemptTime(final PendingBlockId pendingBlockId) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
+            _databaseConnection.executeSql(
+                new Query("UPDATE pending_blocks SET last_download_attempt_timestamp = ? WHERE id = ?")
+                    .setParameter(currentTimestamp)
                     .setParameter(pendingBlockId)
             );
 

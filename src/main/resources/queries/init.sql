@@ -3,6 +3,7 @@ CREATE TABLE pending_blocks (
     hash CHAR(64) NOT NULL,
     previous_block_hash CHAR(64) NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
+    last_download_attempt_timestamp BIGINT UNSIGNED NULL,
     failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
     priority BIGINT NOT NULL,
     PRIMARY KEY (id),

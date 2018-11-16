@@ -105,6 +105,8 @@ public class BlockDownloader extends SleepyService {
                 final MilliTimer timer = new MilliTimer();
                 _currentBlockDownloadSet.put(blockHash, timer);
 
+                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
+
                 timer.start();
                 _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
             }

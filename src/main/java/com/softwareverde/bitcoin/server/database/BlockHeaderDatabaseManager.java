@@ -496,20 +496,29 @@ public class BlockHeaderDatabaseManager {
      *  MutableMedianBlockTime.newInitializedMedianBlockTime should be used, not this function.
      */
     public MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException {
-        Sha256Hash blockHash = Util.coalesce(_getHeadBlockHeaderHash(), BlockHeader.GENESIS_BLOCK_HASH);
+        final Sha256Hash headBlockHash = _getHeadBlockHeaderHash();
+        Sha256Hash blockHash = Util.coalesce(headBlockHash, BlockHeader.GENESIS_BLOCK_HASH);
         return _newInitializedMedianBlockTime(this, blockHash);
     }
 
     /**
-     * Calculates the MedianBlockTime of the provided startingBlockId.
+     * Calculates the MedianBlockTime of the provided blockId.
      * NOTE: startingBlockId is exclusive. The MedianBlockTime does NOT include the provided startingBlockId; instead,
      *  it includes the MedianBlockTime.BLOCK_COUNT (11) number of blocks before the startingBlockId.
      */
-    public MedianBlockTime calculateMedianBlockTime(final BlockId startingBlockId) throws DatabaseException {
-        final BlockHeader startingBlock = _inflateBlockHeader(startingBlockId);
-        if (startingBlock == null) { return null; }
+    public MedianBlockTime calculateMedianBlockTime(final BlockId blockId) throws DatabaseException {
+        final BlockId previousBlockId = _getPreviousBlockId(blockId);
+        if (previousBlockId == null) { return null; }
+        final Sha256Hash blockHash = _getBlockHash(previousBlockId);
+        return _newInitializedMedianBlockTime(this, blockHash);
+    }
 
-        final Sha256Hash blockHash = startingBlock.getPreviousBlockHash();
+    /**
+     * Calculates the MedianBlockTime of the provided blockId.
+     * NOTE: This method is identical to BlockHeaderDatabaseManager::calculateMedianBlockTime except that blockId is inclusive.
+     */
+    public MedianBlockTime calculateMedianBlockTimeStartingWithBlock(final BlockId blockId) throws DatabaseException {
+        final Sha256Hash blockHash = _getBlockHash(blockId);
         return _newInitializedMedianBlockTime(this, blockHash);
     }
 
