@@ -5,8 +5,6 @@ import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.module.node.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.util.ConstUtil;
-import com.softwareverde.network.p2p.node.Node;
 
 public class NodeHandler implements JsonRpcSocketServerHandler.NodeHandler {
     protected final BitcoinNodeManager _nodeManager;
@@ -29,7 +27,7 @@ public class NodeHandler implements JsonRpcSocketServerHandler.NodeHandler {
     }
 
     @Override
-    public List<Node> getNodes() {
-        return ConstUtil.downcastList(_nodeManager.getNodes());
+    public List<BitcoinNode> getNodes() {
+        return _nodeManager.getNodes();
     }
 }

@@ -16,6 +16,8 @@ import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -56,7 +58,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public interface NodeHandler {
         Boolean addNode(String host, Integer port);
-        List<Node> getNodes();
+        List<BitcoinNode> getNodes();
     }
 
     public interface QueryBalanceHandler {
@@ -627,13 +629,28 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final Json nodeListJson = new Json();
 
-        final List<Node> nodes = _nodeHandler.getNodes();
-        for (final Node node : nodes) {
+        final List<BitcoinNode> nodes = _nodeHandler.getNodes();
+        for (final BitcoinNode node : nodes) {
             final Json nodeJson = new Json();
 
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
             nodeJson.put("host", (nodeIpAddress != null ? nodeIpAddress.getIp() : null));
             nodeJson.put("port", (nodeIpAddress != null ? nodeIpAddress.getPort() : null));
+            nodeJson.put("userAgent", node.getUserAgent());
+            nodeJson.put("hasThinBlocksEnabled", (node.supportsExtraThinBlocks() ? 1 : 0));
+
+            final Json featuresJson = new Json(false);
+            for (final NodeFeatures.Feature nodeFeature : NodeFeatures.Feature.values()) {
+                final Boolean hasFeatureEnabled = (node.hasFeatureEnabled(nodeFeature));
+                final String featureKey = nodeFeature.name();
+                if (hasFeatureEnabled == null) {
+                    featuresJson.put(featureKey, null);
+                }
+                else {
+                    featuresJson.put(featureKey, (hasFeatureEnabled ? 1 : 0));
+                }
+            }
+            nodeJson.put("features", featuresJson);
 
             nodeListJson.add(nodeJson);
         }

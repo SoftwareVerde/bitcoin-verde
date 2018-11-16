@@ -7,4 +7,5 @@ public interface SynchronizeVersionMessage extends ProtocolMessage {
     Long getNonce();
     NodeIpAddress getLocalNodeIpAddress();
     Long getTimestamp();
+    String getUserAgent();
 }

@@ -727,6 +727,18 @@ public class BitcoinNode extends Node {
         return nodeFeatures.hasFeatureFlagEnabled(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
     }
 
+    public String getUserAgent() {
+        if (_synchronizeVersionMessage == null) { return null; }
+        return _synchronizeVersionMessage.getUserAgent();
+    }
+
+    public Boolean hasFeatureEnabled(final NodeFeatures.Feature feature) {
+        if (_synchronizeVersionMessage == null) { return null; }
+
+        final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
+        return nodeFeatures.hasFeatureFlagEnabled(feature);
+    }
+
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         if (_localNodeIpAddress == null) { return null; }

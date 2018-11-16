@@ -42,7 +42,10 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     }
 
     public Integer getVersion() { return _version; }
+
+    @Override
     public String getUserAgent() { return _userAgent; }
+
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
 
     public Boolean relayIsEnabled() { return _relayIsEnabled; }

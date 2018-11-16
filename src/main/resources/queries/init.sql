@@ -51,8 +51,8 @@ CREATE TABLE blocks (
 CREATE TABLE blockchain_segments (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     parent_blockchain_segment_id INT UNSIGNED NULL,
-    nested_set_left INT UNSIGNED,
-    nested_set_right INT UNSIGNED,
+    nested_set_left INT UNSIGNED NULL,
+    nested_set_right INT UNSIGNED NULL,
     PRIMARY KEY (id),
     FOREIGN KEY blockchain_segments_parent_blockchain_segment_id (parent_blockchain_segment_id) REFERENCES blockchain_segments (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
