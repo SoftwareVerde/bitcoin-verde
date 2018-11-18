@@ -28,7 +28,10 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     public Integer getVersion() { return _version; }
 
-    public void addBlockHeaderHash(final Sha256Hash blockHeaderHash) {
+    /**
+     * NOTE: Block Hashes should be added in descending order by block height (i.e. head Block first)...
+     */
+    public void addBlockHash(final Sha256Hash blockHeaderHash) {
         if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
@@ -37,7 +40,10 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         _blockHeaderHashes.clear();
     }
 
-    public List<Sha256Hash> getBlockHeaderHashes() {
+    /**
+     * NOTE: Block Hashes are sorted in descending order by block height (i.e. head Block first)...
+     */
+    public List<Sha256Hash> getBlockHashes() {
         return _blockHeaderHashes;
     }
 
@@ -59,7 +65,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(i);
+            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getSize() - i - 1);
             final int startIndex = (blockHeaderHashByteCount * i);
             ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);
         }

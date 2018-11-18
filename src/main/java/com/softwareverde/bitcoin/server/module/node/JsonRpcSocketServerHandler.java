@@ -38,7 +38,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
-import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;

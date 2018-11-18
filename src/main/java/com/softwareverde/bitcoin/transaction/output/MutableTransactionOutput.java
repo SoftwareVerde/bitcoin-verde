@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.transaction.output;
 
-import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;

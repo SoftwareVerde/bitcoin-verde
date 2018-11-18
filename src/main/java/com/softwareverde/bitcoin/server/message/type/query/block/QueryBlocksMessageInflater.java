@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.Endian;
 
 public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
@@ -27,9 +28,14 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
+        final MutableList<Sha256Hash> blockHashesInReverseOrder = new MutableList<Sha256Hash>(500);
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Sha256Hash blockHeaderHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
-            queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
+            final Sha256Hash blockHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
+            blockHashesInReverseOrder.add(blockHash);
+        }
+        for (int i=0; i<blockHeaderCount; ++i) {
+            final Sha256Hash blockHash = blockHashesInReverseOrder.get(blockHeaderCount - i - 1);
+            queryBlocksMessage._blockHeaderHashes.add(blockHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);

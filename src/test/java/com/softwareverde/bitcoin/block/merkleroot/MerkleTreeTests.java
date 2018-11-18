@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;

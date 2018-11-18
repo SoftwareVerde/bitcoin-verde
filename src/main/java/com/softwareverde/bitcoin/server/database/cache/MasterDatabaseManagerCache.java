@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactio
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
-import com.softwareverde.bitcoin.server.memory.SystemMemoryStatus;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;

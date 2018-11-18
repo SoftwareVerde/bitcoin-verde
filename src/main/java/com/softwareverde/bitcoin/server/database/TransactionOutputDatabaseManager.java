@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -29,11 +28,9 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 

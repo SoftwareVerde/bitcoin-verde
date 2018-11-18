@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.server.database.PendingTransactionDatabaseManag
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;

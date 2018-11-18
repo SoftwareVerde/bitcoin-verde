@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
@@ -28,19 +28,27 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
         Boolean newBlockHashReceived = false;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
 
             final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getSize());
             for (final Sha256Hash blockHash : blockHashes) {
                 // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockchainSynchronizer...
-                final Boolean blockExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
+                final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
                 if (blockExists) { continue; }
-                final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
-                if (pendingBlockExists) { continue; }
 
-                final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
-                pendingBlockIds.add(pendingBlockId);
-                newBlockHashReceived = true;
+                final PendingBlockId pendingBlockId;
+                final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
+                if (! pendingBlockExists) {
+                    pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                }
+                else {
+                    pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
+                }
+
+                if (pendingBlockId != null) {
+                    pendingBlockIds.add(pendingBlockId);
+                    newBlockHashReceived = true;
+                }
             }
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);

@@ -10,7 +10,6 @@ import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.ByteUtil;
 
 import java.io.File;
 

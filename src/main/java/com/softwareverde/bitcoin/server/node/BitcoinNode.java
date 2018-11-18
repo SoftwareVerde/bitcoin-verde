@@ -473,7 +473,7 @@ public class BitcoinNode extends Node {
         final QueryBlocksCallback queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHeaderHashes());
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -578,7 +578,7 @@ public class BitcoinNode extends Node {
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
-        queryBlocksMessage.addBlockHeaderHash(blockHash);
+        queryBlocksMessage.addBlockHash(blockHash);
         _queueMessage(queryBlocksMessage);
     }
 
@@ -633,11 +633,9 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
-        final Integer blockHashesCount = blockHashes.getSize();
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
-        for (int i = 0; i < blockHashesCount; ++i) {
-            final Sha256Hash blockHash = blockHashes.get(blockHashesCount - i - 1);
-            queryBlocksMessage.addBlockHeaderHash(blockHash);
+        for (final Sha256Hash blockHash : blockHashes) {
+            queryBlocksMessage.addBlockHash(blockHash);
         }
 
         _queueMessage(queryBlocksMessage);
