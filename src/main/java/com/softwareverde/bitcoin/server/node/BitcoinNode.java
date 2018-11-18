@@ -58,7 +58,10 @@ import java.util.Set;
 public class BitcoinNode extends Node {
     public static Boolean LOGGING_ENABLED = false;
 
-    public interface BlockInventoryMessageCallback extends Callback<List<Sha256Hash>> { }
+    public interface BlockInventoryMessageCallback {
+        void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
+    }
+
     public interface DownloadBlockCallback extends Callback<Block> { }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
     public interface DownloadTransactionCallback extends Callback<Transaction> { }
@@ -403,7 +406,7 @@ public class BitcoinNode extends Node {
                         _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
-                                blockInventoryMessageHandler.onResult(objectHashes);
+                                blockInventoryMessageHandler.onResult(BitcoinNode.this, objectHashes);
                             }
                         });
                     }

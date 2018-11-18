@@ -22,6 +22,28 @@ CREATE TABLE pending_block_data (
     FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
+CREATE TABLE pending_transactions (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    hash CHAR(64) NOT NULL,
+    timestamp BIGINT UNSIGNED NOT NULL,
+    last_download_attempt_timestamp BIGINT UNSIGNED NULL,
+    failed_download_count INT UNSIGNED NOT NULL DEFAULT 0,
+    priority BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_transactions_uq (hash),
+    INDEX pending_transactions_ix1 (priority) USING BTREE,
+    INDEX pending_transactions_ix2 (failed_download_count) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE pending_transaction_data (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    pending_transaction_id INT UNSIGNED NOT NULL,
+    data LONGBLOB NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_transaction_data_uq (pending_transaction_id),
+    FOREIGN KEY pending_transaction_data_fk (pending_transaction_id) REFERENCES pending_transactions (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE addresses (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     address VARCHAR(255) NOT NULL,
@@ -80,13 +102,13 @@ CREATE TABLE block_transactions (
     FOREIGN KEY block_transactions_fk2 (transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
-CREATE TABLE pending_transactions (
+CREATE TABLE unconfirmed_transactions (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     transaction_id INT UNSIGNED NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY pending_transactions_uq (transaction_id),
-    FOREIGN KEY pending_transactions_fk (transaction_id) REFERENCES transactions (id)
+    UNIQUE KEY unconfirmed_transactions_uq (transaction_id),
+    FOREIGN KEY unconfirmed_transactions_fk (transaction_id) REFERENCES transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE transaction_outputs (
@@ -180,6 +202,26 @@ CREATE TABLE node_features (
     PRIMARY KEY (id),
     UNIQUE KEY node_features_uq (node_id, feature),
     FOREIGN KEY node_features_fk (node_id) REFERENCES nodes (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE node_blocks_inventory (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    node_id INT UNSIGNED NOT NULL,
+    pending_block_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY node_blocks_uq (node_id, pending_block_id),
+    FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
+    FOREIGN KEY node_blocks_tx_fk (pending_block_id) REFERENCES pending_blocks (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE node_transactions_inventory (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    node_id INT UNSIGNED NOT NULL,
+    pending_transaction_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY node_transactions_uq (node_id, pending_transaction_id),
+    FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
+    FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());

@@ -1,151 +1,134 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
-import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.time.NetworkTime;
-
-import java.util.Set;
 
 public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
-    public static final Object MUTEX = new Object();
-
     public static final BitcoinNode.TransactionInventoryMessageCallback IGNORE_NEW_TRANSACTIONS_HANDLER = new BitcoinNode.TransactionInventoryMessageCallback() {
         @Override
         public void onResult(final List<Sha256Hash> result) { }
     };
 
-    interface TransactionProcessor {
-        void processTransaction(Transaction transaction) throws DatabaseException;
-    }
-
     protected final BitcoinNode _bitcoinNode;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
-    protected final NetworkTime _networkTime;
-    protected final MedianBlockTime _medianBlockTime;
-    protected final OrphanedTransactionsCache _orphanedTransactionsCache;
+    protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final OrphanedTransactionsCache orphanedTransactionsCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
         _bitcoinNode = bitcoinNode;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
-        _orphanedTransactionsCache = orphanedTransactionsCache;
-        _networkTime = networkTime;
-        _medianBlockTime = medianBlockTime;
+        _newInventoryCallback = newInventoryCallback;
     }
 
     @Override
     public void onResult(final List<Sha256Hash> transactionHashes) {
-        final MutableList<Sha256Hash> unseenTransactionHashes = new MutableList<Sha256Hash>(transactionHashes.getSize());
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            for (final Sha256Hash transactionHash : transactionHashes) {
-                final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
-                if (transactionId == null) {
-                    unseenTransactionHashes.add(transactionHash);
+            final List<Sha256Hash> unseenTransactionHashes;
+            {
+                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionHashes.getSize());
+                for (final Sha256Hash transactionHash : transactionHashes) {
+                    final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                    if (transactionId == null) {
+                        unseenTransactionHashesBuilder.add(transactionHash);
+                    }
+                }
+                unseenTransactionHashes = unseenTransactionHashesBuilder.build();
+            }
+
+            if (! unseenTransactionHashes.isEmpty()) {
+                final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
+                final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
+
+                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+                nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, pendingTransactionIds);
+
+                final Runnable newInventoryCallback = _newInventoryCallback;
+                if (newInventoryCallback != null) {
+                    newInventoryCallback.run();
                 }
             }
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
-            return;
         }
 
-        _bitcoinNode.requestTransactions(unseenTransactionHashes, new BitcoinNode.DownloadTransactionCallback() {
-            @Override
-            public void onResult(final Transaction transaction) {
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
-                    transactionValidator.setLoggingEnabled(false);
-
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-
-                    final BlockId blockId = blockDatabaseManager.getHeadBlockId();
-                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-                    final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-
-                    final TransactionProcessor transactionProcessor = new TransactionProcessor() {
-                        @Override
-                        public void processTransaction(final Transaction transaction) throws DatabaseException {
-                            TransactionUtil.startTransaction(databaseConnection);
-                            final TransactionId transactionId;
-                            {
-                                TransactionId newTransactionId = null;
-                                try {
-                                    newTransactionId = transactionDatabaseManager.insertTransaction(transaction);
-                                }
-                                catch (final DatabaseException exception) { }
-                                transactionId = newTransactionId;
-                            }
-
-                            final Boolean transactionIsValid;
-                            {
-                                if (transactionId != null) {
-                                    transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, blockHeight, transaction, true);
-                                }
-                                else {
-                                    transactionIsValid = false;
-                                }
-                            }
-
-                            if (transactionIsValid) {
-                                transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
-                                Logger.log("Added Transaction To Memory Pool: " + transaction.getHash());
-                                TransactionUtil.commitTransaction(databaseConnection);
-
-                                final Set<Transaction> possiblyValidTransactions = _orphanedTransactionsCache.onTransactionAdded(transaction);
-
-                                for (final Transaction possiblyValidTransaction : possiblyValidTransactions) {
-                                    final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
-                                    if (! canBeInserted) {
-                                        _orphanedTransactionsCache.add(transaction, databaseConnection);
-                                        continue;
-                                    }
-
-                                    this.processTransaction(possiblyValidTransaction);
-                                }
-                            }
-                            else {
-                                TransactionUtil.rollbackTransaction(databaseConnection);
-                            }
-                        }
-                    };
-
-                    synchronized (MUTEX) {
-                        final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
-                        if (! canBeInserted) {
-                            _orphanedTransactionsCache.add(transaction, databaseConnection);
-                            return;
-                        }
-
-                        transactionProcessor.processTransaction(transaction);
-                    }
-
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                }
-            }
-        });
+//        _bitcoinNode.requestTransactions(unseenTransactionHashes, new BitcoinNode.DownloadTransactionCallback() {
+//            @Override
+//            public void onResult(final Transaction transaction) {
+//                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+//                    final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
+//                    transactionValidator.setLoggingEnabled(true);
+//
+//                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+//                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+//                    final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+//
+//                    final BlockId blockId = blockDatabaseManager.getHeadBlockId();
+//                    final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+//                    final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+//
+//                    final TransactionProcessor transactionProcessor = new TransactionProcessor() {
+//                        @Override
+//                        public void processTransaction(final Transaction transaction) throws DatabaseException {
+//                            TransactionUtil.startTransaction(databaseConnection);
+//                            final TransactionId transactionId = _insertTransactionOrNull(transaction, transactionDatabaseManager);
+//                            final Boolean transactionIsValid = _validateTransaction(blockchainSegmentId, blockHeight, transactionId, transaction, transactionValidator);
+//
+//                            if (transactionIsValid) {
+//                                transactionDatabaseManager.addTransactionToMemoryPool(transactionId);
+//                                Logger.log("Added Transaction To Memory Pool: " + transaction.getHash());
+//                                TransactionUtil.commitTransaction(databaseConnection);
+//
+//                                final Set<Transaction> possiblyValidTransactions = _orphanedTransactionsCache.onTransactionAdded(transaction);
+//
+//                                for (final Transaction possiblyValidTransaction : possiblyValidTransactions) {
+//                                    final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
+//                                    if (! canBeInserted) {
+//                                        _orphanedTransactionsCache.add(transaction, databaseConnection);
+//                                        continue;
+//                                    }
+//
+//                                    this.processTransaction(possiblyValidTransaction);
+//                                }
+//                            }
+//                            else {
+//                                Logger.log("Received invalid Transaction from Node: " + _bitcoinNode.getConnectionString() + " " + transaction.getHash());
+//                                TransactionUtil.rollbackTransaction(databaseConnection);
+//                            }
+//                        }
+//                    };
+//
+//                    synchronized (MUTEX) {
+//                        final Boolean canBeInserted = transactionDatabaseManager.previousOutputsExist(transaction);
+//                        if (! canBeInserted) {
+//                            _orphanedTransactionsCache.add(transaction, databaseConnection);
+//                            return;
+//                        }
+//
+//                        transactionProcessor.processTransaction(transaction);
+//                    }
+//
+//                }
+//                catch (final DatabaseException exception) {
+//                    Logger.log(exception);
+//                }
+//            }
+//        });
     }
 }

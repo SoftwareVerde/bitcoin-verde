@@ -3,9 +3,12 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
@@ -14,19 +17,20 @@ import com.softwareverde.io.Logger;
 public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
         @Override
-        public void onResult(final List<Sha256Hash> result) { }
+        public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
     };
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected Runnable _newBlockHashesCallback;
 
-    protected Boolean _storeBlockHashes(final List<Sha256Hash> blockHashes) {
+    protected Boolean _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         Boolean newBlockHashReceived = false;
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
 
+            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getSize());
             for (final Sha256Hash blockHash : blockHashes) {
                 // NOTE: The order of the "does-exist" checks matter in order to prevent a race condition between this callback and the BlockchainSynchronizer...
                 final Boolean blockExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
@@ -34,9 +38,13 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
                 final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
                 if (pendingBlockExists) { continue; }
 
-                pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
+                pendingBlockIds.add(pendingBlockId);
                 newBlockHashReceived = true;
             }
+
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -55,8 +63,8 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
     }
 
     @Override
-    public void onResult(final List<Sha256Hash> blockHashes) {
-        final Boolean newBlockHashReceived = _storeBlockHashes(blockHashes);
+    public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+        final Boolean newBlockHashReceived = _storeBlockHashes(bitcoinNode, blockHashes);
 
         if (newBlockHashReceived) {
             final Runnable newBlockHashesCallback = _newBlockHashesCallback;

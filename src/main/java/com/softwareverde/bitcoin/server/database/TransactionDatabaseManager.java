@@ -122,7 +122,7 @@ public class TransactionDatabaseManager {
         final Long now = _systemTime.getCurrentTimeInSeconds();
 
         _databaseConnection.executeSql(
-            new Query("INSERT IGNORE INTO pending_transactions (transaction_id, timestamp) VALUES (?, ?)")
+            new Query("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)")
                 .setParameter(transactionId)
                 .setParameter(now)
         );
@@ -130,7 +130,7 @@ public class TransactionDatabaseManager {
 
     protected void _deleteTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
         _databaseConnection.executeSql(
-            new Query("DELETE FROM pending_transactions WHERE transaction_id = ?")
+            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
     }
@@ -475,7 +475,7 @@ public class TransactionDatabaseManager {
 
     public Boolean isTransactionInMemoryPool(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM pending_transactions WHERE transaction_id = ?")
+            new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
         return (! rows.isEmpty());
@@ -483,7 +483,7 @@ public class TransactionDatabaseManager {
 
     public List<TransactionId> getTransactionIdsFromMemoryPool() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT transactions.id FROM transactions INNER JOIN pending_transactions ON transactions.id = pending_transactions.transaction_id")
+            new Query("SELECT transactions.id FROM transactions INNER JOIN unconfirmed_transactions ON transactions.id = unconfirmed_transactions.transaction_id")
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
@@ -496,7 +496,7 @@ public class TransactionDatabaseManager {
 
     public Integer getMemoryPoolTransactionCount() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM pending_transactions")
+            new Query("SELECT COUNT(*) AS transaction_count FROM unconfirmed_transactions")
         );
         final Row row = rows.get(0);
 

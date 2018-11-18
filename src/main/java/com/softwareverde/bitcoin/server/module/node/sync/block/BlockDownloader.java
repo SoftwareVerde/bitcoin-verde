@@ -3,17 +3,23 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.timer.MilliTimer;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -88,19 +94,38 @@ public class BlockDownloader extends SleepyService {
         }
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.selectIncompletePendingBlocks(maximumConcurrentDownloadCount * 2);
-            if (pendingBlockIds.isEmpty()) { return false; }
+            final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
 
-            for (int i = 0; i < pendingBlockIds.getSize(); ++i) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
+            final List<NodeId> nodeIds;
+            {
+                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
+                for (final BitcoinNode node : nodes) {
+                    final NodeId nodeId = nodeDatabaseManager.getNodeId(node);
+                    if (nodeId != null) {
+                        listBuilder.add(nodeId);
+                        nodeMap.put(nodeId, node);
+                    }
+                }
+                nodeIds = listBuilder.build();
+            }
+
+            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
+            if (downloadPlan.isEmpty()) { return false; }
+
+            for (final PendingBlockId pendingBlockId : downloadPlan.keySet()) {
                 if (_currentBlockDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
 
-                final PendingBlockId pendingBlockId = pendingBlockIds.get(i);
                 final Sha256Hash blockHash = pendingBlockDatabaseManager.getPendingBlockHash(pendingBlockId);
                 if (blockHash == null) { continue; }
 
                 final Boolean itemIsAlreadyBeingDownloaded = _currentBlockDownloadSet.containsKey(blockHash);
                 if (itemIsAlreadyBeingDownloaded) { continue; }
+
+                final NodeId nodeId = downloadPlan.get(pendingBlockId);
+                final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
 
                 final MilliTimer timer = new MilliTimer();
                 _currentBlockDownloadSet.put(blockHash, timer);
@@ -108,7 +133,8 @@ public class BlockDownloader extends SleepyService {
                 pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
 
                 timer.start();
-                _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
+                // _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
+                bitcoinNode.requestBlock(blockHash, _blockDownloadedCallback);  // TODO: Use NodeManager so NodeHealth is updated and thinBlocks may be used...
             }
         }
         catch (final DatabaseException exception) {

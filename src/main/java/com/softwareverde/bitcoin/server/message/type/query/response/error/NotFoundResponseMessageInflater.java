@@ -18,7 +18,7 @@ public class NotFoundResponseMessageInflater extends BitcoinProtocolMessageInfla
         final NotFoundResponseMessage notFoundResponseMessage = new NotFoundResponseMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
-        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.INVENTORY);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.NOT_FOUND);
         if (protocolMessageHeader == null) { return null; }
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();

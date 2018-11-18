@@ -39,7 +39,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         default void onFailure(Sha256Hash blockHash) { }
     }
     public interface DownloadBlockHeadersCallback extends BitcoinNode.DownloadBlockHeadersCallback, FailableCallback { }
-    public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback, FailableCallback { }
+    public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
+        default void onFailure(List<Sha256Hash> transactionHashes) { }
+    }
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
@@ -383,7 +385,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 Logger.log("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
 
                 if (callback != null) {
-                    callback.onFailure();
+                    callback.onFailure(transactionHashes);
                 }
             }
         });

@@ -2,16 +2,20 @@ package com.softwareverde.bitcoin.server.module.node;
 
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.IpInflater;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class BitcoinNodeDatabaseManager {
@@ -35,8 +39,27 @@ public class BitcoinNodeDatabaseManager {
         return nodeFeatures;
     }
 
+    protected NodeId _getNodeId(final String host, final Integer port) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
+                .setParameter(host)
+                .setParameter(port)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return NodeId.wrap(row.getLong("id"));
+    }
+
     public BitcoinNodeDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
+    }
+
+    public NodeId getNodeId(final BitcoinNode node) throws DatabaseException {
+        final String host = node.getHost();
+        final Integer port = node.getPort();
+
+        return _getNodeId(host, port);
     }
 
     public void storeNode(final BitcoinNode node) throws DatabaseException {
@@ -98,16 +121,8 @@ public class BitcoinNodeDatabaseManager {
         final String host = node.getHost();
         final Integer port = node.getPort();
 
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
-                .setParameter(host)
-                .setParameter(port)
-        );
-
-        if (rows.isEmpty()) { return; }
-
-        final Row row = rows.get(0);
-        final Long nodeId = row.getLong("id");
+        final NodeId nodeId = _getNodeId(host, port);
+        if (nodeId == null) { return; }
 
         _databaseConnection.executeSql(
             new Query("UPDATE nodes SET last_handshake_timestamp = ? WHERE id = ?")
@@ -123,16 +138,8 @@ public class BitcoinNodeDatabaseManager {
         final BitcoinNodeIpAddress nodeIpAddress = node.getLocalNodeIpAddress();
 
         if (nodeIpAddress != null) {
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
-                    .setParameter(host)
-                    .setParameter(port)
-            );
-
-            if (rows.isEmpty()) { return; }
-
-            final Row row = rows.get(0);
-            final Long nodeId = row.getLong("id");
+            final NodeId nodeId = _getNodeId(host, port);
+            if (nodeId == null) { return; }
 
             final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
             final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
@@ -165,22 +172,72 @@ public class BitcoinNodeDatabaseManager {
         final Integer port = node.getPort();
         final String userAgent = node.getUserAgent();
 
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT nodes.id FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.port = ?")
-                .setParameter(host)
-                .setParameter(port)
-        );
-
-        if (rows.isEmpty()) { return; }
-
-        final Row row = rows.get(0);
-        final Long nodeId = row.getLong("id");
+        final NodeId nodeId = _getNodeId(host, port);
+        if (nodeId == null) { return; }
 
         _databaseConnection.executeSql(
             new Query("UPDATE nodes SET user_agent = ? WHERE id = ?")
                 .setParameter(userAgent)
                 .setParameter(nodeId)
         );
+    }
+
+    public void updateBlockInventory(final BitcoinNode node, final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        if (pendingBlockIds.isEmpty()) { return; }
+
+        final String host = node.getHost();
+        final Integer port = node.getPort();
+
+        final NodeId nodeId = _getNodeId(host, port);
+        if (nodeId == null) { return; }
+
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_blocks_inventory (node_id, pending_block_id) VALUES (?, ?)");
+        for (final PendingBlockId pendingBlockId : pendingBlockIds) {
+            batchedInsertQuery.setParameter(nodeId);
+            batchedInsertQuery.setParameter(pendingBlockId);
+        }
+        _databaseConnection.executeSql(batchedInsertQuery);
+    }
+
+    public void deleteBlockInventory(final PendingBlockId pendingBlockId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id = ?")
+                .setParameter(pendingBlockId)
+        );
+    }
+
+    public void deleteBlockInventory(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        if (pendingBlockIds.isEmpty()) { return; }
+        _databaseConnection.executeSql(new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (" + DatabaseUtil.createInClause(pendingBlockIds) + ")"));
+    }
+
+    public void updateTransactionInventory(final BitcoinNode node, final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
+        if (pendingTransactionIds.isEmpty()) { return; }
+
+        final String host = node.getHost();
+        final Integer port = node.getPort();
+
+        final NodeId nodeId = _getNodeId(host, port);
+        if (nodeId == null) { return; }
+
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_transactions_inventory (node_id, pending_transaction_id) VALUES (?, ?)");
+        for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
+            batchedInsertQuery.setParameter(nodeId);
+            batchedInsertQuery.setParameter(pendingTransactionId);
+        }
+        _databaseConnection.executeSql(batchedInsertQuery);
+    }
+
+    public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id = ?")
+                .setParameter(pendingTransactionId)
+        );
+    }
+
+    public void deleteTransactionInventory(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
+        if (pendingTransactionIds.isEmpty()) { return; }
+        _databaseConnection.executeSql(new Query("DELETE FROM node_transactions_inventory WHERE pending_transaction_id IN (" + DatabaseUtil.createInClause(pendingTransactionIds) + ")"));
     }
 
     public List<BitcoinNodeIpAddress> findNodes(final List<NodeFeatures.Feature> requiredFeatures, final Integer maxCount) throws DatabaseException {

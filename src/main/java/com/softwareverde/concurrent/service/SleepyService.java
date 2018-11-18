@@ -34,7 +34,7 @@ public abstract class SleepyService {
             @Override
             public Status getStatus() {
                 synchronized (_threadMutex) {
-                    if ( (_thread == null) || (! _thread.isInterrupted()) ) {
+                    if ( (_thread == null) || (_thread.isInterrupted()) ) {
                         return Status.SLEEPING;
                     }
                     return Status.ACTIVE;

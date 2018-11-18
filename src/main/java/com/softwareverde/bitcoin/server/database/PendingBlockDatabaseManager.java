@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -14,10 +15,14 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PendingBlockDatabaseManager {
@@ -107,12 +112,27 @@ public class PendingBlockDatabaseManager {
         );
     }
 
+    protected void _deletePendingBlockData(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM pending_block_data WHERE pending_block_id IN(" + DatabaseUtil.createInClause(pendingBlockIds) + ")")
+        );
+    }
+
     protected void _deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         _deletePendingBlockData(pendingBlockId);
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM pending_blocks WHERE id = ?")
                 .setParameter(pendingBlockId)
+        );
+    }
+
+    protected void _deletePendingBlocks(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        if (pendingBlockIds.isEmpty()) { return; }
+        _deletePendingBlockData(pendingBlockIds);
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM pending_blocks WHERE id IN (" + DatabaseUtil.createInClause(pendingBlockIds) + ")")
         );
     }
 
@@ -282,23 +302,26 @@ public class PendingBlockDatabaseManager {
         }
     }
 
-    public List<PendingBlockId> selectIncompletePendingBlocks(final Integer maxCount) throws DatabaseException {
+    public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         try {
             READ_LOCK.lock();
 
             final Long minSecondsBetweenDownloadAttempts = 5L;
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxCount, Integer.MAX_VALUE))
+                // new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 1024")
+                new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                     .setParameter(currentTimestamp)
                     .setParameter(minSecondsBetweenDownloadAttempts)
             );
 
-            final ImmutableListBuilder<PendingBlockId> pendingBlockIdsBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());
+            final HashMap<PendingBlockId, NodeId> downloadPlan = new HashMap<PendingBlockId, NodeId>(rows.size());
             for (final Row row : rows) {
-                pendingBlockIdsBuilder.add(PendingBlockId.wrap(row.getLong("id")));
+                final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
+                final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("pending_block_id"));
+                downloadPlan.put(pendingBlockId, nodeId);
             }
-            return pendingBlockIdsBuilder.build();
+            return downloadPlan;
 
         }
         finally {
@@ -400,11 +423,16 @@ public class PendingBlockDatabaseManager {
                     .setParameter(maxFailedDownloadCount)
             );
 
+            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
             for (final Row row : rows) {
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
                 Logger.log("Deleting Failed Pending Block: " + pendingBlockId);
-                _deletePendingBlock(pendingBlockId);
+                pendingBlockIds.add(pendingBlockId);
             }
+
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(_databaseConnection);
+            nodeDatabaseManager.deleteBlockInventory(pendingBlockIds);
+            _deletePendingBlocks(pendingBlockIds);
 
         }
         finally {
@@ -428,6 +456,10 @@ public class PendingBlockDatabaseManager {
         try {
             WRITE_LOCK.lock();
 
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(_databaseConnection);
+
+            _deletePendingBlockData(pendingBlockId);
+            nodeDatabaseManager.deleteBlockInventory(pendingBlockId);
             _deletePendingBlock(pendingBlockId);
 
         }
