@@ -28,13 +28,8 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         final Integer bytesRequired = (blockHeaderCount * blockHeaderHashByteCount);
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        final MutableList<Sha256Hash> blockHashesInReverseOrder = new MutableList<Sha256Hash>(500);
         for (int i=0; i<blockHeaderCount; ++i) {
             final Sha256Hash blockHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
-            blockHashesInReverseOrder.add(blockHash);
-        }
-        for (int i=0; i<blockHeaderCount; ++i) {
-            final Sha256Hash blockHash = blockHashesInReverseOrder.get(blockHeaderCount - i - 1);
             queryBlocksMessage._blockHeaderHashes.add(blockHash);
         }
 

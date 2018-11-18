@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.server.message.type.version.synchronize.Bitcoin
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.util.HexUtil;
@@ -113,7 +114,7 @@ public class ProtocolMessageTests {
     }
 
     @Test
-    public void shoul_deserialize_bitcoin_xt_getheaders_protocol_message() {
+    public void should_deserialize_bitcoin_xt_getheaders_protocol_message() {
         // Setup
         final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
@@ -179,7 +180,7 @@ public class ProtocolMessageTests {
     }
 
     @Test
-    public void shoul_deserialize_bitcoin_xt_getblocks_protocol_message() {
+    public void should_deserialize_bitcoin_xt_getblocks_protocol_message() {
         // Setup
         final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
@@ -242,5 +243,7 @@ public class ProtocolMessageTests {
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), queryBlocksMessage.getStopBeforeBlockHash().getBytes());
+
+        Assert.assertEquals(MutableByteArray.wrap(versionMessage), queryBlocksMessage.getBytes());
     }
 }
