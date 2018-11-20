@@ -13,29 +13,29 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class NotFoundResponseMessage extends BitcoinProtocolMessage {
 
-    private final MutableList<InventoryItem> _dataHashes = new MutableList<InventoryItem>();
+    private final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
 
     public NotFoundResponseMessage() {
         super(MessageType.NOT_FOUND);
     }
 
-    public List<InventoryItem> getDataHashes() {
-        return _dataHashes;
+    public List<InventoryItem> getInventoryItems() {
+        return _inventoryItems;
     }
 
     public void addItem(final InventoryItem inventoryItem) {
-        _dataHashes.add(inventoryItem);
+        _inventoryItems.add(inventoryItem);
     }
 
     public void clearItems() {
-        _dataHashes.clear();
+        _inventoryItems.clear();
     }
 
     @Override
     protected ByteArray _getPayload() {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_dataHashes.getSize()), Endian.BIG);
-        for (final InventoryItem inventoryItem : _dataHashes) {
+        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(_inventoryItems.getSize()), Endian.BIG);
+        for (final InventoryItem inventoryItem : _inventoryItems) {
             byteArrayBuilder.appendBytes(inventoryItem.getBytes(), Endian.BIG);
         }
         return MutableByteArray.wrap(byteArrayBuilder.build());

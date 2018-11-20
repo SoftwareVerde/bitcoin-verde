@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMess
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
@@ -62,9 +63,13 @@ public class BitcoinNode extends Node {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
     }
 
-    public interface DownloadBlockCallback extends Callback<Block> { }
+    public interface DownloadBlockCallback extends Callback<Block> {
+        default void onFailure(Sha256Hash blockHash) { }
+    }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
-    public interface DownloadTransactionCallback extends Callback<Transaction> { }
+    public interface DownloadTransactionCallback extends Callback<Transaction> {
+        default void onFailure(List<Sha256Hash> transactionHashes) { }
+    }
     public interface DownloadThinBlockCallback extends Callback<ThinBlockParameters> { }
     public interface DownloadExtraThinBlockCallback extends Callback<ExtraThinBlockParameters> { }
     public interface DownloadThinTransactionsCallback extends Callback<List<Transaction>> { }
@@ -320,6 +325,10 @@ public class BitcoinNode extends Node {
                         _onThinTransactionsMessageReceived((ThinTransactionsMessage) message);
                     } break;
 
+                    case NOT_FOUND: {
+                        _onNotFoundMessageReceived((NotFoundResponseMessage) message);
+                    } break;
+
                     default: {
                         Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
                     } break;
@@ -397,6 +406,7 @@ public class BitcoinNode extends Node {
 
         for (final InventoryItemType inventoryItemType : dataHashesMap.keySet()) {
             final List<Sha256Hash> objectHashes = dataHashesMap.get(inventoryItemType);
+
             if (objectHashes.isEmpty()) { continue; }
 
             switch (inventoryItemType) {
@@ -574,6 +584,51 @@ public class BitcoinNode extends Node {
         final List<Transaction> transactions = transactionsMessage.getTransactions();
 
         _executeAndClearCallbacks(_downloadThinTransactionsRequests, blockHash, transactions, _threadPool);
+    }
+
+    protected void _onNotFoundMessageReceived(final NotFoundResponseMessage notFoundResponseMessage) {
+        for (final InventoryItem inventoryItem : notFoundResponseMessage.getInventoryItems()) {
+            final Sha256Hash itemHash = inventoryItem.getItemHash();
+            switch (inventoryItem.getItemType()) {
+                case BLOCK: {
+                    synchronized (_downloadBlockRequests) {
+                        final Set<DownloadBlockCallback> downloadBlockCallbacks = _downloadBlockRequests.remove(itemHash);
+                        if (downloadBlockCallbacks == null) { return; }
+
+                        for (final DownloadBlockCallback downloadBlockCallback : downloadBlockCallbacks) {
+                            _threadPool.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    downloadBlockCallback.onFailure(itemHash);
+                                }
+                            });
+                        }
+                    }
+                } break;
+
+                case TRANSACTION: {
+                    synchronized (_downloadTransactionRequests) {
+                        final Set<DownloadTransactionCallback> downloadTransactionCallbacks = _downloadTransactionRequests.remove(itemHash);
+                        if (downloadTransactionCallbacks == null) { return; }
+
+                        for (final DownloadTransactionCallback downloadTransactionCallback : downloadTransactionCallbacks) {
+                            _threadPool.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>();
+                                    transactionHashes.add(itemHash); // TODO: Consider batching failure message...
+                                    downloadTransactionCallback.onFailure(transactionHashes);
+                                }
+                            });
+                        }
+                    }
+                } break;
+
+                default: {
+                    Logger.log("NOTICE: Unsolicited NOT_FOUND Message: " + inventoryItem.getItemType() + " : " + inventoryItem.getItemHash());
+                }
+            }
+        }
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {

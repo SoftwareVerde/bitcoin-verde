@@ -74,7 +74,7 @@ public class CacheWarmer {
                     }
 
                     nanoTimer.stop();
-                    Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
+                    // Logger.log("Cached: " + batchFirstRowId + " - " + lastRowId + " (" + cachedCount + " of " + maxUtxoCount + ") (" + (cachedCount / maxUtxoCount.floatValue() * 100.0F) + "%) (" + nanoTimer.getMillisecondsElapsed() + "ms)");
                     runtime.gc();
                 }
             }

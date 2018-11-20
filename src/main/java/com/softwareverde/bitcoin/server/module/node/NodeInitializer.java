@@ -10,7 +10,7 @@ public class NodeInitializer {
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
-    protected final BitcoinNode.BlockInventoryMessageCallback _inventoryMessageHandler;
+    protected final BitcoinNode.BlockInventoryMessageCallback _blockInventoryMessageHandler;
     protected final TransactionsAnnouncementCallbackFactory _transactionsAnnouncementCallbackFactory;
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
     protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
@@ -23,15 +23,15 @@ public class NodeInitializer {
         bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         bitcoinNode.setRequestDataCallback(_requestDataCallback);
 
-        bitcoinNode.setBlockInventoryMessageHandler(_inventoryMessageHandler);
+        bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryMessageHandler);
 
         final BitcoinNode.TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);
         bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
     }
 
-    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback inventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback) {
         _synchronizationStatus = synchronizationStatus;
-        _inventoryMessageHandler = inventoryMessageHandler;
+        _blockInventoryMessageHandler = blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
         _queryBlocksCallback = queryBlocksCallback;
         _queryBlockHeadersCallback = queryBlockHeadersCallback;

@@ -14,7 +14,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
-public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
+public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryMessageCallback {
     public static final BitcoinNode.BlockInventoryMessageCallback IGNORE_INVENTORY_HANDLER = new BitcoinNode.BlockInventoryMessageCallback() {
         @Override
         public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
@@ -61,7 +61,7 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
         return newBlockHashReceived;
     }
 
-    public InventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
+    public BlockInventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
     }
@@ -72,6 +72,13 @@ public class InventoryMessageHandler implements BitcoinNode.BlockInventoryMessag
 
     @Override
     public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+        { // If the InventoryMessage contains multiple BlockHashes, then it is likely that the peer has additional unseen BlockHashes, therefore the Node requests them until the node fails to respond with additional BlockHashes...
+            if (blockHashes.getSize() > 1) {
+                final Sha256Hash mostRecentBlockHash = blockHashes.get(blockHashes.getSize() - 1);
+                bitcoinNode.requestBlockHashesAfter(mostRecentBlockHash);
+            }
+        }
+
         final Boolean newBlockHashReceived = _storeBlockHashes(bitcoinNode, blockHashes);
 
         if (newBlockHashReceived) {

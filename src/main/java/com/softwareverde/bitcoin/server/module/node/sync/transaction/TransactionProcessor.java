@@ -22,14 +22,20 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
+    protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
+
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+
+    protected final SystemTime _systemTime;
+    protected Long _lastOrphanPurgeTime;
 
     @Override
     protected void _onStart() { }
@@ -39,12 +45,17 @@ public class TransactionProcessor extends SleepyService {
         final Thread thread = Thread.currentThread();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final MilliTimer purgeOrphanedTransactionsTimer = new MilliTimer();
-            purgeOrphanedTransactionsTimer.start();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
-            pendingTransactionDatabaseManager.purgeExpiredOrphanedTransactions();
-            purgeOrphanedTransactionsTimer.stop();
-            Logger.log("Purge Orphaned Transactions: " + purgeOrphanedTransactionsTimer.getMillisecondsElapsed() + "ms");
+
+            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+            if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {
+                final MilliTimer purgeOrphanedTransactionsTimer = new MilliTimer();
+                purgeOrphanedTransactionsTimer.start();
+                pendingTransactionDatabaseManager.purgeExpiredOrphanedTransactions();
+                purgeOrphanedTransactionsTimer.stop();
+                Logger.log("Purge Orphaned Transactions: " + purgeOrphanedTransactionsTimer.getMillisecondsElapsed() + "ms");
+                _lastOrphanPurgeTime = _systemTime.getCurrentTimeInMilliSeconds();
+            }
 
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseCache);
 
@@ -127,5 +138,8 @@ public class TransactionProcessor extends SleepyService {
         _databaseCache = databaseCache;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+
+        _systemTime = new SystemTime();
+        _lastOrphanPurgeTime = 0L;
     }
 }

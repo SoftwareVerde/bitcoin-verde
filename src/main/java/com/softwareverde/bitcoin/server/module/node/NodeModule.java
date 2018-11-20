@@ -11,9 +11,11 @@ import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseMana
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.CacheWarmer;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
-import com.softwareverde.bitcoin.server.module.node.handler.InventoryMessageHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -34,6 +36,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.Transaction
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -43,12 +46,14 @@ import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 
 import java.io.File;
+import java.util.HashSet;
 
 public class NodeModule {
     public static void execute(final String configurationFileName) {
@@ -102,6 +107,50 @@ public class NodeModule {
         cacheWarmer.warmUpCache(masterDatabaseManagerCache, databaseConnectionFactory);
     }
 
+    protected void _connectToAdditionalNodes() {
+        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+        final Configuration.SeedNodeProperties[] seedNodes = serverProperties.getSeedNodeProperties();
+        final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
+        for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
+            final String host = seedNodeProperties.getAddress();
+            final Integer port = seedNodeProperties.getPort();
+
+            seedNodeHosts.add(host + port);
+        }
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final Integer maxPeerCount = serverProperties.getMaxPeerCount();
+
+        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+        requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
+
+            for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
+                final Ip ip = bitcoinNodeIpAddress.getIp();
+                if (ip == null) { continue; }
+
+                final String host = ip.toString();
+                final Integer port = bitcoinNodeIpAddress.getPort();
+
+                if (seedNodeHosts.contains(host + port)) { continue; } // Exclude SeedNodes...
+
+                final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
+                _nodeManager.addNode(node);
+
+                Logger.log("Connecting to former peer: " + host + ":" + port);
+
+                try { Thread.sleep(500L); } catch (final Exception exception) { }
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+        }
+    }
+
     protected NodeModule(final String configurationFilename) {
         final Thread mainThread = Thread.currentThread();
 
@@ -131,10 +180,7 @@ public class NodeModule {
             }
             database = databaseInstance;
 
-            if (database != null) {
-                Logger.log("[Database Online]");
-            }
-            else {
+            if (database == null) {
                 BitcoinUtil.exitFailure();
             }
         }
@@ -182,9 +228,9 @@ public class NodeModule {
         final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
-        final InventoryMessageHandler inventoryMessageHandler;
+        final BlockInventoryMessageHandler blockInventoryMessageHandler;
         {
-            inventoryMessageHandler = new InventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
@@ -201,7 +247,7 @@ public class NodeModule {
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
         }
 
         { // Initialize NodeManager...
@@ -267,7 +313,7 @@ public class NodeModule {
                 }
             });
 
-            inventoryMessageHandler.setNewBlockHashesCallback(new Runnable() {
+            blockInventoryMessageHandler.setNewBlockHashesCallback(new Runnable() {
                 @Override
                 public void run() {
                     _blockDownloader.wakeUp();
@@ -347,11 +393,12 @@ public class NodeModule {
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
 
         if (! serverProperties.skipNetworking()) {
+            Logger.log("[Starting Node Manager]");
             _nodeManager.startNodeMaintenanceThread();
 
-            Logger.log("[Server Online]");
 
-            for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
+            final Configuration.SeedNodeProperties[] seedNodes = serverProperties.getSeedNodeProperties();
+            for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
 
@@ -360,28 +407,43 @@ public class NodeModule {
             }
         }
         else {
-            Logger.log("[Skipping Networking]");
+            Logger.log("[Skipped Networking]");
         }
 
         if (_jsonRpcSocketServer != null) {
+            Logger.log("[Starting RPC Server]");
             _jsonRpcSocketServer.start();
-            Logger.log("[RPC Server Online]");
         }
         else {
             Logger.log("NOTICE: Bitcoin RPC Server not started.");
         }
 
+        Logger.log("[Starting Socket Server]");
         _socketServer.start();
-        Logger.log("[Listening For Connections]");
 
         if (! serverProperties.skipNetworking()) {
+            Logger.log("[Starting Header Downloader]");
             _blockHeaderDownloader.start();
+
+            Logger.log("[Starting Block Downloader]");
             _blockDownloader.start();
-            _blockchainBuilder.start();
+
+            Logger.log("[Starting Transaction Downloader]");
             _transactionDownloader.start();
-            _transactionProcessor.start();
-            _addressProcessor.start();
-            Logger.log("[Started Syncing Headers]");
+        }
+
+        Logger.log("[Starting Block Processor]");
+        _blockchainBuilder.start();
+
+        Logger.log("[Starting Transaction Processor]");
+        _transactionProcessor.start();
+
+        Logger.log("[Started Address Processor]");
+        _addressProcessor.start();
+
+        if (! serverProperties.skipNetworking()) {
+            Logger.log("[Connecting To Peers]");
+            _connectToAdditionalNodes();
         }
 
         while (! Thread.currentThread().isInterrupted()) {
@@ -396,16 +458,32 @@ public class NodeModule {
             }
         }
 
+        Logger.log("[Stopping Addresses Processor]");
         _addressProcessor.stop();
+
+        Logger.log("[Stopping Transaction Processor]");
         _transactionProcessor.stop();
+
+        Logger.log("[Stopping Transaction Downloader]");
         _transactionDownloader.stop();
+
+        Logger.log("[Stopping Block Processor]");
         _blockchainBuilder.stop();
+
+        Logger.log("[Stopping Block Downloader]");
         _blockDownloader.stop();
+
+        Logger.log("[Stopping Header Downloader]");
         _blockHeaderDownloader.stop();
 
+        Logger.log("[Stopping Node Manager]");
         _nodeManager.shutdown();
         _nodeManager.stopNodeMaintenanceThread();
+
+        Logger.log("[Stopping Socket Server]");
         _socketServer.stop();
+
+        Logger.log("[Shutting Down Database]");
         _banFilter.close();
 
         if (_jsonRpcSocketServer != null) {

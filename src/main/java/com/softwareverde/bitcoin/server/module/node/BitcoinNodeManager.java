@@ -23,6 +23,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Util;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static final Integer MINIMUM_THIN_BLOCK_TRANSACTION_COUNT = 64;
@@ -65,6 +66,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
             requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+            requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
 
             for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
@@ -114,11 +116,22 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     @Override
     protected void _addNode(final BitcoinNode node) {
         final String host = node.getHost();
+        final Integer port = node.getPort();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final Boolean isBanned = nodeDatabaseManager.isBanned(host);
             if (isBanned) { return; }
+
+
+            for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                final String existingNodeHost = bitcoinNode.getHost();
+                final Integer existingNodePort = bitcoinNode.getPort();
+
+                if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
+                    return; // Duplicate Node...
+                }
+            }
 
             super._addNode(node);
             nodeDatabaseManager.storeNode(node);
@@ -212,6 +225,16 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         if (callback != null) {
                             Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getHost());
                             callback.onResult(block);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(final Sha256Hash blockHash) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        if (callback != null) {
+                            callback.onFailure(blockHash);
                         }
                     }
                 });
@@ -375,6 +398,16 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                         if (callback != null) {
                             callback.onResult(result);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(final List<Sha256Hash> transactionHashes) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        if (callback != null) {
+                            callback.onFailure(transactionHashes);
                         }
                     }
                 });

@@ -82,7 +82,6 @@ public class TransactionDownloader extends SleepyService {
 
                     if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
                         Logger.log("NOTICE: Transaction download stalled.");
-
                         _markPendingTransactionIdsAsFailed(_currentTransactionDownloadSet.keySet());
                         _currentTransactionDownloadSet.clear();
                         return false;
@@ -95,7 +94,6 @@ public class TransactionDownloader extends SleepyService {
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
             final List<NodeId> nodeIds;
@@ -110,20 +108,17 @@ public class TransactionDownloader extends SleepyService {
                 }
                 nodeIds = listBuilder.build();
             }
-
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
             final Map<NodeId, ? extends List<PendingTransactionId>> downloadPlan = pendingTransactionDatabaseManager.selectIncompletePendingTransactions(nodeIds);
             if (downloadPlan.isEmpty()) { return false; }
 
             for (final NodeId nodeId : downloadPlan.keySet()) {
                 if (_currentTransactionDownloadSet.size() >= maximumConcurrentDownloadCount) { break; }
-
                 final List<PendingTransactionId> pendingTransactionIds = downloadPlan.get(nodeId);
                 final MutableList<Sha256Hash> pendingTransactionHashes = new MutableList<Sha256Hash>(pendingTransactionIds.getSize());
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     final Sha256Hash transactionHash = pendingTransactionDatabaseManager.getPendingTransactionHash(pendingTransactionId);
                     if (transactionHash == null) { continue; }
-
                     final Boolean itemIsAlreadyBeingDownloaded = _currentTransactionDownloadSet.containsKey(transactionHash);
                     if (itemIsAlreadyBeingDownloaded) { continue; }
 
@@ -138,6 +133,7 @@ public class TransactionDownloader extends SleepyService {
 
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
                 bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback); // TODO: Use NodeManager so NodeHealth is updated...
+                // _bitcoinNodeManager.requestTransactions(bitcoinNode, pendingTransactionHashes, _transactionDownloadedCallback);
             }
         }
         catch (final DatabaseException exception) {
@@ -175,7 +171,7 @@ public class TransactionDownloader extends SleepyService {
                         timer.stop();
                     }
 
-                    // Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+                    Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();
