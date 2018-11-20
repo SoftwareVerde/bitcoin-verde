@@ -556,7 +556,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
-            transactionDatabaseManager.insertTransaction(signedTransaction);
+            transactionDatabaseManager.storeTransaction(signedTransaction);
         }
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
@@ -681,7 +681,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
-            transactionDatabaseManager.insertTransaction(signedTransactionSpendingDuplicateCoinbase);
+            transactionDatabaseManager.storeTransaction(signedTransactionSpendingDuplicateCoinbase);
         }
 
         { // Ensure the fake transaction that will be duplicated would normally be valid on its own...
@@ -852,7 +852,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
-            transactionDatabaseManager.insertTransaction(signedTransactionSpendingDuplicateCoinbase);
+            transactionDatabaseManager.storeTransaction(signedTransactionSpendingDuplicateCoinbase);
         }
 
         { // Ensure the transaction would normally be valid on its own...

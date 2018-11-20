@@ -19,7 +19,7 @@ CREATE TABLE pending_block_data (
     data LONGBLOB NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY pending_block_data_uq (pending_block_id),
-    FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id)
+    FOREIGN KEY pending_block_data_fk (pending_block_id) REFERENCES pending_blocks (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE pending_transactions (
@@ -41,7 +41,16 @@ CREATE TABLE pending_transaction_data (
     data LONGBLOB NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY pending_transaction_data_uq (pending_transaction_id),
-    FOREIGN KEY pending_transaction_data_fk (pending_transaction_id) REFERENCES pending_transactions (id)
+    FOREIGN KEY pending_transaction_data_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE pending_transactions_dependent_transactions (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    pending_transaction_id INT UNSIGNED NOT NULL,
+    hash CHAR(64) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY pending_transaction_prevout_uq (pending_transaction_id, hash),
+    FOREIGN KEY pending_transaction_prevout_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE addresses (
@@ -211,7 +220,7 @@ CREATE TABLE node_blocks_inventory (
     PRIMARY KEY (id),
     UNIQUE KEY node_blocks_uq (node_id, pending_block_id),
     FOREIGN KEY node_blocks_node_id_fk (node_id) REFERENCES nodes (id),
-    FOREIGN KEY node_blocks_tx_fk (pending_block_id) REFERENCES pending_blocks (id)
+    FOREIGN KEY node_blocks_tx_fk (pending_block_id) REFERENCES pending_blocks (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE node_transactions_inventory (
@@ -221,7 +230,7 @@ CREATE TABLE node_transactions_inventory (
     PRIMARY KEY (id),
     UNIQUE KEY node_transactions_uq (node_id, pending_transaction_id),
     FOREIGN KEY node_transactions_node_id_fk (node_id) REFERENCES nodes (id),
-    FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id)
+    FOREIGN KEY node_transactions_tx_fk (pending_transaction_id) REFERENCES pending_transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());

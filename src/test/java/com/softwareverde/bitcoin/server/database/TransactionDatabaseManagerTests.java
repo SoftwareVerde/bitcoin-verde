@@ -112,7 +112,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             transaction0 = transactionSigner.signTransaction(signatureContext, privateKey);
 
-            transactionId0 = transactionDatabaseManager.insertTransaction(transaction0);
+            transactionId0 = transactionDatabaseManager.storeTransaction(transaction0);
         }
 
         final TransactionId transactionId1;
@@ -128,7 +128,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             transaction1 = transactionSigner.signTransaction(signatureContext, privateKey);
 
-            transactionId1 = transactionDatabaseManager.insertTransaction(transaction1);
+            transactionId1 = transactionDatabaseManager.storeTransaction(transaction1);
         }
 
         { // Assert transaction0 is valid before adding to mempool...

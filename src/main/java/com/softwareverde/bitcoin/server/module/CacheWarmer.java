@@ -40,7 +40,7 @@ public class CacheWarmer {
 
                 final Long maxUtxoCount = masterDatabaseManagerCache.getMaxCachedUtxoCount().unwrap();
 
-                final Integer batchSize = 512; // (512 * 1024); // NOTE: Reducing the batch size greatly decreases the amount of memory-bloat during startup.
+                final Integer batchSize = 4096; // 512; // NOTE: Reducing the batch size greatly decreases the amount of memory-bloat during startup.
                 Long lastRowId = (newestUnspentTransactionOutputId + 1L);
 
                 long cachedCount = 0L;

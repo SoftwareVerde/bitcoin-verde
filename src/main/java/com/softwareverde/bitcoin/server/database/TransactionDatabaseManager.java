@@ -108,7 +108,6 @@ public class TransactionDatabaseManager {
             new Query("SELECT id, block_id FROM block_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
         );
-        if (rows.isEmpty()) { return null; }
 
         final MutableList<BlockId> blockIds = new MutableList<BlockId>(rows.size());
         for (final Row row : rows) {
@@ -126,6 +125,18 @@ public class TransactionDatabaseManager {
                 .setParameter(transactionId)
                 .setParameter(now)
         );
+    }
+
+    protected void _insertTransactionsIntoMemoryPool(final List<TransactionId> transactionIds) throws DatabaseException {
+        final Long now = _systemTime.getCurrentTimeInSeconds();
+
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)");
+        for (final TransactionId transactionId : transactionIds) {
+            batchedInsertQuery.setParameter(transactionId);
+            batchedInsertQuery.setParameter(now);
+        }
+
+        _databaseConnection.executeSql(batchedInsertQuery);
     }
 
     protected void _deleteTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
@@ -281,7 +292,7 @@ public class TransactionDatabaseManager {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public TransactionId insertTransaction(final Transaction transaction) throws DatabaseException {
+    public TransactionId storeTransaction(final Transaction transaction) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
 
         final TransactionId cachedTransactionId = _databaseManagerCache.getCachedTransactionId(transactionHash.asConst());
@@ -467,6 +478,10 @@ public class TransactionDatabaseManager {
 
     public void addTransactionToMemoryPool(final TransactionId transactionId) throws DatabaseException {
         _insertTransactionIntoMemoryPool(transactionId);
+    }
+
+    public void addTransactionsToMemoryPool(final List<TransactionId> transactionIds) throws DatabaseException {
+        _insertTransactionsIntoMemoryPool(transactionIds);
     }
 
     public void removeTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {

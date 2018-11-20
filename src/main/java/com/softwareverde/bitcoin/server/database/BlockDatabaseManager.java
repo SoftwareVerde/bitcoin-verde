@@ -263,7 +263,7 @@ public class BlockDatabaseManager {
             if (transactionHasBeenProcessed) { continue; }
 
             Logger.log("Inserting Transaction: " + transactionHash);
-            final TransactionId transactionId = transactionDatabaseManager.insertTransaction(transaction);
+            final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
             if (transactionId == null) { throw new DatabaseException("Error inserting Transaction."); }
         }
     }

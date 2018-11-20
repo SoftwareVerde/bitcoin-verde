@@ -30,6 +30,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -66,6 +67,7 @@ public class NodeModule {
     protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
     protected final TransactionDownloader _transactionDownloader;
+    protected final TransactionProcessor _transactionProcessor;
     protected final BlockchainBuilder _blockchainBuilder;
     protected final AddressProcessor _addressProcessor;
 
@@ -211,6 +213,10 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
+        { // Initialize the TransactionProcessor...
+            _transactionProcessor = new TransactionProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
+        }
+
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
             blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
@@ -265,6 +271,13 @@ public class NodeModule {
                 @Override
                 public void run() {
                     _blockDownloader.wakeUp();
+                }
+            });
+
+            _transactionDownloader.setNewTransactionAvailableCallback(new Runnable() {
+                @Override
+                public void run() {
+                    _transactionProcessor.wakeUp();
                 }
             });
         }
@@ -366,6 +379,7 @@ public class NodeModule {
             _blockDownloader.start();
             _blockchainBuilder.start();
             _transactionDownloader.start();
+            _transactionProcessor.start();
             _addressProcessor.start();
             Logger.log("[Started Syncing Headers]");
         }
@@ -377,12 +391,13 @@ public class NodeModule {
             Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
 
-            for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+            for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
                 Logger.log(sleepyService.getClass().getSimpleName() + ": " + sleepyService.getStatusMonitor().getStatus());
             }
         }
 
         _addressProcessor.stop();
+        _transactionProcessor.stop();
         _transactionDownloader.stop();
         _blockchainBuilder.stop();
         _blockDownloader.stop();

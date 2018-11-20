@@ -65,7 +65,7 @@ public class BlockDownloader extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        final Integer maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
+        final Integer maximumConcurrentDownloadCount = Math.min(8, Math.max(1, _bitcoinNodeManager.getActiveNodeCount()));
 
         { // Determine if routine should wait for a request to complete...
             Integer currentDownloadCount = _currentBlockDownloadSet.size();

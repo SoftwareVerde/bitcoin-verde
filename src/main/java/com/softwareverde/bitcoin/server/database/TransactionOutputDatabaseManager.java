@@ -31,6 +31,7 @@ import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -458,12 +459,16 @@ public class TransactionOutputDatabaseManager {
     }
 
     public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
-        final ScriptType scriptType = ScriptType.UNKNOWN;
-        final ScriptTypeId scriptTypeId = scriptType.getScriptTypeId();
+        final ScriptType[] scriptTypes = ScriptType.values();
+        final HashSet<ScriptTypeId> excludedScriptTypeIds = new HashSet<ScriptTypeId>(scriptTypes.length);
+        for (final ScriptType scriptType : scriptTypes) {
+            if (scriptType != ScriptType.UNKNOWN) {
+                excludedScriptTypeIds.add(scriptType.getScriptTypeId());
+            }
+        }
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM locking_scripts WHERE script_type_id = ? LIMIT " + Util.coalesce(maxCount, 1))
-                .setParameter(scriptTypeId)
+            new Query("SELECT id FROM locking_scripts WHERE script_type_id NOT IN (" + DatabaseUtil.createInClause(excludedScriptTypeIds) + ") LIMIT " + Util.coalesce(maxCount, 1))
         );
 
         final ImmutableListBuilder<LockingScriptId> lockingScriptIds = new ImmutableListBuilder<LockingScriptId>(rows.size());

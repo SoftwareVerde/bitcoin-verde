@@ -45,7 +45,7 @@ public class BlockchainBuilder extends SleepyService {
 
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock) {
         final ByteArray blockData = pendingBlock.getData();
-        if (blockData == null) { return false; } // NOTE: The pending block is not available due to a race condition; do not delete the pending block record in this case.
+        if (blockData == null) { return false; }
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
@@ -112,6 +112,7 @@ public class BlockchainBuilder extends SleepyService {
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
 
             { // Special case for storing the Genesis block...
                 if (! _hasGenesisBlock) {
@@ -157,9 +158,7 @@ public class BlockchainBuilder extends SleepyService {
                 final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
                 final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
                 if (! processCandidateBlockWasSuccessful) {
-                    pendingBlockDatabaseManager.incrementFailedDownloadCount(candidatePendingBlockId);
-                    pendingBlockDatabaseManager.deletePendingBlockData(candidatePendingBlockId); // NOTE: Also prevents the failed block from being returned within PendingBlockDatabaseManager::selectCandidatePendingBlockId during the next iteration...
-                    pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
+                    pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                     continue;
                 }
 
@@ -175,9 +174,7 @@ public class BlockchainBuilder extends SleepyService {
 
                         final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock);
                         if (! processBlockWasSuccessful) {
-                            pendingBlockDatabaseManager.incrementFailedDownloadCount(pendingBlockId);
-                            pendingBlockDatabaseManager.deletePendingBlockData(pendingBlockId);
-                            pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
+                            pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                             break;
                         }
 

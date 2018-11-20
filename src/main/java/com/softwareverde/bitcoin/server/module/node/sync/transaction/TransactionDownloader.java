@@ -175,7 +175,7 @@ public class TransactionDownloader extends SleepyService {
                         timer.stop();
                     }
 
-                    Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+                    // Logger.log("Downloaded Transaction: " + transactionHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();

@@ -196,7 +196,6 @@ public class TransactionValidator {
             }
 
             final List<BlockId> blocksSpendingOutput = _transactionDatabaseManager.getBlockIds(spendingTransactionInputIdTransactionId);
-            if (blocksSpendingOutput == null) { continue; }
 
             for (final BlockId blockId : blocksSpendingOutput) {
                 final Long blockIdBlockHeight = _blockHeaderDatabaseManager.getBlockHeight(blockId);
@@ -211,10 +210,9 @@ public class TransactionValidator {
         return spendCount;
     }
 
-    protected Integer _getOutputMinedCount(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionOutputTransactionId) throws DatabaseException {
+    protected Integer _getOutputMinedCount(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionOutputTransactionId, final Boolean includeMemoryPool) throws DatabaseException {
         final NanoTimer getBlockIdsTimer = new NanoTimer();
         final NanoTimer isConnectedToChainTimer = new NanoTimer();
-        double connectedTimerTotal = 0D;
 
         int minedCount = 0;
         getBlockIdsTimer.start();
@@ -224,13 +222,18 @@ public class TransactionValidator {
             isConnectedToChainTimer.start();
             final Boolean blockIsConnectedToThisChain = _blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
             isConnectedToChainTimer.stop();
-            connectedTimerTotal += isConnectedToChainTimer.getMillisecondsElapsed();
             if (blockIsConnectedToThisChain) {
                 minedCount += 1;
             }
         }
-        // Logger.log("getBlockIdsTimer: " + getBlockIdsTimer.getMillisecondsElapsed() + "ms");
-        // Logger.log("connectedTimer: " + connectedTimerTotal + "ms");
+
+        if (includeMemoryPool) {
+            final Boolean transactionOutputIsInMemoryPool = _transactionDatabaseManager.isTransactionInMemoryPool(transactionOutputTransactionId);
+            if (transactionOutputIsInMemoryPool) {
+                minedCount += 1;
+            }
+        }
+
         return minedCount;
     }
 
@@ -365,7 +368,7 @@ public class TransactionValidator {
                     return false;
                 }
 
-                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockchainSegmentId, transactionOutputBeingSpentTransactionId);
+                final Integer outputBeingSpentMinedCount = _getOutputMinedCount(blockchainSegmentId, transactionOutputBeingSpentTransactionId, validateForMemoryPool);
 
                 { // Validate the UTXO has been mined on this blockchain...
                     if (outputBeingSpentMinedCount == 0) {

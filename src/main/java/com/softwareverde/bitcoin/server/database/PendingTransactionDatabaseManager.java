@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.server.database;
 
-import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransaction;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -22,10 +23,13 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class PendingTransactionDatabaseManager {
+    public static final Long MAX_ORPHANED_TRANSACTION_AGE_IN_SECONDS = (60 * 60L); // 1 Hour...
+
     public static final ReentrantReadWriteLock.ReadLock READ_LOCK;
     public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
     static {
@@ -74,34 +78,15 @@ public class PendingTransactionDatabaseManager {
         );
     }
 
-    protected void _deletePendingTransactionData(final PendingTransactionId pendingTransactionId) throws DatabaseException {
-        _databaseConnection.executeSql(
-                new Query("DELETE FROM pending_transaction_data WHERE pending_transaction_id = ?")
-                        .setParameter(pendingTransactionId)
-        );
-    }
-
-    protected void _deletePendingTransactionData(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
-        if (pendingTransactionIds.isEmpty()) { return; }
-
-        _databaseConnection.executeSql(
-            new Query("DELETE FROM pending_transaction_data WHERE pending_transaction_id IN(" + DatabaseUtil.createInClause(pendingTransactionIds) + ")")
-        );
-    }
-
     protected void _deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
-        _deletePendingTransactionData(pendingTransactionId);
-
         _databaseConnection.executeSql(
-                new Query("DELETE FROM pending_transactions WHERE id = ?")
-                        .setParameter(pendingTransactionId)
+            new Query("DELETE FROM pending_transactions WHERE id = ?")
+                .setParameter(pendingTransactionId)
         );
     }
 
     protected void _deletePendingTransactions(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
         if (pendingTransactionIds.isEmpty()) { return; }
-
-        _deletePendingTransactionData(pendingTransactionIds);
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM pending_transactions WHERE id IN(" + DatabaseUtil.createInClause(pendingTransactionIds) + ")")
@@ -110,16 +95,16 @@ public class PendingTransactionDatabaseManager {
 
     protected Boolean _hasTransactionData(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id FROM pending_transaction_data WHERE pending_transaction_id = ?")
-                        .setParameter(pendingTransactionId)
+            new Query("SELECT id FROM pending_transaction_data WHERE pending_transaction_id = ?")
+                .setParameter(pendingTransactionId)
         );
         return (rows.size() > 0);
     }
 
     protected ByteArray _getTransactionData(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id, data FROM pending_transaction_data WHERE pending_transaction_id = ?")
-                        .setParameter(pendingTransactionId)
+            new Query("SELECT id, data FROM pending_transaction_data WHERE pending_transaction_id = ?")
+                .setParameter(pendingTransactionId)
         );
         if (rows.isEmpty()) { return null; }
 
@@ -147,6 +132,26 @@ public class PendingTransactionDatabaseManager {
         }
 
         return new PendingTransaction(transactionHash, transactionData);
+    }
+
+    protected void _updateTransactionDependencies(final Transaction transaction) throws DatabaseException {
+        final PendingTransactionId pendingTransactionId = _getPendingTransactionId(transaction.getHash());
+        if (pendingTransactionId == null) { return; }
+
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<Sha256Hash>(transactionInputs.getSize());
+        for (final TransactionInput transactionInput : transactionInputs) {
+            final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
+            requiredTransactionHashes.add(transactionHash);
+        }
+        if (requiredTransactionHashes.isEmpty()) { return; }
+
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO pending_transactions_dependent_transactions (pending_transaction_id, hash) VALUES (?, ?)");
+        for (final Sha256Hash transactionHash : requiredTransactionHashes) {
+            batchedInsertQuery.setParameter(pendingTransactionId);
+            batchedInsertQuery.setParameter(transactionHash);
+        }
+        _databaseConnection.executeSql(batchedInsertQuery);
     }
 
     public PendingTransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
@@ -269,6 +274,9 @@ public class PendingTransactionDatabaseManager {
 
             final TransactionDeflater transactionDeflater = new TransactionDeflater();
             _insertPendingTransactionData(pendingTransactionId, transactionDeflater.toBytes(transaction));
+
+            _updateTransactionDependencies(transaction);
+
             return pendingTransactionId;
 
         }
@@ -308,17 +316,49 @@ public class PendingTransactionDatabaseManager {
         }
     }
 
-    public PendingTransactionId selectCandidatePendingTransactionId() throws DatabaseException {
+    public List<PendingTransactionId> selectCandidatePendingTransactionIds() throws DatabaseException {
         try {
             READ_LOCK.lock();
 
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT pending_transactions.id FROM pending_transactions INNER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id ORDER BY pending_transactions.priority ASC LIMIT 1")
+                new Query("SELECT pending_transactions.id, pending_transactions.hash FROM pending_transactions INNER JOIN pending_transaction_data ON pending_transaction_data.pending_transaction_id = pending_transactions.id WHERE NOT EXISTS (SELECT * FROM pending_transactions_dependent_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions_dependent_transactions.hash WHERE (transactions.id IS NULL) AND (pending_transactions_dependent_transactions.pending_transaction_id = pending_transactions.id))")
+            );
+
+            final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<PendingTransactionId>(rows.size());
+            for (final Row row : rows) {
+                final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
+                pendingTransactionIds.add(pendingTransactionId);
+            }
+            return pendingTransactionIds.build();
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
+    public Transaction getPendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
+        try {
+            READ_LOCK.lock();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT pending_transactions.id, pending_transactions.hash, pending_transaction_data.data FROM pending_transactions INNER JOIN pending_transaction_data ON pending_transactions.id = pending_transaction_data.pending_transaction_id WHERE pending_transactions.id = ?")
+                    .setParameter(pendingTransactionId)
             );
             if (rows.isEmpty()) { return null; }
 
             final Row row = rows.get(0);
-            return PendingTransactionId.wrap(row.getLong("id"));
+            final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            final ByteArray transactionData = MutableByteArray.wrap(row.getBytes("data"));
+
+            final TransactionInflater transactionInflater = new TransactionInflater();
+            final Transaction transaction = transactionInflater.fromBytes(transactionData);
+            if (transaction == null) {
+                _deletePendingTransaction(pendingTransactionId);
+                Logger.log("NOTICE: Error inflating pending transaction: " + transactionHash + " " + transactionData);
+            }
+
+            return transaction;
 
         }
         finally {
@@ -409,8 +449,6 @@ public class PendingTransactionDatabaseManager {
                 pendingTransactionIds.add(pendingTransactionId);
             }
 
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(_databaseConnection);
-            nodeDatabaseManager.deleteTransactionInventory(pendingTransactionIds);
             _deletePendingTransactions(pendingTransactionIds);
 
         }
@@ -419,27 +457,15 @@ public class PendingTransactionDatabaseManager {
         }
     }
 
-    public PendingTransaction getPendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
-        try {
-            READ_LOCK.lock();
-
-            return _getPendingTransaction(pendingTransactionId, true);
-
-        }
-        finally {
-            READ_LOCK.unlock();
-        }
-    }
-
-    public void deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
+    public void purgeExpiredOrphanedTransactions() throws DatabaseException {
         try {
             WRITE_LOCK.lock();
 
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(_databaseConnection);
-
-            _deletePendingTransactionData(pendingTransactionId);
-            nodeDatabaseManager.deleteTransactionInventory(pendingTransactionId);
-            _deletePendingTransaction(pendingTransactionId);
+            final Long minimumTimestamp = (_systemTime.getCurrentTimeInSeconds() - MAX_ORPHANED_TRANSACTION_AGE_IN_SECONDS);
+            _databaseConnection.executeSql(
+                new Query("DELETE pending_transactions FROM pending_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions.hash WHERE (transactions.id IS NOT NULL) OR (pending_transactions.timestamp < ?)")
+                    .setParameter(minimumTimestamp)
+            );
 
         }
         finally {
@@ -447,11 +473,38 @@ public class PendingTransactionDatabaseManager {
         }
     }
 
-    public void deletePendingTransactionData(final PendingTransactionId pendingTransactionId) throws DatabaseException {
+    public void deletePendingTransaction(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         try {
             WRITE_LOCK.lock();
 
-            _deletePendingTransactionData(pendingTransactionId);
+            _databaseConnection.executeSql(
+                new Query("DELETE FROM pending_transactions WHERE id = ?")
+                    .setParameter(pendingTransactionId)
+            );
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    public void deletePendingTransactions(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            _deletePendingTransactions(pendingTransactionIds);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
+    public void updateTransactionDependencies(final Transaction transaction) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            _updateTransactionDependencies(transaction);
 
         }
         finally {

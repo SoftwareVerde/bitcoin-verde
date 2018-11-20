@@ -19,7 +19,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class AddressProcessor extends SleepyService {
-    public static final Integer BATCH_SIZE = 1024;
+    public static final Integer BATCH_SIZE = 4096;
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
