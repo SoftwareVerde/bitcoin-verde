@@ -51,9 +51,15 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         }
                         else {
                             final Block block = blockDatabaseManager.getBlock(blockId);
-                            final BlockMessage blockMessage = new BlockMessage();
-                            blockMessage.setBlock(block);
-                            nodeConnection.queueMessage(blockMessage);
+                            if (block == null) {
+                                Logger.log("Error inflating block: " + blockHash);
+                                notFoundDataHashes.add(inventoryItem);
+                            }
+                            else {
+                                final BlockMessage blockMessage = new BlockMessage();
+                                blockMessage.setBlock(block);
+                                nodeConnection.queueMessage(blockMessage);
+                            }
                         }
                     } break;
 

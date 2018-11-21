@@ -296,7 +296,7 @@ public class BlockHeaderDatabaseManager {
 
     protected Sha256Hash _getHeadBlockHeaderHash() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1")
+            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -306,7 +306,7 @@ public class BlockHeaderDatabaseManager {
 
     protected BlockId _getHeadBlockHeaderId() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, hash FROM blocks ORDER BY block_height DESC LIMIT 1")
+            new Query("SELECT id, hash FROM blocks ORDER BY chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 

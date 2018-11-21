@@ -27,7 +27,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     public BloomFilter getBloomFilter(final Sha256Hash blockHash) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-            final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIdsFromMemoryPool();
+            final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
             final MutableBloomFilter bloomFilter = new MutableBloomFilter(transactionIds.getSize(), 0.01D);
 
@@ -49,7 +49,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
     public Integer getMemoryPoolTransactionCount() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-            return transactionDatabaseManager.getMemoryPoolTransactionCount();
+            return transactionDatabaseManager.getUnconfirmedTransactionCount();
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

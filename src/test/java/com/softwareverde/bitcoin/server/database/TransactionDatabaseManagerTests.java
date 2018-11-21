@@ -142,7 +142,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
         }
 
         // Action
-        transactionDatabaseManager.addTransactionToMemoryPool(transactionId0);
+        transactionDatabaseManager.addToUnconfirmedTransaction(transactionId0);
 
         // Assert
         final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);

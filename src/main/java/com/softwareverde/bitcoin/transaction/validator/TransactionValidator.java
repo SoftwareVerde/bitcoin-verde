@@ -189,7 +189,7 @@ public class TransactionValidator {
             final TransactionId spendingTransactionInputIdTransactionId = _transactionInputDatabaseManager.getTransactionId(spendingTransactionInputId);
 
             if (includeMemoryPoolTransactions) {
-                final Boolean transactionIsInMemoryPool = _transactionDatabaseManager.isTransactionInMemoryPool(spendingTransactionInputIdTransactionId);
+                final Boolean transactionIsInMemoryPool = _transactionDatabaseManager.isUnconfirmedTransaction(spendingTransactionInputIdTransactionId);
                 if (transactionIsInMemoryPool) {
                     spendCount += 1;
                 }
@@ -228,7 +228,7 @@ public class TransactionValidator {
         }
 
         if (includeMemoryPool) {
-            final Boolean transactionOutputIsInMemoryPool = _transactionDatabaseManager.isTransactionInMemoryPool(transactionOutputTransactionId);
+            final Boolean transactionOutputIsInMemoryPool = _transactionDatabaseManager.isUnconfirmedTransaction(transactionOutputTransactionId);
             if (transactionOutputIsInMemoryPool) {
                 minedCount += 1;
             }

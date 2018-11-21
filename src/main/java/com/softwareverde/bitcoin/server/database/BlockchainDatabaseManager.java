@@ -212,7 +212,7 @@ public class BlockchainDatabaseManager {
 
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY block_height DESC LIMIT 1")
+            new Query("SELECT id, blockchain_segment_id FROM blocks ORDER BY chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
 
@@ -222,7 +222,7 @@ public class BlockchainDatabaseManager {
 
     public BlockId getHeadBlockIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY block_height DESC LIMIT 1")
+            new Query("SELECT id FROM blocks WHERE blockchain_segment_id = ? ORDER BY chain_work DESC LIMIT 1")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }
@@ -233,7 +233,7 @@ public class BlockchainDatabaseManager {
 
     public BlockchainSegmentId getHeadBlockchainSegmentIdOfBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.blockchain_segment_id FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A INNER JOIN (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments) AS B ON (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) INNER JOIN blocks ON blocks.blockchain_segment_id = B.id ORDER BY blocks.block_height DESC LIMIT 1")
+            new Query("SELECT blocks.id, blocks.blockchain_segment_id FROM (SELECT nested_set_left, nested_set_right FROM blockchain_segments WHERE id = ?) AS A INNER JOIN (SELECT id, nested_set_left, nested_set_right FROM blockchain_segments) AS B ON (A.nested_set_left <= B.nested_set_left AND A.nested_set_right >= B.nested_set_right) INNER JOIN blocks ON blocks.blockchain_segment_id = B.id ORDER BY blocks.chain_work DESC LIMIT 1")
                 .setParameter(blockchainSegmentId)
         );
         if (rows.isEmpty()) { return null; }

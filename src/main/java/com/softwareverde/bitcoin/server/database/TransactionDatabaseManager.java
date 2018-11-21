@@ -117,7 +117,7 @@ public class TransactionDatabaseManager {
         return blockIds;
     }
 
-    protected void _insertTransactionIntoMemoryPool(final TransactionId transactionId) throws DatabaseException {
+    protected void _insertIntoUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         final Long now = _systemTime.getCurrentTimeInSeconds();
 
         _databaseConnection.executeSql(
@@ -127,7 +127,7 @@ public class TransactionDatabaseManager {
         );
     }
 
-    protected void _insertTransactionsIntoMemoryPool(final List<TransactionId> transactionIds) throws DatabaseException {
+    protected void _insertIntoUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
         final Long now = _systemTime.getCurrentTimeInSeconds();
 
         final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)");
@@ -139,10 +139,18 @@ public class TransactionDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    protected void _deleteTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
+    protected void _deleteFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
+        );
+    }
+
+    protected void _deleteFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
+        if (transactionIds.isEmpty()) { return; }
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")")
         );
     }
 
@@ -476,19 +484,23 @@ public class TransactionDatabaseManager {
         return true;
     }
 
-    public void addTransactionToMemoryPool(final TransactionId transactionId) throws DatabaseException {
-        _insertTransactionIntoMemoryPool(transactionId);
+    public void addToUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+        _insertIntoUnconfirmedTransactions(transactionId);
     }
 
-    public void addTransactionsToMemoryPool(final List<TransactionId> transactionIds) throws DatabaseException {
-        _insertTransactionsIntoMemoryPool(transactionIds);
+    public void addToUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
+        _insertIntoUnconfirmedTransactions(transactionIds);
     }
 
-    public void removeTransactionFromMemoryPool(final TransactionId transactionId) throws DatabaseException {
-        _deleteTransactionFromMemoryPool(transactionId);
+    public void removeFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+        _deleteFromUnconfirmedTransaction(transactionId);
     }
 
-    public Boolean isTransactionInMemoryPool(final TransactionId transactionId) throws DatabaseException {
+    public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
+        _deleteFromUnconfirmedTransactions(transactionIds);
+    }
+
+    public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
@@ -496,7 +508,7 @@ public class TransactionDatabaseManager {
         return (! rows.isEmpty());
     }
 
-    public List<TransactionId> getTransactionIdsFromMemoryPool() throws DatabaseException {
+    public List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT transactions.id FROM transactions INNER JOIN unconfirmed_transactions ON transactions.id = unconfirmed_transactions.transaction_id")
         );
@@ -509,7 +521,21 @@ public class TransactionDatabaseManager {
         return listBuilder.build();
     }
 
-    public Integer getMemoryPoolTransactionCount() throws DatabaseException {
+    public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
+            new Query("SELECT unconfirmed_transactions.transaction_id FROM transaction_outputs INNER JOIN transaction_inputs ON transaction_outputs.id = transaction_inputs.previous_transaction_output_id INNER JOIN unconfirmed_transactions ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id WHERE transaction_outputs.transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") GROUP BY unconfirmed_transactions.transaction_id")
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
+
+    public Integer getUnconfirmedTransactionCount() throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT COUNT(*) AS transaction_count FROM unconfirmed_transactions")
         );

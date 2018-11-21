@@ -22,6 +22,7 @@ public abstract class SleepyService {
 
     private void _startThread() {
         _thread = new Thread(_coreRunnable);
+        _thread.setName(this.getClass().getSimpleName());
         _thread.start();
     }
 
