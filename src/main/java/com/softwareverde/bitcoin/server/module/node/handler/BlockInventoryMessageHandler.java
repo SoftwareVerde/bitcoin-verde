@@ -40,6 +40,10 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 final Boolean pendingBlockExists = pendingBlockDatabaseManager.pendingBlockExists(blockHash);
                 if (! pendingBlockExists) {
                     pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
+
+                    if (pendingBlockId != null) {
+                        newBlockHashReceived = true;
+                    }
                 }
                 else {
                     pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
@@ -47,7 +51,6 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
                 if (pendingBlockId != null) {
                     pendingBlockIds.add(pendingBlockId);
-                    newBlockHashReceived = true;
                 }
             }
 

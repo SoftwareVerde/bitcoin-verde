@@ -9,7 +9,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHeaderInflater {
-    public static final Integer MAX_PACKET_SIZE = 33554432; // 0x02000000
+    public static final Integer MAX_PACKET_SIZE = 268435456; // 33554432
     public static final Integer HEADER_BYTE_COUNT = 24;
 
     private BitcoinProtocolMessageHeader _fromByteArrayReader(final ByteArrayReader byteArrayReader) {

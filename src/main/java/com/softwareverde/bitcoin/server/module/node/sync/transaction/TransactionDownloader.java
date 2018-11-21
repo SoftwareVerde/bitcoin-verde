@@ -132,8 +132,7 @@ public class TransactionDownloader extends SleepyService {
                 }
 
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
-                bitcoinNode.requestTransactions(pendingTransactionHashes, _transactionDownloadedCallback); // TODO: Use NodeManager so NodeHealth is updated...
-                // _bitcoinNodeManager.requestTransactions(bitcoinNode, pendingTransactionHashes, _transactionDownloadedCallback);
+                _bitcoinNodeManager.requestTransactions(bitcoinNode, pendingTransactionHashes, _transactionDownloadedCallback);
             }
         }
         catch (final DatabaseException exception) {

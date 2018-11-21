@@ -133,7 +133,7 @@ public class BlockDownloader extends SleepyService {
 
                 timer.start();
                 // _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
-                bitcoinNode.requestBlock(blockHash, _blockDownloadedCallback);  // TODO: Use NodeManager so NodeHealth is updated and thinBlocks may be used...
+                _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
             }
         }
         catch (final DatabaseException exception) {

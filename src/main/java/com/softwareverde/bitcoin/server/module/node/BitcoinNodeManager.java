@@ -210,8 +210,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         });
     }
 
-    protected void _requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
-        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
+    protected NodeApiRequest<BitcoinNode> _createRequestBlockRequest(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        return new NodeApiRequest<BitcoinNode>() {
             @Override
             public void run(final BitcoinNode bitcoinNode) {
                 final NodeApiRequest<BitcoinNode> apiRequest = this;
@@ -248,7 +248,55 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     callback.onFailure(blockHash);
                 }
             }
-        });
+        };
+    }
+
+    protected void _requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        _selectNodeForRequest(_createRequestBlockRequest(blockHash, callback));
+    }
+
+    protected void _requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        _selectNodeForRequest(selectedNode, _createRequestBlockRequest(blockHash, callback));
+    }
+
+    protected NodeApiRequest<BitcoinNode> _createRequestTransactionsRequest(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
+        return new NodeApiRequest<BitcoinNode>() {
+            @Override
+            public void run(final BitcoinNode bitcoinNode) {
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
+                bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
+                    @Override
+                    public void onResult(final Transaction result) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        if (callback != null) {
+                            callback.onResult(result);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(final List<Sha256Hash> transactionHashes) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        if (callback != null) {
+                            callback.onFailure(transactionHashes);
+                        }
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
+
+                if (callback != null) {
+                    callback.onFailure(transactionHashes);
+                }
+            }
+        };
     }
 
     public void requestThinBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
@@ -371,6 +419,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _requestBlock(blockHash, callback);
     }
 
+    public void requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
+        _requestBlock(selectedNode, blockHash, callback);
+    }
+
     public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
         blockHashes.add(blockHash);
@@ -385,43 +437,13 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public void requestTransactions(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
         if (transactionHashes.isEmpty()) { return; }
 
-        _selectNodeForRequest(new NodeApiRequest<BitcoinNode>() {
-            @Override
-            public void run(final BitcoinNode bitcoinNode) {
-                final NodeApiRequest<BitcoinNode> apiRequest = this;
+        _selectNodeForRequest(_createRequestTransactionsRequest(transactionHashes, callback));
+    }
 
-                bitcoinNode.requestTransactions(transactionHashes, new BitcoinNode.DownloadTransactionCallback() {
-                    @Override
-                    public void onResult(final Transaction result) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
+    public void requestTransactions(final BitcoinNode selectedNode, final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
+        if (transactionHashes.isEmpty()) { return; }
 
-                        if (callback != null) {
-                            callback.onResult(result);
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(final List<Sha256Hash> transactionHashes) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
-                        if (apiRequest.didTimeout) { return; }
-
-                        if (callback != null) {
-                            callback.onFailure(transactionHashes);
-                        }
-                    }
-                });
-            }
-
-            @Override
-            public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestTransactions("+ transactionHashes.get(0) +" + "+ (transactionHashes.getSize() - 1) +")");
-
-                if (callback != null) {
-                    callback.onFailure(transactionHashes);
-                }
-            }
-        });
+        _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
     }
 
     public void shutdown() {
