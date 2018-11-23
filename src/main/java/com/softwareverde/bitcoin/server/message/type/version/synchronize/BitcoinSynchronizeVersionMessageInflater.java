@@ -34,7 +34,7 @@ public class BitcoinSynchronizeVersionMessageInflater extends BitcoinProtocolMes
         synchronizeVersionMessage._nonce = byteArrayReader.readLong(8, Endian.LITTLE);
         synchronizeVersionMessage._userAgent = byteArrayReader.readVariableLengthString();
         synchronizeVersionMessage._currentBlockHeight = byteArrayReader.readInteger(4, Endian.LITTLE);
-        synchronizeVersionMessage._relayIsEnabled = byteArrayReader.readBoolean();
+        synchronizeVersionMessage._transactionRelayIsEnabled = byteArrayReader.readBoolean();
 
         if (byteArrayReader.didOverflow()) { return null; }
 

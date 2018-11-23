@@ -284,4 +284,12 @@ public class BlockHeaderDownloader extends SleepyService {
     public Long getBlockHeight() {
         return _blockHeight;
     }
+
+    @Override
+    public void stop() {
+        super.stop();
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
+    }
 }

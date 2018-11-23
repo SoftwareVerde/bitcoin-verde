@@ -22,7 +22,7 @@ public class ErrorMessageInflater extends BitcoinProtocolMessageInflater {
 
         errorMessage._rejectDescription = byteArrayReader.readVariableLengthString();
 
-        errorMessage._extraData = byteArrayReader.readBytes(byteArrayReader.remainingByteCount(), Endian.BIG);
+        errorMessage._extraData = byteArrayReader.readBytes(byteArrayReader.remainingByteCount(), Endian.LITTLE);
 
         // if (byteArrayReader.didOverflow()) { return null; }
 

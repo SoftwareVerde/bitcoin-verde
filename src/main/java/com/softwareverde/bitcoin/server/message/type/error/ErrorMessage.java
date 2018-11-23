@@ -112,7 +112,7 @@ public class ErrorMessage extends BitcoinProtocolMessage {
         byteArrayBuilder.appendBytes(rejectedMessageTypeBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(rejectMessageCodeBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(rejectDescriptionBytes, Endian.BIG);
-        byteArrayBuilder.appendBytes(extraDataBytes, Endian.BIG); // TODO: Unsure if should be Big or Little endian...
+        byteArrayBuilder.appendBytes(extraDataBytes, Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

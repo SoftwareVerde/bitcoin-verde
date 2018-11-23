@@ -9,6 +9,9 @@ import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -21,6 +24,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
@@ -124,16 +128,19 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             if (isBanned) { return; }
 
 
-            for (final BitcoinNode bitcoinNode : _nodes.values()) {
-                final String existingNodeHost = bitcoinNode.getHost();
-                final Integer existingNodePort = bitcoinNode.getPort();
+            synchronized (_mutex) {
+                for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                    final String existingNodeHost = bitcoinNode.getHost();
+                    final Integer existingNodePort = bitcoinNode.getPort();
 
-                if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
-                    return; // Duplicate Node...
+                    if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
+                        return; // Duplicate Node...
+                    }
                 }
+
+                super._addNode(node);
             }
 
-            super._addNode(node);
             nodeDatabaseManager.storeNode(node);
         }
         catch (final DatabaseException databaseException) {
@@ -196,8 +203,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void broadcastBlockFinder(final List<Sha256Hash> blockHashes) {
-        for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            bitcoinNode.transmitBlockFinder(blockHashes);
+        synchronized (_mutex) {
+            for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                bitcoinNode.transmitBlockFinder(blockHashes);
+            }
         }
     }
 
@@ -414,13 +423,16 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    // TODO: Ensure selected node will have the requested BlockHash (important when synchronization is complete and requesting very new blocks)...
     public void requestBlock(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
         _requestBlock(blockHash, callback);
     }
 
     public void requestBlock(final BitcoinNode selectedNode, final Sha256Hash blockHash, final DownloadBlockCallback callback) {
         _requestBlock(selectedNode, blockHash, callback);
+    }
+
+    public void transmitTransactionHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
+        bitcoinNode.broadcastTransactionHashes(transactionHashes);
     }
 
     public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {
@@ -446,7 +458,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
     }
 
+    @Override
     public void shutdown() {
+        super.shutdown();
+
         synchronized (_mutex) {
             for (final BitcoinNode node : _nodes.values()) {
                 node.disconnect();

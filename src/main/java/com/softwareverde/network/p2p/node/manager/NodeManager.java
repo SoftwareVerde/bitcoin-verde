@@ -19,7 +19,7 @@ import java.util.*;
 public class NodeManager<NODE extends Node> {
     public static Boolean LOGGING_ENABLED = false;
 
-    protected static ThreadPool _threadExecutor = new ThreadPool(4, 16, 8000L);
+    protected static ThreadPool _threadPool = new ThreadPool(4, 16, 8000L);
 
     public interface NodeFilter<NODE> {
         Boolean meetsCriteria(NODE node);
@@ -272,7 +272,7 @@ public class NodeManager<NODE extends Node> {
 
                 synchronized (_mutex) {
                     for (final NodeApiMessage<NODE> apiTransmission : _queuedTransmissions) {
-                        _threadExecutor.execute(new Runnable() {
+                        _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
                                 if (apiTransmission instanceof NodeApiRequest) {
@@ -299,7 +299,7 @@ public class NodeManager<NODE extends Node> {
 
                 synchronized (_mutex) {
                     for (final NodeApiMessage<NODE> apiTransmission : _queuedTransmissions) {
-                        _threadExecutor.execute(new Runnable() {
+                        _threadPool.execute(new Runnable() {
                             @Override
                             public void run() {
                                 if (apiTransmission instanceof NodeApiRequest) {
@@ -328,7 +328,7 @@ public class NodeManager<NODE extends Node> {
         node.connect();
         node.handshake();
 
-        _threadExecutor.execute(timeoutRunnable);
+        _threadPool.execute(timeoutRunnable);
     }
 
     // NOTE: Requires Mutex Lock...
@@ -633,7 +633,9 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest) {
-        _selectNodeForRequest(nodeNodeApiRequest);
+        synchronized (_mutex) {
+            _selectNodeForRequest(nodeNodeApiRequest);
+        }
     }
 
     public void sendMessage(final NodeApiMessage<NODE> nodeNodeApiMessage) {
@@ -641,7 +643,15 @@ public class NodeManager<NODE extends Node> {
     }
 
     public List<NODE> getNodes() {
-        return new MutableList<NODE>(_nodes.values());
+        synchronized (_mutex) {
+            return new MutableList<NODE>(_nodes.values());
+        }
+    }
+
+    public NODE getNode(final NodeId nodeId) {
+        synchronized (_mutex) {
+            return _nodes.get(nodeId);
+        }
     }
 
     public Long getNodeHealth(final NodeId nodeId) {
@@ -652,19 +662,33 @@ public class NodeManager<NODE extends Node> {
     }
 
     public NODE getBestNode() {
-        return _selectBestNode();
+        synchronized (_mutex) {
+            return _selectBestNode();
+        }
     }
 
     public List<NODE> getBestNodes(final Integer nodeCount) {
-        return _selectBestNodes(nodeCount);
+        synchronized (_mutex) {
+            return _selectBestNodes(nodeCount);
+        }
     }
 
     public NODE getWorstNode() {
-        return _selectWorstActiveNode();
+        synchronized (_mutex) {
+            return _selectWorstActiveNode();
+        }
     }
 
     public Integer getActiveNodeCount() {
-        final List<NODE> nodes = _getActiveNodes();
-        return nodes.getSize();
+        synchronized (_mutex) {
+            final List<NODE> nodes = _getActiveNodes();
+            return nodes.getSize();
+        }
+    }
+
+    public void shutdown() {
+        _pendingRequestsManager.stop();
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
     }
 }

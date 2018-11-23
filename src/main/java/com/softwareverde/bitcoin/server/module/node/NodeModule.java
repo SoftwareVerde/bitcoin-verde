@@ -260,7 +260,7 @@ public class NodeModule {
         }
 
         { // Initialize the TransactionProcessor...
-            _transactionProcessor = new TransactionProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime);
+            _transactionProcessor = new TransactionProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _nodeManager);
         }
 
         final BlockProcessor blockProcessor;

@@ -228,4 +228,12 @@ public class BlockchainBuilder extends SleepyService {
     public void setNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
         _newBlockProcessedCallback = newBlockProcessedCallback;
     }
+
+    @Override
+    public void stop() {
+        super.stop();
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
+    }
 }

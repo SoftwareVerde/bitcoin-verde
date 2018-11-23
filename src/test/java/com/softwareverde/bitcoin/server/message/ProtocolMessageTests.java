@@ -110,7 +110,7 @@ public class ProtocolMessageTests {
 
         Assert.assertEquals(0x60D6774E90FB4282L, synchronizeVersionMessage.getNonce().longValue());
         Assert.assertEquals(0x000000000007E11DL, synchronizeVersionMessage.getCurrentBlockHeight().longValue());
-        Assert.assertTrue(synchronizeVersionMessage.relayIsEnabled());
+        Assert.assertTrue(synchronizeVersionMessage.transactionRelayIsEnabled());
     }
 
     @Test

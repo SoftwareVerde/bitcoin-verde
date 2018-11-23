@@ -28,6 +28,7 @@ import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockProcessor {
@@ -186,7 +187,11 @@ public class BlockProcessor {
 
             { // Maintain memory-pool correctness...
                 if (bestBlockchainHasChanged) {
-                    Logger.log("NOTICE: Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
+                    // TODO: Mempool Reorgs should write/read-lock the mempool until complete...
+
+                    final MilliTimer timer = new MilliTimer();
+                    Logger.log("NOTICE: Starting Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId);
+                    timer.start();
                     // Rebuild the memory pool to include (valid) transactions that were broadcast/mined on the old chain but were excluded from the new chain...
                     // 1. Take the block at the head of the old chain and add its transactions back into the pool... (Ignoring the coinbases...)
                     BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(originalHeadBlockchainSegmentId);
@@ -201,6 +206,7 @@ public class BlockProcessor {
                         final Boolean nextBlockIsConnectedToNewHeadBlockchain = blockHeaderDatabaseManager.isBlockConnectedToChain(nextBlockId, newHeadBlockchainSegmentId, BlockRelationship.ANCESTOR);
                         if (nextBlockIsConnectedToNewHeadBlockchain) { break; }
                     }
+                    Logger.log("NOTICE: Utxo Reorg - 2/5 complete.");
 
                     // 2.5 Skip the shared block between the two segments (not strictly necessary, but more performant)...
                     nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
@@ -213,6 +219,7 @@ public class BlockProcessor {
 
                         nextBlockId = blockHeaderDatabaseManager.getChildBlockId(newHeadBlockchainSegmentId, nextBlockId);
                     }
+                    Logger.log("NOTICE: Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
                     final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
@@ -227,6 +234,9 @@ public class BlockProcessor {
                             transactionsToRemove.add(transactionId);
                         }
                     }
+
+                    Logger.log("NOTICE: Utxo Reorg - 4/5 complete.");
+
                     // 5. Remove transactions in UnconfirmedTransactions that depend on the removed transactions...
                     while (! transactionsToRemove.isEmpty()) {
                         transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
@@ -234,6 +244,8 @@ public class BlockProcessor {
                         transactionsToRemove.clear();
                         transactionsToRemove.addAll(chainedInvalidTransactions);
                     }
+                    timer.stop();
+                    Logger.log("NOTICE: Unspent Transactions Reorganization: " + originalHeadBlockchainSegmentId + " -> " + newHeadBlockchainSegmentId + " (" + timer.getMillisecondsElapsed() + "ms)");
                 }
                 else {
                     // Remove any transactions in the memory pool that were included in this block...

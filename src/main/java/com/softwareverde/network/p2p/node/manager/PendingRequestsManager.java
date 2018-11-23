@@ -75,4 +75,12 @@ public class PendingRequestsManager<NODE> extends SleepyService {
         }
         _pendingRequests.clear();
     }
+
+    @Override
+    public void stop() {
+        super.stop();
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
+    }
 }

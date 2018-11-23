@@ -21,7 +21,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     protected BitcoinNodeIpAddress _localNodeIpAddress;
     protected Long _nonce;
     protected Integer _currentBlockHeight;
-    protected Boolean _relayIsEnabled = false;
+    protected Boolean _transactionRelayIsEnabled = false;
 
     public BitcoinSynchronizeVersionMessage() {
         super(MessageType.SYNCHRONIZE_VERSION);
@@ -48,7 +48,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
 
-    public Boolean relayIsEnabled() { return _relayIsEnabled; }
+    public Boolean transactionRelayIsEnabled() { return _transactionRelayIsEnabled; }
     public Integer getCurrentBlockHeight() { return _currentBlockHeight; }
 
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {
@@ -82,21 +82,21 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         _currentBlockHeight = currentBlockHeight;
     }
 
-    public void setRelayIsEnabled(final Boolean isEnabled) {
-        _relayIsEnabled = isEnabled;
+    public void setTransactionRelayIsEnabled(final Boolean isEnabled) {
+        _transactionRelayIsEnabled = isEnabled;
     }
 
     @Override
     protected ByteArray _getPayload() {
-        final byte[] version            = new byte[4];
-        final byte[] nodeFeatures       = new byte[8];
-        final byte[] timestamp          = new byte[8];
-        final byte[] remoteAddress      = new byte[26];
-        final byte[] localAddress       = new byte[26];
-        final byte[] nonce              = new byte[8];
+        final byte[] version                    = new byte[4];
+        final byte[] nodeFeatures               = new byte[8];
+        final byte[] timestamp                  = new byte[8];
+        final byte[] remoteAddress              = new byte[26];
+        final byte[] localAddress               = new byte[26];
+        final byte[] nonce                      = new byte[8];
         final byte[] userAgent;
-        final byte[] currentBlockHeight = new byte[4];
-        final byte[] shouldRelay        = new byte[1];
+        final byte[] currentBlockHeight         = new byte[4];
+        final byte[] shouldRelayTransactions    = new byte[1];
 
         ByteUtil.setBytes(version, ByteUtil.integerToBytes(_version));
         ByteUtil.setBytes(nodeFeatures, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
@@ -115,7 +115,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
         ByteUtil.setBytes(currentBlockHeight, ByteUtil.integerToBytes(_currentBlockHeight));
 
-        shouldRelay[0] = (byte) (_relayIsEnabled ? 0x01 : 0x00);
+        shouldRelayTransactions[0] = (byte) (_transactionRelayIsEnabled ? 0x01 : 0x00);
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(version, Endian.LITTLE);
@@ -126,7 +126,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         byteArrayBuilder.appendBytes(nonce, Endian.LITTLE);
         byteArrayBuilder.appendBytes(userAgent, Endian.BIG);
         byteArrayBuilder.appendBytes(currentBlockHeight, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(shouldRelay, Endian.LITTLE);
+        byteArrayBuilder.appendBytes(shouldRelayTransactions, Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

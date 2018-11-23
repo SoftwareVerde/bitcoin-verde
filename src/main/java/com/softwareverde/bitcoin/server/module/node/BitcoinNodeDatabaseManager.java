@@ -5,7 +5,9 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -17,6 +19,8 @@ import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
+
+import java.util.HashSet;
 
 public class BitcoinNodeDatabaseManager {
     public static final Object MUTEX = new Object();
@@ -226,6 +230,37 @@ public class BitcoinNodeDatabaseManager {
             batchedInsertQuery.setParameter(pendingTransactionId);
         }
         _databaseConnection.executeSql(batchedInsertQuery);
+    }
+
+    public enum FilterType {
+        KEEP_NODES_WITH_INVENTORY, KEEP_NODES_WITHOUT_INVENTORY
+    }
+
+    public List<NodeId> filterNodesViaTransactionInventory(final List<NodeId> nodeIds, final Sha256Hash transactionHash, final FilterType filterType) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
+                .setParameter(transactionHash)
+        );
+
+        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+            for (final NodeId nodeId : nodeIds) {
+                filteredNodes.add(nodeId);
+            }
+        }
+
+        for (final Row row : rows) {
+            final NodeId nodeWithTransaction = NodeId.wrap(row.getLong("node_id"));
+
+            if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+                filteredNodes.remove(nodeWithTransaction);
+            }
+            else {
+                filteredNodes.add(nodeWithTransaction);
+            }
+        }
+
+        return new ImmutableList<NodeId>(filteredNodes);
     }
 
     public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {

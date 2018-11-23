@@ -191,7 +191,7 @@ public class BitcoinNode extends Node {
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
 
-        synchronizeVersionMessage.setRelayIsEnabled(_synchronizationStatus.isReadyForTransactions());
+        synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions());
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
@@ -375,7 +375,7 @@ public class BitcoinNode extends Node {
 
     protected void _onErrorMessageReceived(final ErrorMessage errorMessage) {
         final ErrorMessage.RejectCode rejectCode = errorMessage.getRejectCode();
-        Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ HexUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ HexUtil.toHexString(errorMessage.getExtraData()));
+        Logger.log("RECEIVED ERROR:"+ rejectCode.getRejectMessageType().getValue() +" "+ HexUtil.toHexString(new byte[] { rejectCode.getCode() }) +" "+ errorMessage.getRejectDescription() +" "+ HexUtil.toHexString(errorMessage.getExtraData()) + " " + this.getUserAgent() + " " + this.getConnectionString());
     }
 
     protected void _onRequestDataMessageReceived(final RequestDataMessage requestDataMessage, final NodeConnection nodeConnection) {
@@ -744,6 +744,16 @@ public class BitcoinNode extends Node {
         _requestTransactions(transactionHashes);
     }
 
+    public void broadcastTransactionHashes(final List<Sha256Hash> transactionHashes) {
+        final InventoryMessage inventoryMessage = new InventoryMessage();
+        for (final Sha256Hash transactionHash : transactionHashes) {
+            final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
+            inventoryMessage.addInventoryItem(inventoryItem);
+        }
+
+        _queueMessage(inventoryMessage);
+    }
+
     public void setSynchronizationStatusHandler(final SynchronizationStatus synchronizationStatus) {
         _synchronizationStatus = synchronizationStatus;
     }
@@ -795,6 +805,12 @@ public class BitcoinNode extends Node {
         return nodeFeatures.hasFeatureFlagEnabled(feature);
     }
 
+    public Boolean transactionRelayIsEnabled() {
+        if (_synchronizeVersionMessage == null) { return null; }
+
+        return _synchronizeVersionMessage.transactionRelayIsEnabled();
+    }
+
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         if (_localNodeIpAddress == null) { return null; }
@@ -836,5 +852,8 @@ public class BitcoinNode extends Node {
         synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
         synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
     }
 }

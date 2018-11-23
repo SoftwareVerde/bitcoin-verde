@@ -4,11 +4,15 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -37,6 +41,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
@@ -48,24 +53,39 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         if (blockId == null) {
                             notFoundDataHashes.add(inventoryItem);
+                            continue;
                         }
-                        else {
-                            final Block block = blockDatabaseManager.getBlock(blockId);
-                            if (block == null) {
-                                Logger.log("Error inflating block: " + blockHash);
-                                notFoundDataHashes.add(inventoryItem);
-                            }
-                            else {
-                                final BlockMessage blockMessage = new BlockMessage();
-                                blockMessage.setBlock(block);
-                                nodeConnection.queueMessage(blockMessage);
-                            }
+
+                        final Block block = blockDatabaseManager.getBlock(blockId);
+                        if (block == null) {
+                            Logger.log("Error inflating Block: " + blockHash);
+                            notFoundDataHashes.add(inventoryItem);
+                            continue;
                         }
+
+                        final BlockMessage blockMessage = new BlockMessage();
+                        blockMessage.setBlock(block);
+                        nodeConnection.queueMessage(blockMessage);
                     } break;
 
                     case TRANSACTION: {
                         final Sha256Hash transactionHash = inventoryItem.getItemHash();
-                        Logger.log("Unsupported RequestDataMessage Type: " + inventoryItem.getItemType() + " : " + transactionHash);
+                        final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
+                        if (transactionId == null) {
+                            notFoundDataHashes.add(inventoryItem);
+                            continue;
+                        }
+
+                        final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                        if (transaction == null) {
+                            Logger.log("Error inflating Transaction: " + transactionHash);
+                            notFoundDataHashes.add(inventoryItem);
+                            continue;
+                        }
+
+                        final TransactionMessage transactionMessage = new TransactionMessage();
+                        transactionMessage.setTransaction(transaction);
+                        nodeConnection.queueMessage(transactionMessage);
                     } break;
 
                     default: {
