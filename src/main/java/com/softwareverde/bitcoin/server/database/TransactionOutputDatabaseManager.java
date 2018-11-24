@@ -188,12 +188,17 @@ public class TransactionOutputDatabaseManager {
         final ScriptTypeId scriptTypeId = ScriptType.UNKNOWN.getScriptTypeId();
 
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
-        _databaseConnection.executeSql(
+        final Long lockingScriptId = _databaseConnection.executeSql(
             new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
                 .setParameter(scriptTypeId)
                 .setParameter(transactionOutputId)
                 .setParameter(lockingScriptByteArray.getBytes())
                 .setParameter(null)
+        );
+
+        _databaseConnection.executeSql(
+            new Query("INSERT INTO address_processor_queue (locking_script_id) VALUES (?)")
+                .setParameter(lockingScriptId)
         );
     }
 
@@ -249,7 +254,18 @@ public class TransactionOutputDatabaseManager {
             batchInsertQuery.setParameter(null);                                // addressId
         }
 
-        _databaseConnection.executeSql(batchInsertQuery);
+        final Long firstLockingScriptId = _databaseConnection.executeSql(batchInsertQuery);
+        final Integer insertCount = _databaseConnection.getRowsAffectedCount();
+
+        { // Queue LockingScript for address processing...
+            final Query addressProcessorQueueQuery = new BatchedInsertQuery("INSERT INTO address_processor_queue (locking_script_id) VALUES (?)");
+            for (int i = 0; i < insertCount; ++i) {
+                final LockingScriptId lockingScriptId = LockingScriptId.wrap(firstLockingScriptId + i);
+                addressProcessorQueueQuery.setParameter(lockingScriptId);
+            }
+            _databaseConnection.executeSql(addressProcessorQueueQuery);
+        }
+
     }
 
     protected TransactionOutput _getTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
@@ -468,12 +484,13 @@ public class TransactionOutputDatabaseManager {
         }
 
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM locking_scripts WHERE script_type_id NOT IN (" + DatabaseUtil.createInClause(excludedScriptTypeIds) + ") LIMIT " + Util.coalesce(maxCount, 1))
+            // new Query("SELECT id FROM locking_scripts WHERE script_type_id NOT IN (" + DatabaseUtil.createInClause(excludedScriptTypeIds) + ") LIMIT " + Util.coalesce(maxCount, 1))
+            new Query("SELECT locking_script_id FROM address_processor_queue LIMIT " + Util.coalesce(maxCount, 1))
         );
 
         final ImmutableListBuilder<LockingScriptId> lockingScriptIds = new ImmutableListBuilder<LockingScriptId>(rows.size());
         for (final Row row : rows) {
-            final LockingScriptId lockingScriptId = LockingScriptId.wrap(row.getLong("id"));
+            final LockingScriptId lockingScriptId = LockingScriptId.wrap(row.getLong("locking_script_id"));
             lockingScriptIds.add(lockingScriptId);
         }
 
@@ -487,6 +504,11 @@ public class TransactionOutputDatabaseManager {
             new Query("UPDATE locking_scripts SET script_type_id = ?, address_id = ? WHERE id = ?")
                 .setParameter(scriptTypeId)
                 .setParameter(addressId)
+                .setParameter(lockingScriptId)
+        );
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM address_processor_queue WHERE locking_script_id = ?")
                 .setParameter(lockingScriptId)
         );
     }
@@ -509,6 +531,10 @@ public class TransactionOutputDatabaseManager {
                     .setParameter(lockingScriptId)
             );
         }
+
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM address_processor_queue WHERE locking_script_id IN (" + DatabaseUtil.createInClause(lockingScriptIds) + ")")
+        );
     }
 
     public LockingScript getLockingScript(final LockingScriptId lockingScriptId) throws DatabaseException {

@@ -16,6 +16,8 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -324,6 +326,8 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
+    protected static final MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null; // new MutableBloomFilter(500_000_000L, 0.001D);
+
     public List<TransactionId> storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         final Integer transactionCount = transactions.getSize();
 
@@ -339,29 +343,59 @@ public class TransactionDatabaseManager {
         final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
         final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
         {
-            final ImmutableListBuilder<Sha256Hash> transactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
-            for (final Transaction transaction : transactions) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                transactionHashesBuilder.add(transactionHash);
-                unseenTransactionMap.put(transactionHash, transaction);
-            }
-            transactionHashes = transactionHashesBuilder.build();
-            txHashMapTimer.stop();
+            if (EXISTING_TRANSACTIONS_FILTER != null) {
+                final MutableList<Sha256Hash> possiblySeenTransactionHashes = new MutableList<Sha256Hash>();
+                final ImmutableListBuilder<Sha256Hash> transactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
+                for (final Transaction transaction : transactions) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    transactionHashesBuilder.add(transactionHash);
 
-            selectTransactionHashesTimer.start();
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
-            );
-            selectTransactionHashesTimer.stop();
-            txHashMapTimer2.start();
-            for (final Row row : rows) {
-                final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    if (EXISTING_TRANSACTIONS_FILTER.containsItem(transactionHash)) {
+                        possiblySeenTransactionHashes.add(transactionHash);
+                    }
+                    else {
+                        EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
+                    }
+                    unseenTransactionMap.put(transactionHash, transaction);
+                }
+                transactionHashes = transactionHashesBuilder.build();
 
-                existingTransactions.put(transactionHash, transactionId);
-                unseenTransactionMap.remove(transactionHash);
+                final java.util.List<Row> rows = _databaseConnection.query(
+                    new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(possiblySeenTransactionHashes) + ")")
+                );
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                    existingTransactions.put(transactionHash, transactionId);
+                    unseenTransactionMap.remove(transactionHash);
+                }
             }
-            txHashMapTimer2.stop();
+            else {
+                final ImmutableListBuilder<Sha256Hash> transactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
+                for (final Transaction transaction : transactions) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    transactionHashesBuilder.add(transactionHash);
+                    unseenTransactionMap.put(transactionHash, transaction);
+                }
+                transactionHashes = transactionHashesBuilder.build();
+                txHashMapTimer.stop();
+
+                selectTransactionHashesTimer.start();
+                final java.util.List<Row> rows = _databaseConnection.query(
+                        new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
+                );
+                selectTransactionHashesTimer.stop();
+                txHashMapTimer2.start();
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                    existingTransactions.put(transactionHash, transactionId);
+                    unseenTransactionMap.remove(transactionHash);
+                }
+                txHashMapTimer2.stop();
+            }
         }
 
         storeTransactionRecordsTimer.start();

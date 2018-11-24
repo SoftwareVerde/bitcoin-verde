@@ -20,7 +20,7 @@ public interface BloomFilter extends Constable<ImmutableBloomFilter> {
     /**
      * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
      */
-    Float getFalsePositiveRate(Integer elementCount);
+    Float getFalsePositiveRate(Long elementCount);
     Float getFalsePositiveRate();
 
     @Override
@@ -51,24 +51,24 @@ class BloomFilterCore {
         return true;
     }
 
-    public static Float getFalsePositiveRate(final ByteArray bytes, final Integer hashFunctionCount, final Integer elementCount) {
-        final Integer bitCount = (bytes.getByteCount() * 8);
-        final Float exponent = ( (-1.0F * hashFunctionCount * elementCount) / bitCount );
-        return ( (float) Math.pow(1.0F - Math.pow(Math.E, exponent), hashFunctionCount) );
+    public static Float getFalsePositiveRate(final ByteArray bytes, final Integer hashFunctionCount, final Long elementCount) {
+        final Long bitCount = (bytes.getByteCount() * 8L);
+        final Double exponent = (-1.0D * hashFunctionCount * (elementCount / bitCount.doubleValue()) );
+        return ( (float) Math.pow(1.0D - Math.pow(Math.E, exponent), hashFunctionCount) );
     }
 
     public static Float getFalsePositiveRate(final ByteArray bytes, final Integer hashFunctionCount) {
         final Integer byteCount = bytes.getByteCount();
-        final Integer bitCount = (byteCount * 8);
-        int setBitCount = 0;
+        final Long bitCount = (byteCount * 8L);
+        long setBitCount = 0L;
         for (int i = 0; i < byteCount; ++i) {
             final byte b = bytes.getByte(i);
             setBitCount += Integer.bitCount(b & 0xFF);
         }
 
-        final Integer unsetBitCount = (bitCount - setBitCount);
-        final Float unsetBitCountRatio = (unsetBitCount.floatValue() / bitCount.floatValue());
-        return ( (float) Math.pow(1.0F - unsetBitCountRatio, hashFunctionCount) );
+        final Long unsetBitCount = (bitCount - setBitCount);
+        final Double unsetBitCountRatio = (unsetBitCount.doubleValue() / bitCount.doubleValue());
+        return ( (float) Math.pow(1.0D - unsetBitCountRatio, hashFunctionCount) );
     }
 
     public static boolean equals(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final Object object) {

@@ -42,7 +42,7 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
     }
 
     @Override
-    public Float getFalsePositiveRate(final Integer elementCount) {
+    public Float getFalsePositiveRate(final Long elementCount) {
         return BloomFilterCore.getFalsePositiveRate(_bytes, _hashFunctionCount, elementCount);
     }
 

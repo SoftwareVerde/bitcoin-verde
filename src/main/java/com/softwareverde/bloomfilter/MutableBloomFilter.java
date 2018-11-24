@@ -12,29 +12,29 @@ public class MutableBloomFilter implements BloomFilter {
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
 
-    protected static Integer _calculateByteCount(final Integer maxItemCount, final Double falsePositiveRate) {
-        final Integer byteCount = (int) ( (-1 / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8 );
+    protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
+        final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
         if (byteCount < 1) { return 1; }
 
         return byteCount;
     }
 
-    protected static Integer _calculateFunctionCount(final Integer byteCount, final Integer maxItemCount) {
-        return (int) ((byteCount * 8 * LN_2) / maxItemCount);
+    protected static Integer _calculateFunctionCount(final Integer byteCount, final Long maxItemCount) {
+        return (int) (byteCount / maxItemCount.doubleValue() * 8D * LN_2);
     }
 
     protected static Long _makeUnsignedInt(final Long nonce) {
         return (nonce & 0xFFFFFFFFL);
     }
 
-    public MutableBloomFilter(final Integer maxItemCount, final Double falsePositiveRate, final Long nonce) {
+    public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
         _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
         _nonce = _makeUnsignedInt(nonce);
     }
 
-    public MutableBloomFilter(final Integer maxItemCount, final Double falsePositiveRate) {
+    public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
         _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
@@ -89,7 +89,7 @@ public class MutableBloomFilter implements BloomFilter {
     /**
      * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
      */
-    public Float getFalsePositiveRate(final Integer elementCount) {
+    public Float getFalsePositiveRate(final Long elementCount) {
         return BloomFilterCore.getFalsePositiveRate(_bytes, _hashFunctionCount, elementCount);
     }
 

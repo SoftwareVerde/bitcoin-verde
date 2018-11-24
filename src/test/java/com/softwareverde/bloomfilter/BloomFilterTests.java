@@ -3,10 +3,13 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.timer.NanoTimer;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -16,7 +19,7 @@ public class BloomFilterTests {
     public void should_have_desired_false_positive_values_when_loaded_to_max_item_count() {
         // Setup
         final Double falsePositiveRate = 0.001D;
-        final Integer itemCount = 1024;
+        final Long itemCount = 1024L;
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, falsePositiveRate);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -41,7 +44,7 @@ public class BloomFilterTests {
     @Test
     public void should_calculate_false_positive_rate() {
         // Setup
-        final Integer itemCount = (1024 * 32);
+        final Long itemCount = (1024L * 32L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
 
         // Action
@@ -49,7 +52,7 @@ public class BloomFilterTests {
             final ByteArray item = MutableByteArray.wrap(ByteUtil.longToBytes(i));
             bloomFilter.addItem(item);
 
-            final Float expectedFalsePositiveRate = bloomFilter.getFalsePositiveRate(i);
+            final Float expectedFalsePositiveRate = bloomFilter.getFalsePositiveRate((long) i);
             final Float calculatedFalsePositiveRate = bloomFilter.getFalsePositiveRate();
 
             // Assert
@@ -62,7 +65,7 @@ public class BloomFilterTests {
     public void should_create_deserialize_to_the_same_filter_as_bitcoin_core() {
         // Setup
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
-        final MutableBloomFilter bloomFilter = new MutableBloomFilter(3, 0.01D, 0L);
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(3L, 0.01D, 0L);
 
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("99108AD8ED9BB6274D3980BAB5A85C048F0950C8")));
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B5A2C786D9EF4658287CED5914B37A1B4AA32EEE")));
@@ -82,7 +85,7 @@ public class BloomFilterTests {
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
-        final Integer itemCount = (32 * 1024 * 1024 / 256);
+        final Long itemCount = (32L * 1024L * 1024L / 256L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -104,7 +107,7 @@ public class BloomFilterTests {
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
 
-        final Integer itemCount = (32 * 1024 * 1024 / 256);
+        final Long itemCount = (32L * 1024L * 1024L / 256L);
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(itemCount, 0.01D, Long.MAX_VALUE);
 
         for (int i = 0; i < itemCount; ++i) {
@@ -148,5 +151,21 @@ public class BloomFilterTests {
 
             Assert.assertFalse(matchesObject);
         }
+    }
+
+    @Test
+    public void should_not_overflow_with_large_item_count() {
+        // Setup
+        final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(500_000_000L, 0.001D, 0L);
+
+        // Action
+        final Integer byteCount = mutableBloomFilter.getBytes().getByteCount();
+        final Integer hashFunctionCount = mutableBloomFilter.getHashFunctionCount();
+        final Float falsePositiveRate = mutableBloomFilter.getFalsePositiveRate(500_000_000L);
+
+        // Assert
+        Assert.assertEquals(898599222, byteCount.intValue());
+        Assert.assertEquals(9, hashFunctionCount.intValue());
+        Assert.assertEquals(0.001F, falsePositiveRate, 0.0001F);
     }
 }
