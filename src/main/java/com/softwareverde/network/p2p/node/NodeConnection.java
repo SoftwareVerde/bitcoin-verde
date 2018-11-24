@@ -3,6 +3,7 @@ package com.softwareverde.network.p2p.node;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
@@ -29,8 +30,10 @@ public class NodeConnection {
             if (_socketIsConnected()) { return; }
 
             if (_socketUsedToBeConnected) {
-                if (_onDisconnectCallback != null) {
-                    (new Thread(_onDisconnectCallback)).start();
+
+                final Runnable onDisconnectCallback = _onDisconnectCallback;
+                if (onDisconnectCallback != null) {
+                    _threadPool.execute(onDisconnectCallback);
                 }
                 _socketUsedToBeConnected = false;
 
@@ -114,6 +117,8 @@ public class NodeConnection {
     protected Runnable _onConnectCallback;
     protected Runnable _onConnectFailureCallback;
 
+    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+
     protected Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
     }
@@ -142,8 +147,9 @@ public class NodeConnection {
 
             _processOutboundMessageQueue();
 
-            if (_onConnectCallback != null) {
-                (new Thread(_onConnectCallback)).start();
+            final Runnable onConnectCallback = _onConnectCallback;
+            if (onConnectCallback != null) {
+                _threadPool.execute(onConnectCallback);
             }
         }
         else {
@@ -152,8 +158,9 @@ public class NodeConnection {
             }
             _processOutboundMessageQueue();
 
-            if (_onReconnectCallback != null) {
-                (new Thread(_onReconnectCallback)).start();
+            final Runnable onReconnectCallback = _onReconnectCallback;
+            if (onReconnectCallback != null) {
+                _threadPool.execute(onReconnectCallback);
             }
         }
 
@@ -272,6 +279,9 @@ public class NodeConnection {
         if (_binarySocket != null) {
             _binarySocket.close();
         }
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
     }
 
     public void queueMessage(final ProtocolMessage message) {
@@ -281,12 +291,12 @@ public class NodeConnection {
             }
         }
 
-        (new Thread(new Runnable() {
+        _threadPool.execute(new Runnable() {
             @Override
             public void run() {
                 _writeOrQueueMessage(message);
             }
-        })).start();
+        });
     }
 
     public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {
