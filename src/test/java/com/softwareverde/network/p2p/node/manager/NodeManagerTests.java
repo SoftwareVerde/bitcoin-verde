@@ -178,7 +178,7 @@ public class NodeManagerTests {
     public void after() {
         // TODO: There are still threads lingering after these tests... this effectively kills them, but ideally this shouldn't be necessary as they should all have been cleaned up.
         // NodeManager._threadExecutor.waitUntilIdle();
-        NodeManager._threadExecutor.abortAll();
+        NodeManager._threadPool.abortAll();
     }
 
     @Test

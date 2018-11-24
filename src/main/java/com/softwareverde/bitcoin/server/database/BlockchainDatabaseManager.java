@@ -20,21 +20,21 @@ public class BlockchainDatabaseManager {
     protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final BlockId priorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
-        if (priorBlockId == null) {
+        final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(blockId, 1);
+        if (parentBlockId == null) {
             final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
             if (! Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, blockHash)) { throw new DatabaseException("Invalid GenesisBlock hash: " + blockHash); }
             // Create the Genesis BlockchainSegment...
             return _createNewBlockchainSegment(null);
         }
 
-        final BlockchainSegmentId priorBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(priorBlockId);
-        if (priorBlockSegmentId == null) { return null; }
+        final BlockchainSegmentId parentBlockSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(parentBlockId);
+        if (parentBlockSegmentId == null) { return null; }
 
-        final Boolean hasChildren = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(priorBlockId) > 1);
-        if (! hasChildren) {
+        final Boolean blockIsOnlyChild = (blockHeaderDatabaseManager.getBlockDirectDescendantCount(parentBlockId) <= 1);
+        if (blockIsOnlyChild) {
             // The blockchainSegment has no children, so it safe to create on the same segment...
-            return priorBlockSegmentId;
+            return parentBlockSegmentId;
         }
 
         // Eg: Inserting new contentious block, C', whose parent is B...
@@ -52,37 +52,47 @@ public class BlockchainDatabaseManager {
         //      E         E'           |         |
         //                             E         E'
 
-        final Boolean hasSiblingOnBlockchainSegment;
+        final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        final Long parentBlockchainSegmentMaxBlockHeight;
         {
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id FROM blocks WHERE previous_block_id = ? AND blockchain_segment_id = ?")
-                    .setParameter(priorBlockId)
-                    .setParameter(priorBlockSegmentId)
+                new Query("SELECT MAX(block_height) AS max_height FROM blocks WHERE blockchain_segment_id = ?")
+                    .setParameter(parentBlockSegmentId)
             );
-            hasSiblingOnBlockchainSegment = (rows.size() > 0);
+            if (rows.isEmpty()) { return null; }
+
+            final Row row = rows.get(0);
+            parentBlockchainSegmentMaxBlockHeight = row.getLong("max_height");
         }
 
-        if (hasSiblingOnBlockchainSegment) {
-            // The contentious block is splitting an existing blockchainSegment, therefore make a new segment and update the existing segments...
-            _moveChildrenToNewBlockchainSegment(priorBlockSegmentId, priorBlockId);
+        if (blockHeight <= parentBlockchainSegmentMaxBlockHeight) {
+            _splitBlockchainSegment(parentBlockSegmentId, blockHeight);
         }
 
-        return _createNewBlockchainSegment(priorBlockSegmentId);
+        return _createNewBlockchainSegment(parentBlockSegmentId);
     }
 
-    protected void _moveChildrenToNewBlockchainSegment(final BlockchainSegmentId startingBlockchainSegmentId, final BlockId blockId) throws DatabaseException {
-        final BlockchainSegmentId newBlockchainSegmentId = _createNewBlockchainSegment(startingBlockchainSegmentId);
+    protected BlockchainSegmentId _splitBlockchainSegment(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) throws DatabaseException {
+        // (A)          -> (A) - (B)
+        // (A) - (C)    -> (A) - (B) - (C)
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final Long contentiousBlockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+        final BlockchainSegmentId newBlockchainSegmentId = _createNewBlockchainSegment(blockchainSegmentId);
 
-        // Move the blocks after the contentious block height to the new segment...
         _databaseConnection.executeSql(
-            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE blockchain_segment_id = ? AND block_height > ?")
+            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE blockchain_segment_id = ? AND block_height >= ?")
                 .setParameter(newBlockchainSegmentId)
-                .setParameter(startingBlockchainSegmentId)
-                .setParameter(contentiousBlockHeight)
+                .setParameter(blockchainSegmentId)
+                .setParameter(blockHeight)
         );
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE blockchain_segments SET parent_blockchain_segment_id = ? WHERE parent_blockchain_segment_id = ? AND id != ?")
+                .setParameter(newBlockchainSegmentId)
+                .setParameter(blockchainSegmentId)
+                .setParameter(newBlockchainSegmentId)
+        );
+
+        return newBlockchainSegmentId;
     }
 
     protected BlockchainSegmentId _createNewBlockchainSegment(final BlockchainSegmentId parentBlockchainSegmentId) throws DatabaseException {
@@ -90,15 +100,13 @@ public class BlockchainDatabaseManager {
             final java.util.List<Row> rows = _databaseConnection.query(
                 new Query("SELECT id FROM blockchain_segments WHERE parent_blockchain_segment_id IS NULL")
             );
-            if (! rows.isEmpty()) {  throw new DatabaseException("Application constraint failed: Only one root BlockchainSegment may exist."); }
+            if (! rows.isEmpty()) {  throw new DatabaseException("Attempted to create more than one root BlockchainSegment."); }
         }
 
         final Long blockchainSegmentId = _databaseConnection.executeSql(
             new Query("INSERT INTO blockchain_segments (parent_blockchain_segment_id) VALUES (?)")
                 .setParameter(parentBlockchainSegmentId)
         );
-
-        _renumberBlockchainSegments();
 
         return BlockchainSegmentId.wrap(blockchainSegmentId);
     }
@@ -207,7 +215,14 @@ public class BlockchainDatabaseManager {
         if (existingBlockchainSegmentId != null) { return; }
 
         final BlockchainSegmentId blockchainSegmentId = _calculateBlockchainSegment(blockId);
+        if (blockchainSegmentId == null) {
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            throw new DatabaseException("Unable to update BlockchainSegment for Block: " + blockHash);
+        }
+
         blockHeaderDatabaseManager.setBlockchainSegmentId(blockId, blockchainSegmentId);
+
+        _renumberBlockchainSegments();
     }
 
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {

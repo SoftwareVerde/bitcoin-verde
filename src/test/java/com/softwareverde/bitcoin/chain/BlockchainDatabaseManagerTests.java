@@ -3,10 +3,13 @@ package com.softwareverde.bitcoin.chain;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.*;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockRelationship;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -64,6 +67,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+        _nonce = 0L;
     }
 
     @Test
@@ -883,6 +887,125 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
         // Chain 5
         Assert.assertEquals(5L, blockHeaderDatabaseManager.getBlockchainSegmentId(block1DoublePrimeId).longValue());
+    }
+
+    protected Long _nonce = 0L;
+    protected Sha256Hash _insertBlock(final Sha256Hash parentBlockHash) throws Exception {
+        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+
+            final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader(genesisBlock);
+            mutableBlockHeader.setNonce(_nonce++);
+            mutableBlockHeader.setPreviousBlockHash(parentBlockHash);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaderDatabaseManager.insertBlockHeader(mutableBlockHeader);
+            }
+
+            return mutableBlockHeader.getHash();
+        }
+    }
+
+    protected void _assertBlockchainSegments(final Long expectedBlockchainSegmentId, final Sha256Hash[] blockHashes) throws Exception {
+        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            for (final Sha256Hash blockHash : blockHashes) {
+                final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
+                Assert.assertEquals(BlockchainSegmentId.wrap(expectedBlockchainSegmentId), blockchainSegmentId);
+            }
+        }
+    }
+
+    protected void _assertIsParent(final Sha256Hash parentHash, final Sha256Hash childHash) throws Exception {
+        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            final BlockId childId = blockHeaderDatabaseManager.getBlockHeaderId(childHash);
+            final BlockId parentId = blockHeaderDatabaseManager.getBlockHeaderId(parentHash);
+            final BlockchainSegmentId childSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(childId);
+            final BlockchainSegmentId parentSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(parentId);
+
+            final Long childBlockHeight = blockHeaderDatabaseManager.getBlockHeight(childId);
+            final Long parentBlockHeight = blockHeaderDatabaseManager.getBlockHeight(parentId);
+
+            Assert.assertTrue(parentBlockHeight < childBlockHeight);
+            Assert.assertTrue(blockchainDatabaseManager.areBlockchainSegmentsConnected(parentSegmentId, childSegmentId, BlockRelationship.ANCESTOR));
+        }
+    }
+
+    @Test
+    public void should_handle_chain_restructure() throws Exception {
+        // Setup
+
+        /*
+
+
+                   [4]       [4']                           [4]       [4']
+                    |         |                              |         |
+                    +----+----+                              +----+----+
+                         |                                        |
+                  [3']  [3]                                [3']  [3]
+                   |     |                                  |     |
+                   +----[2]                                 +----[2]   [2']
+                         |                                        |     |
+                        [1]                                      [1]----+
+                         |                                        |
+                        [0]                                      [0]
+                         |                                        |
+                                             ->
+
+         */
+
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockDatabaseManager.insertBlock(genesisBlock);
+        }
+
+        final Sha256Hash blockHash0 = genesisBlock.getHash();
+        final Sha256Hash blockHash1 = _insertBlock(blockHash0);
+        final Sha256Hash blockHash2 = _insertBlock(blockHash1);
+        final Sha256Hash blockHash3 = _insertBlock(blockHash2);
+        final Sha256Hash blockHash4 = _insertBlock(blockHash3);
+
+        _assertBlockchainSegments(1L, new Sha256Hash[] { blockHash0, blockHash1, blockHash2, blockHash3, blockHash4 });
+
+        final Sha256Hash blockHash3p = _insertBlock(blockHash2);
+
+        _assertIsParent(blockHash0, blockHash1);
+        _assertIsParent(blockHash1, blockHash2);
+        _assertIsParent(blockHash2, blockHash3);
+        _assertIsParent(blockHash3, blockHash4);
+        _assertIsParent(blockHash2, blockHash3p);
+
+        final Sha256Hash blockHash4p = _insertBlock(blockHash3);
+
+        _assertIsParent(blockHash0, blockHash1);
+        _assertIsParent(blockHash1, blockHash2);
+        _assertIsParent(blockHash2, blockHash3);
+        _assertIsParent(blockHash2, blockHash3p);
+        _assertIsParent(blockHash3, blockHash4);
+        _assertIsParent(blockHash3, blockHash4p);
+
+        final Sha256Hash blockHash2p = _insertBlock(blockHash1);
+
+        _assertIsParent(blockHash0, blockHash1);
+        _assertIsParent(blockHash1, blockHash2p);
+        _assertIsParent(blockHash2, blockHash3);
+        _assertIsParent(blockHash2, blockHash3p);
+        _assertIsParent(blockHash3, blockHash4);
+        _assertIsParent(blockHash3, blockHash4p);
     }
 }
 
