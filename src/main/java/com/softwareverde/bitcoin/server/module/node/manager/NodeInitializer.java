@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;

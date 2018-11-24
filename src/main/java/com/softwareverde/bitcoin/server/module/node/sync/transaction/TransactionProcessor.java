@@ -7,9 +7,9 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.module.node.BitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -128,7 +128,10 @@ public class TransactionProcessor extends SleepyService {
 
                     if (! transactionIsValid) {
                         TransactionUtil.rollbackTransaction(databaseConnection);
+
+                        TransactionUtil.startTransaction(databaseConnection);
                         pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
+                        TransactionUtil.commitTransaction(databaseConnection);
 
                         invalidTransactionCount += 1;
                         Logger.log("Invalid MemoryPool Transaction: " + transactionHash);
@@ -138,7 +141,7 @@ public class TransactionProcessor extends SleepyService {
                     transactionDatabaseManager.addToUnconfirmedTransaction(transactionId);
                     TransactionUtil.commitTransaction(databaseConnection);
 
-                    final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, BitcoinNodeDatabaseManager.FilterType.KEEP_NODES_WITHOUT_INVENTORY);
+                    final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
                     for (final NodeId nodeId : nodesWithoutTransaction) {
                         if (! nodeUnseenTransactionHashes.containsKey(nodeId)) {
                             nodeUnseenTransactionHashes.put(nodeId, new MutableList<Sha256Hash>());
@@ -148,7 +151,9 @@ public class TransactionProcessor extends SleepyService {
                         transactionHashes.add(transactionHash);
                     }
 
+                    TransactionUtil.startTransaction(databaseConnection);
                     pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
+                    TransactionUtil.commitTransaction(databaseConnection);
                 }
                 storeTransactionsTimer.stop();
 

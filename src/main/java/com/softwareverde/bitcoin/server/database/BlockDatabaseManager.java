@@ -211,10 +211,22 @@ public class BlockDatabaseManager {
 
     public Boolean hasTransactions(final BlockId blockId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM block_transactions WHERE block_id = ? GROUP BY block_id")
+            new Query("SELECT id FROM block_transactions WHERE block_id = ? LIMIT 1")
                 .setParameter(blockId)
         );
         return (! rows.isEmpty());
+    }
+
+    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Integer transactionCount = row.getInteger("transaction_count");
+        return transactionCount;
     }
 
     public void repairBlock(final Block block) throws DatabaseException {

@@ -11,22 +11,30 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Util;
+
+import java.util.HashMap;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
@@ -103,6 +111,33 @@ public class BlockchainBuilder extends SleepyService {
         return (blockId != null);
     }
 
+    protected void _broadcastBlock(final PendingBlock pendingBlock, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+
+        final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
+        final List<NodeId> connectedNodeIds;
+        {
+            final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
+            final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(connectedNodes.getSize());
+            for (final BitcoinNode bitcoinNode : connectedNodes) {
+                final NodeId nodeId = bitcoinNode.getId();
+                nodeIdsBuilder.add(nodeId);
+                bitcoinNodeMap.put(nodeId, bitcoinNode);
+            }
+            connectedNodeIds = nodeIdsBuilder.build();
+        }
+
+        final Sha256Hash blockHash = pendingBlock.getBlockHash();
+
+        final List<NodeId> nodeIdsWithoutBlocks = nodeDatabaseManager.filterNodesViaBlockInventory(connectedNodeIds, blockHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
+        for (final NodeId nodeId : nodeIdsWithoutBlocks) {
+            final BitcoinNode bitcoinNode = bitcoinNodeMap.get(nodeId);
+            if (bitcoinNode == null) { continue; }
+
+            _bitcoinNodeManager.transmitBlockHash(bitcoinNode, blockHash);
+        }
+    }
+
     @Override
     protected void _onStart() { }
 
@@ -155,6 +190,7 @@ public class BlockchainBuilder extends SleepyService {
                     break;
                 }
 
+                // Process the first available candidate block...
                 final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
                 final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
                 if (! processCandidateBlockWasSuccessful) {
@@ -162,8 +198,13 @@ public class BlockchainBuilder extends SleepyService {
                     continue;
                 }
 
-                pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
+                _broadcastBlock(candidatePendingBlock, databaseConnection);
 
+                TransactionUtil.startTransaction(databaseConnection);
+                pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
+                TransactionUtil.commitTransaction(databaseConnection);
+
+                // Process the any viable descendant blocks of the candidate block...
                 PendingBlock previousPendingBlock = candidatePendingBlock;
                 while (! thread.isInterrupted()) {
                     final List<PendingBlockId> pendingBlockIds = pendingBlockDatabaseManager.getPendingBlockIdsWithPreviousBlockHash(previousPendingBlock.getBlockHash());
@@ -178,7 +219,11 @@ public class BlockchainBuilder extends SleepyService {
                             break;
                         }
 
+                        _broadcastBlock(pendingBlock, databaseConnection);
+
+                        TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
+                        TransactionUtil.commitTransaction(databaseConnection);
 
                         previousPendingBlock = pendingBlock;
                     }

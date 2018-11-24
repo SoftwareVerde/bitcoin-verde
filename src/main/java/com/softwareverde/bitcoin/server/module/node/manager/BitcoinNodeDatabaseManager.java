@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -232,14 +232,37 @@ public class BitcoinNodeDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    public enum FilterType {
-        KEEP_NODES_WITH_INVENTORY, KEEP_NODES_WITHOUT_INVENTORY
-    }
-
     public List<NodeId> filterNodesViaTransactionInventory(final List<NodeId> nodeIds, final Sha256Hash transactionHash, final FilterType filterType) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT node_transactions_inventory.node_id FROM node_transactions_inventory INNER JOIN pending_transactions ON pending_transactions.id = node_transactions_inventory.pending_transaction_id WHERE pending_transactions.hash = ? AND node_transactions_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
                 .setParameter(transactionHash)
+        );
+
+        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+            for (final NodeId nodeId : nodeIds) {
+                filteredNodes.add(nodeId);
+            }
+        }
+
+        for (final Row row : rows) {
+            final NodeId nodeWithTransaction = NodeId.wrap(row.getLong("node_id"));
+
+            if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
+                filteredNodes.remove(nodeWithTransaction);
+            }
+            else {
+                filteredNodes.add(nodeWithTransaction);
+            }
+        }
+
+        return new ImmutableList<NodeId>(filteredNodes);
+    }
+
+    public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
+                .setParameter(blockHash)
         );
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
