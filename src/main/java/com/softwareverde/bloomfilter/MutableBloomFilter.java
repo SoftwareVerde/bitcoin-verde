@@ -19,8 +19,8 @@ public class MutableBloomFilter implements BloomFilter {
         return byteCount;
     }
 
-    protected static Integer _calculateFunctionCount(final Integer byteCount, final Long maxItemCount) {
-        return (int) (byteCount / maxItemCount.doubleValue() * 8D * LN_2);
+    public static Integer calculateFunctionCount(final Integer byteCount, final Long maxItemCount) {
+        return (int) ((byteCount / maxItemCount.doubleValue()) * 8D * LN_2);
     }
 
     protected static Long _makeUnsignedInt(final Long nonce) {
@@ -30,14 +30,14 @@ public class MutableBloomFilter implements BloomFilter {
     public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
+        _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
         _nonce = _makeUnsignedInt(nonce);
     }
 
     public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
-        _hashFunctionCount = _calculateFunctionCount(byteCount, maxItemCount);
+        _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
 
         // NOTE: Making large nonces may cause the murmurHash initialization vector to overflow in a way inconsistent with the other clients...
         //  It's unconfirmed (either way) for whether MurmurHash and Bitcoin's MurmurHash handle the overflow the same.
@@ -84,6 +84,10 @@ public class MutableBloomFilter implements BloomFilter {
         for (int i = 0; i < _bytes.getByteCount(); ++i) {
             _bytes.set(i, (byte) 0x00);
         }
+    }
+
+    public MutableByteArray unwrap() {
+        return _bytes;
     }
 
     /**

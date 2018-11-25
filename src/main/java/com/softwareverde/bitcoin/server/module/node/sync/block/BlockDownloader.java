@@ -1,6 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.sync.block;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
@@ -16,7 +20,9 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +36,7 @@ public class BlockDownloader extends SleepyService {
 
     protected final Object _downloadCallbackPin = new Object();
 
+    protected final SystemTime _systemTime = new SystemTime();
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
@@ -37,6 +44,9 @@ public class BlockDownloader extends SleepyService {
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
 
     protected Runnable _newBlockAvailableCallback = null;
+
+    protected Boolean _hasGenesisBlock = false;
+    protected Long _lastGenesisDownloadTimestamp = null;
 
     protected void _onBlockDownloaded(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
@@ -93,6 +103,24 @@ public class BlockDownloader extends SleepyService {
         }
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            if (! _hasGenesisBlock) { // Since nodes do not advertise inventory of the genesis block, specifically add it if it is required...
+                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
+                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
+                final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
+                if ( (genesisBlockId == null) || (! blockDatabaseManager.hasTransactions(genesisBlockId)) ) {
+                    final Long now =_systemTime.getCurrentTimeInSeconds();
+                    final Long secondsSinceLastDownloadAttempt = (now - Util.coalesce(_lastGenesisDownloadTimestamp));
+
+                    if (secondsSinceLastDownloadAttempt > 30) {
+                        _lastGenesisDownloadTimestamp = _systemTime.getCurrentTimeInSeconds();
+                        _bitcoinNodeManager.requestBlock(BlockHeader.GENESIS_BLOCK_HASH, _blockDownloadedCallback);
+                    }
+                }
+                else {
+                    _hasGenesisBlock = true;
+                }
+            }
+
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
