@@ -139,6 +139,8 @@ public class BlockDownloader extends SleepyService {
             }
 
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            pendingBlockDatabaseManager.cleanupPendingBlocks();
+
             final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
             if (downloadPlan.isEmpty()) { return false; }
 
