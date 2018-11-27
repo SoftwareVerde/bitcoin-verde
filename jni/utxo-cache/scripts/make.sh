@@ -20,6 +20,10 @@ if [ "${machine}" == "Linux" ]; then
 elif [ "${machine}" == "Mac" ]; then
     g++ -O3 -funroll-loops -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" -dynamiclib -o utxocache.dylib com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.cpp
 else
-    x86_64-w64-mingw32-g++ -O3 -funroll-loops -I"%JAVA_HOME%\include" -I"%JAVA_HOME%\include\win32" -shared -o utxocache.dll com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.cpp
+    # http://releases.llvm.org/download.html
+    cl='clang++'
+    "${cl}" -Xclang -flto-visibility-public-std -O3 -funroll-loops -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -c -o com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.o com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.cpp
+    "${cl}" -shared -o utxocache.dll com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.o
+    rm utxocache.lib utxocache.exp com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache.o
 fi
 
