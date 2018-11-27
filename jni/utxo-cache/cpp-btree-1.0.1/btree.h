@@ -100,6 +100,11 @@
 #ifndef UTIL_BTREE_BTREE_H__
 #define UTIL_BTREE_BTREE_H__
 
+#if defined(_MSC_VER)
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+#endif
+
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
