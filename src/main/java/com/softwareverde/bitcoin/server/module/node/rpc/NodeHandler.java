@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
-import com.softwareverde.bitcoin.server.module.node.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
-import com.softwareverde.bitcoin.server.module.node.NodeInitializer;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 

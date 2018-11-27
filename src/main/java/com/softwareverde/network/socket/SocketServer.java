@@ -1,6 +1,7 @@
 package com.softwareverde.network.socket;
 
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 
 import java.io.IOException;
 
@@ -58,6 +59,8 @@ public class SocketServer<T extends Socket> {
     protected volatile Boolean _shouldContinue = true;
     protected Thread _serverThread = null;
 
+    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+
     protected SocketConnectedCallback<T> _socketConnectedCallback = null;
     protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
 
@@ -87,27 +90,25 @@ public class SocketServer<T extends Socket> {
 
     protected void _onConnect(final T socketConnection) {
         final SocketConnectedCallback<T> socketConnectedCallback = _socketConnectedCallback;
-
         if (socketConnectedCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     socketConnectedCallback.run(socketConnection);
                 }
-            })).start();
+            });
         }
     }
 
     protected void _onDisconnect(final T socketConnection) {
         final SocketDisconnectedCallback<T> socketDisconnectedCallback = _socketDisconnectedCallback;
-
         if (socketDisconnectedCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     socketDisconnectedCallback.run(socketConnection);
                 }
-            })).start();
+            });
         }
     }
 
@@ -156,5 +157,8 @@ public class SocketServer<T extends Socket> {
             }
         }
         catch (final Exception exception) { }
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
     }
 }

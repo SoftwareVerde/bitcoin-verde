@@ -442,4 +442,23 @@ public class PendingBlockDatabaseManager {
             WRITE_LOCK.unlock();
         }
     }
+
+    /**
+     * Deletes any pending blocks that have been completely processed.
+     *  This can happen (rarely) due to a race condition between the InventoryHandler and the BlockchainBuilder...
+     *  Since duplicates are fairly innocuous, it is better to run a cleanup than to introduce contention between the two components.
+     */
+    public void cleanupPendingBlocks() throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            _databaseConnection.executeSql(
+                new Query("DELETE FROM pending_blocks WHERE EXISTS (SELECT * FROM blocks INNER JOIN block_transactions ON blocks.id = block_transactions.block_id WHERE pending_blocks.hash = blocks.hash)")
+            );
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
 }

@@ -182,6 +182,14 @@ CREATE TABLE unlocking_scripts (
     FOREIGN KEY unlocking_scripts_input_id_fk (transaction_input_id) REFERENCES transaction_inputs (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
+CREATE TABLE address_processor_queue (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    locking_script_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY address_processor_queue_uq (locking_script_id),
+    FOREIGN KEY address_processor_queue_fk (locking_script_id) REFERENCES locking_scripts (id)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE hosts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     host VARCHAR(255) NOT NULL,

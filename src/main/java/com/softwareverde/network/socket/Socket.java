@@ -3,6 +3,7 @@ package com.softwareverde.network.socket;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,6 +41,8 @@ public abstract class Socket {
     protected final OutputStream _rawOutputStream;
     protected final InputStream _rawInputStream;
 
+    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+
     protected String _getHost() {
         final InetAddress inetAddress = _socket.getInetAddress();
         return inetAddress.getHostName();
@@ -56,9 +59,8 @@ public abstract class Socket {
      */
     protected void _onMessageReceived(final ProtocolMessage message) {
         final Runnable messageReceivedCallback = _messageReceivedCallback;
-
         if (messageReceivedCallback != null) {
-            (new Thread(messageReceivedCallback)).start();
+            _threadPool.execute(messageReceivedCallback);
         }
     }
 
@@ -105,6 +107,9 @@ public abstract class Socket {
         if (! wasClosed) {
             _onSocketClosed();
         }
+
+        _threadPool.abortAll();
+        _threadPool.waitUntilIdle();
     }
 
     protected Socket(final java.net.Socket socket, final ReadThread readThread) {

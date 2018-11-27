@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 
 import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -125,7 +126,7 @@ public class ScriptRunner {
 
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
-        if (HF20181115.isEnabled(context.getBlockHeight())) {
+        if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) { return false; } // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
         }

@@ -8,6 +8,7 @@ import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
+import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.RotatingQueue;
@@ -81,6 +82,8 @@ public abstract class Node {
     protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
     protected final LinkedList<Runnable> _postConnectQueue = new LinkedList<Runnable>();
+
+    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -156,7 +159,7 @@ public abstract class Node {
         }
 
         if (_nodeConnectedCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     final NodeConnectedCallback callback = _nodeConnectedCallback;
@@ -164,7 +167,7 @@ public abstract class Node {
                         callback.onNodeConnected();
                     }
                 }
-            })).start();
+            });
         }
     }
 
@@ -172,7 +175,7 @@ public abstract class Node {
         Logger.log("Socket disconnected.");
 
         if (_nodeDisconnectedCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     final NodeDisconnectedCallback callback = _nodeDisconnectedCallback;
@@ -180,7 +183,7 @@ public abstract class Node {
                         callback.onNodeDisconnected();
                     }
                 }
-            })).start();
+            });
         }
     }
 
@@ -233,7 +236,7 @@ public abstract class Node {
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
         if (_nodeHandshakeCompleteCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
@@ -241,7 +244,7 @@ public abstract class Node {
                         callback.onHandshakeComplete();
                     }
                 }
-            })).start();
+            });
         }
 
         while (! _postHandshakeMessageQueue.isEmpty()) {
@@ -252,7 +255,7 @@ public abstract class Node {
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
         for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
             if (_nodeAddressesReceivedCallback != null) {
-                (new Thread(new Runnable() {
+                _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
                         final NodeAddressesReceivedCallback callback = _nodeAddressesReceivedCallback;
@@ -260,7 +263,7 @@ public abstract class Node {
                             callback.onNewNodeAddress(nodeIpAddress);
                         }
                     }
-                })).start();
+                });
             }
         }
     }

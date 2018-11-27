@@ -942,8 +942,6 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void should_handle_chain_restructure() throws Exception {
-        // Setup
-
         /*
 
 
@@ -1006,6 +1004,100 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         _assertIsParent(blockHash2, blockHash3p);
         _assertIsParent(blockHash3, blockHash4);
         _assertIsParent(blockHash3, blockHash4p);
+    }
+
+    @Test
+    public void should_handle_chain_restructure2() throws Exception {
+        /*
+
+
+
+
+
+                                                      [7']  [7]
+                                                       |     |
+                   [6]                                [6']  [6]       [6'']
+                    |                                  |     |         |
+                   [5]       [5']                      +----[5]       [5']
+                    |         |                              |         |
+                   [4]       [4']                           [4]       [4']
+                    |         |                              |         |
+                    +----+----+                              +----+----+
+                         |                                        |
+                  [3']  [3]                                [3']  [3]
+                   |     |                                  |     |
+                   +----[2]   [2']                          +----[2]   [2']
+                         |     |                                  |     |
+                        [1]----+                                 [1]----+
+                         |                                        |
+                        [0]                                      [0]
+                         |                                        |
+                                             ->
+
+         */
+
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+
+        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            blockDatabaseManager.insertBlock(genesisBlock);
+        }
+
+        final Sha256Hash blockHash0 = genesisBlock.getHash();
+        final Sha256Hash blockHash1 = _insertBlock(blockHash0);
+        final Sha256Hash blockHash2 = _insertBlock(blockHash1);
+        final Sha256Hash blockHash3 = _insertBlock(blockHash2);
+        final Sha256Hash blockHash4 = _insertBlock(blockHash3);
+        final Sha256Hash blockHash5 = _insertBlock(blockHash4);
+
+        final Sha256Hash blockHash3p = _insertBlock(blockHash2);
+        final Sha256Hash blockHash4p = _insertBlock(blockHash3);
+        final Sha256Hash blockHash5p = _insertBlock(blockHash4p);
+        final Sha256Hash blockHash2p = _insertBlock(blockHash1);
+
+        final Sha256Hash blockHash6 = _insertBlock(blockHash5);
+
+        _assertIsParent(blockHash0, blockHash1);
+        _assertIsParent(blockHash1, blockHash2);
+        _assertIsParent(blockHash2, blockHash3);
+        _assertIsParent(blockHash2, blockHash3p);
+        _assertIsParent(blockHash3, blockHash4);
+        _assertIsParent(blockHash3, blockHash4p);
+        _assertIsParent(blockHash4, blockHash5);
+        _assertIsParent(blockHash4p, blockHash5p);
+        _assertIsParent(blockHash1, blockHash2p);
+
+        final Sha256Hash blockHash7 = _insertBlock(blockHash6);
+        final Sha256Hash blockHash6p = _insertBlock(blockHash5);
+        final Sha256Hash blockHash7p = _insertBlock(blockHash6p);
+        final Sha256Hash blockHash6pp = _insertBlock(blockHash5p);
+
+        _assertIsParent(blockHash0, blockHash1);
+        _assertIsParent(blockHash1, blockHash2);
+        _assertIsParent(blockHash2, blockHash3);
+        _assertIsParent(blockHash2, blockHash3p);
+        _assertIsParent(blockHash3, blockHash4);
+        _assertIsParent(blockHash3, blockHash4p);
+        _assertIsParent(blockHash4, blockHash5);
+        _assertIsParent(blockHash4p, blockHash5p);
+        _assertIsParent(blockHash1, blockHash2p);
+        _assertIsParent(blockHash5, blockHash6);
+        _assertIsParent(blockHash6, blockHash7);
+        _assertIsParent(blockHash5, blockHash6p);
+        _assertIsParent(blockHash6p, blockHash7p);
+        _assertIsParent(blockHash5p, blockHash6pp);
+
+        // // NOTE: All BlockchainSegments start_height should be greater than its parents end_height...
+        //        final java.util.List<Row> rows = databaseConnection.query(new Query("select blockchain_segment_id as id, COALESCE(parent_blockchain_segment_id, 0) as parent_id, count(*) as block_count, min(block_height) as start_height, max(block_height) as end_height from blocks inner join blockchain_segments on blockchain_segments.id = blocks.blockchain_segment_id group by blocks.blockchain_segment_id"));
+        //        for (final Row row : rows) {
+        //            for (final String key : row.getColumnNames()) {
+        //                System.out.print(key + ": " + row.getString(key) + " ");
+        //            }
+        //            System.out.println();
+        //        }
     }
 }
 

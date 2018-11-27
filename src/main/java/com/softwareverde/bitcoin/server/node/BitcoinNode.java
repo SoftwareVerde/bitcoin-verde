@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.node;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
@@ -169,8 +170,6 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
-
-    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
@@ -744,7 +743,7 @@ public class BitcoinNode extends Node {
         _requestTransactions(transactionHashes);
     }
 
-    public void broadcastTransactionHashes(final List<Sha256Hash> transactionHashes) {
+    public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
         final InventoryMessage inventoryMessage = new InventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
             final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
@@ -752,6 +751,31 @@ public class BitcoinNode extends Node {
         }
 
         _queueMessage(inventoryMessage);
+    }
+
+    public void transmitBlockHashes(final List<Sha256Hash> blockHashes) {
+        final InventoryMessage inventoryMessage = new InventoryMessage();
+        for (final Sha256Hash blockHash : blockHashes) {
+            final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, blockHash);
+            inventoryMessage.addInventoryItem(inventoryItem);
+        }
+
+        _queueMessage(inventoryMessage);
+    }
+
+    public void transmitBlockHeader(final BlockHeader blockHeader, final Integer transactionCount) {
+        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+
+        final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
+        blockHeadersMessage.addBlockHeader(blockHeaderWithTransactionCount);
+
+        _queueMessage(blockHeadersMessage);
+    }
+
+    public void transmitBlockHeader(final BlockHeaderWithTransactionCount blockHeader) {
+        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+        blockHeadersMessage.addBlockHeader(blockHeader);
+        _queueMessage(blockHeadersMessage);
     }
 
     public void setSynchronizationStatusHandler(final SynchronizationStatus synchronizationStatus) {

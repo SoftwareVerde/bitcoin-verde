@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.handler;
+package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;

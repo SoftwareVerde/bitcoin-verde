@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
@@ -15,6 +16,8 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.CacheWarmer;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
+import com.softwareverde.bitcoin.server.module.node.manager.BanFilter;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
@@ -23,6 +26,8 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHead
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
@@ -79,6 +84,8 @@ public class NodeModule {
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
+
+    protected final String _transactionBloomFilterFilename;
 
     protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
 
@@ -380,6 +387,8 @@ public class NodeModule {
         else {
             _jsonRpcSocketServer = null;
         }
+
+        _transactionBloomFilterFilename = (databaseProperties.getDataDirectory() + "/transaction-bloom-filter.dat");
     }
 
     public void loop() {
@@ -391,6 +400,17 @@ public class NodeModule {
         }
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+
+        if (serverProperties.shouldUseTransactionBloomFilter()) {
+            Logger.log("[Loading Tx Bloom Filter]");
+            final EmbeddedMysqlDatabase database = _environment.getDatabase();
+            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                TransactionDatabaseManager.initializeBloomFilter(_transactionBloomFilterFilename, databaseConnection);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+            }
+        }
 
         if (! serverProperties.skipNetworking()) {
             Logger.log("[Starting Node Manager]");
@@ -482,6 +502,11 @@ public class NodeModule {
 
         Logger.log("[Stopping Socket Server]");
         _socketServer.stop();
+
+        if (serverProperties.shouldUseTransactionBloomFilter()) {
+            Logger.log("[Saving Tx Bloom Filter]");
+            TransactionDatabaseManager.saveBloomFilter(_transactionBloomFilterFilename);
+        }
 
         Logger.log("[Shutting Down Database]");
         _banFilter.close();

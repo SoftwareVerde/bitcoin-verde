@@ -1,17 +1,20 @@
-package com.softwareverde.bitcoin.server.module.node;
+package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
-import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
+import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
+import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -24,7 +27,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
@@ -54,6 +56,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
+
+    // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
+    protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
 
     @Override
     protected void _initNode(final BitcoinNode node) {
@@ -432,7 +437,47 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void transmitTransactionHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
-        bitcoinNode.broadcastTransactionHashes(transactionHashes);
+        bitcoinNode.transmitTransactionHashes(transactionHashes);
+    }
+
+    public void transmitBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+        bitcoinNode.transmitBlockHashes(blockHashes);
+    }
+
+    public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {
+        if (bitcoinNode.newBlocksViaHeadersIsEnabled()) {
+            final BlockHeaderWithTransactionCount cachedBlockHeader = _cachedTransmittedBlockHeader;
+            if ( (cachedBlockHeader != null) && (Util.areEqual(blockHash, cachedBlockHeader.getHash())) ) {
+                bitcoinNode.transmitBlockHeader(cachedBlockHeader);
+            }
+            else {
+                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+
+                    final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                    if (blockId == null) { return; } // Block Hash has not been synchronized...
+
+                    final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
+                    final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
+                    if (transactionCount == null) { return; } // Block Hash is currently only a header...
+
+                    final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
+                    _cachedTransmittedBlockHeader = blockHeaderWithTransactionCount;
+
+                    bitcoinNode.transmitBlockHeader(blockHeaderWithTransactionCount);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                }
+            }
+        }
+        else {
+            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
+            blockHashes.add(blockHash);
+
+            bitcoinNode.transmitBlockHashes(blockHashes);
+        }
     }
 
     public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {

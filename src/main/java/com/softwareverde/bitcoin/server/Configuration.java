@@ -39,6 +39,7 @@ public class Configuration {
         private Long _maxMemoryByteCount;
         private Boolean _shouldSkipNetworking;
         private Long _maxUtxoCacheByteCount;
+        private Boolean _useTransactionBloomFilter;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -50,6 +51,7 @@ public class Configuration {
         public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
         public Boolean skipNetworking() { return _shouldSkipNetworking; }
         public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
+        public Boolean shouldUseTransactionBloomFilter() { return _useTransactionBloomFilter; }
     }
 
     public static class ExplorerProperties {
@@ -129,6 +131,7 @@ public class Configuration {
         _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
         _serverProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
         _serverProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
+        _serverProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
     }
 
     private void _loadExplorerProperties() {

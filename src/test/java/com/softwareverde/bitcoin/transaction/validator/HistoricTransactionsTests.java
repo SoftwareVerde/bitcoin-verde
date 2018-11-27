@@ -908,4 +908,24 @@ public class HistoricTransactionsTests {
 
         runScripts(testConfig);
     }
+
+    @Test
+    public void should_verify_transaction_7F34BDF9E62C2E5C9AF8261439007D5BCC9220238CC296638385E8437CA05DBF_0() {
+        // NOTE: This transactions has a dirty stack and should not be valid on the ABC Fork, but is valid on Status Quo and Bitcoin SV...
+
+        final TestConfig testConfig = new TestConfig();
+        testConfig.transactionBytes = "0200000001303CB5A0654B4554E3D4B6AE626D3B6514FEE466D8EDE44B136E951F7F2F9702000000001716001479B4BDD742C68413DF9D6ED5B938273F96282AD0FFFFFFFF01DA78CF2F000000001976A9149B959DD18A4D8DA15F0C8DA8D3A3AD16556DF5B288ACC3F6C659";
+        testConfig.transactionInputBytes = "303CB5A0654B4554E3D4B6AE626D3B6514FEE466D8EDE44B136E951F7F2F9702000000001716001479B4BDD742C68413DF9D6ED5B938273F96282AD0FFFFFFFF";
+        testConfig.transactionOutputIndex = 0;
+        testConfig.transactionOutputBytes = "7C79CF2F0000000017A9141B8CCE8D292B94336EE98A02B11279F9A32D007787";
+        testConfig.blockHeight = 558220L;
+        testConfig.transactionInputIndex = 0;
+        testConfig.lockingScriptBytes = "A9141B8CCE8D292B94336EE98A02B11279F9A32D007787";
+        testConfig.unlockingScriptBytes = "16001479B4BDD742C68413DF9D6ED5B938273F96282AD0";
+
+        // Median Block Time:   1543234497
+        // Network Time:        1543240429
+
+        runScripts(testConfig);
+    }
 }

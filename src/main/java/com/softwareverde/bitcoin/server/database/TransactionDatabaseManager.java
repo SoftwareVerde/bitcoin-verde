@@ -16,6 +16,9 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -26,6 +29,7 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -37,6 +41,79 @@ import java.util.TreeSet;
 
 public class TransactionDatabaseManager {
     public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
+    // TODO: Inserting a transaction requires a write lock...
+
+    // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
+    protected static MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null;
+    protected static Sha256Hash EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
+    protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
+    protected static final Long FILTER_NONCE = 0L;
+    protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
+
+    public static void initializeBloomFilter(final String filename, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+        try {
+            final byte[] loadedFilterBytes = IoUtil.getFileContents(filename);
+            final byte[] loadedFilterLastHashBytes = IoUtil.getFileContents(filename + ".sha");
+            if ( (loadedFilterBytes != null) && (loadedFilterLastHashBytes != null) ) {
+                final Sha256Hash filterLastTransactionHash = Sha256Hash.copyOf(loadedFilterLastHashBytes);
+
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT 1")
+                );
+                if (!rows.isEmpty()) {
+                    final Row row = rows.get(0);
+                    final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+                    if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
+                        final Integer functionCount = MutableBloomFilter.calculateFunctionCount(loadedFilterBytes.length, FILTER_ITEM_COUNT);
+                        EXISTING_TRANSACTIONS_FILTER = new MutableBloomFilter(MutableByteArray.wrap(loadedFilterBytes), functionCount, FILTER_NONCE);
+                        EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
+                    }
+                }
+            }
+            if (EXISTING_TRANSACTIONS_FILTER != null) { return; }
+
+            final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
+
+            final Long batchSize = 4096L;
+            long lastTransactionId = 0L;
+            Sha256Hash lastTransactionHash = null;
+            while (true) {
+                final java.util.List<Row> rows = databaseConnection.query(
+                    new Query("SELECT id, hash FROM transactions WHERE id > ? ORDER BY id ASC LIMIT " + batchSize)
+                        .setParameter(lastTransactionId)
+                );
+                if (rows.isEmpty()) { break; }
+
+                for (final Row row : rows) {
+                    final long transactionId = row.getLong("id");
+                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                    mutableBloomFilter.addItem(transactionHash);
+                    if (transactionId > lastTransactionId) {
+                        lastTransactionId = transactionId;
+                    }
+
+                    lastTransactionHash = transactionHash;
+                }
+            }
+
+            EXISTING_TRANSACTIONS_FILTER = mutableBloomFilter;
+            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = lastTransactionHash;
+        }
+        catch (final Exception exception) {
+            EXISTING_TRANSACTIONS_FILTER = null;
+            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
+            throw exception;
+        }
+    }
+
+    public static void saveBloomFilter(final String filename) {
+        final MutableByteArray filterBytes = (EXISTING_TRANSACTIONS_FILTER != null ? EXISTING_TRANSACTIONS_FILTER.unwrap() : new MutableByteArray(0));
+        IoUtil.putFileContents(filename, filterBytes.unwrap());
+
+        final ByteArray filterLastTransactionHash = Util.coalesce(EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH, new MutableByteArray(0));
+        IoUtil.putFileContents(filename + ".sha", filterLastTransactionHash.getBytes());
+    }
 
     protected final DatabaseManagerCache _databaseManagerCache;
 
@@ -170,10 +247,15 @@ public class TransactionDatabaseManager {
         _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
         _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
 
+        if (EXISTING_TRANSACTIONS_FILTER != null) {
+            EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
+            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+        }
+
         return transactionId;
     }
 
-    protected Map<Sha256Hash, TransactionId> _storeTransactionsRecords(final List<Transaction> transactions) throws DatabaseException {
+    protected Map<Sha256Hash, TransactionId> _storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         if (transactions.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
 
         final Integer transactionCount = transactions.getSize();
@@ -208,7 +290,7 @@ public class TransactionDatabaseManager {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
         );
-        if (! Util.areEqual(affectedRowCount, rows.size())) { return null; }
+        if (! Util.areEqual(rows.size(), affectedRowCount)) { return null; }
 
         final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
         for (final Row row : rows) {
@@ -218,6 +300,11 @@ public class TransactionDatabaseManager {
 
             _databaseManagerCache.cacheTransactionId(transactionHash.asConst(), transactionId);
             // _databaseManagerCache.cacheTransaction(transactionId, transaction.asConst());
+
+            if (EXISTING_TRANSACTIONS_FILTER != null) {
+                EXISTING_TRANSACTIONS_FILTER.addItem(transactionHash);
+                EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = transactionHash;
+            }
         }
 
         return transactionHashMap;
@@ -329,44 +416,50 @@ public class TransactionDatabaseManager {
 
         final MilliTimer selectTransactionHashesTimer = new MilliTimer();
         final MilliTimer txHashMapTimer = new MilliTimer();
-        final MilliTimer txHashMapTimer2 = new MilliTimer();
         final MilliTimer storeTransactionRecordsTimer = new MilliTimer();
         final MilliTimer insertTransactionOutputsTimer = new MilliTimer();
         final MilliTimer insertTransactionInputsTimer = new MilliTimer();
 
-        txHashMapTimer.start();
         final List<Sha256Hash> transactionHashes;
         final HashMap<Sha256Hash, Transaction> unseenTransactionMap = new HashMap<Sha256Hash, Transaction>(transactionCount);
         final HashMap<Sha256Hash, TransactionId> existingTransactions = new HashMap<Sha256Hash, TransactionId>(transactionCount);
         {
+            txHashMapTimer.start();
+            final MutableList<Sha256Hash> possiblySeenTransactionHashes = new MutableList<Sha256Hash>();
             final ImmutableListBuilder<Sha256Hash> transactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
             for (final Transaction transaction : transactions) {
                 final Sha256Hash transactionHash = transaction.getHash();
                 transactionHashesBuilder.add(transactionHash);
-                unseenTransactionMap.put(transactionHash, transaction);
+
+                { // Items matching the bloom filter may be false positives, so mark the matches as "possibly seen", but still assume they're unseen until proven later...
+                    if ( (EXISTING_TRANSACTIONS_FILTER == null) || (EXISTING_TRANSACTIONS_FILTER.containsItem(transactionHash)) ) { // If the bloom filter hasn't been loaded, assume all items are new...
+                        possiblySeenTransactionHashes.add(transactionHash);
+                    }
+
+                    unseenTransactionMap.put(transactionHash, transaction);
+                }
             }
             transactionHashes = transactionHashesBuilder.build();
-            txHashMapTimer.stop();
 
-            selectTransactionHashesTimer.start();
-            final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(transactionHashes) + ")")
-            );
-            selectTransactionHashesTimer.stop();
-            txHashMapTimer2.start();
-            for (final Row row : rows) {
-                final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-                final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
+            { // Of the "possibly seen" transactions, prove they've actually been seen...
+                final java.util.List<Row> rows = _databaseConnection.query(
+                    new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(possiblySeenTransactionHashes) + ")")
+                );
+                for (final Row row : rows) {
+                    final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+                    final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
 
-                existingTransactions.put(transactionHash, transactionId);
-                unseenTransactionMap.remove(transactionHash);
+                    // The existence of the transaction is confirmed, so definitively mark the transaction as seen...
+                    existingTransactions.put(transactionHash, transactionId);
+                    unseenTransactionMap.remove(transactionHash);
+                }
             }
-            txHashMapTimer2.stop();
+            txHashMapTimer.stop();
         }
 
         storeTransactionRecordsTimer.start();
         final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values());
-        final Map<Sha256Hash, TransactionId> newTransactionIds = _storeTransactionsRecords(unseenTransactions);
+        final Map<Sha256Hash, TransactionId> newTransactionIds = _storeTransactions(unseenTransactions);
         if (newTransactionIds == null) { return null; }
         storeTransactionRecordsTimer.stop();
 
@@ -404,7 +497,6 @@ public class TransactionDatabaseManager {
 
         Logger.log("selectTransactionHashesTimer: " + selectTransactionHashesTimer.getMillisecondsElapsed() + "ms");
         Logger.log("txHashMapTimer: " + txHashMapTimer.getMillisecondsElapsed() + "ms");
-        Logger.log("txHashMapTimer2: " + txHashMapTimer2.getMillisecondsElapsed() + "ms");
         Logger.log("storeTransactionRecordsTimer: " + storeTransactionRecordsTimer.getMillisecondsElapsed() + "ms");
         Logger.log("insertTransactionOutputsTimer: " + insertTransactionOutputsTimer.getMillisecondsElapsed() + "ms");
         Logger.log("InsertTransactionInputsTimer: " + insertTransactionInputsTimer.getMillisecondsElapsed() + "ms");
