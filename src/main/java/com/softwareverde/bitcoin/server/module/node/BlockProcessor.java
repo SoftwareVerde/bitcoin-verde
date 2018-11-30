@@ -307,6 +307,8 @@ public class BlockProcessor {
                     _orphanedTransactionsCache.onTransactionAdded(transaction);
                 }
             }
+
+            return newBlockHeight;
         }
         catch (final Exception exception) {
             Logger.log("ERROR VALIDATING BLOCK: " + block.getHash());

@@ -33,6 +33,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashMap;
 
@@ -194,7 +195,9 @@ public class BlockchainBuilder extends SleepyService {
                 final PendingBlock candidatePendingBlock = pendingBlockDatabaseManager.getPendingBlock(candidatePendingBlockId);
                 final Boolean processCandidateBlockWasSuccessful = _processPendingBlock(candidatePendingBlock);
                 if (! processCandidateBlockWasSuccessful) {
+                    TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
+                    TransactionUtil.commitTransaction(databaseConnection);
                     continue;
                 }
 
@@ -215,7 +218,9 @@ public class BlockchainBuilder extends SleepyService {
 
                         final Boolean processBlockWasSuccessful = _processPendingBlock(pendingBlock);
                         if (! processBlockWasSuccessful) {
+                            TransactionUtil.startTransaction(databaseConnection);
                             pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
+                            TransactionUtil.commitTransaction(databaseConnection);
                             break;
                         }
 

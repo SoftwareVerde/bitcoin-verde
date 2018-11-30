@@ -60,7 +60,7 @@ public class TransactionDatabaseManager {
                 final java.util.List<Row> rows = databaseConnection.query(
                     new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT 1")
                 );
-                if (!rows.isEmpty()) {
+                if (! rows.isEmpty()) {
                     final Row row = rows.get(0);
                     final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
@@ -216,7 +216,7 @@ public class TransactionDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    protected void _deleteFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+    protected void _deleteFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         _databaseConnection.executeSql(
             new Query("DELETE FROM unconfirmed_transactions WHERE transaction_id = ?")
                 .setParameter(transactionId)
@@ -585,7 +585,7 @@ public class TransactionDatabaseManager {
     }
 
     public void removeFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
-        _deleteFromUnconfirmedTransaction(transactionId);
+        _deleteFromUnconfirmedTransactions(transactionId);
     }
 
     public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {

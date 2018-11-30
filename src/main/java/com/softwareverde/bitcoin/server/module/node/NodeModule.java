@@ -127,6 +127,7 @@ public class NodeModule {
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
+        if (maxPeerCount == 0) { return; }
 
         final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
         requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -281,7 +282,7 @@ public class NodeModule {
             _blockDownloader = new BlockDownloader(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
         }
 
-        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(databaseConnectionFactory, _blockDownloader);
+        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(databaseConnectionFactory, _blockDownloader, _nodeManager, readOnlyDatabaseManagerCache);
 
         { // Initialize BlockHeaderDownloader...
             _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, medianBlockHeaderTime, blockDownloadRequester);

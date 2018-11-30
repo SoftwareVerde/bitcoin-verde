@@ -34,7 +34,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         }
 
         public FakeBlockDownloadRequester() {
-            super(null, null);
+            super(null, null, null, null);
         }
     }
 

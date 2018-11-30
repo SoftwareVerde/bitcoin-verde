@@ -51,7 +51,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
                 final Sha256Hash firstBlockHash = ((! blockHashes.isEmpty()) ? blockHashes.get(0) : null);
                 final List<InventoryItem> responseHashes = responseMessage.getInventoryItems();
                 final Sha256Hash responseHash = ((! responseHashes.isEmpty()) ? responseHashes.get(0).getItemHash() : null);
-                Logger.log("QueryBlocksHandler : " + firstBlockHash + " - " + desiredBlockHash + " -> " + responseHash);
+                Logger.log("QueryBlocksHandler : " + nodeConnection.toString() + " " + firstBlockHash + " - " + desiredBlockHash + " -> " + responseHash);
             }
 
             nodeConnection.queueMessage(responseMessage);

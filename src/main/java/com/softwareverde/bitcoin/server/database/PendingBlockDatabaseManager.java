@@ -285,6 +285,23 @@ public class PendingBlockDatabaseManager {
         }
     }
 
+    public Boolean nodesHaveBlockInventory(final List<NodeId> connectedNodeIds, final Sha256Hash blockHash) throws DatabaseException {
+        try {
+            READ_LOCK.lock();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") LIMIT 1")
+                    .setParameter(blockHash)
+            );
+
+            return (! rows.isEmpty());
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
     public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         try {
             READ_LOCK.lock();

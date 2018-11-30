@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.Node;
@@ -645,6 +646,14 @@ public class NodeManager<NODE extends Node> {
     public List<NODE> getNodes() {
         synchronized (_mutex) {
             return new MutableList<NODE>(_nodes.values());
+        }
+    }
+
+    public List<NodeId> getNodeIds() {
+        synchronized (_mutex) {
+            final ImmutableListBuilder<NodeId> nodeIds = new ImmutableListBuilder<NodeId>(_nodes.size());
+            nodeIds.addAll(_nodes.keySet());
+            return nodeIds.build();
         }
     }
 
