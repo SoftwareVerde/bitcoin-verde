@@ -697,7 +697,6 @@ public class NodeManager<NODE extends Node> {
 
     public void shutdown() {
         _pendingRequestsManager.stop();
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 }

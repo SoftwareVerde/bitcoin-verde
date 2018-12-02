@@ -395,7 +395,7 @@ public abstract class Node {
     }
 
     public void connect() {
-        _connection.startConnectionThread();
+        _connection.connect();
     }
 
     public void disconnect() {

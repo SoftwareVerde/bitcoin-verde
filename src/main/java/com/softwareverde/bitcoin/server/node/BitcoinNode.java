@@ -877,7 +877,6 @@ public class BitcoinNode extends Node {
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
         synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
 
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 }

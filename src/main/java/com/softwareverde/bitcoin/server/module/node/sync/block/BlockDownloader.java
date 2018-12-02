@@ -185,6 +185,15 @@ public class BlockDownloader extends SleepyService {
         _blockDownloadedCallback = new BitcoinNodeManager.DownloadBlockCallback() {
             @Override
             public void onResult(final Block block) {
+
+                final Sha256Hash blockHash = block.getHash();
+                final MilliTimer timer = _currentBlockDownloadSet.remove(blockHash);
+                if (timer != null) {
+                    timer.stop();
+                }
+
+                Logger.log("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
+
                 try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     _onBlockDownloaded(block, databaseConnection);
                 }
@@ -193,16 +202,6 @@ public class BlockDownloader extends SleepyService {
                     return;
                 }
                 finally {
-                    final Sha256Hash blockHash = block.getHash();
-
-                    final MilliTimer timer = _currentBlockDownloadSet.remove(blockHash);
-
-                    if (timer != null) {
-                        timer.stop();
-                    }
-
-                    Logger.log("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
-
                     synchronized (_downloadCallbackPin) {
                         _downloadCallbackPin.notifyAll();
                     }

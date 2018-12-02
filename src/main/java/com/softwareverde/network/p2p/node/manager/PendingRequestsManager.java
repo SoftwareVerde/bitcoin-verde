@@ -7,11 +7,15 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * PendingRequestsManager manages ApiRequests to other peers and checks for the request failing due to a timeout.
+ *  This class is typically used directly by the NodeManager to ensure Callback::onFailure is invoked when a timeout occurs.
+ */
 public class PendingRequestsManager<NODE> extends SleepyService {
-    public static final Long TIMEOUT_MS = 30000L;
-    public static final Long POLL_TIME_MS = 1000L;
+    public static final Long TIMEOUT_MS = 30000L; // The maximum time, in milliseconds, a request can remain unfulfilled.
+    public static final Long POLL_TIME_MS = 1000L; //
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 4, POLL_TIME_MS);
+    protected final ThreadPool _threadPool = new ThreadPool(0, 4, (POLL_TIME_MS * 2));
 
     protected final SystemTime _systemTime;
     protected final ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long> _pendingRequests = new ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long>();
@@ -77,10 +81,14 @@ public class PendingRequestsManager<NODE> extends SleepyService {
     }
 
     @Override
+    public void start() {
+        _threadPool.start();
+        super.start();
+    }
+
+    @Override
     public void stop() {
         super.stop();
-
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 }

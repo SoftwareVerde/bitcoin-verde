@@ -286,10 +286,15 @@ public class BlockHeaderDownloader extends SleepyService {
     }
 
     @Override
+    public void start() {
+        _threadPool.start();
+        super.start();
+    }
+
+    @Override
     public void stop() {
         super.stop();
 
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 }

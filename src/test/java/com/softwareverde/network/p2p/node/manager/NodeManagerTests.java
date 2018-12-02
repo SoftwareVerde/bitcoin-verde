@@ -172,13 +172,13 @@ public class NodeManagerTests {
     @Before
     public void setup() {
         FakeNode._nextNonce = 0L;
+        NodeManager._threadPool.start();
     }
 
     @After
     public void after() {
         // TODO: There are still threads lingering after these tests... this effectively kills them, but ideally this shouldn't be necessary as they should all have been cleaned up.
-        // NodeManager._threadExecutor.waitUntilIdle();
-        NodeManager._threadPool.abortAll();
+        NodeManager._threadPool.stop();
     }
 
     @Test

@@ -108,8 +108,7 @@ public abstract class Socket {
             _onSocketClosed();
         }
 
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 
     protected Socket(final java.net.Socket socket, final ReadThread readThread) {

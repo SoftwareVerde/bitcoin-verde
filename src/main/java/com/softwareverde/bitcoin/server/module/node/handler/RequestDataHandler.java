@@ -21,6 +21,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeConnection;
+import com.softwareverde.util.timer.NanoTimer;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
@@ -48,6 +49,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
             for (final InventoryItem inventoryItem : dataHashes) {
                 switch (inventoryItem.getItemType()) {
                     case BLOCK: {
+                        final NanoTimer getBlockDataTimer = new NanoTimer();
+                        getBlockDataTimer.start();
                         final Sha256Hash blockHash = inventoryItem.getItemHash();
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
@@ -66,6 +69,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         final BlockMessage blockMessage = new BlockMessage();
                         blockMessage.setBlock(block);
                         nodeConnection.queueMessage(blockMessage);
+                        getBlockDataTimer.stop();
+                        Logger.log("GetBlockData: " + blockHash + " "  + nodeConnection.toString() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     case TRANSACTION: {

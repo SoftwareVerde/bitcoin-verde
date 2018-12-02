@@ -127,6 +127,7 @@ public class SocketServer<T extends Socket> {
 
     public void start() {
         _shouldContinue = true;
+        _threadPool.start();
 
         try {
             _socket = new java.net.ServerSocket(_port);
@@ -158,7 +159,6 @@ public class SocketServer<T extends Socket> {
         }
         catch (final Exception exception) { }
 
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 }

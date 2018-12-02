@@ -29,8 +29,11 @@ public class PendingBlockDatabaseManager {
     public static final ReentrantReadWriteLock.WriteLock WRITE_LOCK;
     static {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-        READ_LOCK = readWriteLock.readLock();
-        WRITE_LOCK = readWriteLock.writeLock();
+        // NOTE: Read/Write locks are currently disabled.
+        //  Enabling the locks greatly slows down block download and processing, and
+        //  there is no clear detriment to keeping the locks disabled.
+        READ_LOCK = new DisabledReadLock(readWriteLock); // readWriteLock.readLock();
+        WRITE_LOCK = new DisabledWriteLock(readWriteLock); // readWriteLock.writeLock();
     }
 
     protected final SystemTime _systemTime = new SystemTime();
@@ -301,7 +304,7 @@ public class PendingBlockDatabaseManager {
             READ_LOCK.unlock();
         }
     }
-
+    // "SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND node_blocks_inventory.node_id IN () ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 10;"
     public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         try {
             READ_LOCK.lock();
@@ -478,4 +481,28 @@ public class PendingBlockDatabaseManager {
             WRITE_LOCK.unlock();
         }
     }
+}
+
+class DisabledReadLock extends ReentrantReadWriteLock.ReadLock {
+    public DisabledReadLock(final ReentrantReadWriteLock lock) {
+        super(lock);
+    }
+
+    @Override
+    public void lock() { }
+
+    @Override
+    public void unlock() { }
+}
+
+class DisabledWriteLock extends ReentrantReadWriteLock.WriteLock {
+    public DisabledWriteLock(final ReentrantReadWriteLock lock) {
+        super(lock);
+    }
+
+    @Override
+    public void lock() { }
+
+    @Override
+    public void unlock() { }
 }

@@ -7,6 +7,7 @@ import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -27,7 +28,10 @@ public class NodeConnection {
     protected class ConnectionThread extends Thread {
         @Override
         public void run() {
-            if (_socketIsConnected()) { return; }
+            if (_socketIsConnected()) {
+                _onSocketConnected(); // Necessary for NodeConnection(BinarySocket) constructor...
+                return;
+            }
 
             if (_socketUsedToBeConnected) {
 
@@ -217,16 +221,18 @@ public class NodeConnection {
         _binaryPacketFormat = binaryPacketFormat;
     }
 
+    /**
+     * Creates a NodeConnection with an already-established BinarySocket.
+     *  NodeConnection::connect should still be invoked in order to initiate the ::_onSocketConnected procedure.
+     */
     public NodeConnection(final BinarySocket binarySocket) {
         _host = binarySocket.getHost();
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
-
-        _onSocketConnected();
     }
 
-    public void startConnectionThread() {
+    public void connect() {
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 if (! _connectionThread.isAlive()) {
@@ -241,7 +247,7 @@ public class NodeConnection {
         }
     }
 
-    public void stopConnectionThread() {
+    public void cancelConnecting() {
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 _shutdownConnectionThread();
@@ -280,8 +286,7 @@ public class NodeConnection {
             _binarySocket.close();
         }
 
-        _threadPool.abortAll();
-        _threadPool.waitUntilIdle();
+        _threadPool.stop();
     }
 
     public void queueMessage(final ProtocolMessage message) {

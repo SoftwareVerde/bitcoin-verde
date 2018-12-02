@@ -64,9 +64,14 @@ public class TransactionDatabaseManager {
                     final Row row = rows.get(0);
                     final Sha256Hash lastTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
+                        Logger.log("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
+
                         final Integer functionCount = MutableBloomFilter.calculateFunctionCount(loadedFilterBytes.length, FILTER_ITEM_COUNT);
                         EXISTING_TRANSACTIONS_FILTER = new MutableBloomFilter(MutableByteArray.wrap(loadedFilterBytes), functionCount, FILTER_NONCE);
                         EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
+                    }
+                    else {
+                        Logger.log("Rebuilding ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash + " Expected TransactionHash: " + filterLastTransactionHash);
                     }
                 }
             }
