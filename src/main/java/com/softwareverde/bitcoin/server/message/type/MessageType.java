@@ -17,7 +17,9 @@ public enum MessageType {
     ENABLE_COMPACT_BLOCKS("sendcmpct"),
 
     REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
-    REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx");
+    REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx"),
+
+    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

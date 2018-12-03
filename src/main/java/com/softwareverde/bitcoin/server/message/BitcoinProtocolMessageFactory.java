@@ -6,7 +6,9 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.node.address.request.RequestPeersMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
@@ -56,6 +58,8 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.EXTRA_THIN_BLOCK, new ExtraThinBlockMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS, new RequestExtraThinTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.THIN_TRANSACTIONS, new ThinTransactionsMessageInflater());
+        _commandInflaterMap.put(MessageType.FEE_FILTER, new FeeFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.REQUEST_PEERS, new RequestPeersMessageInflater());
     }
 
     @Override

@@ -10,7 +10,9 @@ import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocks
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
+import com.softwareverde.bitcoin.server.message.type.node.address.request.RequestPeersMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
@@ -328,6 +330,14 @@ public class BitcoinNode extends Node {
                         _onNotFoundMessageReceived((NotFoundResponseMessage) message);
                     } break;
 
+                    case FEE_FILTER: {
+                        _onFeeFilterMessageReceived((FeeFilterMessage) message);
+                    } break;
+
+                    case REQUEST_PEERS: {
+                        _onRequestPeersMessageReceived((RequestPeersMessage) message);
+                    } break;
+
                     default: {
                         Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
                     } break;
@@ -628,6 +638,14 @@ public class BitcoinNode extends Node {
                 }
             }
         }
+    }
+
+    protected void _onFeeFilterMessageReceived(final FeeFilterMessage feeFilterMessage) {
+        // TODO: Store feeFilter in NodeDatabase...
+    }
+
+    protected void _onRequestPeersMessageReceived(final RequestPeersMessage requestPeersMessage) {
+        // TODO: Trigger NODE_ADDRESSES with active peers...
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
