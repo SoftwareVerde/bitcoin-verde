@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -67,7 +69,18 @@ public class PendingBlockDatabaseManager {
 
     protected PendingBlockId _storePendingBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
         final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
-        final Long priority = currentTimestamp;
+        final Long priority;
+        {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, new DisabledDatabaseManagerCache());
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            if (blockId != null) {
+                priority = blockHeaderDatabaseManager.getBlockTimestamp(blockId);
+            }
+            else {
+                priority = currentTimestamp;
+            }
+        }
+
         final Long pendingBlockId = _databaseConnection.executeSql(
             new Query("INSERT IGNORE INTO pending_blocks (hash, previous_block_hash, timestamp, priority) VALUES (?, ?, ?, ?)")
                 .setParameter(blockHash)

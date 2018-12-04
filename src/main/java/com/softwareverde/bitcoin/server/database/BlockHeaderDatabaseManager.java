@@ -82,6 +82,18 @@ public class BlockHeaderDatabaseManager {
         return blockHeight;
     }
 
+    protected Long _getBlockTimestamp(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, timestamp FROM blocks WHERE id = ?")
+                .setParameter(blockId)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getLong("timestamp");
+    }
+
     protected BlockId _getBlockHeaderId(final Sha256Hash blockHash) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM blocks WHERE hash = ?")
@@ -429,6 +441,10 @@ public class BlockHeaderDatabaseManager {
 
     public Long getBlockHeight(final BlockId blockId) throws DatabaseException {
         return _getBlockHeight(blockId);
+    }
+
+    public Long getBlockTimestamp(final BlockId blockId) throws DatabaseException {
+        return _getBlockTimestamp(blockId);
     }
 
     public BlockId getChildBlockId(final BlockchainSegmentId blockchainSegmentId, final BlockId previousBlockId) throws DatabaseException {
