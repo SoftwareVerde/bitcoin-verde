@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -175,6 +176,28 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
+    protected void _processQueuedMessages() {
+        synchronized (_mutex) {
+            // Copy the list of queued transactions since _selectNodeForRequest and _sendMessage could potentially requeue the transmission...
+            final List<NodeApiMessage<NODE>> queuedTransmissions = new ImmutableList<NodeApiMessage<NODE>>(_queuedTransmissions);
+            _queuedTransmissions.clear();
+
+            for (final NodeApiMessage<NODE> apiTransmission : queuedTransmissions) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (apiTransmission instanceof NodeApiRequest) {
+                            _selectNodeForRequest((NodeApiRequest<NODE>) apiTransmission);
+                        }
+                        else {
+                            _sendMessage(apiTransmission);
+                        }
+                    }
+                });
+            }
+        }
+    }
+
     protected void _initNode(final NODE node) {
         final Container<Boolean> nodeConnected = new Container<Boolean>(null);
 
@@ -272,20 +295,7 @@ public class NodeManager<NODE extends Node> {
                 if (! node.hasActiveConnection()) { return; }
 
                 synchronized (_mutex) {
-                    for (final NodeApiMessage<NODE> apiTransmission : _queuedTransmissions) {
-                        _threadPool.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (apiTransmission instanceof NodeApiRequest) {
-                                    _selectNodeForRequest((NodeApiRequest<NODE>) apiTransmission);
-                                }
-                                else {
-                                    _sendMessage(apiTransmission);
-                                }
-                            }
-                        });
-                    }
-                    _queuedTransmissions.clear();
+                    _processQueuedMessages();
                 }
             }
         });
@@ -299,20 +309,7 @@ public class NodeManager<NODE extends Node> {
                 }
 
                 synchronized (_mutex) {
-                    for (final NodeApiMessage<NODE> apiTransmission : _queuedTransmissions) {
-                        _threadPool.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                if (apiTransmission instanceof NodeApiRequest) {
-                                    _selectNodeForRequest((NodeApiRequest<NODE>) apiTransmission);
-                                }
-                                else {
-                                    _sendMessage(apiTransmission);
-                                }
-                            }
-                        });
-                    }
-                    _queuedTransmissions.clear();
+                    _processQueuedMessages();
                 }
 
                 _onNodeHandshakeComplete(node);

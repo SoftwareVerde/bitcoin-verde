@@ -127,7 +127,7 @@ public class NodeModule {
 
         final EmbeddedMysqlDatabase database = _environment.getDatabase();
         final Integer maxPeerCount = serverProperties.getMaxPeerCount();
-        if (maxPeerCount == 0) { return; }
+        if (maxPeerCount < 1) { return; }
 
         final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
         requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -137,7 +137,10 @@ public class NodeModule {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, maxPeerCount); // NOTE: Request the full maxPeerCount (not `maxPeerCount - seedNodes.length`) because some selected nodes will likely be seed nodes...
 
+            int connectedNodeCount = seedNodeHosts.size();
             for (final BitcoinNodeIpAddress bitcoinNodeIpAddress : bitcoinNodeIpAddresses) {
+                if (connectedNodeCount >= maxPeerCount) { break; }
+
                 final Ip ip = bitcoinNodeIpAddress.getIp();
                 if (ip == null) { continue; }
 
@@ -148,6 +151,7 @@ public class NodeModule {
 
                 final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
                 _nodeManager.addNode(node);
+                connectedNodeCount += 1;
 
                 Logger.log("Connecting to former peer: " + host + ":" + port);
 

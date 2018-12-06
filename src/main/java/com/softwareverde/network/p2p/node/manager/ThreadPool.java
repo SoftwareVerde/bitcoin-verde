@@ -1,5 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.io.Logger;
+
 import java.util.concurrent.*;
 
 public class ThreadPool {
@@ -27,7 +29,17 @@ public class ThreadPool {
         if (executorService == null) { return; }
 
         try {
-            executorService.submit(runnable);
+            executorService.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        runnable.run();
+                    }
+                    catch (final Exception exception) {
+                        Logger.log(exception);
+                    }
+                }
+            });
         }
         catch (final RejectedExecutionException exception) {
             exception.printStackTrace();
@@ -61,6 +73,20 @@ public class ThreadPool {
             executorService.awaitTermination(60, TimeUnit.SECONDS);
         }
         catch (final InterruptedException exception) { }
+    }
+
+    public void waitUntilDone() {
+        while (true) {
+            final Boolean isEmpty = _queue.isEmpty();
+            if (isEmpty) { break; }
+
+            try {
+                Thread.sleep(10L);
+            }
+            catch (final InterruptedException exception) {
+                break;
+            }
+        }
     }
 
     /**

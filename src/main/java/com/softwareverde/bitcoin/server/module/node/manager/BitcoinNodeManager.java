@@ -226,8 +226,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     protected NodeApiRequest<BitcoinNode> _createRequestBlockRequest(final Sha256Hash blockHash, final DownloadBlockCallback callback) {
         return new NodeApiRequest<BitcoinNode>() {
+            protected BitcoinNode _bitcoinNode;
+
             @Override
             public void run(final BitcoinNode bitcoinNode) {
+                _bitcoinNode = bitcoinNode;
+
                 final NodeApiRequest<BitcoinNode> apiRequest = this;
 
                 bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
@@ -244,19 +248,18 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                     @Override
                     public void onFailure(final Sha256Hash blockHash) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 
-                        if (callback != null) {
-                            callback.onFailure(blockHash);
-                        }
+                        _pendingRequestsManager.removePendingRequest(apiRequest);
+
+                        apiRequest.onFailure();
                     }
                 });
             }
 
             @Override
             public void onFailure() {
-                Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +")");
+                Logger.log("Request failed: BitcoinNodeManager.requestBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
 
                 if (callback != null) {
                     callback.onFailure(blockHash);
@@ -292,12 +295,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                     @Override
                     public void onFailure(final List<Sha256Hash> transactionHashes) {
-                        _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 
-                        if (callback != null) {
-                            callback.onFailure(transactionHashes);
-                        }
+                        _pendingRequestsManager.removePendingRequest(apiRequest);
+
+                        apiRequest.onFailure();
                     }
                 });
             }
@@ -365,6 +367,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                                 @Override
                                 public void onFailure() {
                                     Logger.log("NOTICE: Falling back to traditional block.");
+
+                                    _pendingRequestsManager.removePendingRequest(apiRequest);
+
                                     _requestBlock(blockHash, callback);
                                 }
                             });

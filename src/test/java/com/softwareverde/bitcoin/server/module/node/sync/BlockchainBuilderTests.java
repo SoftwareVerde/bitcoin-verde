@@ -10,13 +10,16 @@ import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -72,7 +75,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
         {
             final NetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
-            final BitcoinNodeManager nodeManager = null;
+            final BitcoinNodeManager nodeManager = new FakeBitcoinNodeManager();
 
             final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
 
@@ -101,4 +104,22 @@ public class BlockchainBuilderTests extends IntegrationTest {
         Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 4L));
         Assert.assertNotNull(blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId, 5L));
     }
+}
+
+class FakeBitcoinNodeManager extends BitcoinNodeManager {
+
+    public FakeBitcoinNodeManager() {
+        super(0, null, null, null, null, null, null, null);
+    }
+
+    @Override
+    public List<BitcoinNode> getNodes() {
+        return new MutableList<BitcoinNode>(0);
+    }
+
+    @Override
+    public void broadcastBlockFinder(final List<Sha256Hash> blockFinderHashes) { }
+
+    @Override
+    public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) { }
 }
