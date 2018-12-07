@@ -182,7 +182,7 @@ public class NodeManagerTests {
     @Before
     public void setup() {
         FakeNode._nextNonce = 0L;
-        _threadPool = new MainThreadPool(1, 0L);
+        _threadPool = new MainThreadPool(1, 1L);
     }
 
     @After

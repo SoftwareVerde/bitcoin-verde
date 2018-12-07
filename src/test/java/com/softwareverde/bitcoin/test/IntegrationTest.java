@@ -11,7 +11,7 @@ import com.softwareverde.test.database.MysqlTestDatabase;
 public class IntegrationTest {
     protected static final MysqlTestDatabase _database = new MysqlTestDatabase();
     protected DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
-    protected MainThreadPool _threadPool = new MainThreadPool(1, 0L);
+    protected MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
     static {
         _resetDatabase();

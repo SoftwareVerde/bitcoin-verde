@@ -49,29 +49,28 @@ public abstract class SleepyService {
                 _onStart();
 
                 final Thread thread = Thread.currentThread();
-                while (! thread.isInterrupted()) {
-                    try {
-                        final Boolean shouldContinue = _run();
+                do {
+                    _shouldRestart = false;
 
-                        if (! shouldContinue) { break; }
+                    while (! thread.isInterrupted()) {
+                        try {
+                            final Boolean shouldContinue = _run();
+
+                            if (! shouldContinue) { break; }
+                        }
+                        catch (final Exception exception) {
+                            Logger.log(exception);
+                            break;
+                        }
                     }
-                    catch (final Exception exception) {
-                        Logger.log(exception);
-                        break;
-                    }
-                }
+
+                } while ( (_shouldRestart) && (! thread.isInterrupted()) );
 
                 synchronized (_threadMutex) {
                     _thread = null;
-
-                    if (_shouldRestart) {
-                        _shouldRestart = false;
-                        _startThread();
-                    }
-                    else {
-                        _onSleep();
-                    }
                 }
+
+                _onSleep();
             }
         };
     }

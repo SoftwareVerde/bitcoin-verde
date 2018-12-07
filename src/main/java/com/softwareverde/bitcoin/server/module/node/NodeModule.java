@@ -481,8 +481,8 @@ public class NodeModule {
             _connectToAdditionalNodes();
         }
 
-        while (! Thread.currentThread().isInterrupted()) {
-            try { Thread.sleep(60000); } catch (final Exception e) { break; }
+        while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
+            try { Thread.sleep(60000); } catch (final Exception exception) { break; }
 
             runtime.gc();
             Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
@@ -492,7 +492,7 @@ public class NodeModule {
                 Logger.log(sleepyService.getClass().getSimpleName() + ": " + sleepyService.getStatusMonitor().getStatus());
             }
 
-            Logger.log("ThreadPool Queue: " + _threadPool.getQueueSize() + " Pool Size: " + _threadPool.getPoolSize());
+            Logger.log("ThreadPool Queue: " + _threadPool.getQueueSize() + " | Active Thread Count: " + _threadPool.getPoolSize());
         }
 
         Logger.log("[Stopping Addresses Processor]");

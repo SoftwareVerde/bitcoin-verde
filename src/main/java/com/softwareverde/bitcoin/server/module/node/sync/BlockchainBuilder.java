@@ -184,6 +184,7 @@ public class BlockchainBuilder extends SleepyService {
                     final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, headBlockId);
                     if (nextBlockId != null) {
                         final Sha256Hash nextBlockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
+                        Logger.log("Requesting Block: " + nextBlockHash);
                         _blockDownloadRequester.requestBlock(nextBlockHash);
                     }
                     break;

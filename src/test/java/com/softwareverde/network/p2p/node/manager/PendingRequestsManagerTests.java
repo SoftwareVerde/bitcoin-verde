@@ -13,7 +13,7 @@ public class PendingRequestsManagerTests {
     public void should_trigger_failure_after_timeout() {
         // Setup
         final FakeSystemTime systemTime = new FakeSystemTime();
-        final MainThreadPool threadPool = new MainThreadPool(1, 0L);
+        final MainThreadPool threadPool = new MainThreadPool(1, 1L);
         final PendingRequestsManager<BitcoinNode> pendingRequestsManager = new PendingRequestsManager<BitcoinNode>(systemTime, threadPool);
 
         final Container<Boolean> onFailureContainer = new Container<Boolean>(false);

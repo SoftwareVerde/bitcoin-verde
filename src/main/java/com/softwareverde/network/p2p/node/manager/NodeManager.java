@@ -617,7 +617,9 @@ public class NodeManager<NODE extends Node> {
         _pendingRequestsManager.removePendingRequest(apiRequest);
         final NodeId nodeId = selectedNode.getId();
         final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-        nodeHealth.onResponseReceived(apiRequest.nodeHealthRequest);
+        if (nodeHealth != null) {
+            nodeHealth.onResponseReceived(apiRequest.nodeHealthRequest);
+        }
     }
 
     protected void _sendMessage(final NodeApiMessage<NODE> apiMessage) {

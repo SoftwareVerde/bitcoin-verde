@@ -16,7 +16,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class NodeConnection {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
