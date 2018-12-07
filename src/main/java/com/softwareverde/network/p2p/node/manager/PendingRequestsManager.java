@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PendingRequestsManager<NODE> extends SleepyService {
     public static final Long TIMEOUT_MS = 30000L; // The maximum time, in milliseconds, a request can remain unfulfilled.
-    public static final Long POLL_TIME_MS = 1000L; //
+    public static final Long POLL_TIME_MS = 200L; // The time slept between iterations of checking for failed pendingRequests...
 
     protected final ThreadPool _threadPool = new ThreadPool(0, 4, (POLL_TIME_MS * 2));
 

@@ -171,7 +171,7 @@ public class TransactionValidator {
                     final Boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
                     if (! sequenceNumberIsValid) {
                         if (_shouldLogInvalidTransactions) {
-                            Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " < " + requiredBlockCount);
+                            Logger.log("(BlockHeight) Sequence Number Invalid: " + blockCount + " >= " + requiredBlockCount);
                         }
                         return false;
                     }

@@ -82,21 +82,25 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     public static class FakeNodeConnection extends NodeConnection {
         public final FakeBinarySocket fakeBinarySocket;
 
+        protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
+
         public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket) {
             super(fakeBinarySocket);
             this.fakeBinarySocket = fakeBinarySocket;
         }
 
+        @Override
+        protected void _processOutboundMessageQueue() { }
+
+        @Override
+        protected void _writeOrQueueMessage(final ProtocolMessage message) {
+            _outboundMessageQueue.add(message);
+        }
+
         public List<ProtocolMessage> getSentMessages() {
             try { Thread.sleep(500L); } catch (final Exception e) { } // Required to wait for messageQueue...
 
-            final MutableList<ProtocolMessage> protocolMessages = new MutableList<ProtocolMessage>();
-
-            while (! _outboundMessageQueue.isEmpty()) {
-                protocolMessages.add(_outboundMessageQueue.removeLast());
-            }
-
-            return protocolMessages;
+            return _outboundMessageQueue;
         }
     }
 
