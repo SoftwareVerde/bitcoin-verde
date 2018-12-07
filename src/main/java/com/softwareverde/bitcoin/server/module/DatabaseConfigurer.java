@@ -26,9 +26,9 @@ public class DatabaseConfigurer {
         commandLineArguments.addArgument("--innodb-read-io-threads=8");
         commandLineArguments.addArgument("--innodb-write-io-threads=8");
 
-        // commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
+        commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
         // commandLineArguments.addArgument("--performance_schema");
-        // commandLineArguments.addArgument("--general_log_file=query.log");
-        // commandLineArguments.addArgument("--general_log=1");
+        commandLineArguments.addArgument("--general_log_file=query.log");
+        commandLineArguments.addArgument("--general_log=1");
     }
 }

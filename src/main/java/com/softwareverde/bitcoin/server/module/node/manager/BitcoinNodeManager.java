@@ -134,6 +134,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
 
             synchronized (_mutex) {
+                if (_isShuttingDown) { return; }
+
                 for (final BitcoinNode bitcoinNode : _nodes.values()) {
                     final String existingNodeHost = bitcoinNode.getHost();
                     final Integer existingNodePort = bitcoinNode.getPort();
@@ -505,13 +507,19 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     public void shutdown() {
-        super.shutdown();
 
+        final List<BitcoinNode> nodes;
         synchronized (_mutex) {
-            for (final BitcoinNode node : _nodes.values()) {
-                node.disconnect();
-            }
+            _isShuttingDown = true;
+            nodes = new MutableList<BitcoinNode>(_nodes.values());
             _nodes.clear();
         }
+
+        // Nodes must be disconnected outside of the _mutex lock in order to prevent deadlock...
+        for (final BitcoinNode node : nodes) {
+            node.disconnect();
+        }
+
+        super.shutdown();
     }
 }

@@ -83,6 +83,7 @@ public class NodeManager<NODE extends Node> {
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
+    protected Boolean _isShuttingDown = false;
 
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
@@ -217,6 +218,8 @@ public class NodeManager<NODE extends Node> {
             public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
 
                 synchronized (_mutex) {
+                    if (_isShuttingDown) { return; }
+
                     final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
                     if (haveAlreadySeenNode) { return; }
 
@@ -541,9 +544,12 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void addNode(final NODE node) {
-        _initNode(node);
 
         synchronized (_mutex) {
+            if (_isShuttingDown) { return; }
+
+            _initNode(node);
+
             _checkMaxNodeCount(_maxNodeCount - 1);
             _addNode(node);
         }
@@ -696,6 +702,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void shutdown() {
+        _isShuttingDown = true;
         _pendingRequestsManager.stop();
         _threadPool.stop();
     }
