@@ -1,6 +1,7 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.test.time.FakeSystemTime;
 import com.softwareverde.util.Container;
 import org.junit.Assert;
@@ -12,7 +13,8 @@ public class PendingRequestsManagerTests {
     public void should_trigger_failure_after_timeout() {
         // Setup
         final FakeSystemTime systemTime = new FakeSystemTime();
-        final PendingRequestsManager<BitcoinNode> pendingRequestsManager = new PendingRequestsManager<BitcoinNode>(systemTime);
+        final MainThreadPool threadPool = new MainThreadPool(1, 0L);
+        final PendingRequestsManager<BitcoinNode> pendingRequestsManager = new PendingRequestsManager<BitcoinNode>(systemTime, threadPool);
 
         final Container<Boolean> onFailureContainer = new Container<Boolean>(false);
         final Container<BitcoinNode> runContainer = new Container<BitcoinNode>(null);

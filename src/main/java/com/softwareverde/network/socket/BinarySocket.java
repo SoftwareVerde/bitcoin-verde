@@ -1,5 +1,6 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 
@@ -87,8 +88,8 @@ public class BinarySocket extends Socket {
     protected final BinaryPacketFormat _binaryPacketFormat;
     protected Integer _bufferSize;
 
-    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat) {
-        super(socket, new ReadThread(DEFAULT_BUFFER_SIZE, binaryPacketFormat));
+    public BinarySocket(final java.net.Socket socket, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
+        super(socket, new ReadThread(DEFAULT_BUFFER_SIZE, binaryPacketFormat), threadPool);
         _binaryPacketFormat = binaryPacketFormat;
         _bufferSize = DEFAULT_BUFFER_SIZE;
     }

@@ -1,13 +1,12 @@
 package com.softwareverde.network.p2p.node;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
-import com.softwareverde.util.timer.NanoTimer;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -17,7 +16,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class NodeConnection {
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
@@ -90,7 +89,7 @@ public class NodeConnection {
                     // final String portString = urlParts.get(2);
                 }
 
-                _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
+                _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
                 _onSocketConnected();
             }
             else {
@@ -121,7 +120,7 @@ public class NodeConnection {
     protected Runnable _onConnectCallback;
     protected Runnable _onConnectFailureCallback;
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+    protected final ThreadPool _threadPool;
 
     protected Boolean _socketIsConnected() {
         return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
@@ -136,8 +135,16 @@ public class NodeConnection {
         _binarySocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
+                final ProtocolMessage protocolMessage = _binarySocket.popMessage();
+
+                if (LOGGING_ENABLED) {
+                    if (protocolMessage instanceof BitcoinProtocolMessage) {
+                        Logger.log("Received: " + ((BitcoinProtocolMessage) protocolMessage).getCommand());
+                    }
+                }
+
                 if (_messageReceivedCallback != null) {
-                    _messageReceivedCallback.onMessageReceived(_binarySocket.popMessage());
+                    _messageReceivedCallback.onMessageReceived(protocolMessage);
                 }
             }
         });
@@ -208,28 +215,36 @@ public class NodeConnection {
             }
         }
 
+        if (LOGGING_ENABLED) {
+            if (message instanceof BitcoinProtocolMessage) {
+                Logger.log((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()));
+            }
+        }
+
         if (! messageWasQueued) {
             _onMessagesProcessed();
         }
     }
 
 
-    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         _host = host;
         _port = port;
 
         _binaryPacketFormat = binaryPacketFormat;
+        _threadPool = threadPool;
     }
 
     /**
      * Creates a NodeConnection with an already-established BinarySocket.
      *  NodeConnection::connect should still be invoked in order to initiate the ::_onSocketConnected procedure.
      */
-    public NodeConnection(final BinarySocket binarySocket) {
+    public NodeConnection(final BinarySocket binarySocket, final ThreadPool threadPool) {
         _host = binarySocket.getHost();
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
+        _threadPool = threadPool;
     }
 
     public void connect() {
@@ -285,8 +300,6 @@ public class NodeConnection {
         if (_binarySocket != null) {
             _binarySocket.close();
         }
-
-        _threadPool.stop();
     }
 
     public void queueMessage(final ProtocolMessage message) {

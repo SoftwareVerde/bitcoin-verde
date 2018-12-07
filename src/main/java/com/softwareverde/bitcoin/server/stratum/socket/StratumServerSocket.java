@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.stratum.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.socket.SocketConnection;
 
 import java.io.IOException;
@@ -25,7 +25,7 @@ public class StratumServerSocket {
 
     protected SocketEventCallback _socketEventCallback = null;
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+    protected final ThreadPool _threadPool;
 
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
@@ -67,8 +67,9 @@ public class StratumServerSocket {
         }
     }
 
-    public StratumServerSocket(final Integer port) {
+    public StratumServerSocket(final Integer port, final ThreadPool threadPool) {
         _port = port;
+        _threadPool = threadPool;
     }
 
     public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {

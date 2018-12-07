@@ -11,29 +11,27 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.NanoTimer;
 
 import java.util.HashMap;
 
@@ -42,7 +40,7 @@ public class BlockchainBuilder extends SleepyService {
         void onNewBlock(Long blockHeight);
     }
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 60000L);
+    protected final ThreadPool _threadPool;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
@@ -257,13 +255,14 @@ public class BlockchainBuilder extends SleepyService {
         }
     }
 
-    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester) {
+    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
         _blockProcessor = blockProcessor;
         _downloadStatusMonitor = downloadStatusMonitor;
         _blockDownloadRequester = blockDownloadRequester;
+        _threadPool = threadPool;
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
@@ -277,17 +276,5 @@ public class BlockchainBuilder extends SleepyService {
 
     public void setNewBlockProcessedCallback(final NewBlockProcessedCallback newBlockProcessedCallback) {
         _newBlockProcessedCallback = newBlockProcessedCallback;
-    }
-
-    @Override
-    public void start() {
-        _threadPool.start();
-        super.start();
-    }
-
-    @Override
-    public void stop() {
-        super.stop();
-        _threadPool.stop();
     }
 }

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.test;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.io.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
@@ -10,6 +11,7 @@ import com.softwareverde.test.database.MysqlTestDatabase;
 public class IntegrationTest {
     protected static final MysqlTestDatabase _database = new MysqlTestDatabase();
     protected DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
+    protected MainThreadPool _threadPool = new MainThreadPool(1, 0L);
 
     static {
         _resetDatabase();

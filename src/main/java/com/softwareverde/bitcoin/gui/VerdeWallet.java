@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.gui;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
@@ -28,6 +29,8 @@ public class VerdeWallet extends Application {
     protected final TabPane _tabPane;
     protected final Tab _transactionHistoryTab;
 
+    protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
+
     protected Double _width = 720D / 2D;
     protected Double _height = 960D / 2D;
 
@@ -50,7 +53,7 @@ public class VerdeWallet extends Application {
                         final Integer port = walletProperties.getBitcoinRpcPort();
 
                         final Socket tcpSocket = new Socket(host, port);
-                        _jsonSocket = new JsonSocket(tcpSocket);
+                        _jsonSocket = new JsonSocket(tcpSocket, _threadPool);
                         _jsonSocket.beginListening();
                     }
                     catch (final Exception exception) { }

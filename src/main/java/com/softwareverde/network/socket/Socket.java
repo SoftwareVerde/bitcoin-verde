@@ -1,9 +1,9 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,7 +41,7 @@ public abstract class Socket {
     protected final OutputStream _rawOutputStream;
     protected final InputStream _rawInputStream;
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+    protected final ThreadPool _threadPool;
 
     protected String _getHost() {
         final InetAddress inetAddress = _socket.getInetAddress();
@@ -107,11 +107,9 @@ public abstract class Socket {
         if (! wasClosed) {
             _onSocketClosed();
         }
-
-        _threadPool.stop();
     }
 
-    protected Socket(final java.net.Socket socket, final ReadThread readThread) {
+    protected Socket(final java.net.Socket socket, final ReadThread readThread, final ThreadPool threadPool) {
         synchronized (_nextIdMutex) {
             _id = _nextId;
             _nextId += 1;
@@ -149,6 +147,8 @@ public abstract class Socket {
                 }
             }
         });
+
+        _threadPool = threadPool;
     }
 
     public void beginListening() {

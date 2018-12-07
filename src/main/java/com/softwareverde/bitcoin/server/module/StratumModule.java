@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
@@ -32,6 +33,7 @@ public class StratumModule {
 
     protected final Configuration _configuration;
     protected final StratumServerSocket _stratumServerSocket;
+    protected final MainThreadPool _threadPool = new MainThreadPool(256, 60000L);
 
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
@@ -103,7 +105,7 @@ public class StratumModule {
         // Logger.log("Private Key: " + privateKey);
         // Logger.log("Address:     " + Address.fromPrivateKey(privateKey).toBase58CheckEncoded());
 
-        _stratumServerSocket = new StratumServerSocket(serverProperties.getStratumPort());
+        _stratumServerSocket = new StratumServerSocket(serverProperties.getStratumPort(), _threadPool);
 
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
 

@@ -36,6 +36,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.callback.Callback;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -51,7 +52,6 @@ import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 
@@ -370,14 +370,14 @@ public class BitcoinNode extends Node {
         });
     }
 
-    public BitcoinNode(final String host, final Integer port) {
-        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+    public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool) {
+        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
 
         _initConnection();
     }
 
-    public BitcoinNode(final BinarySocket binarySocket) {
-        super(binarySocket);
+    public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool) {
+        super(binarySocket, threadPool);
 
         _initConnection();
     }
@@ -894,7 +894,5 @@ public class BitcoinNode extends Node {
         synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
         synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
-
-        _threadPool.stop();
     }
 }

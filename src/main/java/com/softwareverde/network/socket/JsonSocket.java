@@ -1,5 +1,6 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
 
 import java.io.BufferedReader;
@@ -56,8 +57,8 @@ public class JsonSocket extends Socket {
         }
     }
 
-    public JsonSocket(final java.net.Socket socket) {
-        super(socket, new ReadThread());
+    public JsonSocket(final java.net.Socket socket, final ThreadPool threadPool) {
+        super(socket, new ReadThread(), threadPool);
     }
 
     @Override

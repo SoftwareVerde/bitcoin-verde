@@ -21,6 +21,8 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Transact
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -48,7 +50,7 @@ public class RepairModule {
     protected final List<Sha256Hash> _blockHashes;
 
     protected final NodeInitializer _nodeInitializer;
-    protected final MutableNetworkTime _mutableNetworkTime = new MutableNetworkTime();
+    protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
 
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
         final File configurationFile =  new File(configurationFilename);
@@ -124,7 +126,7 @@ public class RepairModule {
             final TransactionInventoryMessageHandlerFactory transactionInventoryMessageHandlerFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
             final BitcoinNode.BlockInventoryMessageCallback inventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, _threadPool);
         }
     }
 

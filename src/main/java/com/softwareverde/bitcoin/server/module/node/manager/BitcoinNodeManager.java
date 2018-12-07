@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -84,7 +85,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 final String host = ip.toString();
                 final Integer port = bitcoinNodeIpAddress.getPort();
-                final BitcoinNode node = new BitcoinNode(host, port);
+                final BitcoinNode node = new BitcoinNode(host, port, _threadPool);
                 this.addNode(node); // NOTE: _addNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                 Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
@@ -168,8 +169,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler) {
-        super(maxNodeCount, new BitcoinNodeFactory(), networkTime);
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool) {
+        super(maxNodeCount, new BitcoinNodeFactory(threadPool), networkTime, threadPool);
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeInitializer = nodeInitializer;

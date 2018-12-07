@@ -186,14 +186,14 @@ public class BitcoinNodeDatabaseManager {
         );
     }
 
-    public void updateBlockInventory(final BitcoinNode node, final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
-        if (pendingBlockIds.isEmpty()) { return; }
+    public Boolean updateBlockInventory(final BitcoinNode node, final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
+        if (pendingBlockIds.isEmpty()) { return false; }
 
         final String host = node.getHost();
         final Integer port = node.getPort();
 
         final NodeId nodeId = _getNodeId(host, port);
-        if (nodeId == null) { return; }
+        if (nodeId == null) { return false; }
 
         final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO node_blocks_inventory (node_id, pending_block_id) VALUES (?, ?)");
         for (final PendingBlockId pendingBlockId : pendingBlockIds) {
@@ -201,6 +201,8 @@ public class BitcoinNodeDatabaseManager {
             batchedInsertQuery.setParameter(pendingBlockId);
         }
         _databaseConnection.executeSql(batchedInsertQuery);
+
+        return (_databaseConnection.getRowsAffectedCount() > 0);
     }
 
     public void deleteBlockInventory(final PendingBlockId pendingBlockId) throws DatabaseException {

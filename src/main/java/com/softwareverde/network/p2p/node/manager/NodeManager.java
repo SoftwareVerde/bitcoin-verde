@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -21,7 +22,7 @@ import java.util.*;
 public class NodeManager<NODE extends Node> {
     public static Boolean LOGGING_ENABLED = false;
 
-    protected static ThreadPool _threadPool = new ThreadPool(4, 16, 8000L);
+    protected static ThreadPool _threadPool;
 
     public interface NodeFilter<NODE> {
         Boolean meetsCriteria(NODE node);
@@ -518,7 +519,7 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime) {
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
         _systemTime = new SystemTime();
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
@@ -526,10 +527,11 @@ public class NodeManager<NODE extends Node> {
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
         _networkTime = networkTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime);
+        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _threadPool = threadPool;
     }
 
-    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime) {
+    public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
@@ -537,7 +539,8 @@ public class NodeManager<NODE extends Node> {
         _nodeFactory = nodeFactory;
         _networkTime = networkTime;
         _systemTime = systemTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime);
+        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _threadPool = threadPool;
     }
 
     public void addNode(final NODE node) {
@@ -701,6 +704,5 @@ public class NodeManager<NODE extends Node> {
     public void shutdown() {
         _isShuttingDown = true;
         _pendingRequestsManager.stop();
-        _threadPool.stop();
     }
 }

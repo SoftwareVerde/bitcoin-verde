@@ -23,10 +23,16 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
-    protected Runnable _newBlockHashesCallback;
+    protected Runnable _newBlockHashReceivedCallback;
+    protected Runnable _nodeInventoryUpdatedCallback;
 
-    protected Boolean _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
-        Boolean newBlockHashReceived = false;
+    static class StoreBlockHashesResult {
+        public Boolean nodeInventoryWasUpdated = false;
+        public Boolean newBlockHashWasReceived = false;
+    }
+
+    protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+        final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
@@ -43,7 +49,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                     pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash);
 
                     if (pendingBlockId != null) {
-                        newBlockHashReceived = true;
+                        storeBlockHashesResult.newBlockHashWasReceived = true;
                     }
                 }
                 else {
@@ -56,13 +62,14 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             }
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+            storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
         }
 
-        return newBlockHashReceived;
+        return storeBlockHashesResult;
     }
 
     public BlockInventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
@@ -70,13 +77,17 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         _databaseCache = databaseCache;
     }
 
-    public void setNewBlockHashesCallback(final Runnable newBlockHashesCallback) {
-        _newBlockHashesCallback = newBlockHashesCallback;
+    public void setNewBlockHashReceivedCallback(final Runnable newBlockHashesCallback) {
+        _newBlockHashReceivedCallback = newBlockHashesCallback;
+    }
+
+    public void setNodeInventoryUpdatedCallback(final Runnable nodeInventoryUpdatedCallback) {
+        _nodeInventoryUpdatedCallback = nodeInventoryUpdatedCallback;
     }
 
     @Override
     public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
-        final Boolean newBlockHashReceived = _storeBlockHashes(bitcoinNode, blockHashes);
+        final StoreBlockHashesResult storeBlockHashesResult = _storeBlockHashes(bitcoinNode, blockHashes);
 
         { // If the inventory message has new blocks or the last block is not on the main blockchain, then request block hashes after the most recent hash to continue synchronizing blocks (even a minority fork)...
             final Sha256Hash mostRecentBlockHash = blockHashes.get(blockHashes.getSize() - 1);
@@ -101,15 +112,21 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 }
             }
 
-            if ( (newBlockHashReceived) || (! mostRecentBlockIsMemberOfHeadBlockchain) ) {
+            if ( (storeBlockHashesResult.newBlockHashWasReceived) || (! mostRecentBlockIsMemberOfHeadBlockchain) ) {
                 bitcoinNode.requestBlockHashesAfter(mostRecentBlockHash);
             }
         }
 
-        if (newBlockHashReceived) {
-            final Runnable newBlockHashesCallback = _newBlockHashesCallback;
+        if (storeBlockHashesResult.newBlockHashWasReceived) {
+            final Runnable newBlockHashesCallback = _newBlockHashReceivedCallback;
             if (newBlockHashesCallback != null) {
                 newBlockHashesCallback.run();
+            }
+        }
+        else if (storeBlockHashesResult.nodeInventoryWasUpdated) {
+            final Runnable inventoryUpdatedCallback = _nodeInventoryUpdatedCallback;
+            if (inventoryUpdatedCallback != null) {
+                inventoryUpdatedCallback.run();
             }
         }
     }

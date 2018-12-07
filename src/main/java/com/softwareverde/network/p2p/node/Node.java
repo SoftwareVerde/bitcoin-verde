@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -8,7 +9,6 @@ import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.RotatingQueue;
@@ -83,7 +83,7 @@ public abstract class Node {
 
     protected final LinkedList<Runnable> _postConnectQueue = new LinkedList<Runnable>();
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
+    protected final ThreadPool _threadPool;
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -268,37 +268,40 @@ public abstract class Node {
         }
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
         _systemTime = new SystemTime();
-        _connection = new NodeConnection(host, port, binaryPacketFormat);
+        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime) {
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
         _systemTime = systemTime;
-        _connection = new NodeConnection(host, port, binaryPacketFormat);
+        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
     }
 
-    public Node(final BinarySocket binarySocket) {
+    public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
         _systemTime = new SystemTime();
-        _connection = new NodeConnection(binarySocket);
+        _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
     }
 
     public NodeId getId() { return _id; }

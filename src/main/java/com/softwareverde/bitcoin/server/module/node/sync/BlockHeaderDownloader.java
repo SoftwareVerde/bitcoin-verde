@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -17,7 +18,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -30,7 +30,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final BlockDownloadRequester _blockDownloadRequester;
-    protected final ThreadPool _threadPool = new ThreadPool(0, 2, 60000L);
+    protected final ThreadPool _threadPool;
     protected final MilliTimer _timer;
     protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
@@ -186,13 +186,14 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester) {
+    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeManager = nodeManager;
         _medianBlockTime = medianBlockTime;
         _blockDownloadRequester = blockDownloadRequester;
         _timer = new MilliTimer();
+        _threadPool = threadPool;
 
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
@@ -283,18 +284,5 @@ public class BlockHeaderDownloader extends SleepyService {
 
     public Long getBlockHeight() {
         return _blockHeight;
-    }
-
-    @Override
-    public void start() {
-        _threadPool.start();
-        super.start();
-    }
-
-    @Override
-    public void stop() {
-        super.stop();
-
-        _threadPool.stop();
     }
 }

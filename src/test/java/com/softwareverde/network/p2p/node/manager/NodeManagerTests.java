@@ -1,6 +1,8 @@
 package com.softwareverde.network.p2p.node.manager;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
@@ -26,12 +28,12 @@ public class NodeManagerTests {
 
         protected Long _lastMessageReceivedTimestamp = 0L;
 
-        public FakeNode(final String host) {
-            super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+        public FakeNode(final String host, final ThreadPool threadPool) {
+            super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
         }
 
-        public FakeNode(final String host, final SystemTime systemTime) {
-            super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, systemTime);
+        public FakeNode(final String host, final SystemTime systemTime, final ThreadPool threadPool) {
+            super(host, 0, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, systemTime, threadPool);
         }
 
         @Override
@@ -142,21 +144,27 @@ public class NodeManagerTests {
     }
 
     static class FakeNodeFactory implements com.softwareverde.network.p2p.node.NodeFactory<FakeNode> {
+        protected final ThreadPool _threadPool;
+
+        public FakeNodeFactory(final ThreadPool threadPool) {
+            _threadPool = threadPool;
+        }
+
         @Override
         public FakeNode newNode(final String host, final Integer port) {
-            return new FakeNode(host);
+            return new FakeNode(host, _threadPool);
         }
     }
 
-    protected FakeNode[] _setupFakeNodes(final Integer nodeCount, final NodeManager<FakeNode> nodeManager, final Map<NodeId, Integer> nodeSelectedCounts) {
-        return _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, new SystemTime());
+    protected FakeNode[] _setupFakeNodes(final Integer nodeCount, final NodeManager<FakeNode> nodeManager, final Map<NodeId, Integer> nodeSelectedCounts, final ThreadPool threadPool) {
+        return _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, new SystemTime(), threadPool);
     }
 
-    protected FakeNode[] _setupFakeNodes(final Integer nodeCount, final NodeManager<FakeNode> nodeManager, final Map<NodeId, Integer> nodeSelectedCounts, SystemTime systemTime) {
+    protected FakeNode[] _setupFakeNodes(final Integer nodeCount, final NodeManager<FakeNode> nodeManager, final Map<NodeId, Integer> nodeSelectedCounts, final SystemTime systemTime, final ThreadPool threadPool) {
         final FakeNode[] nodes = new FakeNode[nodeCount];
 
         for (int i = 0; i < nodes.length; ++i) {
-            final FakeNode fakeNode = new FakeNode(String.valueOf(i), systemTime);
+            final FakeNode fakeNode = new FakeNode(String.valueOf(i), systemTime, threadPool);
             nodeSelectedCounts.put(fakeNode.getId(), 0);
             nodeManager.addNode(fakeNode);
 
@@ -169,16 +177,17 @@ public class NodeManagerTests {
         return nodes;
     }
 
+    protected MainThreadPool _threadPool;
+
     @Before
     public void setup() {
         FakeNode._nextNonce = 0L;
-        NodeManager._threadPool.start();
+        _threadPool = new MainThreadPool(1, 0L);
     }
 
     @After
     public void after() {
-        // TODO: There are still threads lingering after these tests... this effectively kills them, but ideally this shouldn't be necessary as they should all have been cleaned up.
-        NodeManager._threadPool.stop();
+        _threadPool.stop();
     }
 
     @Test
@@ -186,11 +195,11 @@ public class NodeManagerTests {
         // Setup
         final Integer nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
-        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime);
+        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
         final HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode> invocationCallbacks = new HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode>(nodeCount);
 
-        _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
+        _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, _threadPool);
 
         final NodeManager.NodeApiRequest<FakeNode> nodeApiInvocation = new NodeManager.NodeApiRequest<FakeNode>() {
             @Override
@@ -234,11 +243,11 @@ public class NodeManagerTests {
 
         final Integer nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
-        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
+        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
         final HashMap<NodeId, NodeManager.NodeApiRequest<FakeNode>> invocationCallbacks = new HashMap<NodeId, NodeManager.NodeApiRequest<FakeNode>>(nodeCount);
 
-        final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
+        final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, _threadPool);
 
         final FakeNode designatedSlowNode = nodes[2];
         final NodeId designatedSlowNodeId = designatedSlowNode.getId();
@@ -327,11 +336,11 @@ public class NodeManagerTests {
 
         final Integer nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
-        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
+        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
         final HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode> invocationCallbacks = new HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode>(nodeCount);
 
-        final FakeNode[] fakeNodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts);
+        final FakeNode[] fakeNodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, _threadPool);
 
         final FakeNode designatedSlowNode = fakeNodes[1];
         final Long designatedSlowNodeId = designatedSlowNode.getId().longValue();
@@ -422,11 +431,11 @@ public class NodeManagerTests {
 
         final Integer nodeCount = 5;
         final MutableNetworkTime networkTime = new MutableNetworkTime();
-        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(), networkTime, fakeSystemTime);
+        final NodeManager<FakeNode> nodeManager = new NodeManager<FakeNode>(nodeCount, new FakeNodeFactory(_threadPool), networkTime, fakeSystemTime, _threadPool);
         final HashMap<NodeId, Integer> nodeSelectedCounts = new HashMap<NodeId, Integer>();
         final HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode> invocationCallbacks = new HashMap<NodeManager.NodeApiRequest<FakeNode>, FakeNode>(nodeCount);
 
-        final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, fakeSystemTime);
+        final FakeNode[] nodes = _setupFakeNodes(nodeCount, nodeManager, nodeSelectedCounts, fakeSystemTime, _threadPool);
 
         {  // Mark nodes as idle...
             nodes[0]._lastMessageReceivedTimestamp = -60000L;

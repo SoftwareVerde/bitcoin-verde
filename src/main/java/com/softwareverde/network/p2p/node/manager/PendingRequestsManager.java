@@ -1,6 +1,8 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Iterator;
@@ -15,13 +17,14 @@ public class PendingRequestsManager<NODE> extends SleepyService {
     public static final Long TIMEOUT_MS = 30000L; // The maximum time, in milliseconds, a request can remain unfulfilled.
     public static final Long POLL_TIME_MS = 200L; // The time slept between iterations of checking for failed pendingRequests...
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 4, (POLL_TIME_MS * 2));
+    protected final ThreadPool _threadPool;
 
     protected final SystemTime _systemTime;
     protected final ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long> _pendingRequests = new ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long>();
 
-    public PendingRequestsManager(final SystemTime systemTime) {
+    public PendingRequestsManager(final SystemTime systemTime, final ThreadPool threadPool) {
         _systemTime = systemTime;
+        _threadPool = threadPool;
     }
 
     public void addPendingRequest(final NodeManager.NodeApiRequest<NODE> apiRequest) {
@@ -60,7 +63,9 @@ public class PendingRequestsManager<NODE> extends SleepyService {
                 _threadPool.execute(new Runnable() {
                     @Override
                     public void run() {
-                        apiRequest.onFailure();
+                        try {
+                            apiRequest.onFailure();
+                        } catch (final Exception exception) { Logger.log(exception); }
                     }
                 });
 
@@ -82,13 +87,11 @@ public class PendingRequestsManager<NODE> extends SleepyService {
 
     @Override
     public void start() {
-        _threadPool.start();
         super.start();
     }
 
     @Override
     public void stop() {
         super.stop();
-        _threadPool.stop();
     }
 }

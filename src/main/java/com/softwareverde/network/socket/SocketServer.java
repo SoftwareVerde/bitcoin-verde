@@ -1,7 +1,7 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.network.p2p.node.manager.ThreadPool;
 
 import java.io.IOException;
 
@@ -59,7 +59,7 @@ public class SocketServer<T extends Socket> {
     protected volatile Boolean _shouldContinue = true;
     protected Thread _serverThread = null;
 
-    protected final ThreadPool _threadPool = new ThreadPool(0, 1, 1000L);
+    protected final ThreadPool _threadPool;
 
     protected SocketConnectedCallback<T> _socketConnectedCallback = null;
     protected SocketDisconnectedCallback<T> _socketDisconnectedCallback = null;
@@ -112,9 +112,10 @@ public class SocketServer<T extends Socket> {
         }
     }
 
-    public SocketServer(final Integer port, final SocketFactory<T> socketFactory) {
+    public SocketServer(final Integer port, final SocketFactory<T> socketFactory, final ThreadPool threadPool) {
         _port = port;
         _socketFactory = socketFactory;
+        _threadPool = threadPool;
     }
 
     public void setSocketConnectedCallback(final SocketConnectedCallback<T> socketConnectedCallback) {
@@ -127,7 +128,6 @@ public class SocketServer<T extends Socket> {
 
     public void start() {
         _shouldContinue = true;
-        _threadPool.start();
 
         try {
             _socket = new java.net.ServerSocket(_port);
@@ -158,7 +158,5 @@ public class SocketServer<T extends Socket> {
             }
         }
         catch (final Exception exception) { }
-
-        _threadPool.stop();
     }
 }

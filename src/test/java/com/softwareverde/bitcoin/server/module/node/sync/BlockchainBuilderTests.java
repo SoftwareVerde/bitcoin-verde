@@ -86,7 +86,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                     return SleepyService.Status.ACTIVE;
                 }
             };
-            blockchainBuilder = new BlockchainBuilder(nodeManager, databaseConnectionFactory, databaseCache, blockProcessor, blockDownloaderStatusMonitor, new FakeBlockDownloadRequester());
+            blockchainBuilder = new BlockchainBuilder(nodeManager, databaseConnectionFactory, databaseCache, blockProcessor, blockDownloaderStatusMonitor, new FakeBlockDownloadRequester(), _threadPool);
         }
 
         Assert.assertTrue(blockchainBuilder._hasGenesisBlock);
@@ -109,7 +109,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 class FakeBitcoinNodeManager extends BitcoinNodeManager {
 
     public FakeBitcoinNodeManager() {
-        super(0, null, null, null, null, null, null, null);
+        super(0, null, null, null, null, null, null, null, null);
     }
 
     @Override

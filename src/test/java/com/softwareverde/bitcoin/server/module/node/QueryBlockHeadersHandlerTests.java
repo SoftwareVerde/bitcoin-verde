@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -63,8 +64,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
     public static class FakeBinarySocket extends BinarySocket {
         public final FakeSocket fakeSocket;
 
-        public FakeBinarySocket(final FakeSocket fakeSocket) {
-            super(fakeSocket, BitcoinProtocolMessage.BINARY_PACKET_FORMAT);
+        public FakeBinarySocket(final FakeSocket fakeSocket, final ThreadPool threadPool) {
+            super(fakeSocket, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
             this.fakeSocket = fakeSocket;
         }
 
@@ -84,8 +85,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
 
-        public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket) {
-            super(fakeBinarySocket);
+        public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket, final ThreadPool threadPool) {
+            super(fakeBinarySocket, threadPool);
             this.fakeBinarySocket = fakeBinarySocket;
         }
 
@@ -217,7 +218,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
+        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
@@ -260,7 +261,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
+        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
@@ -304,7 +305,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
+        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
 
         final Integer blockOffset = 1; // The block header/offset that is provided as the last known header...
 
@@ -348,7 +349,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
+        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
 
         final Integer blockOffset = 2; // The block header/offset that is provided as the last known header...
 
@@ -406,7 +407,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket()));
+        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
