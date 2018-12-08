@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node.manager;
 
+import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableList;
@@ -15,6 +16,7 @@ import com.softwareverde.network.p2p.node.manager.health.NodeHealth;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.*;
@@ -81,7 +83,7 @@ public class NodeManager<NODE extends Node> {
     protected final Map<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final MutableList<NodeApiMessage<NODE>> _queuedTransmissions = new MutableList<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
-    protected final Set<NodeIpAddress> _nodeAddresses = new HashSet<NodeIpAddress>();
+    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
@@ -110,7 +112,9 @@ public class NodeManager<NODE extends Node> {
         }
 
         if (_nodes.isEmpty()) {
-            _onAllNodesDisconnected();
+            if (! _isShuttingDown) {
+                _onAllNodesDisconnected();
+            }
         }
     }
 
@@ -140,11 +144,12 @@ public class NodeManager<NODE extends Node> {
     }
 
     // NOTE: Requires Mutex Lock...
-    protected void _broadcastNewNodeToExistingNodes(final NodeIpAddress nodeIpAddress) {
+    protected void _broadcastNewNodesToExistingNodes(final List<NodeIpAddress> nodeIpAddresses) {
         for (final NODE node : _nodes.values()) {
-            node.broadcastNodeAddress(nodeIpAddress);
+            node.broadcastNodeAddresses(nodeIpAddresses);
+
             if (LOGGING_ENABLED) {
-                Logger.log("P2P: Broadcasting New Node (" + nodeIpAddress + ") to Existing Node (" + node + ")");
+                Logger.log("P2P: Broadcasting " + nodeIpAddresses.getSize() + " new Nodes to existing Node (" + node + ")");
             }
         }
     }
@@ -200,6 +205,17 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
+    protected Boolean _isConnectedToNode(final NodeIpAddress nodeIpAddress) {
+        for (final NODE existingNode : _nodes.values()) {
+            final NodeIpAddress existingNodeIpAddress = existingNode.getRemoteNodeIpAddress();
+
+            final Boolean isAlreadyConnectedToNode = (Util.areEqual(nodeIpAddress, existingNodeIpAddress));
+            if (isAlreadyConnectedToNode) { return true; }
+        }
+
+        return false;
+    }
+
     protected void _initNode(final NODE node) {
         final Container<Boolean> nodeConnected = new Container<Boolean>(null);
 
@@ -239,40 +255,49 @@ public class NodeManager<NODE extends Node> {
 
         node.setNodeAddressesReceivedCallback(new NODE.NodeAddressesReceivedCallback() {
             @Override
-            public void onNewNodeAddress(final NodeIpAddress nodeIpAddress) {
+            public void onNewNodeAddresses(final List<NodeIpAddress> nodeIpAddresses) {
+                if (_isShuttingDown) { return; }
+
+                final List<NodeIpAddress> unseenNodeAddresses;
+                {
+                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getSize());
+                    for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
+                        final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
+                        if (haveAlreadySeenNode) { continue; }
+
+                        listBuilder.add(nodeIpAddress);
+                        _nodeAddresses.add(nodeIpAddress);
+                    }
+                    unseenNodeAddresses = listBuilder.build();
+                }
+                if (unseenNodeAddresses.isEmpty()) { return; }
 
                 synchronized (_mutex) {
                     if (_isShuttingDown) { return; }
 
-                    final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
-                    if (haveAlreadySeenNode) { return; }
+                    _broadcastNewNodesToExistingNodes(unseenNodeAddresses);
 
-                    _nodeAddresses.add(nodeIpAddress);
-                    _broadcastNewNodeToExistingNodes(nodeIpAddress);
+                    // Connect to the node if the node if the NodeManager is still looking for peers...
+                    for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
+                        final Integer healthyNodeCount = _countNodesAboveHealth(50);
+                        if (healthyNodeCount >= _maxNodeCount) { break; }
 
-                    final Integer healthyNodeCount = _countNodesAboveHealth(50);
-                    if (healthyNodeCount >= _maxNodeCount) { return; }
+                        final String address = nodeIpAddress.getIp().toString();
+                        final Integer port = nodeIpAddress.getPort();
 
-                    final String address = nodeIpAddress.getIp().toString();
-                    final Integer port = nodeIpAddress.getPort();
-                    final String connectionString = (address + ":" + port);
+                        final Boolean isAlreadyConnectedToNode = _isConnectedToNode(nodeIpAddress);
+                        if (isAlreadyConnectedToNode) { continue; }
 
-                    for (final NODE existingNode : _nodes.values()) {
-                        final Boolean isAlreadyConnectedToNode = (existingNode.getConnectionString().equals(connectionString));
-                        if (isAlreadyConnectedToNode) {
-                            return;
-                        }
+                        final NODE newNode = _nodeFactory.newNode(address, port);
+
+                        _initNode(newNode);
+
+                        _broadcastExistingNodesToNewNode(newNode);
+
+                        _checkMaxNodeCount(_maxNodeCount - 1);
+
+                        _addNode(newNode);
                     }
-
-                    final NODE newNode = _nodeFactory.newNode(address, port);
-
-                    _initNode(newNode);
-
-                    _broadcastExistingNodesToNewNode(newNode);
-
-                    _checkMaxNodeCount(_maxNodeCount - 1);
-
-                    _addNode(newNode);
                 }
             }
         });

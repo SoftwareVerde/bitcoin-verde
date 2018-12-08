@@ -12,9 +12,10 @@ public class Logger {
     public interface LogCallback {
         void onLog(Object message);
     }
-
     private static final Integer MAX_BATCH_COUNT = 128;
+    private static final Object _messagePin = new Object();
     private static final ConcurrentLinkedQueue<String> _queuedMessages = new ConcurrentLinkedQueue<String>();
+
     private static final Thread _logThread = new Thread(new Runnable() {
         private String _dequeueMessages(final Integer maxMessageCount) {
             final StringBuilder stringBuilder = new StringBuilder();
@@ -33,19 +34,22 @@ public class Logger {
 
         @Override
         public void run() {
-            while (true) {
-                try { Thread.sleep(500); } catch (final Exception exception) { break; }
+            boolean shouldContinue = true;
+            while (shouldContinue) {
+                synchronized (_messagePin) {
+                    try {
+                        _messagePin.wait();
+                    }
+                    catch (final InterruptedException exception) {
+                        shouldContinue = false;
+                    }
+                }
 
                 final String concatenatedMessages = _dequeueMessages(MAX_BATCH_COUNT);
                 if (! concatenatedMessages.isEmpty()) {
                     System.out.print(concatenatedMessages);
                     System.out.flush();
                 }
-            }
-
-            String message;
-            while ((message = _queuedMessages.poll()) != null) {
-                System.out.println(message);
             }
         }
     });
@@ -94,6 +98,10 @@ public class Logger {
 
         if (_logThread.isAlive()) {
             _queuedMessages.add(string);
+
+            synchronized (_messagePin) {
+                _messagePin.notifyAll();
+            }
         }
         else {
             System.out.println(string);

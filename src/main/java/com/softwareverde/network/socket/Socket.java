@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.LinkedList;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class Socket {
     public static Boolean LOGGING_ENABLED = false;
@@ -32,7 +33,7 @@ public abstract class Socket {
 
     protected final Long _id;
     protected final java.net.Socket _socket;
-    protected final LinkedList<ProtocolMessage> _messages = new LinkedList<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Boolean _isClosed = false;
 
     protected Runnable _messageReceivedCallback;
@@ -42,6 +43,8 @@ public abstract class Socket {
     protected final InputStream _rawInputStream;
 
     protected final ThreadPool _threadPool;
+
+    protected final Object _rawOutputStreamWriteMutex = new Object();
 
     protected String _getHost() {
         final InetAddress inetAddress = _socket.getInetAddress();
@@ -134,10 +137,8 @@ public abstract class Socket {
         _readThread.setCallback(new ReadThread.Callback() {
             @Override
             public void onNewMessage(final ProtocolMessage message) {
-                synchronized (_messages) {
-                    _messages.addLast(message);
-                    _onMessageReceived(message);
-                }
+                _messages.offer(message);
+                _onMessageReceived(message);
             }
 
             @Override
@@ -159,14 +160,16 @@ public abstract class Socket {
         _messageReceivedCallback = callback;
     }
 
-    synchronized public void write(final ProtocolMessage outboundMessage) {
+    public void write(final ProtocolMessage outboundMessage) {
         final ByteArray bytes = outboundMessage.getBytes();
 
         try {
-            _rawOutputStream.write(bytes.getBytes());
-            _rawOutputStream.flush();
+            synchronized (_rawOutputStreamWriteMutex) {
+                _rawOutputStream.write(bytes.getBytes());
+                _rawOutputStream.flush();
+            }
         }
-        catch (final Exception e) {
+        catch (final Exception exception) {
             _closeSocket();
         }
     }
@@ -176,11 +179,7 @@ public abstract class Socket {
      *  Returns null if there are no pending messages.
      */
     public ProtocolMessage popMessage() {
-        synchronized (_messages) {
-            if (_messages.isEmpty()) { return null; }
-
-            return _messages.removeFirst();
-        }
+        return _messages.poll();
     }
 
     public String getHost() {

@@ -74,6 +74,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                     } break;
 
                     case TRANSACTION: {
+                        final NanoTimer getTransactionTimer = new NanoTimer();
+                        getTransactionTimer.start();
+
                         final Sha256Hash transactionHash = inventoryItem.getItemHash();
                         final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                         if (transactionId == null) {
@@ -91,6 +94,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                         final TransactionMessage transactionMessage = new TransactionMessage();
                         transactionMessage.setTransaction(transaction);
                         nodeConnection.queueMessage(transactionMessage);
+
+                        getTransactionTimer.stop();
+                        Logger.log("GetTransactionData: " + transactionHash + " to " + nodeConnection.toString() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     default: {

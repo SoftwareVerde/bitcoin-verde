@@ -18,7 +18,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.*;
 
 public abstract class Node {
-    public interface NodeAddressesReceivedCallback { void onNewNodeAddress(NodeIpAddress nodeIpAddress); }
+    public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
     public interface NodeConnectedCallback { void onNodeConnected();}
     public interface NodeHandshakeCompleteCallback { void onHandshakeComplete(); }
     public interface NodeDisconnectedCallback { void onNodeDisconnected(); }
@@ -253,18 +253,17 @@ public abstract class Node {
     }
 
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
-        for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
-            if (_nodeAddressesReceivedCallback != null) {
-                _threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        final NodeAddressesReceivedCallback callback = _nodeAddressesReceivedCallback;
-                        if (callback != null) {
-                            callback.onNewNodeAddress(nodeIpAddress);
-                        }
-                    }
-                });
-            }
+        final NodeAddressesReceivedCallback nodeAddressesReceivedCallback = _nodeAddressesReceivedCallback;
+        final List<NodeIpAddress> nodeIpAddresses = nodeIpAddressMessage.getNodeIpAddresses();
+        if (nodeIpAddresses.isEmpty()) { return; }
+
+        if (nodeAddressesReceivedCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    nodeAddressesReceivedCallback.onNewNodeAddresses(nodeIpAddresses);
+                }
+            });
         }
     }
 

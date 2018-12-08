@@ -2,6 +2,7 @@ package com.softwareverde.network.p2p.node.address;
 
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.ip.Ipv4;
+import com.softwareverde.util.Util;
 
 public class NodeIpAddress {
     protected Ip _ip;
@@ -42,8 +43,8 @@ public class NodeIpAddress {
         if (object == null) { return false; }
         if (! (object instanceof NodeIpAddress)) { return false; }
         final NodeIpAddress nodeIpAddress = (NodeIpAddress) object;
-        if (! _ip.equals(nodeIpAddress._ip)) { return false; }
-        return _port.equals(nodeIpAddress._port);
+        if (! Util.areEqual(_ip, nodeIpAddress._ip)) { return false; }
+        return Util.areEqual(_port, nodeIpAddress._port);
     }
 
     @Override
