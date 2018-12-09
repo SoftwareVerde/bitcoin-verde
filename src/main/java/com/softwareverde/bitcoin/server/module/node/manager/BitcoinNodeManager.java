@@ -10,9 +10,11 @@ import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
@@ -28,8 +30,10 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 
 public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
@@ -225,6 +229,42 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 bitcoinNode.requestBlockHashesAfter(blockHash);
             }
         });
+    }
+
+    /**
+     * Finds incomplete PendingBlocks that are not provided by any of the connected Nodes and attempts to locate them based on download-priority.
+     */
+    public void findNodeInventory() {
+        final List<NodeId> connectedNodes;
+        synchronized (_mutex) {
+            connectedNodes = new MutableList<NodeId>(_nodes.keySet());
+        }
+
+        final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            final List<Tuple<Sha256Hash, Sha256Hash>> inventoryPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(connectedNodes);
+            for (final Tuple<Sha256Hash, Sha256Hash> inventoryHash : inventoryPlan) {
+                final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+                queryBlocksMessage.addBlockHash(inventoryHash.first);
+                queryBlocksMessage.setStopBeforeBlockHash(inventoryHash.second);
+
+                queryBlocksMessages.add(queryBlocksMessage);
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+        }
+
+        synchronized (_mutex) {
+            for (final QueryBlocksMessage queryBlocksMessage : queryBlocksMessages) {
+                Logger.log("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+                for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                    bitcoinNode.queueMessage(queryBlocksMessage);
+                }
+            }
+        }
     }
 
     protected NodeApiRequest<BitcoinNode> _createRequestBlockRequest(final Sha256Hash blockHash, final DownloadBlockCallback callback) {

@@ -197,6 +197,7 @@ public class BlockchainBuilder extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                     TransactionUtil.commitTransaction(databaseConnection);
+                    Logger.log("Deleted failed pending block.");
                     continue;
                 }
 
@@ -220,6 +221,7 @@ public class BlockchainBuilder extends SleepyService {
                             TransactionUtil.startTransaction(databaseConnection);
                             pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);
                             TransactionUtil.commitTransaction(databaseConnection);
+                            Logger.log("Deleted failed pending block.");
                             break;
                         }
 

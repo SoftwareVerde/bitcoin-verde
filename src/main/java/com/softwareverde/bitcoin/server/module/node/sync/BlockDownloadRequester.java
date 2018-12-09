@@ -16,19 +16,17 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.util.Container;
-import com.softwareverde.util.Tuple;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
     protected final MysqlDatabaseConnectionFactory _connectionFactory;
     protected final BlockDownloader _blockDownloader;
-    protected final BitcoinNodeManager _nodeManager;
+    protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final DatabaseManagerCache _databaseCache;
 
     protected Long _lastUnavailableRequestedBlockTimestamp = 0L;
+    protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
     protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
@@ -54,7 +52,7 @@ public class BlockDownloadRequester {
                 final Long now = _systemTime.getCurrentTimeInSeconds();
                 final Long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
                 if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
-                    final List<NodeId> connectedNodes = _nodeManager.getNodeIds();
+                    final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
                     final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
                     if (! nodesHaveInventory) {
                         // Use the previousBlockHash (if provided)...
@@ -78,7 +76,7 @@ public class BlockDownloadRequester {
                             }
                         }
 
-                        _nodeManager.broadcastBlockFinder(blockFinderHashes);
+                        _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
                         _lastUnavailableRequestedBlockTimestamp = now;
                     }
                 }
@@ -91,22 +89,37 @@ public class BlockDownloadRequester {
         }
     }
 
+    /**
+     * Check for missing NodeInventory in order to speed up the initial Block download...
+     */
+    protected void _checkForNodeInventory() {
+        final Long now = _systemTime.getCurrentTimeInSeconds();
+        final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
+        if (durationSinceLastRequest > 30) {
+            _bitcoinNodeManager.findNodeInventory();
+            _lastNodeInventoryBroadcastTimestamp = now;
+        }
+    }
+
     public BlockDownloadRequester(final MysqlDatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {
         _connectionFactory = connectionFactory;
         _blockDownloader = blockDownloader;
-        _nodeManager = bitcoinNodeManager;
+        _bitcoinNodeManager = bitcoinNodeManager;
         _databaseCache = databaseManagerCache;
     }
 
     public void requestBlock(final BlockHeader blockHeader) {
+        _checkForNodeInventory();
         _requestBlock(blockHeader.getHash(), blockHeader.getPreviousBlockHash(), blockHeader.getTimestamp());
     }
 
     public void requestBlock(final Sha256Hash blockHash, final Long priority) {
+        _checkForNodeInventory();
         _requestBlock(blockHash, null, priority);
     }
 
     public void requestBlock(final Sha256Hash blockHash) {
+        _checkForNodeInventory();
         _requestBlock(blockHash, null, 0L);
     }
 }

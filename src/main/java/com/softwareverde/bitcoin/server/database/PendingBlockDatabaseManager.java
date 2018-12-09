@@ -19,6 +19,7 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
@@ -301,12 +302,85 @@ public class PendingBlockDatabaseManager {
         }
     }
 
+    public List<Tuple<Sha256Hash, Sha256Hash>> selectPriorityPendingBlocksWithUnknownNodeInventory(final List<NodeId> connectedNodeIds) throws DatabaseException {
+        try {
+            READ_LOCK.lock();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_block_data.id IS NULL) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
+            );
+
+            final MutableList<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = new MutableList<Tuple<Sha256Hash, Sha256Hash>>(rows.size());
+
+            Tuple<Sha256Hash, Sha256Hash> blockHashStartEnd = null;
+            Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
+            for (final Row row : rows) {
+                final Long blockHeight = row.getLong("block_height");
+                final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+                boolean addTupleToDownloadPlan = false;
+                boolean createNewTuple = false;
+                if (blockHashStartEnd == null) {
+                    createNewTuple = true;
+
+                    if (blockHeight == null) {
+                        addTupleToDownloadPlan = true;
+                    }
+                }
+                else {
+                    if (blockHeight == null) {
+                        addTupleToDownloadPlan = true;
+                        createNewTuple = true;
+                    }
+                    else {
+                        if (tupleStartingBlockHeight == null) {
+                            createNewTuple = true;
+                            addTupleToDownloadPlan = true;
+                        }
+                        else {
+                            final Long blockHeightDifference = (blockHeight - tupleStartingBlockHeight);
+                            if ((blockHeightDifference < 0) || (blockHeightDifference >= 500)) {
+                                addTupleToDownloadPlan = true;
+                            }
+                            else {
+                                blockHashStartEnd.second = blockHash;
+                            }
+                        }
+                    }
+                }
+
+                if (addTupleToDownloadPlan) {
+                    downloadPlan.add(blockHashStartEnd);
+                    blockHashStartEnd = null;
+                    tupleStartingBlockHeight = null;
+                }
+
+                if (createNewTuple) {
+                    blockHashStartEnd = new Tuple<Sha256Hash, Sha256Hash>();
+                    blockHashStartEnd.first = blockHash;
+                    tupleStartingBlockHeight = blockHeight;
+                }
+
+
+            }
+            if (blockHashStartEnd != null) {
+                downloadPlan.add(blockHashStartEnd);
+            }
+
+            return downloadPlan;
+
+        }
+        finally {
+            READ_LOCK.unlock();
+        }
+    }
+
     public Boolean nodesHaveBlockInventory(final List<NodeId> connectedNodeIds, final Sha256Hash blockHash) throws DatabaseException {
         try {
             READ_LOCK.lock();
 
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") LIMIT 1")
+                new Query("SELECT pending_blocks.id FROM pending_blocks INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_blocks.hash = ?) AND (node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ")) LIMIT 1")
                     .setParameter(blockHash)
             );
 
@@ -317,7 +391,7 @@ public class PendingBlockDatabaseManager {
             READ_LOCK.unlock();
         }
     }
-    // "SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND node_blocks_inventory.node_id IN () ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 10;"
+
     public Map<PendingBlockId, NodeId> selectIncompletePendingBlocks(final List<NodeId> connectedNodeIds, final Integer maxBlockCount) throws DatabaseException {
         try {
             READ_LOCK.lock();
@@ -325,7 +399,7 @@ public class PendingBlockDatabaseManager {
             final Long minSecondsBetweenDownloadAttempts = 5L;
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
             final java.util.List<Row> rows = _databaseConnection.query(
-                new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
+                new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND (node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ")) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                     .setParameter(currentTimestamp)
                     .setParameter(minSecondsBetweenDownloadAttempts)
             );

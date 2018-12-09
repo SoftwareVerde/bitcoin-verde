@@ -853,6 +853,10 @@ public class BitcoinNode extends Node {
         return _synchronizeVersionMessage.transactionRelayIsEnabled();
     }
 
+    public void queueMessage(final BitcoinProtocolMessage protocolMessage) {
+        _queueMessage(protocolMessage);
+    }
+
     @Override
     public BitcoinNodeIpAddress getLocalNodeIpAddress() {
         if (_localNodeIpAddress == null) { return null; }

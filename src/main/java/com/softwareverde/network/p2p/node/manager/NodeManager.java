@@ -631,6 +631,12 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
+        if (nodeHealth == null) {
+            Logger.log("Selected node no longer connected: " + selectedNode.getConnectionString());
+            apiRequest.onFailure();
+            return;
+        }
+
         apiRequest.nodeHealthRequest = nodeHealth.onRequestSent();
         _pendingRequestsManager.addPendingRequest(apiRequest);
         apiRequest.run(selectedNode);

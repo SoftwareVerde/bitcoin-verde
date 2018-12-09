@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);

@@ -111,6 +111,8 @@ public class MainThreadPool implements ThreadPool {
     }
 
     public Integer getPoolSize() {
+        if (_executorService == null) { return 0; }
+
         return _executorService.getPoolSize();
     }
 }

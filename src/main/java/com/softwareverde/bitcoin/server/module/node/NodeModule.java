@@ -60,6 +60,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 
 import java.io.File;
 import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
     public static void execute(final String configurationFileName) {
@@ -91,6 +92,9 @@ public class NodeModule {
     protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
 
     protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
+
+    protected Boolean _isShuttingDown = false;
+    protected final Object _shutdownPin = new Object();
 
     protected MysqlDatabaseConnectionPool _createDatabaseConnectionPool(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final Integer maxCount) {
         final MysqlDatabaseConnectionPool databaseConnectionPool = new MysqlDatabaseConnectionPool(databaseConnectionFactory, maxCount);
@@ -166,6 +170,69 @@ public class NodeModule {
         }
     }
 
+    protected void _shutdown() {
+        synchronized (_shutdownPin) {
+            final Boolean wasAlreadyShuttingDown = _isShuttingDown;
+            _isShuttingDown = true;
+            if (wasAlreadyShuttingDown) {
+                try { _shutdownPin.wait(); } catch (final Exception exception) { }
+                return;
+            }
+        }
+
+        Logger.log("[Stopping Addresses Processor]");
+        _addressProcessor.stop();
+
+        Logger.log("[Stopping Transaction Processor]");
+        _transactionProcessor.stop();
+
+        Logger.log("[Stopping Transaction Downloader]");
+        _transactionDownloader.stop();
+
+        Logger.log("[Stopping Block Processor]");
+        _blockchainBuilder.stop();
+
+        Logger.log("[Stopping Block Downloader]");
+        _blockDownloader.stop();
+
+        Logger.log("[Stopping Header Downloader]");
+        _blockHeaderDownloader.stop();
+
+        Logger.log("[Stopping Node Manager]");
+        _nodeManager.shutdown();
+        _nodeManager.stopNodeMaintenanceThread();
+
+        Logger.log("[Stopping Socket Server]");
+        _socketServer.stop();
+
+        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+        if (serverProperties.shouldUseTransactionBloomFilter()) {
+            Logger.log("[Saving Tx Bloom Filter]");
+            TransactionDatabaseManager.saveBloomFilter(_transactionBloomFilterFilename);
+        }
+
+        Logger.log("[Shutting Down Thread Server]");
+        _threadPool.stop();
+
+        Logger.log("[Shutting Down Database]");
+        _banFilter.close();
+
+        if (_jsonRpcSocketServer != null) {
+            _jsonRpcSocketServer.stop();
+        }
+
+        while (! _openDatabaseConnectionPools.isEmpty()) {
+            final MysqlDatabaseConnectionPool databaseConnectionPool = _openDatabaseConnectionPools.remove(0);
+            databaseConnectionPool.close();
+        }
+
+        _environment.getMasterDatabaseManagerCache().close();
+
+        synchronized (_shutdownPin) {
+            _shutdownPin.notifyAll();
+        }
+    }
+
     protected NodeModule(final String configurationFilename) {
         final Thread mainThread = Thread.currentThread();
 
@@ -198,6 +265,13 @@ public class NodeModule {
             if (database == null) {
                 BitcoinUtil.exitFailure();
             }
+
+            database.setPreShutdownHook(new Runnable() {
+                @Override
+                public void run() {
+                    _shutdown();
+                }
+            });
         }
 
         { // Initialize the NativeUnspentTransactionOutputCache...
@@ -495,52 +569,7 @@ public class NodeModule {
             Logger.log("ThreadPool Queue: " + _threadPool.getQueueSize() + " | Active Thread Count: " + _threadPool.getPoolSize());
         }
 
-        Logger.log("[Stopping Addresses Processor]");
-        _addressProcessor.stop();
-
-        Logger.log("[Stopping Transaction Processor]");
-        _transactionProcessor.stop();
-
-        Logger.log("[Stopping Transaction Downloader]");
-        _transactionDownloader.stop();
-
-        Logger.log("[Stopping Block Processor]");
-        _blockchainBuilder.stop();
-
-        Logger.log("[Stopping Block Downloader]");
-        _blockDownloader.stop();
-
-        Logger.log("[Stopping Header Downloader]");
-        _blockHeaderDownloader.stop();
-
-        Logger.log("[Stopping Node Manager]");
-        _nodeManager.shutdown();
-        _nodeManager.stopNodeMaintenanceThread();
-
-        Logger.log("[Stopping Socket Server]");
-        _socketServer.stop();
-
-        if (serverProperties.shouldUseTransactionBloomFilter()) {
-            Logger.log("[Saving Tx Bloom Filter]");
-            TransactionDatabaseManager.saveBloomFilter(_transactionBloomFilterFilename);
-        }
-
-        Logger.log("[Shutting Down Thread Server]");
-        _threadPool.stop();
-
-        Logger.log("[Shutting Down Database]");
-        _banFilter.close();
-
-        if (_jsonRpcSocketServer != null) {
-            _jsonRpcSocketServer.stop();
-        }
-
-        while (! _openDatabaseConnectionPools.isEmpty()) {
-            final MysqlDatabaseConnectionPool databaseConnectionPool = _openDatabaseConnectionPools.remove(0);
-            databaseConnectionPool.close();
-        }
-
-        _environment.getMasterDatabaseManagerCache().close();
+        // _shutdown();
 
         System.exit(0);
     }
