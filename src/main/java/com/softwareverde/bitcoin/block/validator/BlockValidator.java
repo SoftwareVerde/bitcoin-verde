@@ -48,6 +48,8 @@ public class BlockValidator {
     protected Long _trustedBlockHeight = 0L;
 
     protected Boolean _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
+        final Thread currentThread = Thread.currentThread();
+
         if (! block.isValid()) {
             Logger.log("Block header is invalid.");
             return false;
@@ -96,6 +98,7 @@ public class BlockValidator {
 
         if (threadCount == 1) {
             totalExpenditureValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
+            if (currentThread.isInterrupted()) { return false; } // Bail out if an abort occurred during single-threaded invocation...
         }
 
         final ParallelledTaskSpawner<Transaction, Boolean> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory, _databaseManagerCache);
@@ -113,6 +116,7 @@ public class BlockValidator {
 
         if (threadCount == 1) {
             transactionValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
+            if (currentThread.isInterrupted()) { return false; } // Bail out if an abort occurred during single-threaded invocation...
         }
 
         // TODO: Validate block size...
@@ -179,7 +183,14 @@ public class BlockValidator {
         }
 
         final List<Long> expenditureResults = totalExpenditureValidationTaskSpawner.waitForResults();
+        if (currentThread.isInterrupted()) {
+            // Bail out if an abort occurred...
+            transactionValidationTaskSpawner.abort();
+            return false;
+        }
+
         final List<Boolean> unlockedInputsResults = transactionValidationTaskSpawner.waitForResults();
+        if (currentThread.isInterrupted()) { return false; } // Bail out if an abort occurred...
 
         if (expenditureResults == null) {
             Logger.log("NOTICE: Expenditure validator returned null...");

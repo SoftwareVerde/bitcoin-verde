@@ -22,6 +22,7 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+// TODO: It's possible that the nodes connections aren't being faked correctly...
 public class NodeManagerTests {
     static class FakeNode extends com.softwareverde.network.p2p.node.Node {
         protected static long _nextNonce = 0L;

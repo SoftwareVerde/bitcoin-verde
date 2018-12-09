@@ -68,6 +68,10 @@ class ValidationTask<T, S> implements Runnable {
             }
             catch (final Exception exception) {
                 Logger.log(exception);
+
+                final Thread currentThread = Thread.currentThread();
+                currentThread.interrupt(); // Do not consume the interrupted status...
+
                 return null;
             }
         }
