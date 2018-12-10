@@ -210,6 +210,7 @@ public class TransactionDatabaseManager {
     }
 
     protected void _insertIntoUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
+        if (transactionIds.isEmpty()) { return; }
         final Long now = _systemTime.getCurrentTimeInSeconds();
 
         final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO unconfirmed_transactions (transaction_id, timestamp) VALUES (?, ?)");

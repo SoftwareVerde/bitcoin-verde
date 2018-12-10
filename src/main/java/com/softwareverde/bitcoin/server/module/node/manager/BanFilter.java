@@ -17,6 +17,15 @@ public class BanFilter {
         return _cachedDatabaseConnection;
     }
 
+    protected void _closeDatabaseConnection() {
+        final MysqlDatabaseConnection databaseConnection = _cachedDatabaseConnection;
+        _cachedDatabaseConnection = null;
+
+        if (databaseConnection != null) {
+            try { databaseConnection.close(); } catch (final DatabaseException exception) { }
+        }
+    }
+
     public BanFilter(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
@@ -29,7 +38,8 @@ public class BanFilter {
             return isBanned;
         }
         catch (final DatabaseException exception) {
-            _cachedDatabaseConnection = null;
+            _closeDatabaseConnection();
+
             Logger.log(exception);
             return false;
         }
@@ -43,7 +53,8 @@ public class BanFilter {
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
         }
         catch (final DatabaseException exception) {
-            _cachedDatabaseConnection = null;
+            _closeDatabaseConnection();
+
             Logger.log(exception);
         }
 
@@ -59,15 +70,12 @@ public class BanFilter {
             nodeDatabaseManager.setIsBanned(host, true);
         }
         catch (final DatabaseException exception) {
-            _cachedDatabaseConnection = null;
+            _closeDatabaseConnection();
             Logger.log(exception);
         }
     }
 
     public void close() {
-        if (_cachedDatabaseConnection != null) {
-            try { _cachedDatabaseConnection.close(); } catch (final DatabaseException exception) { }
-            _cachedDatabaseConnection = null;
-        }
+        _closeDatabaseConnection();
     }
 }
