@@ -19,7 +19,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     protected Integer _version;
     protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
-    protected Sha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
+    protected Sha256Hash _stopBeforeBlockHash = Sha256Hash.EMPTY_HASH;
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
@@ -33,7 +33,9 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
      */
     public void addBlockHash(final Sha256Hash blockHeaderHash) {
         if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HASH_COUNT) { return; }
-        _blockHeaderHashes.add(blockHeaderHash);
+        if (blockHeaderHash == null) { return; }
+
+        _blockHeaderHashes.add(blockHeaderHash.asConst());
     }
 
     public void clearBlockHeaderHashes() {
@@ -48,11 +50,11 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
     }
 
     public Sha256Hash getStopBeforeBlockHash() {
-        return new ImmutableSha256Hash(_stopBeforeBlockHash);
+        return _stopBeforeBlockHash;
     }
 
     public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
-        _stopBeforeBlockHash = blockHeaderHash.asConst();
+        _stopBeforeBlockHash = (blockHeaderHash != null ? blockHeaderHash.asConst() : Sha256Hash.EMPTY_HASH);
     }
 
     @Override
