@@ -94,6 +94,7 @@ class Ui {
 
         $("div.label", transactionInputUi).on("click", function() {
             $("> div:not(:first-child)", transactionInputUi).slideToggle(250);
+            return false;
         });
 
         $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
@@ -134,6 +135,7 @@ class Ui {
 
         $("div.label", transactionOutputUi).on("click", function() {
             $("> div:not(:first-child)", transactionOutputUi).slideToggle(250);
+            return false;
         });
 
         $(".address", transactionOutputUi).text(transactionOutput.address || "[CUSTOM SCRIPT]");
@@ -186,6 +188,8 @@ class Ui {
                    console.log(errorMessage);
                 }
             });
+
+            return false;
         };
     }
 
@@ -208,6 +212,8 @@ class Ui {
                    console.log(errorMessage);
                 }
             });
+
+            return false;
         };
     }
 
@@ -253,6 +259,11 @@ class Ui {
         const templates = $("#templates");
         const transactionTemplate = $(".transaction", templates);
         const transactionUi = transactionTemplate.clone();
+
+        transactionUi.on("click", function() {
+            transactionUi.toggleClass("collapsed");
+            return false;
+        });
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
