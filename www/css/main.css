@@ -17,10 +17,10 @@
     padding-bottom: 2em;
 }
 
-.transaction .io .transaction-inputs:before,
-.transaction .io .transaction-outputs:before,
-.transaction:before,
-.block:before {
+.transaction .io .transaction-inputs::before,
+.transaction .io .transaction-outputs::before,
+.transaction::before,
+.block::before {
     content: 'Block';
     color: #404040;
     font-weight: bold;
@@ -30,17 +30,20 @@
     top: 0.25em;
 }
 
-.transaction:before {
+.transaction::before {
     content: 'Transaction';
     color: #404040;
+    transition: all 500ms ease;
 }
-.transaction .io .transaction-inputs:before {
+.transaction .io .transaction-inputs::before {
     content: 'Transaction Inputs';
     margin-left: 0px;
+    transition: all 500ms ease;
 }
-.transaction .io .transaction-outputs:before {
+.transaction .io .transaction-outputs::before {
     content: 'Transaction Outputs';
     margin-left: 0px;
+    transition: all 500ms ease;
 }
 
 .transaction .io {
@@ -178,7 +181,7 @@
     margin-top: 0.25em;
 }
 
-.block .block-header div.timestamp .value:after {
+.block .block-header div.timestamp .value::after {
     content: '(UTC)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -186,7 +189,7 @@
     font-style: italic;
 }
 
-.block .block-header div.reward .value:after {
+.block .block-header div.reward .value::after {
     content: '(bitcoin)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -194,9 +197,9 @@
     font-style: italic;
 }
 
-.transaction div div.fee .value:after,
-.transaction div div.byte-count .value:after,
-.block .block-header div.byte-count .value:after {
+.transaction div div.fee .value::after,
+.transaction div div.byte-count .value::after,
+.block .block-header div.byte-count .value::after {
     content: '(bytes)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -204,7 +207,7 @@
     font-style: italic;
 }
 
-.transaction div div.fee .value:after {
+.transaction div div.fee .value::after {
     content: '(satoshis)';
 }
 
@@ -254,17 +257,9 @@
     font-size: 0.75em;
 }
 
-.transaction.collapsed .version,
-.transaction.collapsed .byte-count,
-.transaction.collapsed .fee,
-.transaction.collapsed .block-hashes,
-.transaction.collapsed .lock-time,
-.transaction.collapsed .version {
-    display: none;
-}
-
 .transaction {
     transition: all 500ms ease;
+    transition: opacity 500ms ease;
 }
 
 .transaction.collapsed {
@@ -274,30 +269,30 @@
     border: none;
 }
 
-.transaction.collapsed > div > div {
-    width: calc(100% - 0.5em);
+.transaction.collapsed .io .transaction-outputs::before, 
+.transaction.collapsed .io .transaction-inputs::before,
+.transaction.collapsed::before {
+    opacity: 0;
+    position: absolute;
 }
 
-.transaction.collapsed:before,
-.transaction.collapsed .io .transaction-inputs:before,
-.transaction.collapsed .io .transaction-outputs:before {
-    display: none;
+.transaction.collapsed > div > div {
+    width: calc(100% - 0.5em);
 }
 
 .transaction.collapsed .hash {
     font-size: 1.25em;
     width: auto;
 }
-.transaction.collapsed .hash label {
-    display: none;
-}
-.transaction.collapsed .hash span.value:before {
+
+.transaction.collapsed .hash span.value::before {
     content: 'Transaction:';
     font-size: 0.65em;
     color: #404040 !important;
     font-weight: bold;
     margin-right: 0.5em;
     font-family: sans-serif;
+    transition: all 500ms ease;
 }
 
 .transaction.collapsed > div > div {

@@ -261,9 +261,35 @@ class Ui {
         const transactionUi = transactionTemplate.clone();
 
         transactionUi.on("click", function() {
-            transactionUi.toggleClass("collapsed");
+            const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi);
+            elements.each(function() {
+                const element = $(this);
+                elements.animationCompleteCount = 0;
+                if (element.css("display") == "none") {
+                    element.slideDown(function() {
+                        element.css("visibility", "visible");
+                        elements.animationCompleteCount += 1;
+
+                        if (elements.animationCompleteCount >= elements.length) {
+                            transactionUi.toggleClass("collapsed");
+                        }
+                    });
+                }
+                else {
+                    element.slideUp(function() {
+                        element.css("visibility", "hidden");
+                        elements.animationCompleteCount += 1;
+
+                        if (elements.animationCompleteCount >= elements.length) {
+                            transactionUi.toggleClass("collapsed");
+                        }
+                    });
+                }
+            });
+            // $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).slideToggle(500);
             return false;
         });
+        $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).css("display", "none");
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
