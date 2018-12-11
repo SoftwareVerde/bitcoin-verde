@@ -47,16 +47,8 @@ public class BlockValidator {
     protected Integer _maxThreadCount = 4;
     protected Long _trustedBlockHeight = 0L;
 
-    protected Boolean _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
+    protected Boolean _validateTransactions(final Block block, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         final Thread currentThread = Thread.currentThread();
-
-        if (! block.isValid()) {
-            Logger.log("Block header is invalid.");
-            return false;
-        }
-
-        final NanoTimer validateBlockTimer = new NanoTimer();
-        validateBlockTimer.start();
 
         final List<Transaction> transactions;
         final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
@@ -104,15 +96,8 @@ public class BlockValidator {
         final ParallelledTaskSpawner<Transaction, Boolean> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, Boolean>(_databaseConnectionFactory, _databaseManagerCache);
         transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
 
-        final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
-        if (shouldValidateInputs) {
-            transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
-        }
-        else {
-            Logger.log("NOTE: Trusting Block Height: " + blockHeight);
-            final List<Transaction> emptyTransactionList = new MutableList<Transaction>();
-            transactionValidationTaskSpawner.executeTasks(emptyTransactionList, threadCount);
-        }
+
+        transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
 
         if (threadCount == 1) {
             transactionValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
@@ -202,11 +187,6 @@ public class BlockValidator {
             return false;
         }
 
-        validateBlockTimer.stop();
-        if (_shouldLogValidBlocks) {
-            Logger.log("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
-        }
-
         final Long totalTransactionFees;
         {
             long amount = 0L;
@@ -247,6 +227,32 @@ public class BlockValidator {
                 Logger.log("Invalid coinbase transaction amount. Amount: " + coinbaseTransactionAmount + "; " + "Block: "+ block.getHash());
                 return false;
             }
+        }
+
+        return true;
+    }
+
+    protected Boolean _validateBlock(final BlockchainSegmentId blockchainSegmentId, final Block block, final Long blockHeight) {
+        if (! block.isValid()) {
+            Logger.log("Block header is invalid.");
+            return false;
+        }
+
+        final Boolean shouldValidateInputs = (blockHeight > _trustedBlockHeight);
+        if (shouldValidateInputs) {
+            final NanoTimer validateBlockTimer = new NanoTimer();
+            validateBlockTimer.start();
+
+            _validateTransactions(block, blockchainSegmentId, blockHeight);
+
+            validateBlockTimer.stop();
+            if (_shouldLogValidBlocks) {
+                final List<Transaction> transactions = block.getTransactions();
+                Logger.log("Validated " + transactions.getSize() + " transactions in " + (validateBlockTimer.getMillisecondsElapsed()) + "ms (" + ((int) ((transactions.getSize() / validateBlockTimer.getMillisecondsElapsed()) * 1000)) + " tps). " + block.getHash());
+            }
+        }
+        else {
+            Logger.log("NOTE: Trusting Block Height: " + blockHeight);
         }
 
         return true;
