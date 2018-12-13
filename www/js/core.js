@@ -72,6 +72,13 @@ class Api {
 
         Http.get(Api.PREFIX + "blocks", apiParameters, callback);
     }
+
+    static getStatus(parameters, callback) {
+        const defaultParameters = { };
+        const apiParameters = $.extend({}, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "status", apiParameters, callback);
+    }
 }
 Api.PREFIX = "/api/v1/";
 

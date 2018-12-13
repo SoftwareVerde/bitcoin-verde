@@ -532,6 +532,7 @@ public class TransactionDatabaseManager {
                 batchedInsertQuery.setParameter(sortOrder);
                 sortOrder += 1;
             }
+
             _databaseConnection.executeSql(batchedInsertQuery);
         }
     }

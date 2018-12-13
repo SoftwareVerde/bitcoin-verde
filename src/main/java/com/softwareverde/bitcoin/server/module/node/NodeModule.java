@@ -59,6 +59,8 @@ import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 
 import java.io.File;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -505,14 +507,20 @@ public class NodeModule {
             Logger.log("[Starting Node Manager]");
             _nodeManager.startNodeMaintenanceThread();
 
-
             final Configuration.SeedNodeProperties[] seedNodes = serverProperties.getSeedNodeProperties();
             for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
+                try {
+                    final InetAddress ipAddress = InetAddress.getByName(host);
+                    final String ipAddressString = ipAddress.getHostAddress();
 
-                final BitcoinNode node = _nodeInitializer.initializeNode(host, port);
-                _nodeManager.addNode(node);
+                    final BitcoinNode node = _nodeInitializer.initializeNode(ipAddressString, port);
+                    _nodeManager.addNode(node);
+                }
+                catch (final Exception exception) {
+                    Logger.log("Unable to determine host: " + host);
+                }
             }
         }
         else {
@@ -568,8 +576,6 @@ public class NodeModule {
 
             Logger.log("ThreadPool Queue: " + _threadPool.getQueueSize() + " | Active Thread Count: " + _threadPool.getPoolSize());
         }
-
-        // _shutdown();
 
         System.exit(0);
     }
