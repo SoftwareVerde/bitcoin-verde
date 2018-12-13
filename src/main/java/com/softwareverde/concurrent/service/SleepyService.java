@@ -46,33 +46,53 @@ public abstract class SleepyService {
         _coreRunnable = new Runnable() {
             @Override
             public void run() {
-                _onStart();
-
-                final Thread thread = Thread.currentThread();
-                do {
-                    _shouldRestart = false;
-
-                    while (! thread.isInterrupted()) {
-                        try {
-                            final Boolean shouldContinue = _run();
-
-                            if (! shouldContinue) { break; }
-                        }
-                        catch (final Exception exception) {
-                            Logger.log(exception);
-                            break;
-                        }
-                    }
-
-                } while ( (_shouldRestart) && (! thread.isInterrupted()) );
-
-                synchronized (_threadMutex) {
-                    _thread = null;
+                try {
+                    _onStart();
+                    _loop();
+                }
+                catch (final Exception exception) {
+                    Logger.log("Unable to run " + this.getClass().getSimpleName());
+                    Logger.log(exception);
                 }
 
-                _onSleep();
+                try {
+                    _onSleep();
+                }
+                catch (final Exception exception) {
+                    Logger.log("Failure in _onSleep for " + this.getClass().getSimpleName());
+                    Logger.log(exception);
+                }
+                finally {
+                    synchronized (_threadMutex) {
+                        _thread = null;
+
+                        if (_shouldRestart) {
+                            _startThread();
+                        }
+                    }
+                }
             }
         };
+    }
+
+    protected void _loop() {
+        final Thread thread = Thread.currentThread();
+        do {
+            _shouldRestart = false;
+
+            while (!thread.isInterrupted()) {
+                try {
+                    final Boolean shouldContinue = _run();
+
+                    if (!shouldContinue) {
+                        break;
+                    }
+                } catch (final Exception exception) {
+                    Logger.log(exception);
+                    break;
+                }
+            }
+        } while ((_shouldRestart) && (!thread.isInterrupted()));
     }
 
     public void start() {
