@@ -158,4 +158,26 @@ public class PendingBlockDatabaseManagerTests extends IntegrationTest {
             Assert.assertEquals(10, downloadPlan.getSize());
         }
     }
+
+    @Test
+    public void should_return_single_priority_incomplete_block() throws DatabaseException {
+        // Setup
+        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+
+            final Sha256Hash blockHash = MutableSha256Hash.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(124)));
+
+            _insertFakePendingBlock(blockHash, 124L);
+
+            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+
+            // Action
+            final List<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(new MutableList<NodeId>(0));
+
+            // Assert
+            Assert.assertEquals(blockHash, downloadPlan.get(0).first);
+            Assert.assertNull(downloadPlan.get(0).second);
+
+            Assert.assertEquals(1, downloadPlan.getSize());
+        }
+    }
 }

@@ -350,9 +350,11 @@ public class PendingBlockDatabaseManager {
                 }
 
                 if (addTupleToDownloadPlan) {
-                    downloadPlan.add(blockHashStartEnd);
-                    blockHashStartEnd = null;
-                    tupleStartingBlockHeight = null;
+                    if (blockHashStartEnd != null) {
+                        downloadPlan.add(blockHashStartEnd);
+                        blockHashStartEnd = null;
+                        tupleStartingBlockHeight = null;
+                    }
                 }
 
                 if (createNewTuple) {
@@ -360,8 +362,6 @@ public class PendingBlockDatabaseManager {
                     blockHashStartEnd.first = blockHash;
                     tupleStartingBlockHeight = blockHeight;
                 }
-
-
             }
             if (blockHashStartEnd != null) {
                 downloadPlan.add(blockHashStartEnd);
