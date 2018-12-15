@@ -93,7 +93,7 @@ public class NodeModule {
 
     protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
 
-    protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
+    protected final MainThreadPool _threadPool = new MainThreadPool(512, 10000L);
 
     protected Boolean _isShuttingDown = false;
     protected final Object _shutdownPin = new Object();
