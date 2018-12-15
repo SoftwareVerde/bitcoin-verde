@@ -242,8 +242,6 @@ public class NodeModule {
     protected NodeModule(final String configurationFilename) {
         final Thread mainThread = Thread.currentThread();
 
-        final Boolean shouldTrimBlocks = false;
-
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -392,7 +390,7 @@ public class NodeModule {
                 public void onNewBlock(final Long blockHeight, final Sha256Hash blockHash) {
                     _addressProcessor.wakeUp();
 
-                    if (shouldTrimBlocks) {
+                    if (serverProperties.shouldTrimBlocks()) {
                         final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
                         if (blockHeight > keepBlockCount) {
                             try {
@@ -525,36 +523,6 @@ public class NodeModule {
                 Logger.log(exception);
             }
         }
-
-//{
-//    final MysqlDatabaseConnectionFactory databaseConnectionFactory = _environment.getDatabase().getDatabaseConnectionFactory();
-//    final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-//    final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-//    final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseConnectionFactory, localDatabaseCache);
-//
-//    try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
-//        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, localDatabaseCache);
-//        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
-//
-//        BlockId nextBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
-//        while (nextBlockId != null) {
-//            Logger.log("Trimming BlockId: " + nextBlockId);
-//            final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-//            final BlockId blockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, nextBlockId);
-//            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
-//
-//            blockTrimmer.trimBlock(blockHash);
-//            masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseCache);
-//
-//            nextBlockId = blockId;
-//        }
-//
-//    }
-//    catch (final Exception exception) {
-//        Logger.log(exception);
-//        return;
-//    }
-//}
 
         if (! serverProperties.skipNetworking()) {
             Logger.log("[Starting Node Manager]");
