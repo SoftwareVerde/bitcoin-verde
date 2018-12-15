@@ -110,7 +110,7 @@ CREATE TABLE block_transactions (
     PRIMARY KEY (id),
     UNIQUE KEY block_transactions_uq (block_id, transaction_id),
     FOREIGN KEY block_transactions_fk (block_id) REFERENCES blocks (id),
-    FOREIGN KEY block_transactions_fk2 (transaction_id) REFERENCES transactions (id)
+    FOREIGN KEY block_transactions_fk2 (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unconfirmed_transactions (
@@ -129,7 +129,7 @@ CREATE TABLE transaction_outputs (
     amount BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_output_tx_id_index_uq (transaction_id, `index`),
-    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id)
+    FOREIGN KEY transaction_outputs_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unspent_transaction_outputs (
@@ -138,7 +138,7 @@ CREATE TABLE unspent_transaction_outputs (
     transaction_hash CHAR(64) NOT NULL,
     `index` INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY unspent_transaction_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
+    FOREIGN KEY unspent_transaction_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
     INDEX transaction_outputs_spent_tx_id_ix (transaction_hash, `index`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
@@ -149,8 +149,8 @@ CREATE TABLE transaction_inputs (
     sequence_number INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY transaction_inputs_tx_id_prev_tx_id_uq (transaction_id, previous_transaction_output_id),
-    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id),
-    FOREIGN KEY transaction_inputs_tx_out_fk (previous_transaction_output_id) REFERENCES transaction_outputs (id)
+    FOREIGN KEY transaction_inputs_tx_id_fk (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE,
+    FOREIGN KEY transaction_inputs_tx_out_fk (previous_transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE script_types (
@@ -170,7 +170,7 @@ CREATE TABLE locking_scripts (
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
     FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
-    FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id),
+    FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
     FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
@@ -180,7 +180,7 @@ CREATE TABLE unlocking_scripts (
     script BLOB NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY unlocking_scripts_uq (transaction_input_id),
-    FOREIGN KEY unlocking_scripts_input_id_fk (transaction_input_id) REFERENCES transaction_inputs (id)
+    FOREIGN KEY unlocking_scripts_input_id_fk (transaction_input_id) REFERENCES transaction_inputs (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE address_processor_queue (
@@ -188,7 +188,7 @@ CREATE TABLE address_processor_queue (
     locking_script_id INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY address_processor_queue_uq (locking_script_id),
-    FOREIGN KEY address_processor_queue_fk (locking_script_id) REFERENCES locking_scripts (id)
+    FOREIGN KEY address_processor_queue_fk (locking_script_id) REFERENCES locking_scripts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE hosts (

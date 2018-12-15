@@ -1,12 +1,17 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
@@ -39,6 +44,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
@@ -60,9 +66,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 
 import java.io.File;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.HashSet;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NodeModule {
     public static void execute(final String configurationFileName) {
@@ -238,6 +242,8 @@ public class NodeModule {
     protected NodeModule(final String configurationFilename) {
         final Thread mainThread = Thread.currentThread();
 
+        final Boolean shouldTrimBlocks = true;
+
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -377,11 +383,28 @@ public class NodeModule {
 
         _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
+        final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+        final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseConnectionFactory, localDatabaseCache);
+
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
                 @Override
-                public void onNewBlock(final Long blockHeight) {
+                public void onNewBlock(final Long blockHeight, final Sha256Hash blockHash) {
                     _addressProcessor.wakeUp();
+
+                    if (shouldTrimBlocks) {
+                        final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
+                        if (blockHeight > keepBlockCount) {
+                            try {
+                                blockTrimmer.trimBlock(blockHash, keepBlockCount);
+                                masterDatabaseManagerCache.commitLocalDatabaseManagerCache(localDatabaseCache);
+                            }
+                            catch (final Exception exception) {
+                                Logger.log("Error trimming Block: " + blockHash);
+                                Logger.log(exception);
+                            }
+                        }
+                    }
 
                     final Long blockHeaderDownloaderBlockHeight = _blockHeaderDownloader.getBlockHeight();
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {

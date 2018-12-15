@@ -197,7 +197,7 @@ public class BlockProcessor {
                     BlockId nextBlockId = blockchainDatabaseManager.getHeadBlockIdOfBlockchainSegment(originalHeadBlockchainSegmentId);
 
                     while (nextBlockId != null) {
-                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactionDatabaseManager.getTransactionIds(nextBlockId));
+                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
                         transactionIds.remove(0); // Exclude the coinbase...
                         transactionDatabaseManager.addToUnconfirmedTransactions(transactionIds);
 
@@ -213,7 +213,7 @@ public class BlockProcessor {
 
                     // 3. Traverse down the chain to the new head of the chain and remove the transactions from those blocks from the memory pool...
                     while (nextBlockId != null) {
-                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactionDatabaseManager.getTransactionIds(nextBlockId));
+                        final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(nextBlockId));
                         transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
                         transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
 
@@ -249,7 +249,7 @@ public class BlockProcessor {
                 }
                 else {
                     // Remove any transactions in the memory pool that were included in this block...
-                    final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(transactionDatabaseManager.getTransactionIds(blockId));
+                    final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(blockId));
                     transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
                     transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
                 }
