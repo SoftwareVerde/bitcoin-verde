@@ -1,3 +1,7 @@
+#templates {
+    display: none;
+}
+
 #main .status-container {
     width: 90%;
     box-shadow: 5px 5px 5px 0px rgba(0, 0, 0, 0.15);
@@ -7,6 +11,10 @@
     padding: 1em;
     background: #FAFAFA;
     overflow: hidden;
+}
+
+#main .status-container * {
+    transition: all 500ms ease;
 }
 
 #main .status-container .status {
@@ -111,18 +119,139 @@
     box-sizing: border-box;
 }
 
-.block-headers-per-second:before {
+.block-headers-per-second::before {
     content: 'Headers Per Second:';
     margin-right: 1em;
 }
 
-.blocks-per-second:before {
+.blocks-per-second::before {
     content: 'Blocks Per Second:';
     margin-right: 1em;
 }
 
-.transactions-per-second:before {
+.transactions-per-second::before {
     content: 'Transactions Per Second:';
     margin-right: 1em;
+}
+
+.node {
+    display: inline-block;
+    border-radius: 1em;
+    border: solid 1px #C0C0C0;
+    padding: 1em;
+    margin: 1em;
+    font-size: 75%;
+    box-shadow: 5px 5px 5px #E0E0E0;
+    width: calc(20% - 2em);
+    min-widthj: 250px;
+    box-sizing: border-box;
+}
+
+.node .id {
+    float: right;
+    padding: 0.15em
+}
+
+.node .user-agent {
+    background-color: #F0F0F0;
+    padding: 0.15em;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    border-bottom: solid 1px #D0D0D0;
+}
+
+.node .host,
+.node .local-host {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+}
+
+.node .port,
+.node .local-port {
+    display: inline-block;
+    margin: 0;
+    padding: 0;
+    margin-left: 1em;
+    float: right;
+}
+
+.node .host::before,
+.node .local-host::before {
+    content: 'Host:';
+    margin-right: 1em;
+    font-weight: bold;
+    min-width: auto;
+    display: initial;
+}
+
+.node .port::before,
+.node .local-port::before {
+    content: 'Port:';
+    margin-right: 1em;
+    font-weight: bold;
+    width: auto;
+    min-width: auto;
+    display: initial;
+}
+
+
+.node .features {
+    padding-left: 1em;
+}
+.node .features::before {
+    content: 'Features:';
+    margin-left: -1em;
+}
+.node .features div {
+    font-family: consolas, monospace;
+    font-size: 0.75em;
+}
+
+.node ::before {
+    min-width: 50%;
+    display: inline-block;
+}
+
+.node .features div label.disabled {
+    text-decoration: line-through;
+}
+
+.node > div:nth-child(2n+5) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.node .network-offset::before {
+    content: 'Network Offset:';
+    margin-right: 1em;
+    text-align: left;
+}
+
+.node .handshake-complete::before {
+    content: 'Handshake:';
+    margin-right: 1em;
+}
+
+.node .initialization-timestamp::before {
+    content: 'Connected Timestamp:';
+    margin-right: 1em;
+}
+
+.node .last-message-timestamp::before {
+    content: 'Last Message Timestamp:';
+    margin-right: 1em;
+}
+
+.node .local-host::before {
+    content: 'Local Host:';
+}
+
+.node .local-port::before {
+    content: 'Local Port:';
+}
+
+.node .local-host,
+.node .local-port {
+    display: none;
 }
 

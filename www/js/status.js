@@ -39,6 +39,67 @@ class StatusUi {
             }
         });
     }
+
+    static updateNodes() {
+        const loadingImage = $("#search-loading-image");
+
+        loadingImage.css("visibility", "visible");
+
+        const parameters = { };
+        Api.getNodes(parameters, function(data) {
+            loadingImage.css("visibility", "hidden");
+
+            const wasSuccess = data.wasSuccess;
+            const errorMessage = data.errorMessage;
+            const nodes = data.nodes;
+
+            if (wasSuccess) {
+                const nodesContainer = $(".status-container .nodes");
+                nodesContainer.empty();
+
+                nodes.sort(function(node0, node1) {
+                    return node0.id - node1.id;
+                });
+
+                for (const i in nodes) {
+                    const node = nodes[i];
+                    const nodeElement = $("#templates .node").clone();
+                    $(".id", nodeElement).text(node.id);
+                    $(".user-agent", nodeElement).text(node.userAgent);
+                    $(".host", nodeElement).text(node.host);
+                    $(".port", nodeElement).text(node.port);
+
+                    $(".network-offset", nodeElement).text(node.networkOffset);
+                    $(".handshake-complete", nodeElement).text(node.handshakeIsComplete);
+                    $(".initialization-timestamp", nodeElement).text(node.initializationTimestamp);
+                    $(".last-message-timestamp", nodeElement).text(node.lastMessageReceivedTimestamp);
+
+                    $(".local-host", nodeElement).text(node.localHost);
+                    $(".local-port", nodeElement).text(node.localPort);
+
+                    const featuresContainer = $(".features", nodeElement);
+                    for (const feature in node.features) {
+                        const value = node.features[feature];
+
+                        let featureElement = null;
+                        if ( (value == "0") || (value == "1") ) {
+                            featureElement = $("<div class=\"feature\"><label class=\"" + (value == "0" ? "disabled" : "") + "\">" + feature + "</label></div>");
+                        }
+                        else {
+                            featureElement = $("<div class=\"feature\"><label>" + feature + "</label><span>" + value + "</span></div>");
+                        }
+
+                        $(featuresContainer).append(featureElement);
+                    }
+
+                    nodesContainer.append(nodeElement);
+                }
+            }
+            else {
+               console.log(errorMessage);
+            }
+        });
+    }
 }
 
 $(document).ready(function() {
@@ -60,6 +121,11 @@ $(document).ready(function() {
     window.setInterval(function() {
         StatusUi.updateStatus();
     }, 5000);
+
+    StatusUi.updateNodes();
+    window.setInterval(function() {
+        StatusUi.updateNodes();
+    }, 20000);
 });
 
 

@@ -532,7 +532,7 @@ public class NodeManager<NODE extends Node> {
 
         for (final NODE node : _nodes.values()) {
             if (! node.isConnected()) {
-                final Long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTime());
+                final Long nodeAge = (_systemTime.getCurrentTimeInMilliSeconds() - node.getInitializationTimestamp());
                 if (nodeAge > 10000L) {
                     purgeableNodes.add(node);
                 }
