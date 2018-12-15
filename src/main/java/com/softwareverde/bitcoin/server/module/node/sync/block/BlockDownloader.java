@@ -179,7 +179,20 @@ public class BlockDownloader extends SleepyService {
     }
 
     @Override
-    protected void _onSleep() { }
+    protected void _onSleep() {
+        Logger.log("BlockDownloader::sleep()");
+        final List<NodeId> connectedNodeIds = _bitcoinNodeManager.getNodeIds();
+        if (! connectedNodeIds.isEmpty()) {
+            Logger.log("Searching for Unlocatable Pending Blocks...");
+            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+                pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+            }
+        }
+    }
 
     public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;

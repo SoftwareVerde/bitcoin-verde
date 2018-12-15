@@ -55,6 +55,8 @@ public class BlockDownloadRequester {
                     final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
                     final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
                     if (! nodesHaveInventory) {
+                        _lastUnavailableRequestedBlockTimestamp = now;
+
                         // Use the previousBlockHash (if provided)...
                         final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
                         if (parentBlockHash != null) {
@@ -77,7 +79,6 @@ public class BlockDownloadRequester {
                         }
 
                         _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
-                        _lastUnavailableRequestedBlockTimestamp = now;
                     }
                 }
             }
