@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.Endian;
 
 public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {

@@ -6,7 +6,7 @@ import com.softwareverde.util.ByteUtil;
 
 public class DatabaseConfigurer {
     public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Configuration.ServerProperties serverProperties) {
-        final Integer maxDatabaseThreadCount = Math.max(128, (serverProperties.getMaxPeerCount() * 8));
+        final Integer maxDatabaseThreadCount = Math.max(1024, (serverProperties.getMaxPeerCount() * 8));
 
         commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
         commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
@@ -28,7 +28,7 @@ public class DatabaseConfigurer {
 
         commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
         // commandLineArguments.addArgument("--performance_schema");
-        commandLineArguments.addArgument("--general_log_file=query.log");
-        commandLineArguments.addArgument("--general_log=1");
+        // commandLineArguments.addArgument("--general_log_file=query.log");
+        // commandLineArguments.addArgument("--general_log=1");
     }
 }

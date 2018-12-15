@@ -75,14 +75,13 @@ a {
 
 #header .brand .title:before {
     content: 'Bitcoin Verde';
-    color: #51D640;
+    color: #1AB326;
     font-weight: bold;
     font-size: 0.75em;
     font-family: 'Bree Serif', serif;
     position: absolute;
     left: 0;
     top: -1.1em;
-    opacity: 0.6;
 }
 
 #header .search {

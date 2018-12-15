@@ -643,20 +643,6 @@ public class TransactionDatabaseManager {
         return row.getInteger("transaction_count");
     }
 
-    public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, transaction_id FROM block_transactions WHERE block_id = ? ORDER BY sort_order ASC")
-                .setParameter(blockId)
-        );
-
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
-        for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            listBuilder.add(transactionId);
-        }
-        return listBuilder.build();
-    }
-
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
         return _getTransactionCount(blockId);
     }
@@ -774,23 +760,26 @@ public class TransactionDatabaseManager {
         _databaseManagerCache.invalidateTransactionIdCache();
         _databaseManagerCache.invalidateTransactionCache();
 
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
-        for (final TransactionInputId transactionInputId : transactionInputIds) {
-            transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
-        }
-
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
-            transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
-        }
+//        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
+//        final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
+//        for (final TransactionInputId transactionInputId : transactionInputIds) {
+//            transactionInputDatabaseManager.deleteTransactionInput(transactionInputId);
+//        }
+//
+//        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+//        final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+//        for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
+//            transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
+//        }
+//
+//        _databaseConnection.executeSql(
+//            new Query("DELETE FROM block_transactions WHERE transaction_id = ?")
+//                .setParameter(transactionId)
+//        );
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM transactions WHERE id = ?")
                 .setParameter(transactionId)
         );
     }
-
-    // public void disassociateTransactionFromBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException { } // TODO
 }

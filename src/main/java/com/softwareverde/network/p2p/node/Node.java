@@ -305,7 +305,7 @@ public abstract class Node {
 
     public NodeId getId() { return _id; }
 
-    public Long getInitializationTime() {
+    public Long getInitializationTimestamp() {
         return _initializationTime;
     }
 

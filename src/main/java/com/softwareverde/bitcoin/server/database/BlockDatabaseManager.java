@@ -47,9 +47,23 @@ public class BlockDatabaseManager {
         Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
     }
 
+    public List<TransactionId> _getTransactionIds(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, transaction_id FROM block_transactions WHERE block_id = ? ORDER BY sort_order ASC")
+                .setParameter(blockId)
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
+
     protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
+        final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
         for (final TransactionId transactionId : transactionIds) {
@@ -217,6 +231,10 @@ public class BlockDatabaseManager {
         return (! rows.isEmpty());
     }
 
+    public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
+        return _getTransactionIds(blockId);
+    }
+
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
@@ -249,7 +267,7 @@ public class BlockDatabaseManager {
                 existingTransactionHashes.put(transaction.getHash(), transaction);
             }
 
-            final List<TransactionId> transactionIds = transactionDatabaseManager.getTransactionIds(blockId);
+            final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
             for (final TransactionId transactionId : transactionIds) {
                 final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);

@@ -339,13 +339,23 @@ public class TransactionInputDatabaseManager {
                 .setParameter(transactionId)
         );
 
-        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(rows.size());
+        final ImmutableListBuilder<TransactionInputId> transactionInputIds = new ImmutableListBuilder<TransactionInputId>(rows.size());
         for (final Row row : rows) {
             final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
             transactionInputIds.add(transactionInputId);
         }
+        return transactionInputIds.build();
+    }
 
-        return transactionInputIds;
+    public TransactionId getPreviousTransactionId(final TransactionInputId transactionInputId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT transaction_outputs.transaction_id FROM transaction_inputs INNER JOIN transaction_outputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id WHERE transaction_inputs.id = ?")
+                .setParameter(transactionInputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionId.wrap(row.getLong("transaction_id"));
     }
 
     public void updateTransactionInput(final TransactionInputId transactionInputId, final TransactionId transactionId, final TransactionInput transactionInput) throws DatabaseException {
@@ -421,19 +431,5 @@ public class TransactionInputDatabaseManager {
             transactionInputIds.add(transactionInputId);
         }
         return transactionInputIds;
-    }
-
-    public List<TransactionInputId> getTransactionInputs(final TransactionId transactionId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")
-                .setParameter(transactionId)
-        );
-
-        final ImmutableListBuilder<TransactionInputId> transactionInputIds = new ImmutableListBuilder<TransactionInputId>(rows.size());
-        for (final Row row : rows) {
-            final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
-            transactionInputIds.add(transactionInputId);
-        }
-        return transactionInputIds.build();
     }
 }

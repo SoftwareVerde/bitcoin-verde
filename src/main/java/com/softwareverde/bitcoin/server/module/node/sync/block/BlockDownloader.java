@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -21,7 +20,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
-import com.softwareverde.util.Tuple;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -179,7 +177,20 @@ public class BlockDownloader extends SleepyService {
     }
 
     @Override
-    protected void _onSleep() { }
+    protected void _onSleep() {
+        Logger.log("BlockDownloader::sleep()");
+        final List<NodeId> connectedNodeIds = _bitcoinNodeManager.getNodeIds();
+        if (! connectedNodeIds.isEmpty()) {
+            Logger.log("Searching for Unlocatable Pending Blocks...");
+            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+                pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+            }
+        }
+    }
 
     public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;

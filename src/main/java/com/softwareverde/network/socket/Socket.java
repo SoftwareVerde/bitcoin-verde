@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
-import java.util.LinkedList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class Socket {

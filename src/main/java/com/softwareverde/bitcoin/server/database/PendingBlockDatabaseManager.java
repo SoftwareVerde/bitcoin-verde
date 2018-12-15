@@ -527,6 +527,35 @@ public class PendingBlockDatabaseManager {
         }
     }
 
+    /**
+     * Deletes any pending blocks that haven't been downloaded and do not have a peer to download them from.
+     *  This can happen when a peer broadcasting block inventory disconnects and there are no other peers aware of their chain.
+     */
+    public void purgeUnlocatablePendingBlocks(final List<NodeId> connectedNodeIds) throws DatabaseException {
+        try {
+            WRITE_LOCK.lock();
+
+            final java.util.List<Row> rows = _databaseConnection.query(
+                // "Delete any pending_blocks that have not already been downloaded and do not have a connected node to download from..."
+                // new Query("SELECT pending_blocks.id FROM pending_blocks WHERE NOT EXISTS (SELECT * FROM pending_block_data WHERE pending_block_data.pending_block_id = pending_blocks.id) AND NOT EXISTS (SELECT * FROM node_blocks_inventory WHERE node_blocks_inventory.node_id IN () AND node_blocks_inventory.pending_block_id = pending_blocks.id)") // This query is easier to understand, but is likely to perform worse...
+                new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON (node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ")) LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE node_blocks_inventory.id IS NULL AND pending_block_data.id IS NULL")
+            );
+
+            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
+            for (final Row row : rows) {
+                final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
+                Logger.log("Deleting Unlocatable Pending Block: " + pendingBlockId);
+                pendingBlockIds.add(pendingBlockId);
+            }
+
+            _deletePendingBlocks(pendingBlockIds);
+
+        }
+        finally {
+            WRITE_LOCK.unlock();
+        }
+    }
+
     public PendingBlock getPendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         try {
             READ_LOCK.lock();

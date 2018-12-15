@@ -10,30 +10,25 @@ import com.softwareverde.socket.SocketConnection;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
-public class StatusApi extends ExplorerApiEndpoint {
+public class NodesApi extends ExplorerApiEndpoint {
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
-    private static class StatusResult extends ApiResult {
-        private Json _statistics = new Json(true);
-        private String _status;
+    private static class NodesResult extends ApiResult {
+        private Json _nodes = new Json(true);
 
-        public void setStatistics(final Json statistics) {
-            _statistics = statistics;
-        }
-        public void setStatus(final String status) {
-            _status = status;
+        public void setNodes(final Json nodes) {
+            _nodes = nodes;
         }
 
         @Override
         public Json toJson() {
             final Json json = super.toJson();
-            json.put("status", _status);
-            json.put("statistics", _statistics);
+            json.put("nodes", _nodes);
             return json;
         }
     }
 
-    public StatusApi(final Configuration.ExplorerProperties explorerProperties) {
+    public NodesApi(final Configuration.ExplorerProperties explorerProperties) {
         super(explorerProperties);
     }
 
@@ -42,23 +37,22 @@ public class StatusApi extends ExplorerApiEndpoint {
         // final GetParameters getParameters = request.getGetParameters();
         // final PostParameters postParameters = request.getPostParameters();
 
-        {   // CHECK STATUS
+        {   // LIST NODES
             // Requires GET:
             // Requires POST:
             final SocketConnection socketConnection = _newRpcConnection();
             if (socketConnection == null) {
-                final StatusResult result = new StatusResult();
+                final NodesResult result = new NodesResult();
                 result.setWasSuccess(false);
                 return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
             }
 
-            final String status;
-            final Json statisticsJson;
+            final Json nodesJson;
             {
                 final Json rpcRequestJson = new Json();
                 {
                     rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("query", "STATUS");
+                    rpcRequestJson.put("query", "NODES");
                 }
 
                 socketConnection.write(rpcRequestJson.toString());
@@ -74,15 +68,13 @@ public class StatusApi extends ExplorerApiEndpoint {
                     return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
                 }
 
-                statisticsJson = rpcResponseJson.get("statistics");
-                status = rpcResponseJson.getString("status");
+                nodesJson = rpcResponseJson.get("nodes");
             }
 
-            final StatusResult statusResult = new StatusResult();
-            statusResult.setWasSuccess(true);
-            statusResult.setStatus(status);
-            statusResult.setStatistics(statisticsJson);
-            return new JsonResponse(ResponseCodes.OK, statusResult);
+            final NodesResult nodesResult = new NodesResult();
+            nodesResult.setWasSuccess(true);
+            nodesResult.setNodes(nodesJson);
+            return new JsonResponse(ResponseCodes.OK, nodesResult);
         }
     }
 }

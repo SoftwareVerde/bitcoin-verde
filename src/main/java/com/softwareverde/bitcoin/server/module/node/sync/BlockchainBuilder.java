@@ -37,7 +37,7 @@ import java.util.HashMap;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
-        void onNewBlock(Long blockHeight);
+        void onNewBlock(Long blockHeight, Sha256Hash blockHash);
     }
 
     protected final ThreadPool _threadPool;
@@ -67,7 +67,7 @@ public class BlockchainBuilder extends SleepyService {
                     _threadPool.execute(new Runnable() {
                         @Override
                         public void run() {
-                            newBlockProcessedCallback.onNewBlock(processedBlockHeight);
+                            newBlockProcessedCallback.onNewBlock(processedBlockHeight, pendingBlock.getBlockHash());
                         }
                     });
                 }

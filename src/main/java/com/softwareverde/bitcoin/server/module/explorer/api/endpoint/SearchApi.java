@@ -54,6 +54,11 @@ public class SearchApi extends ExplorerApiEndpoint {
             }
 
             final SocketConnection socketConnection = _newRpcConnection();
+            if (socketConnection == null) {
+                final SearchResult result = new SearchResult();
+                result.setWasSuccess(false);
+                return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+            }
 
             SearchResult.ObjectType objectType = null;
             Jsonable object = null;

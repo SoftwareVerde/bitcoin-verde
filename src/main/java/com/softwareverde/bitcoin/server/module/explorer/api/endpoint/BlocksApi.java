@@ -44,6 +44,11 @@ public class BlocksApi extends ExplorerApiEndpoint {
             // Requires GET:    [blockHeight=null], [maxBlockCount]
             // Requires POST:
             final SocketConnection socketConnection = _newRpcConnection();
+            if (socketConnection == null) {
+                final RecentBlocksResult result = new RecentBlocksResult();
+                result.setWasSuccess(false);
+                return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+            }
 
             final Json blockHeadersJson;
             {

@@ -4,6 +4,8 @@
         <link rel="stylesheet" href="/css/core.css" />
         <link rel="stylesheet" href="/css/status.css" />
 
+        <link rel="icon" href="/img/favicon.png">
+
         <script src="/js/constants.js"></script>
         <script src="/js/jquery-3.1.0.js"></script>
         <script src="/js/core.js"></script>
@@ -31,16 +33,46 @@
         </div>
         <div id="main">
             <div class="status-container">
-                <div class="status-label">Status:</div><div class="status-value"></div>
-                <div class="block-header-height-label">Block Header Height:</div><div class="block-header-height-value"></div>
-                <div class="block-header-date-label">Block Header Date:</div><div class="block-header-date-value"></div>
+                <div class="status">
+                    <div class="status-label">Status:</div><div class="status-value"></div>
+                </div>
 
-                <div class="block-height-label">Block Height:</div><div class="block-height-value"></div>
-                <div class="block-date-label">Block Date:</div><div class="block-date-value"></div>
+                <div class="sync-progress-container">
+                    <div class="progress-bar"><div class="progress-done"></div></div>
+                    <div class="percent-done-text"></div>
+                    <div class="block-headers">
+                        <div class="block-header-height-value"></div>
+                        <div class="block-header-date-value"></div>
+                    </div>
 
-                <div class="block-headers-per-second"></div>
-                <div class="blocks-per-second"></div>
-                <div class="transactions-per-second"></div>
+                    <div class="blocks">
+                        <div class="block-height-value"></div>
+                        <div class="block-date-value"></div>
+                    </div>
+                </div>
+
+                <div class="statistics">
+                    <div class="block-headers-per-second"></div>
+                    <div class="blocks-per-second"></div>
+                    <div class="transactions-per-second"></div>
+                </div>
+
+                <div class="nodes"></div>
+            </div>
+        </div>
+
+        <div id="templates">
+            <div class="node">
+                <div class="id"></div>
+                <div class="user-agent"></div>
+                <div class="host"></div><div class="port"></div>
+                <div class="network-offset"></div>
+                <div class="handshake-complete"></div>
+                <div class="initialization-timestamp"></div>
+                <div class="last-message-timestamp"></div>
+                <div class="local-host"></div>
+                <div class="local-port"></div>
+                <div class="features"></div>
             </div>
         </div>
     </body>

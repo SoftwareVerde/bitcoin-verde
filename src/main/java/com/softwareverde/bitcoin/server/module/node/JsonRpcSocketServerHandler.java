@@ -630,13 +630,23 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         final List<BitcoinNode> nodes = _nodeHandler.getNodes();
         for (final BitcoinNode node : nodes) {
-            final Json nodeJson = new Json();
-
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
-            nodeJson.put("host", (nodeIpAddress != null ? nodeIpAddress.getIp() : null));
-            nodeJson.put("port", (nodeIpAddress != null ? nodeIpAddress.getPort() : null));
+            if (nodeIpAddress == null) { continue; }
+
+            final Json nodeJson = new Json();
+            nodeJson.put("host", nodeIpAddress.getIp());
+            nodeJson.put("port", nodeIpAddress.getPort());
             nodeJson.put("userAgent", node.getUserAgent());
-            nodeJson.put("hasThinBlocksEnabled", (node.supportsExtraThinBlocks() ? 1 : 0));
+            nodeJson.put("initializationTimestamp", node.getInitializationTimestamp());
+            nodeJson.put("lastMessageReceivedTimestamp", node.getLastMessageReceivedTimestamp());
+            nodeJson.put("networkOffset", node.getNetworkTimeOffset());
+
+            final NodeIpAddress localNodeIpAddress = node.getLocalNodeIpAddress();
+            nodeJson.put("localHost", (localNodeIpAddress != null ? localNodeIpAddress.getIp() : null));
+            nodeJson.put("localPort", (localNodeIpAddress != null ? localNodeIpAddress.getPort() : null));
+
+            nodeJson.put("handshakeIsComplete", (node.handshakeIsComplete() ? 1 : 0));
+            nodeJson.put("id", node.getId());
 
             final Json featuresJson = new Json(false);
             for (final NodeFeatures.Feature nodeFeature : NodeFeatures.Feature.values()) {
@@ -649,6 +659,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     featuresJson.put(featureKey, (hasFeatureEnabled ? 1 : 0));
                 }
             }
+            featuresJson.put("THIN_PROTOCOL_ENABLED", (node.supportsExtraThinBlocks() ? 1 : 0));
             nodeJson.put("features", featuresJson);
 
             nodeListJson.add(nodeJson);

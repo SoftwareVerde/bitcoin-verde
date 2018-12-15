@@ -3,13 +3,10 @@ package com.softwareverde.bloomfilter;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.timer.NanoTimer;
 import org.junit.Assert;
 import org.junit.Test;
 
