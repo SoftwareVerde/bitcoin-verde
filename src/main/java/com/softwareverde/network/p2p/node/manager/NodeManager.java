@@ -92,6 +92,9 @@ public class NodeManager<NODE extends Node> {
     protected final MutableNetworkTime _networkTime;
     protected Boolean _isShuttingDown = false;
 
+    protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+    protected Long _lastAddressBroadcastTimestamp = 0L;
+
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
     protected void _onNodeConnected(final NODE node) { }
@@ -270,6 +273,7 @@ public class NodeManager<NODE extends Node> {
 
                         listBuilder.add(nodeIpAddress);
                         _nodeAddresses.add(nodeIpAddress);
+                        _newNodeAddresses.add(nodeIpAddress);
                     }
                     unseenNodeAddresses = listBuilder.build();
                 }
@@ -278,7 +282,17 @@ public class NodeManager<NODE extends Node> {
                 synchronized (_mutex) {
                     if (_isShuttingDown) { return; }
 
-                    _broadcastNewNodesToExistingNodes(unseenNodeAddresses);
+                    { // Batch at least 30 seconds worth of new NodeIpAddresses, then broadcast the group to current peers...
+                        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+                        final Long msElapsedSinceLastBroadcast = (now - _lastAddressBroadcastTimestamp);
+                        if (msElapsedSinceLastBroadcast >= 30000L) {
+                            _lastAddressBroadcastTimestamp = now;
+
+                            final List<NodeIpAddress> newNodeAddresses = new MutableList<NodeIpAddress>(_newNodeAddresses);
+                            _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+                            _broadcastNewNodesToExistingNodes(newNodeAddresses);
+                        }
+                    }
 
                     // Connect to the node if the node if the NodeManager is still looking for peers...
                     for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
