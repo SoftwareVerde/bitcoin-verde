@@ -282,12 +282,33 @@ class Ui {
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || "-").toLocaleString());
 
-        const transactions = (block.transactions || []);
-        for (let i = 0; i < transactions.length; i += 1) {
+        if ($("#loading").length == 0) {
+            const loadingElement = $("<div id=\"loading\"></div>");
+            loadingElement.css({ position: "fixed", left: "0", right: "0", bottom: "0", height: "0.5em", background: "#202020" });
+
+            const progress = $("<div></div>");
+            progress.css({ height: "100%", background: "#1AB326" });
+
+            loadingElement.append(progress);
+            $("body").append(loadingElement);
+        }
+        const loadingElement = $("#loading");
+
+        const appendTransaction = function(i, transactions) {
+            if (i >= transactions.length) {
+                loadingElement.remove();
+                return;
+            }
+
             const transaction = transactions[i];
             const transactionUi = Ui.inflateTransaction(transaction);
             $(".transactions", blockUi).append(transactionUi);
-        }
+            $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
+            window.setTimeout(appendTransaction, 0, (i+1), transactions);
+        };
+
+        const transactions = (block.transactions || []);
+        appendTransaction(0, transactions);
 
         return blockUi;
     }
