@@ -212,7 +212,7 @@
 }
 
 .transaction div div.block-hashes {
-    min-height: 7.75em;
+    min-height: 6.5em;
 }
 
 .transaction div div.lock-time div {
@@ -269,6 +269,10 @@
     border: none;
 }
 
+.transaction.collapsed .hash .value {
+    font-size: 1em;
+}
+
 .transaction.collapsed .io .transaction-outputs::before, 
 .transaction.collapsed .io .transaction-inputs::before,
 .transaction.collapsed::before {
@@ -280,14 +284,9 @@
     width: calc(100% - 0.5em);
 }
 
-.transaction.collapsed .hash {
-    font-size: 1.25em;
-    width: auto;
-}
-
 .transaction.collapsed .hash span.value::before {
     content: 'Transaction:';
-    font-size: 0.65em;
+    font-size: 0.75em;
     color: #404040 !important;
     font-weight: bold;
     margin-right: 0.5em;
@@ -317,6 +316,10 @@
 .transaction.collapsed > div > div {
     padding: 0px;
     margin: 0px;
+}
+
+.block .transactions .transaction:hover {
+    box-shadow: 0px 0px 2px #00B512;
 }
 
 @media only screen and (max-width: 960px) {

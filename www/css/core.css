@@ -141,8 +141,24 @@ a {
     display: none;
 }
 
+.clickable {
+    display: table !important; /* Treats item as an inline-block on a newline... */
+}
 .clickable:hover {
     cursor: pointer;
     color: #F7931D;
+}
+
+.copy {
+    display: inline-block !important;
+    height: 1em;
+    width: 1em;
+    background: transparent url('/img/copy.svg');
+    background-repeat: no-repeat;
+    background-size: 95% 95%;
+    cursor: pointer;
+    margin-left: 0.5em;
+    background-position-y: 100%;
+    vertical-align: text-bottom;
 }
 

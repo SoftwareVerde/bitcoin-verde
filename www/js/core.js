@@ -101,6 +101,26 @@ class KeyCodes {
 }
 
 class Ui {
+    static makeHashCopyable(element) {
+        const copyButton = $("<span class=\"copy\"></span>");
+        copyButton.on("click", function() {
+            const parent = $(this).parent();
+            const dummyTextElement = $("<textarea />");
+            dummyTextElement.css({ position: "absolute", left: "-1000px", top: "-1000px" });
+            dummyTextElement.text(parent.text());
+            $("body").append(dummyTextElement);
+            dummyTextElement.select();
+            try {
+                document.execCommand("copy");
+            }
+            catch (exception) { console.log(exception); }
+            dummyTextElement.remove();
+            return false;
+        });
+        element.append(copyButton);
+        element.toggleClass("copyable", true);
+    }
+
     static inflateTransactionInput(transactionInput) {
         const templates = $("#templates");
         const transactionInputTemplate = $(".transaction-input", templates);
@@ -116,6 +136,7 @@ class Ui {
 
         const transactionLink = $(".transaction-hash .value", transactionInputUi);
         transactionLink.text(transactionInput.previousOutputTransactionHash);
+        Ui.makeHashCopyable(transactionLink);
         transactionLink.on("click", Ui._makeNavigateToTransactionEvent(transactionInput.previousOutputTransactionHash));
 
         $(".transaction-output-index .value", transactionInputUi).text(transactionInput.previousOutputIndex);
@@ -247,11 +268,13 @@ class Ui {
 
         $(".block-header .height .value", blockUi).text(block.height.toLocaleString());
         $(".block-header .hash .value", blockUi).text(block.hash);
+        Ui.makeHashCopyable($(".block-header .hash .value", blockUi).text(block.hash));
         $(".block-header .difficulty .mask .value", blockUi).text(block.difficulty.mask);
         $(".block-header .difficulty .ratio .value", blockUi).text(block.difficulty.ratio.toLocaleString());
-        const previousBlockHashSpan = $(".block-header .previous-block-hash .value", blockUi);
-        previousBlockHashSpan.text(block.previousBlockHash);
-        previousBlockHashSpan.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
+        const previousBlockHashElement = $(".block-header .previous-block-hash .value", blockUi);
+        previousBlockHashElement.text(block.previousBlockHash);
+        Ui.makeHashCopyable(previousBlockHashElement);
+        previousBlockHashElement.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(block.timestamp.date);
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
@@ -273,6 +296,13 @@ class Ui {
         const templates = $("#templates");
         const transactionTemplate = $(".transaction", templates);
         const transactionUi = transactionTemplate.clone();
+
+        $("> div > div", transactionUi).on("click", function() {
+            if ($(transactionUi).is(".collapsed") && $(this).is(".hash")) { return true; }
+            if ($(this).is(".io")) { return true; }
+            console.log($(this));
+            return false;
+        });
 
         transactionUi.on("click", function() {
             const elements = $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi);
@@ -307,6 +337,7 @@ class Ui {
 
         const transactionHashElement = $(".hash .value", transactionUi);
         transactionHashElement.text(transaction.hash);
+        Ui.makeHashCopyable(transactionHashElement);
         transactionHashElement.on("click", Ui._makeNavigateToTransactionEvent(transaction.hash));
 
         $(".version .value", transactionUi).text(transaction.version);
@@ -316,8 +347,9 @@ class Ui {
         const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {
             const blockHash = blocks[i];
-            const blockLink = $("<span class=\"fixed clickable\"></span>");
+            const blockLink = $("<div class=\"fixed clickable\"></div>");
             blockLink.text(blockHash);
+            Ui.makeHashCopyable(blockLink);
             blockLink.on("click", Ui._makeNavigateToBlockEvent(blockHash));
             $(".block-hashes .value", transactionUi).append(blockLink);
         }
