@@ -228,7 +228,7 @@
 }
 
 .node .handshake-complete::before {
-    content: 'Handshake:';
+    content: 'Handshake Complete:';
     margin-right: 1em;
 }
 

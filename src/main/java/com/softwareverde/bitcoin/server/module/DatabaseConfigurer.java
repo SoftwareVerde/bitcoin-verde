@@ -6,7 +6,7 @@ import com.softwareverde.util.ByteUtil;
 
 public class DatabaseConfigurer {
     public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Configuration.ServerProperties serverProperties) {
-        final Integer maxDatabaseThreadCount = Math.max(1024, (serverProperties.getMaxPeerCount() * 8));
+        final Integer maxDatabaseThreadCount = Math.max(512, (serverProperties.getMaxPeerCount() * 8));
 
         commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
         commandLineArguments.setInnoDbBufferPoolInstanceCount(4);

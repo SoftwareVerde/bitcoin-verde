@@ -458,15 +458,15 @@ public class TransactionOutputDatabaseManager {
     public void deleteTransactionOutput(final TransactionOutputId transactionOutputId) throws DatabaseException {
         _databaseManagerCache.invalidateTransactionOutputIdCache();
 
-        final Boolean transactionOutputWasSpent = _wasTransactionOutputSpentInAnyChain(transactionOutputId);
-        if (transactionOutputWasSpent) {
-            throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
-        }
-
-        _databaseConnection.executeSql(
-            new Query("DELETE FROM locking_scripts WHERE transaction_output_id = ?")
-                .setParameter(transactionOutputId)
-        );
+        // final Boolean transactionOutputWasSpent = _wasTransactionOutputSpentInAnyChain(transactionOutputId);
+        // if (transactionOutputWasSpent) {
+        //     throw new DatabaseException("Cannot delete spent TransactionOutput: " + transactionOutputId);
+        // }
+        //
+        // _databaseConnection.executeSql(
+        //     new Query("DELETE FROM locking_scripts WHERE transaction_output_id = ?")
+        //         .setParameter(transactionOutputId)
+        // );
 
         _databaseConnection.executeSql(
             new Query("DELETE FROM transaction_outputs WHERE id = ?")

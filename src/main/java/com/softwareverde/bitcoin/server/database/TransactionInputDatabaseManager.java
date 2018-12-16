@@ -333,6 +333,17 @@ public class TransactionInputDatabaseManager {
         return transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
     }
 
+    public TransactionOutputId getPreviousTransactionOutputId(final TransactionInputId transactionInputId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, previous_transaction_output_id FROM transaction_inputs WHERE id = ?")
+                .setParameter(transactionInputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return TransactionOutputId.wrap(row.getLong("previous_transaction_output_id"));
+    }
+
     public List<TransactionInputId> getTransactionInputIds(final TransactionId transactionId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id FROM transaction_inputs WHERE transaction_id = ? ORDER BY id ASC")

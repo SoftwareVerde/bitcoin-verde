@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
@@ -20,7 +21,7 @@ public class BlockTrimmer {
     protected void _trimBlock(final BlockId blockId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, _databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final List<TransactionId> blockTransactionIds = blockDatabaseManager.getTransactionIds(blockId);
         for (final TransactionId transactionId : blockTransactionIds) {
@@ -28,16 +29,11 @@ public class BlockTrimmer {
             if (transactionInputIds == null) { continue; }
 
             for (final TransactionInputId transactionInputId : transactionInputIds) {
-                final TransactionId previousTransactionId = transactionInputDatabaseManager.getPreviousTransactionId(transactionInputId);
-                if (previousTransactionId == null) { continue; }
+                final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
+                if (transactionOutputId == null) { continue; }
 
-                final Sha256Hash previousTransactionHash = transactionDatabaseManager.getTransactionHash(previousTransactionId);
-                Logger.log("Trimming Transaction: " + previousTransactionHash);
-                transactionDatabaseManager.deleteTransaction(previousTransactionId);
-
-                _databaseManagerCache.invalidateTransactionIdCache();
-                _databaseManagerCache.invalidateTransactionCache();
-                _databaseManagerCache.invalidateTransactionOutputIdCache();
+                Logger.log("Trimming Transaction Output Id: " + transactionOutputId);
+                transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
             }
         }
     }

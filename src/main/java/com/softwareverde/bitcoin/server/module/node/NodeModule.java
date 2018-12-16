@@ -93,7 +93,7 @@ public class NodeModule {
 
     protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
 
-    protected final MainThreadPool _threadPool = new MainThreadPool(512, 10000L);
+    protected final MainThreadPool _threadPool;
 
     protected Boolean _isShuttingDown = false;
     protected final Object _shutdownPin = new Object();
@@ -243,6 +243,9 @@ public class NodeModule {
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
+        final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
+        _threadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
+
         final EmbeddedMysqlDatabase database;
         {
             EmbeddedMysqlDatabase databaseInstance = null;
@@ -342,7 +345,6 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
-            final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
             _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _threadPool);
         }
 
