@@ -163,8 +163,8 @@ INSERT INTO script_types (id, type) VALUES (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'),
 
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    script_type_id INT UNSIGNED NOT NULL,
     transaction_output_id INT UNSIGNED NOT NULL,
+    script_type_id INT UNSIGNED NOT NULL,
     script BLOB NOT NULL,
     address_id INT UNSIGNED,
     PRIMARY KEY (id),

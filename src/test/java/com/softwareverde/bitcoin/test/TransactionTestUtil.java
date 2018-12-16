@@ -133,11 +133,19 @@ public class TransactionTestUtil {
             if (transactionOutputRows.isEmpty()) {
                 Logger.log("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
 
-                databaseConnection.executeSql(
+                final Long newTransactionOutputId = databaseConnection.executeSql(
                     new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
                         .setParameter(transactionId)
                         .setParameter(transactionInput.getPreviousOutputIndex())
                         .setParameter(Long.MAX_VALUE)
+                );
+
+                databaseConnection.executeSql(
+                    new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
+                        .setParameter(1L)
+                        .setParameter(newTransactionOutputId)
+                        .setParameter(new byte[0])
+                        .setParameter(null)
                 );
             }
         }

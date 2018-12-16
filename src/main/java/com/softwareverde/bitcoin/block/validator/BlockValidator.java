@@ -242,7 +242,8 @@ public class BlockValidator {
             final NanoTimer validateBlockTimer = new NanoTimer();
             validateBlockTimer.start();
 
-            _validateTransactions(block, blockchainSegmentId, blockHeight);
+            final Boolean transactionsAreValid = _validateTransactions(block, blockchainSegmentId, blockHeight);
+            if (! transactionsAreValid) { return false; }
 
             validateBlockTimer.stop();
             if (_shouldLogValidBlocks) {
