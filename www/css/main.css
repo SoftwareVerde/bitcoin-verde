@@ -58,6 +58,7 @@
     overflow: auto;
     float: left;
     width: calc(48.5% - 0.5em);
+    cursor: default;
 }
 .transaction .io .transaction-outputs {
     margin-left: calc(5% - 1.5em);

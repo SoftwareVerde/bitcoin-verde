@@ -321,7 +321,10 @@ class Ui {
         $("> div > div", transactionUi).on("click", function() {
             if ($(transactionUi).is(".collapsed") && $(this).is(".hash")) { return true; }
             if ($(this).is(".io")) { return true; }
-            console.log($(this));
+            return false;
+        });
+
+        $(".transaction-inputs, .transaction-outputs", transactionUi).on("click", function() {
             return false;
         });
 
