@@ -51,6 +51,8 @@ public class BlockchainBuilder extends SleepyService {
     protected NewBlockProcessedCallback _newBlockProcessedCallback = null;
 
     protected Boolean _processPendingBlock(final PendingBlock pendingBlock) {
+        if (pendingBlock == null) { return false; } // NOTE: Can happen due to race condition...
+
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
