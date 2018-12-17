@@ -35,7 +35,7 @@
 }
 #main .status-container .status .status-value {
     border: solid 1px;
-    background-color: #1AB326;
+    background-color: #B32626;
     padding: 0.25em;
     font-weight: bold;
     float: right;
@@ -106,6 +106,7 @@
     margin-bottom: 2em;
     border-top: solid 1px #F0F0F0;
     border-left: solid 1px #F0F0F0;
+    text-align: center;
 }
 
 .statistics div {
@@ -117,6 +118,58 @@
     display: inline-block;
     width: calc(33% - 4em);
     box-sizing: border-box;
+}
+
+.statistics .server-memory .server-memory-bar,
+.statistics .server-load .server-load-bar {
+    width: 100%;
+    margin: auto;
+    height: 1em;
+    border: solid 1px #BBBBBB;
+    box-shadow: none;
+    position: relative;
+    background: #EEEEEE;
+}
+
+.statistics .server-memory .server-memory-fill,
+.statistics .server-load .server-load-fill {
+    background: #F99300;
+    border: none;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0px;
+}
+
+.server-load::before {
+    content: "Server Load";
+    display: block;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
+.server-memory::before {
+    content: "Server Memeory";
+    display: block;
+    text-align: center;
+    margin-bottom: 0.5em;
+}
+
+.statistics .server-memory .server-memory-text,
+.statistics .server-load .server-load-text {
+    position: absolute;
+    border: none;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    width: auto;
 }
 
 .block-headers-per-second::before {

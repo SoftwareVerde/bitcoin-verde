@@ -106,13 +106,17 @@ public class MainThreadPool implements ThreadPool {
     /**
      * Returns the current number of items in the ThreadPool queue.
      */
-    public Integer getQueueSize() {
+    public Integer getQueueCount() {
         return _queue.size();
     }
 
-    public Integer getPoolSize() {
+    public Integer getActiveThreadCount() {
         if (_executorService == null) { return 0; }
 
         return _executorService.getPoolSize();
+    }
+
+    public Integer getMaxThreadCount() {
+        return _maxThreadCount;
     }
 }

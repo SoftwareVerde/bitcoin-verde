@@ -64,6 +64,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         Long getBalance(Address address);
     }
 
+    public interface ThreadPoolInquisitor {
+        Integer getQueueCount();
+        Integer getActiveThreadCount();
+        Integer getMaxThreadCount();
+    }
+
     public static class StatisticsContainer {
         public Container<Float> averageBlockHeadersPerSecond;
         public Container<Float> averageBlocksPerSecond;
@@ -80,6 +86,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected ShutdownHandler _shutdownHandler = null;
     protected NodeHandler _nodeHandler = null;
     protected QueryBalanceHandler _queryBalanceHandler = null;
+    protected ThreadPoolInquisitor _threadPoolInquisitor = null;
 
     protected static void _addMetadataForBlockHeaderToJson(final BlockId blockId, final Json blockJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
@@ -533,23 +540,40 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             }
 
             response.put("wasSuccess", 1);
-            response.put("status", _synchronizationStatus.getState());
 
-            final Long blockHeight = _calculateBlockHeight(databaseConnection);
-            final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
+            { // Status
+                response.put("status", _synchronizationStatus.getState());
+            }
 
-            final Json statisticsJson = new Json();
-            statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
-            statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
-            statisticsJson.put("blockHeaderDate", DateUtil.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
+            { // Statistics
+                final Long blockHeight = _calculateBlockHeight(databaseConnection);
+                final Long blockHeaderHeight = _calculateBlockHeaderHeight(databaseConnection);
 
-            statisticsJson.put("blockHeight", blockHeight);
-            statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
-            statisticsJson.put("blockDate", DateUtil.timestampToDatetimeString(blockTimestampInSeconds * 1000));
+                final Json statisticsJson = new Json();
+                statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
+                statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
+                statisticsJson.put("blockHeaderDate", DateUtil.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
 
-            statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
+                statisticsJson.put("blockHeight", blockHeight);
+                statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
+                statisticsJson.put("blockDate", DateUtil.timestampToDatetimeString(blockTimestampInSeconds * 1000));
 
-            response.put("statistics", statisticsJson);
+                statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
+                response.put("statistics", statisticsJson);
+            }
+
+            { // Server Load
+                final Json serverLoadJson = new Json();
+                serverLoadJson.put("threadPoolQueueCount", _threadPoolInquisitor.getQueueCount());
+                serverLoadJson.put("threadPoolActiveThreadCount", _threadPoolInquisitor.getActiveThreadCount());
+                serverLoadJson.put("threadPoolMaxThreadCount", _threadPoolInquisitor.getMaxThreadCount());
+
+                final Runtime runtime = Runtime.getRuntime();
+                serverLoadJson.put("jvmMemoryUsageByteCount", (runtime.totalMemory() - runtime.freeMemory()));
+                serverLoadJson.put("jvmMemoryMaxByteCount", runtime.maxMemory());
+
+                response.put("serverLoad", serverLoadJson);
+            }
         }
         catch (final Exception exception) {
             response.put("wasSuccess", 0);
@@ -679,6 +703,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public void setQueryBalanceHandler(final QueryBalanceHandler queryBalanceHandler) {
         _queryBalanceHandler = queryBalanceHandler;
+    }
+
+    public void setThreadPoolInquisitor(final ThreadPoolInquisitor threadPoolInquisitor) {
+        _threadPoolInquisitor = threadPoolInquisitor;
     }
 
     @Override

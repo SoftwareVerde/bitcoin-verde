@@ -14,9 +14,13 @@ public class StatusApi extends ExplorerApiEndpoint {
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
 
     private static class StatusResult extends ApiResult {
+        private Json _serverLoad = new Json();
         private Json _statistics = new Json(true);
         private String _status;
 
+        public void setServerLoad(final Json serverLoad) {
+            _serverLoad = serverLoad;
+        }
         public void setStatistics(final Json statistics) {
             _statistics = statistics;
         }
@@ -29,6 +33,7 @@ public class StatusApi extends ExplorerApiEndpoint {
             final Json json = super.toJson();
             json.put("status", _status);
             json.put("statistics", _statistics);
+            json.put("serverLoad", _serverLoad);
             return json;
         }
     }
@@ -54,6 +59,7 @@ public class StatusApi extends ExplorerApiEndpoint {
 
             final String status;
             final Json statisticsJson;
+            final Json serverLoadJson;
             {
                 final Json rpcRequestJson = new Json();
                 {
@@ -76,12 +82,14 @@ public class StatusApi extends ExplorerApiEndpoint {
 
                 statisticsJson = rpcResponseJson.get("statistics");
                 status = rpcResponseJson.getString("status");
+                serverLoadJson = rpcResponseJson.get("serverLoad");
             }
 
             final StatusResult statusResult = new StatusResult();
             statusResult.setWasSuccess(true);
             statusResult.setStatus(status);
             statusResult.setStatistics(statisticsJson);
+            statusResult.setServerLoad(serverLoadJson);
             return new JsonResponse(ResponseCodes.OK, statusResult);
         }
     }

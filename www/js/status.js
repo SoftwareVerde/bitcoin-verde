@@ -16,6 +16,7 @@ class StatusUi {
             const errorMessage = data.errorMessage;
             const status = data.status;
             const statistics = data.statistics;
+            const serverLoad = data.serverLoad;
 
             if (wasSuccess) {
                 $(".status-value").text(status);
@@ -30,9 +31,30 @@ class StatusUi {
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
                 $(".transactions-per-second").text(statistics.transactionsPerSecond);
 
-                const percentComplete = (Math.round(100.0 * (window.parseFloat(statistics.blockHeight) / window.parseFloat(statistics.blockHeaderHeight))) / 100.0) * 100;
-                $(".progress-done").css("width", percentComplete + "%");
-                $(".percent-done-text").text(percentComplete + "%");
+                { // Server Load
+                    const threadPoolActiveThreadCount = window.parseFloat(serverLoad.threadPoolActiveThreadCount);
+                    const threadPoolMaxThreadCount = window.parseFloat(serverLoad.threadPoolMaxThreadCount);
+                    const threadPoolQueueCount = window.parseFloat(serverLoad.threadPoolQueueCount);
+                    const percentServerLoad = ((100.0 * threadPoolActiveThreadCount + threadPoolQueueCount) / threadPoolMaxThreadCount).toFixed(2);
+                    $(".server-load-bar .server-load-fill").css("width", (percentServerLoad > 100 ? 100 : percentServerLoad) + "%");
+                    $(".server-load-bar .server-load-text").text(percentServerLoad + "%");
+                }
+
+                { // Server Memory
+                    const jvmMemoryUsageByteCount = window.parseFloat(serverLoad.jvmMemoryUsageByteCount);
+                    const jvmMemoryMaxByteCount = window.parseFloat(serverLoad.jvmMemoryMaxByteCount);
+                    const percentMemoryUsage = (100.0 * (jvmMemoryUsageByteCount / jvmMemoryMaxByteCount)).toFixed(2);
+                    $(".server-memory-bar .server-memory-fill").css("width", (percentMemoryUsage > 100 ? 100 : percentMemoryUsage) + "%");
+                    $(".server-memory-bar .server-memory-text").text(percentMemoryUsage + "%");
+                }
+
+                { // Sync Progress
+                    const blockHeaderHeight = window.parseFloat(statistics.blockHeaderHeight);
+                    const blockHeight = window.parseFloat(statistics.blockHeight);
+                    const percentComplete = (100.0 * (blockHeight / blockHeaderHeight)).toFixed(2);
+                    $(".progress-done").css("width", percentComplete + "%");
+                    $(".percent-done-text").text(percentComplete + "%");
+                }
             }
             else {
                console.log(errorMessage);

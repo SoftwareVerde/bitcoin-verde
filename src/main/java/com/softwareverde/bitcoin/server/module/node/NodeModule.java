@@ -32,6 +32,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.ThreadPoolInquisitor;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
@@ -483,6 +484,7 @@ public class NodeModule {
             final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder);
             final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
             final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            final JsonRpcSocketServerHandler.ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_threadPool);
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _threadPool);
 
@@ -490,6 +492,7 @@ public class NodeModule {
             rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
             rpcSocketServerHandler.setNodeHandler(nodeHandler);
             rpcSocketServerHandler.setQueryBalanceHandler(queryBalanceHandler);
+            rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
 
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
             _jsonRpcSocketServer = jsonRpcSocketServer;
@@ -593,7 +596,7 @@ public class NodeModule {
                 Logger.log(sleepyService.getClass().getSimpleName() + ": " + sleepyService.getStatusMonitor().getStatus());
             }
 
-            Logger.log("ThreadPool Queue: " + _threadPool.getQueueSize() + " | Active Thread Count: " + _threadPool.getPoolSize());
+            Logger.log("ThreadPool Queue: " + _threadPool.getQueueCount() + " | Active Thread Count: " + _threadPool.getActiveThreadCount());
         }
 
         System.exit(0);
