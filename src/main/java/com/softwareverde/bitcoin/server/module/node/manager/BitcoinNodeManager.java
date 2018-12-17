@@ -240,6 +240,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             connectedNodes = new MutableList<NodeId>(_nodes.keySet());
         }
 
+        if (connectedNodes.isEmpty()) { return; }
+
         final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {

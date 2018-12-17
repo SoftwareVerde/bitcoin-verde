@@ -258,6 +258,10 @@ public class PendingBlockDatabaseManager {
         }
     }
 
+    /**
+     * Inserts the blockHash into PendingBlocks if it does not exist.
+     *  If previousBlockHash is provided, then the PendingBlock is updated to include the previousBlockHash.
+     */
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash, final Sha256Hash previousBlockHash) throws DatabaseException {
         try {
             WRITE_LOCK.lock();

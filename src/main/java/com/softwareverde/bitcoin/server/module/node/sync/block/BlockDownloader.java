@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.block;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
@@ -71,9 +72,7 @@ public class BlockDownloader extends SleepyService {
     }
 
     @Override
-    protected void _onStart() {
-        _bitcoinNodeManager.findNodeInventory();
-    }
+    protected void _onStart() { }
 
     @Override
     protected Boolean _run() {
@@ -164,7 +163,13 @@ public class BlockDownloader extends SleepyService {
                 pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
 
                 timer.start();
-                // _bitcoinNodeManager.requestThinBlock(blockHash, _blockDownloadedCallback);
+
+//                if (bitcoinNode.supportsExtraThinBlocks() && _synchronizationStatus.isReadyForTransactions()) {
+//                    _bitcoinNodeManager.requestThinBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+//                }
+//                else {
+//                    _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+//                }
                 _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
             }
         }
@@ -178,9 +183,11 @@ public class BlockDownloader extends SleepyService {
 
     @Override
     protected void _onSleep() {
-        Logger.log("BlockDownloader::sleep()");
         final List<NodeId> connectedNodeIds = _bitcoinNodeManager.getNodeIds();
         if (! connectedNodeIds.isEmpty()) {
+
+            _bitcoinNodeManager.findNodeInventory();
+
             Logger.log("Searching for Unlocatable Pending Blocks...");
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);

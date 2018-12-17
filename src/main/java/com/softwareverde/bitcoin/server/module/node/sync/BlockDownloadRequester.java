@@ -98,20 +98,20 @@ public class BlockDownloadRequester {
         }
     }
 
-    /**
-     * Check for missing NodeInventory in order to speed up the initial Block download...
-     */
-    protected void _checkForNodeInventory() {
-        synchronized (_lastNodeInventoryBroadcastTimestampMutex) {
-            final Long now = _systemTime.getCurrentTimeInSeconds();
-            final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
-            if (durationSinceLastRequest <= 30) { return; } // Throttle requests to once every 30 seconds...
-
-            _lastNodeInventoryBroadcastTimestamp = now;
-        }
-
-        _bitcoinNodeManager.findNodeInventory();
-    }
+//    /**
+//     * Check for missing NodeInventory in order to speed up the initial Block download...
+//     */
+//    protected void _checkForNodeInventory() {
+//        synchronized (_lastNodeInventoryBroadcastTimestampMutex) {
+//            final Long now = _systemTime.getCurrentTimeInSeconds();
+//            final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
+//            if (durationSinceLastRequest <= 30) { return; } // Throttle requests to once every 30 seconds...
+//
+//            _lastNodeInventoryBroadcastTimestamp = now;
+//        }
+//
+//        _bitcoinNodeManager.findNodeInventory();
+//    }
 
     public BlockDownloadRequester(final MysqlDatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {
         _connectionFactory = connectionFactory;
@@ -121,17 +121,17 @@ public class BlockDownloadRequester {
     }
 
     public void requestBlock(final BlockHeader blockHeader) {
-        _checkForNodeInventory();
+//        _checkForNodeInventory();
         _requestBlock(blockHeader.getHash(), blockHeader.getPreviousBlockHash(), blockHeader.getTimestamp());
     }
 
     public void requestBlock(final Sha256Hash blockHash, final Long priority) {
-        _checkForNodeInventory();
+//        _checkForNodeInventory();
         _requestBlock(blockHash, null, priority);
     }
 
     public void requestBlock(final Sha256Hash blockHash) {
-        _checkForNodeInventory();
+//        _checkForNodeInventory();
         _requestBlock(blockHash, null, 0L);
     }
 }
