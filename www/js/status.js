@@ -14,14 +14,14 @@ class StatusUi {
 
             const wasSuccess = data.wasSuccess;
             const errorMessage = data.errorMessage;
-            const status = data.status;
+            const status = (data.status || "OFFLINE");
             const statistics = data.statistics;
             const serverLoad = data.serverLoad;
 
-            if (wasSuccess) {
-                $(".status-value").text(status);
-                $(".status-value").css("background-color", (status == "ONLINE" ? "#1AB326" : "#B31A26"));
+            $(".status-value").text(status);
+            $(".status-value").css("background-color", (status == "ONLINE" ? "#1AB326" : "#B31A26"));
 
+            if (wasSuccess) {
                 $(".block-header-height-value").text(statistics.blockHeaderHeight);
                 $(".block-header-date-value").text(statistics.blockHeaderDate);
                 $(".block-height-value").text(statistics.blockHeight);

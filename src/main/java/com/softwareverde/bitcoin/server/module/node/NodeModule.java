@@ -94,7 +94,8 @@ public class NodeModule {
 
     protected final MutableList<MysqlDatabaseConnectionPool> _openDatabaseConnectionPools = new MutableList<MysqlDatabaseConnectionPool>();
 
-    protected final MainThreadPool _threadPool;
+    protected final MainThreadPool _mainThreadPool;
+    protected final MainThreadPool _rpcThreadPool;
 
     protected Boolean _isShuttingDown = false;
     protected final Object _shutdownPin = new Object();
@@ -215,7 +216,8 @@ public class NodeModule {
         }
 
         Logger.log("[Shutting Down Thread Server]");
-        _threadPool.stop();
+        _mainThreadPool.stop();
+        _rpcThreadPool.stop();
 
         Logger.log("[Shutting Down Database]");
         _banFilter.close();
@@ -245,7 +247,8 @@ public class NodeModule {
         final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
-        _threadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
+        _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
+        _rpcThreadPool = new MainThreadPool(32, 15000L);
 
         final EmbeddedMysqlDatabase database;
         {
@@ -342,11 +345,11 @@ public class NodeModule {
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, _threadPool);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, _mainThreadPool);
         }
 
         { // Initialize NodeManager...
-            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _threadPool);
+            _nodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool);
         }
 
         { // Initialize the TransactionDownloader...
@@ -371,11 +374,11 @@ public class NodeModule {
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(databaseConnectionFactory, _blockDownloader, _nodeManager, readOnlyDatabaseManagerCache);
 
         { // Initialize BlockHeaderDownloader...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, medianBlockHeaderTime, blockDownloadRequester, _threadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _nodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);
         }
 
         { // Initialize BlockchainBuilder...
-            _blockchainBuilder = new BlockchainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _threadPool);
+            _blockchainBuilder = new BlockchainBuilder(_nodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
         _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
@@ -446,7 +449,7 @@ public class NodeModule {
             });
         }
 
-        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _threadPool);
+        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _mainThreadPool);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -484,9 +487,9 @@ public class NodeModule {
             final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder);
             final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
             final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final JsonRpcSocketServerHandler.ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_threadPool);
+            final JsonRpcSocketServerHandler.ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-            final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _threadPool);
+            final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
 
             final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, synchronizationStatusHandler, statisticsContainer);
             rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
@@ -596,7 +599,7 @@ public class NodeModule {
                 Logger.log(sleepyService.getClass().getSimpleName() + ": " + sleepyService.getStatusMonitor().getStatus());
             }
 
-            Logger.log("ThreadPool Queue: " + _threadPool.getQueueCount() + " | Active Thread Count: " + _threadPool.getActiveThreadCount());
+            Logger.log("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
         }
 
         System.exit(0);
