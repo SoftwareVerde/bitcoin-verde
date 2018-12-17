@@ -110,7 +110,7 @@
     padding-bottom: 1em;
 }
 
-.statistics div {
+.statistics > div {
     border: solid 2px #CCCCCC;
     border-top: solid 1px #F0F0F0;
     border-left: solid 1px #F0F0F0;
@@ -119,6 +119,7 @@
     display: inline-block;
     width: calc(33% - 4em);
     box-sizing: border-box;
+    min-width: 250px;
 }
 
 .statistics .server-memory .server-memory-bar,
@@ -130,6 +131,7 @@
     box-shadow: none;
     position: relative;
     background: #EEEEEE;
+    height: 1.5em;
 }
 
 .statistics .server-memory .server-memory-fill,
@@ -162,14 +164,24 @@
     border: none;
     margin-top: 0;
     margin-bottom: 0;
+    text-align: center;
 }
 
-.statistics .service-statuses div {
-    display: table-cell;
-    width: 0;
+.statistics .service-statuses > div {
     background-color: #B31A26;
     color: #FFFFFF;
     border: solid 1px #202020;
+    display: inline-block;
+    width: calc(16.66% - 1em);
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+    margin-bottom: 0.5em;
+    min-width: 200px;
+    padding: 1em;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
+    box-sizing: border-box;
 }
 
 .statistics .service-statuses div.service-active {
@@ -212,6 +224,14 @@
     margin-right: 1em;
 }
 
+.nodes {
+    text-align: center;
+}
+
+.nodes > div {
+    text-align: initial;
+}
+
 .node {
     display: inline-block;
     border-radius: 1em;
@@ -221,7 +241,7 @@
     font-size: 75%;
     box-shadow: 5px 5px 5px #E0E0E0;
     width: calc(20% - 2em);
-    min-widthj: 250px;
+    min-width: 300px;
     box-sizing: border-box;
 }
 
@@ -333,3 +353,15 @@
     display: none;
 }
 
+@media only screen and (max-width: 960px) {
+    .statistics {
+        padding-top: 1em;
+    }
+
+    .statistics > div {
+        overflow: hidden;
+        margin-top: 0;
+        margin-bottom: 1em;
+        vertical-align: top;
+    }
+}

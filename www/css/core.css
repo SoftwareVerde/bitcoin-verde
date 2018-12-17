@@ -60,14 +60,15 @@ a {
 
 #header .brand .logo {
     width: 20em;
+    max-width: 50%;
     margin: 0.25em;
-    float: left;
+    position: relative;
+    top: 0.35em;
 }
 
 #header .brand .title {
     color: #EEEEEE;
     font-size: 1.5em;
-    float: left;
     margin-top: 0.88em;
     margin-left: 0.1em;
     position: relative;
@@ -89,10 +90,12 @@ a {
     clear: left;
     margin-top: 0.5em;
     margin-left: 0.5em;
+    width: 100%;
 }
 
 #header .search #search {
-    width: 42em;
+    max-width: 42em;
+    width: calc(100% - 5em);
     font-size: 1em;
     font-weight: bold;
     padding: 0.5em;
