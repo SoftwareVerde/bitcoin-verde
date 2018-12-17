@@ -1,12 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.State;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
@@ -29,10 +30,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
-import com.softwareverde.bitcoin.server.module.node.rpc.NodeHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.QueryBalanceHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.ShutdownHandler;
-import com.softwareverde.bitcoin.server.module.node.rpc.ThreadPoolInquisitor;
+import com.softwareverde.bitcoin.server.module.node.rpc.*;
 import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
@@ -328,7 +326,7 @@ public class NodeModule {
 
         final BlockInventoryMessageHandler blockInventoryMessageHandler;
         {
-            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, synchronizationStatusHandler);
         }
 
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
@@ -410,6 +408,29 @@ public class NodeModule {
                     if (blockHeaderDownloaderBlockHeight <= blockHeight) {
                         _blockHeaderDownloader.wakeUp();
                     }
+
+                    try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, localDatabaseCache);
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
+                        final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+                        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                        final BlockchainSegmentId newBlockBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(newBlockId);
+                        final Boolean newBlockIsOnMainChain = blockchainDatabaseManager.areBlockchainSegmentsConnected(newBlockBlockchainSegmentId, headBlockchainSegmentId, BlockRelationship.ANY);
+
+                        if (synchronizationStatusHandler.getState() != State.SHUTTING_DOWN) {
+                            if (newBlockIsOnMainChain) {
+                                if (blockHeight < blockHeaderDownloaderBlockHeight) {
+                                    synchronizationStatusHandler.setState(State.SYNCHRONIZING);
+                                }
+                                else {
+                                    synchronizationStatusHandler.setState(State.ONLINE);
+                                }
+                            }
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.log(exception);
+                    }
                 }
             });
 
@@ -417,6 +438,22 @@ public class NodeModule {
                 @Override
                 public void run() {
                     _blockDownloader.wakeUp();
+
+                    try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
+                        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseCache);
+                        final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+                        final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+
+                        if (synchronizationStatusHandler.getState() != State.SHUTTING_DOWN) {
+                            if (_blockHeaderDownloader.getBlockHeight() > headBlockHeight) {
+                                synchronizationStatusHandler.setState(State.SYNCHRONIZING);
+                            }
+                        }
+                    }
+                    catch (final DatabaseException exception) {
+                        Logger.log(exception);
+                    }
                 }
             });
 
@@ -484,10 +521,15 @@ public class NodeModule {
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final JsonRpcSocketServerHandler.ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder);
-            final JsonRpcSocketServerHandler.NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
-            final JsonRpcSocketServerHandler.QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final JsonRpcSocketServerHandler.ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+            final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
+            final NodeHandler nodeHandler = new NodeHandler(_nodeManager, _nodeInitializer);
+            final QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+
+            final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
+            for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+                serviceInquisitor.addService(sleepyService.getClass().getSimpleName(), sleepyService.getStatusMonitor());
+            }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
 
@@ -496,6 +538,7 @@ public class NodeModule {
             rpcSocketServerHandler.setNodeHandler(nodeHandler);
             rpcSocketServerHandler.setQueryBalanceHandler(queryBalanceHandler);
             rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
+            rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
 
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
             _jsonRpcSocketServer = jsonRpcSocketServer;
@@ -505,6 +548,25 @@ public class NodeModule {
         }
 
         _transactionBloomFilterFilename = (databaseProperties.getDataDirectory() + "/transaction-bloom-filter.dat");
+
+        try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
+            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseCache);
+            final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+            final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
+            final Long headBlockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
+            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+
+            if (headBlockHeaderHeight > headBlockHeight) {
+                synchronizationStatusHandler.setState(State.SYNCHRONIZING);
+            }
+            else {
+                synchronizationStatusHandler.setState(State.ONLINE);
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+        }
     }
 
     public void loop() {
@@ -594,11 +656,6 @@ public class NodeModule {
             runtime.gc();
             Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
-
-            for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
-                Logger.log(sleepyService.getClass().getSimpleName() + ": " + sleepyService.getStatusMonitor().getStatus());
-            }
-
             Logger.log("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
         }
 

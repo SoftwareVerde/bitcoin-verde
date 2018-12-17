@@ -25,7 +25,9 @@ public class BlockDownloadRequester {
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final DatabaseManagerCache _databaseCache;
 
+    protected final Object _lastUnavailableRequestedBlockTimestampMutex = new Object();
     protected Long _lastUnavailableRequestedBlockTimestamp = 0L;
+    protected final Object _lastNodeInventoryBroadcastTimestampMutex = new Object();
     protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
     protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
@@ -47,39 +49,45 @@ public class BlockDownloadRequester {
 
             if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.
-                // If no peers still do not have the block, search for a historic node with the block.
+                // TODO: Consider: If no peers still do not have the block, search for a historic node with the block.
 
-                final Long now = _systemTime.getCurrentTimeInSeconds();
-                final Long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
-                if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
-                    final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
-                    final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
-                    if (! nodesHaveInventory) {
-                        _lastUnavailableRequestedBlockTimestamp = now;
+                Boolean searchForBlockHash = false;
+                synchronized (_lastUnavailableRequestedBlockTimestampMutex) {
+                    final Long now = _systemTime.getCurrentTimeInSeconds();
+                    final Long durationSinceLastRequest = (now - _lastUnavailableRequestedBlockTimestamp);
+                    if (durationSinceLastRequest > 10L) { // Limit the frequency of QueryBlock/BlockFinder broadcasts to once every 10 seconds...
+                        final List<NodeId> connectedNodes = _bitcoinNodeManager.getNodeIds();
+                        final Boolean nodesHaveInventory = pendingBlockDatabaseManager.nodesHaveBlockInventory(connectedNodes, blockHash);
+                        if (! nodesHaveInventory) {
+                            _lastUnavailableRequestedBlockTimestamp = now;
+                            searchForBlockHash = true;
+                        }
+                    }
+                }
 
-                        // Use the previousBlockHash (if provided)...
-                        final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
-                        if (parentBlockHash != null) {
-                            blockFinderHashes.add(parentBlockHash);
-                            Logger.log("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);
+                if (searchForBlockHash) {
+                    // Use the previousBlockHash (if provided)...
+                    final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
+                    if (parentBlockHash != null) {
+                        blockFinderHashes.add(parentBlockHash);
+                        Logger.log("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);
+                    }
+                    else {
+                        // Search for the previousBlockHash via the database (relies on the BlockHeaders sync)...
+                        final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseConnection);
+                        if (queriedParentBlockHash != null) {
+                            blockFinderHashes.add(queriedParentBlockHash);
+                            Logger.log("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
                         }
                         else {
-                            // Search for the previousBlockHash via the database (relies on the BlockHeaders sync)...
-                            final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseConnection);
-                            if (queriedParentBlockHash != null) {
-                                blockFinderHashes.add(queriedParentBlockHash);
-                                Logger.log("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
-                            }
-                            else {
-                                // Fallback to broadcasting a blockFinder...
-                                final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
-                                blockFinderHashes.addAll(blockFinderHashesBuilder.createBlockFinderBlockHashes());
-                                Logger.log("Broadcasting blockfinder...");
-                            }
+                            // Fallback to broadcasting a blockFinder...
+                            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
+                            blockFinderHashes.addAll(blockFinderHashesBuilder.createBlockFinderBlockHashes());
+                            Logger.log("Broadcasting blockfinder...");
                         }
-
-                        _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
                     }
+
+                    _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
                 }
             }
 
@@ -94,12 +102,15 @@ public class BlockDownloadRequester {
      * Check for missing NodeInventory in order to speed up the initial Block download...
      */
     protected void _checkForNodeInventory() {
-        final Long now = _systemTime.getCurrentTimeInSeconds();
-        final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
-        if (durationSinceLastRequest > 30) {
-            _bitcoinNodeManager.findNodeInventory();
+        synchronized (_lastNodeInventoryBroadcastTimestampMutex) {
+            final Long now = _systemTime.getCurrentTimeInSeconds();
+            final Long durationSinceLastRequest = (now - _lastNodeInventoryBroadcastTimestamp);
+            if (durationSinceLastRequest <= 30) { return; } // Throttle requests to once every 30 seconds...
+
             _lastNodeInventoryBroadcastTimestamp = now;
         }
+
+        _bitcoinNodeManager.findNodeInventory();
     }
 
     public BlockDownloadRequester(final MysqlDatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {

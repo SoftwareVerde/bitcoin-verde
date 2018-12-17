@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
@@ -23,6 +24,8 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
+    protected final SynchronizationStatusHandler _synchronizationStatusHandler;
+
     protected Runnable _newBlockHashReceivedCallback;
     protected Runnable _nodeInventoryUpdatedCallback;
 
@@ -72,9 +75,10 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         return storeBlockHashesResult;
     }
 
-    public BlockInventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
+    public BlockInventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final SynchronizationStatusHandler synchronizationStatusHandler) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
+        _synchronizationStatusHandler = synchronizationStatusHandler;
     }
 
     public void setNewBlockHashReceivedCallback(final Runnable newBlockHashesCallback) {
@@ -89,7 +93,9 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
     public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = _storeBlockHashes(bitcoinNode, blockHashes);
 
-        { // If the inventory message has new blocks or the last block is not on the main blockchain, then request block hashes after the most recent hash to continue synchronizing blocks (even a minority fork)...
+        // NOTE: Exploring alternate forks should only be done after the initial sync is complete...
+        final State state = _synchronizationStatusHandler.getState();
+        if (state == State.ONLINE) { // If the inventory message has new blocks or the last block is not on the main blockchain, then request block hashes after the most recent hash to continue synchronizing blocks (even a minority fork)...
             final Sha256Hash mostRecentBlockHash = blockHashes.get(blockHashes.getSize() - 1);
 
             Boolean mostRecentBlockIsMemberOfHeadBlockchain = true;

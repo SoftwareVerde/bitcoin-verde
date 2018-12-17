@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -37,7 +38,7 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
 
     @Override
     public Boolean isBlockchainSynchronized() {
-        return (_state == State.WAITING_FOR_BLOCK);
+        return (_state == State.ONLINE);
     }
 
     @Override

@@ -17,9 +17,19 @@ class StatusUi {
             const status = (data.status || "OFFLINE");
             const statistics = data.statistics;
             const serverLoad = data.serverLoad;
+            const serviceStatuses = data.serviceStatuses;
 
-            $(".status-value").text(status);
-            $(".status-value").css("background-color", (status == "ONLINE" ? "#1AB326" : "#B31A26"));
+            { // Node Status
+                $(".status-value").text(status);
+                let statusColor = "#B31A26";
+                if (status == "ONLINE") {
+                    statusColor = "#1AB326";
+                }
+                else if (status == "SYNCHRONIZING") {
+                    statusColor = "#F99300";
+                }
+                $(".status-value").css("background-color", statusColor);
+            }
 
             if (wasSuccess) {
                 $(".block-header-height-value").text(statistics.blockHeaderHeight);
@@ -54,6 +64,24 @@ class StatusUi {
                     const percentComplete = (100.0 * (blockHeight / blockHeaderHeight)).toFixed(2);
                     $(".progress-done").css("width", percentComplete + "%");
                     $(".percent-done-text").text(percentComplete + "%");
+                }
+
+                { // Service Statuses
+                    const serviceStatusContainer = $(".service-statuses");
+                    serviceStatusContainer.empty();
+                    let serviceNames = [];
+                    for (const serviceName in serviceStatuses) {
+                        serviceNames.push(serviceName);
+                    }
+                    serviceNames.sort();
+                    for (const i in serviceNames) {
+                        const serviceName = serviceNames[i];
+                        const serviceStatus = serviceStatuses[serviceName];
+                        const element = $("<div></div>");
+                        element.text(serviceName);
+                        element.toggleClass("service-active", (serviceStatus == "ACTIVE"));
+                        serviceStatusContainer.append(element);
+                    }
                 }
             }
             else {

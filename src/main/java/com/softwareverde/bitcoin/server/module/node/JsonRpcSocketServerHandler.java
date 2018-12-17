@@ -47,6 +47,8 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
+import java.util.Map;
+
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
     protected static final String CORRUPTED_BLOCK_ERROR_MESSAGE = "Could not inflate Block; it may be corrupted.";
     protected static final String BLOCK_HEADER_FALLBACK_ERROR_MESSAGE = "Block not synchronized yet; falling back to BlockHeader.";
@@ -70,6 +72,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         Integer getMaxThreadCount();
     }
 
+    public interface ServiceInquisitor {
+        Map<String, String> getServiceStatuses();
+    }
+
     public static class StatisticsContainer {
         public Container<Float> averageBlockHeadersPerSecond;
         public Container<Float> averageBlocksPerSecond;
@@ -87,6 +93,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected NodeHandler _nodeHandler = null;
     protected QueryBalanceHandler _queryBalanceHandler = null;
     protected ThreadPoolInquisitor _threadPoolInquisitor = null;
+    protected ServiceInquisitor _serviceInquisitor = null;
 
     protected static void _addMetadataForBlockHeaderToJson(final BlockId blockId, final Json blockJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
@@ -564,15 +571,29 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
             { // Server Load
                 final Json serverLoadJson = new Json();
-                serverLoadJson.put("threadPoolQueueCount", _threadPoolInquisitor.getQueueCount());
-                serverLoadJson.put("threadPoolActiveThreadCount", _threadPoolInquisitor.getActiveThreadCount());
-                serverLoadJson.put("threadPoolMaxThreadCount", _threadPoolInquisitor.getMaxThreadCount());
+                final ThreadPoolInquisitor threadPoolInquisitor = _threadPoolInquisitor;
+                serverLoadJson.put("threadPoolQueueCount",          (threadPoolInquisitor != null ? threadPoolInquisitor.getQueueCount() : null));
+                serverLoadJson.put("threadPoolActiveThreadCount",   (threadPoolInquisitor != null ? threadPoolInquisitor.getActiveThreadCount() : null));
+                serverLoadJson.put("threadPoolMaxThreadCount",      (threadPoolInquisitor != null ? threadPoolInquisitor.getMaxThreadCount() : null));
 
                 final Runtime runtime = Runtime.getRuntime();
                 serverLoadJson.put("jvmMemoryUsageByteCount", (runtime.totalMemory() - runtime.freeMemory()));
                 serverLoadJson.put("jvmMemoryMaxByteCount", runtime.maxMemory());
 
                 response.put("serverLoad", serverLoadJson);
+            }
+
+            { // Service Statuses
+                final Json servicesStatusJson = new Json();
+                final ServiceInquisitor serviceInquisitor = _serviceInquisitor;
+                if (serviceInquisitor != null) {
+                    final Map<String, String> serviceStatuses = serviceInquisitor.getServiceStatuses();
+                    for (final String serviceName : serviceStatuses.keySet()) {
+                        final String serviceStatus = serviceStatuses.get(serviceName);
+                        servicesStatusJson.put(serviceName, serviceStatus);
+                    }
+                }
+                response.put("serviceStatuses", servicesStatusJson);
             }
         }
         catch (final Exception exception) {
@@ -707,6 +728,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public void setThreadPoolInquisitor(final ThreadPoolInquisitor threadPoolInquisitor) {
         _threadPoolInquisitor = threadPoolInquisitor;
+    }
+
+    public void setServiceInquisitor(final ServiceInquisitor serviceInquisitor) {
+        _serviceInquisitor = serviceInquisitor;
     }
 
     @Override

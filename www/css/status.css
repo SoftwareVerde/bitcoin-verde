@@ -4,7 +4,7 @@
 
 #main .status-container {
     width: 90%;
-    box-shadow: 5px 5px 5px 0px rgba(0, 0, 0, 0.15);
+    box-shadow: 5px 5px 5px 0 rgba(0, 0, 0, 0.15);
     border-radius: 1em;
     margin: auto;
     margin-top: 2em;
@@ -107,6 +107,7 @@
     border-top: solid 1px #F0F0F0;
     border-left: solid 1px #F0F0F0;
     text-align: center;
+    padding-bottom: 1em;
 }
 
 .statistics div {
@@ -141,7 +142,7 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: 0px;
+    width: 0;
 }
 
 .server-load::before {
@@ -149,6 +150,30 @@
     display: block;
     text-align: center;
     margin-bottom: 0.5em;
+}
+
+.statistics .service-statuses {
+    display: table;
+    table-layout: fixed;
+    width: calc(100% - 4em);
+    margin-bottom: 2em;
+    border-spacing: 1em;
+    border-collapse: separate;
+    border: none;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.statistics .service-statuses div {
+    display: table-cell;
+    width: 0;
+    background-color: #B31A26;
+    color: #FFFFFF;
+    border: solid 1px #202020;
+}
+
+.statistics .service-statuses div.service-active {
+    background-color: #1AB326;
 }
 
 .server-memory::before {

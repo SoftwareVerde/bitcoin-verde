@@ -16,6 +16,7 @@ public class StatusApi extends ExplorerApiEndpoint {
     private static class StatusResult extends ApiResult {
         private Json _serverLoad = new Json();
         private Json _statistics = new Json(true);
+        private Json _serviceStatuses = new Json();
         private String _status;
 
         public void setServerLoad(final Json serverLoad) {
@@ -23,6 +24,9 @@ public class StatusApi extends ExplorerApiEndpoint {
         }
         public void setStatistics(final Json statistics) {
             _statistics = statistics;
+        }
+        public void setServiceStatuses(final Json serviceStatuses) {
+            _serviceStatuses = serviceStatuses;
         }
         public void setStatus(final String status) {
             _status = status;
@@ -34,6 +38,7 @@ public class StatusApi extends ExplorerApiEndpoint {
             json.put("status", _status);
             json.put("statistics", _statistics);
             json.put("serverLoad", _serverLoad);
+            json.put("serviceStatuses", _serviceStatuses);
             return json;
         }
     }
@@ -60,6 +65,7 @@ public class StatusApi extends ExplorerApiEndpoint {
             final String status;
             final Json statisticsJson;
             final Json serverLoadJson;
+            final Json serviceStatusesJson;
             {
                 final Json rpcRequestJson = new Json();
                 {
@@ -83,6 +89,7 @@ public class StatusApi extends ExplorerApiEndpoint {
                 statisticsJson = rpcResponseJson.get("statistics");
                 status = rpcResponseJson.getString("status");
                 serverLoadJson = rpcResponseJson.get("serverLoad");
+                serviceStatusesJson = rpcResponseJson.get("serviceStatuses");
             }
 
             final StatusResult statusResult = new StatusResult();
@@ -90,6 +97,7 @@ public class StatusApi extends ExplorerApiEndpoint {
             statusResult.setStatus(status);
             statusResult.setStatistics(statisticsJson);
             statusResult.setServerLoad(serverLoadJson);
+            statusResult.setServiceStatuses(serviceStatusesJson);
             return new JsonResponse(ResponseCodes.OK, statusResult);
         }
     }

@@ -245,10 +245,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final List<Tuple<Sha256Hash, Sha256Hash>> inventoryPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(connectedNodes);
+
+            int messagesWithoutStopBeforeHashes = 0;
             for (final Tuple<Sha256Hash, Sha256Hash> inventoryHash : inventoryPlan) {
                 final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
                 queryBlocksMessage.addBlockHash(inventoryHash.first);
                 queryBlocksMessage.setStopBeforeBlockHash(inventoryHash.second);
+
+                if (inventoryHash.second == null) {
+                    if (messagesWithoutStopBeforeHashes > 0) { break; } // NOTE: Only broadcast one QueryBlocks Message without a stopBeforeHash to support the case when BlockHeaders is not up to date...
+                    messagesWithoutStopBeforeHashes += 1;
+                }
 
                 queryBlocksMessages.add(queryBlocksMessage);
             }
