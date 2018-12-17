@@ -19,6 +19,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Util;
@@ -140,7 +141,14 @@ public class BlockDownloader extends SleepyService {
             }
 
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-            pendingBlockDatabaseManager.cleanupPendingBlocks();
+            try {
+                TransactionUtil.startTransaction(databaseConnection);
+                pendingBlockDatabaseManager.cleanupPendingBlocks();
+                TransactionUtil.commitTransaction(databaseConnection);
+            }
+            catch (final DatabaseException exception) {
+                Logger.log("Unable to cleanup pending blocks..."); // Often encounters SQL deadlock...
+            }
 
             final Map<PendingBlockId, NodeId> downloadPlan = pendingBlockDatabaseManager.selectIncompletePendingBlocks(nodeIds, maximumConcurrentDownloadCount * 2);
             if (downloadPlan.isEmpty()) { return false; }
