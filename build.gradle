@@ -38,7 +38,7 @@ dependencies {
     testCompile group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
 }
 
-task makeJar(type: Jar) {
+task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
@@ -55,7 +55,26 @@ task makeJar(type: Jar) {
             exclude 'META-INF/*.RSA'
         }
     }
+
     with jar
+}
+
+task makeJar(type: Jar) {
+    manifest {
+        attributes  'Implementation-Title': 'Bitcoin Server',
+                    'Implementation-Version': version,
+                    'Main-Class': 'com.softwareverde.bitcoin.server.Main',
+                    'Class-Path': configurations.compile.collect { 'libs/' + it.getName() }.join(' ')
+    }
+
+    baseName = project.name + '-server'
+
+    with jar
+}
+
+task copyDependencies(type: Copy) {
+    from configurations.runtime
+    into "$buildDir/libs/libs"
 }
 
 tasks.withType(Test) {
@@ -85,4 +104,3 @@ tasks.withType(Test) {
         }
     }
 }
-
