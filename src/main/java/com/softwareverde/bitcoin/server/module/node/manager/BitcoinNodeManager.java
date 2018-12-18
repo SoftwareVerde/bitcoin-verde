@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
@@ -61,6 +62,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
+    protected final ThreadPoolFactory _threadPoolFactory;
 
     // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
     protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
@@ -89,7 +91,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 final String host = ip.toString();
                 final Integer port = bitcoinNodeIpAddress.getPort();
-                final BitcoinNode node = new BitcoinNode(host, port, _threadPool);
+                final BitcoinNode node = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool());
                 this.addNode(node); // NOTE: _addNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                 Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
@@ -173,14 +175,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool) {
-        super(maxNodeCount, new BitcoinNodeFactory(threadPool), networkTime, threadPool);
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory) {
+        super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory), networkTime, threadPool);
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeInitializer = nodeInitializer;
         _banFilter = banFilter;
         _memoryPoolEnquirer = memoryPoolEnquirer;
         _synchronizationStatusHandler = synchronizationStatusHandler;
+        _threadPoolFactory = threadPoolFactory;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -558,23 +561,5 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         if (transactionHashes.isEmpty()) { return; }
 
         _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
-    }
-
-    @Override
-    public void shutdown() {
-
-        final List<BitcoinNode> nodes;
-        synchronized (_mutex) {
-            _isShuttingDown = true;
-            nodes = new MutableList<BitcoinNode>(_nodes.values());
-            _nodes.clear();
-        }
-
-        // Nodes must be disconnected outside of the _mutex lock in order to prevent deadlock...
-        for (final BitcoinNode node : nodes) {
-            node.disconnect();
-        }
-
-        super.shutdown();
     }
 }

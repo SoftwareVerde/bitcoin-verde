@@ -41,6 +41,7 @@ public class Configuration {
         private Long _maxUtxoCacheByteCount;
         private Boolean _useTransactionBloomFilter;
         private Boolean _shouldTrimBlocks;
+        private Integer _maxMessagesPerSecond;
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
@@ -53,7 +54,8 @@ public class Configuration {
         public Boolean skipNetworking() { return _shouldSkipNetworking; }
         public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
         public Boolean shouldUseTransactionBloomFilter() { return _useTransactionBloomFilter; }
-        public Boolean shouldTrimBlocks(){ return _shouldTrimBlocks; }
+        public Boolean shouldTrimBlocks() { return _shouldTrimBlocks; }
+        public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     }
 
     public static class ExplorerProperties {
@@ -135,6 +137,7 @@ public class Configuration {
         _serverProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
         _serverProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
         _serverProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
+        _serverProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
     }
 
     private void _loadExplorerProperties() {

@@ -752,7 +752,18 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void shutdown() {
-        _isShuttingDown = true;
+        final List<NODE> nodes;
+        synchronized (_mutex) {
+            _isShuttingDown = true;
+            nodes = new MutableList<NODE>(_nodes.values());
+            _nodes.clear();
+        }
+
+        // Nodes must be disconnected outside of the _mutex lock in order to prevent deadlock...
+        for (final NODE node : nodes) {
+            node.disconnect();
+        }
+
         _pendingRequestsManager.stop();
     }
 }

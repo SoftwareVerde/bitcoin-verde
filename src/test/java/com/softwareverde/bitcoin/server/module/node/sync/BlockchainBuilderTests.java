@@ -109,7 +109,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
 class FakeBitcoinNodeManager extends BitcoinNodeManager {
 
     public FakeBitcoinNodeManager() {
-        super(0, null, null, null, null, null, null, null, null);
+        super(0, null, null, null, null, null, null, null, null, null);
     }
 
     @Override

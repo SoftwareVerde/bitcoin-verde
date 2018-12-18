@@ -30,6 +30,27 @@ public abstract class SleepyService {
     protected abstract Boolean _run();
     protected abstract void _onSleep();
 
+    protected void _loop() {
+        final Thread thread = Thread.currentThread();
+        do {
+            _shouldRestart = false;
+
+            while (! thread.isInterrupted()) {
+                try {
+                    final Boolean shouldContinue = _run();
+
+                    if (! shouldContinue) {
+                        break;
+                    }
+                }
+                catch (final Exception exception) {
+                    Logger.log(exception);
+                    break;
+                }
+            }
+        } while ((_shouldRestart) && (! thread.isInterrupted()));
+    }
+
     protected SleepyService() {
         _statusMonitor = new StatusMonitor() {
             @Override
@@ -73,26 +94,6 @@ public abstract class SleepyService {
                 }
             }
         };
-    }
-
-    protected void _loop() {
-        final Thread thread = Thread.currentThread();
-        do {
-            _shouldRestart = false;
-
-            while (!thread.isInterrupted()) {
-                try {
-                    final Boolean shouldContinue = _run();
-
-                    if (!shouldContinue) {
-                        break;
-                    }
-                } catch (final Exception exception) {
-                    Logger.log(exception);
-                    break;
-                }
-            }
-        } while ((_shouldRestart) && (!thread.isInterrupted()));
     }
 
     public void start() {

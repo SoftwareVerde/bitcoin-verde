@@ -1,5 +1,6 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -113,6 +114,10 @@ public abstract class Node {
         _postHandshakeMessageQueue.clear();
 
         _pingRequests.clear();
+
+        if (_threadPool instanceof ThreadPoolThrottle) {
+            ((ThreadPoolThrottle) _threadPool).stop();
+        }
     }
 
     /**
