@@ -7,6 +7,8 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
+import com.softwareverde.network.p2p.node.Node;
+import com.softwareverde.network.p2p.node.NodeFactory;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -22,9 +24,8 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO: It's possible that the nodes connections aren't being faked correctly...
 public class NodeManagerTests {
-    static class FakeNode extends com.softwareverde.network.p2p.node.Node {
+    static class FakeNode extends Node {
         protected static long _nextNonce = 0L;
 
         protected Long _lastMessageReceivedTimestamp = 0L;
@@ -98,6 +99,9 @@ public class NodeManagerTests {
         }
 
         @Override
+        public void connect() { }
+
+        @Override
         protected AcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) { return null; }
 
         @Override
@@ -144,7 +148,7 @@ public class NodeManagerTests {
         }
     }
 
-    static class FakeNodeFactory implements com.softwareverde.network.p2p.node.NodeFactory<FakeNode> {
+    static class FakeNodeFactory implements NodeFactory<FakeNode> {
         protected final ThreadPool _threadPool;
 
         public FakeNodeFactory(final ThreadPool threadPool) {

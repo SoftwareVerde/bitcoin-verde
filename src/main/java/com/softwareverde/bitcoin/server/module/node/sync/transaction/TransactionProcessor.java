@@ -166,7 +166,7 @@ public class TransactionProcessor extends SleepyService {
 
                     final List<Sha256Hash> newTransactionHashes = nodeUnseenTransactionHashes.get(nodeId);
                     // Logger.log("Relaying " + newTransactionHashes.getSize() + " Transactions to: " + bitcoinNode.getUserAgent() + " " + bitcoinNode.getConnectionString());
-                    _bitcoinNodeManager.transmitTransactionHashes(bitcoinNode, newTransactionHashes);
+                    bitcoinNode.transmitTransactionHashes(newTransactionHashes);
                 }
             }
         }

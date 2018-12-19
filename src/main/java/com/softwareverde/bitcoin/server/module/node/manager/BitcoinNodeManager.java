@@ -19,11 +19,11 @@ import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -496,12 +496,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _requestBlock(selectedNode, blockHash, callback);
     }
 
-    public void transmitTransactionHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> transactionHashes) {
-        bitcoinNode.transmitTransactionHashes(transactionHashes);
-    }
-
-    public void transmitBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
-        bitcoinNode.transmitBlockHashes(blockHashes);
+    public void transmitBlockHash(final BitcoinNode bitcoinNode, final Block block) {
+        if (bitcoinNode.newBlocksViaHeadersIsEnabled()) {
+            bitcoinNode.transmitBlockHeader(block, block.getTransactionCount());
+        }
+        else {
+            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
+            blockHashes.add(block.getHash());
+            bitcoinNode.transmitBlockHashes(blockHashes);
+        }
     }
 
     public void transmitBlockHash(final BitcoinNode bitcoinNode, final Sha256Hash blockHash) {

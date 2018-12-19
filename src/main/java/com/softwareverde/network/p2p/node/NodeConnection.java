@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.UnknownHostException;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
@@ -87,7 +86,7 @@ public class NodeConnection {
                 {
                     final SocketAddress socketAddress = socket.getRemoteSocketAddress();
                     final String socketIpString = socketAddress.toString();
-                    final List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
+                    final java.util.List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
                     // final String domainName = urlParts.get(0);
                     _remoteIp = urlParts.get(1); // Ip Address
                     // final String portString = urlParts.get(2);

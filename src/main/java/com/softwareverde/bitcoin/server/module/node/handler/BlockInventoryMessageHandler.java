@@ -12,7 +12,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 

@@ -5,14 +5,16 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
+    public static final Integer MAX_QUEUE_SIZE = 75000;
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final ConcurrentLinkedQueue<Runnable> _queue = new ConcurrentLinkedQueue<Runnable>();
     protected final ThreadPool _threadPool;
     protected final Integer _maxSubmissionsPerSecond;
     protected Long _lastLogStatement = 0L;
+    protected Long _droppedSubmissionsCount = 0L;
 
     public ThreadPoolThrottle(final Integer maxSubmissionsPerSecond, final ThreadPool threadPool) {
         _maxSubmissionsPerSecond = maxSubmissionsPerSecond;
@@ -53,6 +55,15 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
 
     @Override
     public void execute(final Runnable runnable) {
+        if (_queue.size() >= MAX_QUEUE_SIZE) {
+            if (_droppedSubmissionsCount % _maxSubmissionsPerSecond == 0) {
+                Logger.log("ThreadPoolThrottle: Exceeded max queue size. " + _droppedSubmissionsCount);
+            }
+
+            _droppedSubmissionsCount += 1L;
+            return;
+        }
+
         _queue.offer(runnable);
         this.wakeUp();
     }

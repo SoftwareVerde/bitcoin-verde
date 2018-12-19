@@ -31,7 +31,7 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
+            final StartingBlock startingBlock = _getStartingBlock(blockHashes, true, desiredBlockHash, databaseConnection);
 
             if (startingBlock == null) {
                 Logger.log("Unable to send blocks: No blocks available.");

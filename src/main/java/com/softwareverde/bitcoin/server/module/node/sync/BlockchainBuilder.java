@@ -12,32 +12,25 @@ import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
-import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.Util;
-
-import java.util.HashMap;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
-        void onNewBlock(Long blockHeight, Sha256Hash blockHash);
+        void onNewBlock(Long blockHeight, Block block);
     }
 
     protected final ThreadPool _threadPool;
@@ -69,7 +62,7 @@ public class BlockchainBuilder extends SleepyService {
                     _threadPool.execute(new Runnable() {
                         @Override
                         public void run() {
-                            newBlockProcessedCallback.onNewBlock(processedBlockHeight, pendingBlock.getBlockHash());
+                            newBlockProcessedCallback.onNewBlock(processedBlockHeight, block);
                         }
                     });
                 }
@@ -110,33 +103,6 @@ public class BlockchainBuilder extends SleepyService {
         TransactionUtil.commitTransaction(databaseConnection);
 
         return (blockId != null);
-    }
-
-    protected void _broadcastBlock(final PendingBlock pendingBlock, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
-        final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-
-        final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
-        final List<NodeId> connectedNodeIds;
-        {
-            final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-            final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(connectedNodes.getSize());
-            for (final BitcoinNode bitcoinNode : connectedNodes) {
-                final NodeId nodeId = bitcoinNode.getId();
-                nodeIdsBuilder.add(nodeId);
-                bitcoinNodeMap.put(nodeId, bitcoinNode);
-            }
-            connectedNodeIds = nodeIdsBuilder.build();
-        }
-
-        final Sha256Hash blockHash = pendingBlock.getBlockHash();
-
-        final List<NodeId> nodeIdsWithoutBlocks = nodeDatabaseManager.filterNodesViaBlockInventory(connectedNodeIds, blockHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
-        for (final NodeId nodeId : nodeIdsWithoutBlocks) {
-            final BitcoinNode bitcoinNode = bitcoinNodeMap.get(nodeId);
-            if (bitcoinNode == null) { continue; }
-
-            _bitcoinNodeManager.transmitBlockHash(bitcoinNode, blockHash);
-        }
     }
 
     @Override
@@ -203,8 +169,6 @@ public class BlockchainBuilder extends SleepyService {
                     continue;
                 }
 
-                _broadcastBlock(candidatePendingBlock, databaseConnection);
-
                 TransactionUtil.startTransaction(databaseConnection);
                 pendingBlockDatabaseManager.deletePendingBlock(candidatePendingBlockId);
                 TransactionUtil.commitTransaction(databaseConnection);
@@ -226,8 +190,6 @@ public class BlockchainBuilder extends SleepyService {
                             Logger.log("Deleted failed pending block.");
                             break;
                         }
-
-                        _broadcastBlock(pendingBlock, databaseConnection);
 
                         TransactionUtil.startTransaction(databaseConnection);
                         pendingBlockDatabaseManager.deletePendingBlock(pendingBlockId);

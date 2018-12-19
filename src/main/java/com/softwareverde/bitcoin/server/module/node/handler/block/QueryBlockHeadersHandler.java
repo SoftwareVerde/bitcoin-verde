@@ -35,7 +35,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final StartingBlock startingBlock = _getStartingBlock(blockHashes, desiredBlockHash, databaseConnection);
+            final StartingBlock startingBlock = _getStartingBlock(blockHashes, false, desiredBlockHash, databaseConnection);
 
             if (startingBlock == null) {
                 Logger.log("Unable to send headers: No blocks available.");
