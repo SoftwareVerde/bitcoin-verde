@@ -27,7 +27,7 @@ public class BloomFilterInflater {
 
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return new MutableBloomFilter(bloomFilterBytes, hashFunctionCount, nonce);
+        return MutableBloomFilter.newInstance(bloomFilterBytes, hashFunctionCount, nonce);
     }
 
     public MutableBloomFilter fromBytes(final ByteArray byteArray) {

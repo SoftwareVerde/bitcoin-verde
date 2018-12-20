@@ -27,14 +27,43 @@ public class MutableBloomFilter implements BloomFilter {
         return (nonce & 0xFFFFFFFFL);
     }
 
-    public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
+    public static MutableBloomFilter newInstance(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
+        return new MutableBloomFilter(maxItemCount, falsePositiveRate, nonce);
+    }
+
+    public static MutableBloomFilter newInstance(final Long maxItemCount, final Double falsePositiveRate) {
+        return new MutableBloomFilter(maxItemCount, falsePositiveRate);
+    }
+
+    public static MutableBloomFilter newInstance(final ByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
+        return new MutableBloomFilter(new MutableByteArray(byteArray), hashFunctionCount, nonce);
+    }
+
+    public static MutableBloomFilter copyOf(final BloomFilter bloomFilter) {
+        return new MutableBloomFilter(new MutableByteArray(bloomFilter.getBytes()), bloomFilter.getHashFunctionCount(), bloomFilter.getNonce());
+    }
+
+    public static MutableBloomFilter wrap(final MutableByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
+        return new MutableBloomFilter(byteArray, hashFunctionCount, nonce);
+    }
+
+    /**
+     * NOTICE: The provided byteArray is not copied and used directly as the member variable...
+     */
+    protected MutableBloomFilter(final MutableByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
+        _bytes = byteArray;
+        _hashFunctionCount = hashFunctionCount;
+        _nonce = _makeUnsignedInt(nonce);
+    }
+
+    protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate, final Long nonce) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
         _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
         _nonce = _makeUnsignedInt(nonce);
     }
 
-    public MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
+    protected MutableBloomFilter(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = _calculateByteCount(maxItemCount, falsePositiveRate);
         _bytes = new MutableByteArray(byteCount);
         _hashFunctionCount = calculateFunctionCount(byteCount, maxItemCount);
@@ -46,18 +75,6 @@ public class MutableBloomFilter implements BloomFilter {
         //  This does not remove the risk and should be properly investigated.
         // TODO: Investigate MurmurHash h1 underflow/overflow...
         _nonce = _makeUnsignedInt((long) (Math.random() * Integer.MAX_VALUE));
-    }
-
-    public MutableBloomFilter(final ByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {
-        _bytes = new MutableByteArray(byteArray);
-        _hashFunctionCount = hashFunctionCount;
-        _nonce = _makeUnsignedInt(nonce);
-    }
-
-    public MutableBloomFilter(final BloomFilter bloomFilter) {
-        _bytes = new MutableByteArray(bloomFilter.getBytes());
-        _nonce = bloomFilter.getNonce();
-        _hashFunctionCount = bloomFilter.getHashFunctionCount();
     }
 
     public Long getNonce() { return _nonce; }

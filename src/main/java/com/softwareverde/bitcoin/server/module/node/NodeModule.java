@@ -252,6 +252,22 @@ public class NodeModule {
         _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
 
+        _mainThreadPool.setShutdownCallback(new Runnable() {
+            @Override
+            public void run() {
+                _shutdown();
+                System.exit(1);
+            }
+        });
+
+        mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(final Thread thread, final Throwable throwable) {
+                _shutdown();
+                System.exit(1);
+            }
+        });
+
         final EmbeddedMysqlDatabase database;
         {
             EmbeddedMysqlDatabase databaseInstance = null;

@@ -34,6 +34,8 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -50,11 +52,30 @@ public class TransactionDatabaseManager {
     protected static final Long FILTER_NONCE = 0L;
     protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
 
+    protected static MutableBloomFilter _loadBloomFilterFromFile(final String filename, final Long filterItemCount, final Long filterNonce) {
+        final File file = new File(filename);
+        if (! file.canRead()) { return null; }
+
+        final Long byteCount = file.length();
+        if (byteCount == 0L) { return null; }
+        if (byteCount > Integer.MAX_VALUE) { return null; }
+
+        try (final FileInputStream fileInputStream = new FileInputStream(file)) {
+            final byte[] bytes = new byte[byteCount.intValue()];
+
+            final int readByteCount = fileInputStream.read(bytes, 0, bytes.length);
+            if (readByteCount != bytes.length) { return null; }
+
+            final Integer functionCount = MutableBloomFilter.calculateFunctionCount(bytes.length, filterItemCount);
+            return MutableBloomFilter.wrap(MutableByteArray.wrap(bytes), functionCount, filterNonce);
+        }
+        catch (final Exception exception) { return null; }
+    }
+
     public static void initializeBloomFilter(final String filename, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         try {
-            final byte[] loadedFilterBytes = IoUtil.getFileContents(filename);
             final byte[] loadedFilterLastHashBytes = IoUtil.getFileContents(filename + ".sha");
-            if ( (loadedFilterBytes != null) && (loadedFilterLastHashBytes != null) ) {
+            if (loadedFilterLastHashBytes != null) {
                 final Sha256Hash filterLastTransactionHash = Sha256Hash.copyOf(loadedFilterLastHashBytes);
 
                 final java.util.List<Row> rows = databaseConnection.query(
@@ -66,9 +87,11 @@ public class TransactionDatabaseManager {
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
                         Logger.log("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
 
-                        final Integer functionCount = MutableBloomFilter.calculateFunctionCount(loadedFilterBytes.length, FILTER_ITEM_COUNT);
-                        EXISTING_TRANSACTIONS_FILTER = new MutableBloomFilter(MutableByteArray.wrap(loadedFilterBytes), functionCount, FILTER_NONCE);
-                        EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
+                        final MutableBloomFilter loadedBloomFilter = _loadBloomFilterFromFile(filename, FILTER_ITEM_COUNT, FILTER_NONCE);
+                        if (loadedBloomFilter != null) {
+                            EXISTING_TRANSACTIONS_FILTER = loadedBloomFilter;
+                            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
+                        }
                     }
                     else {
                         Logger.log("Rebuilding ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash + " Expected TransactionHash: " + filterLastTransactionHash);
@@ -77,7 +100,7 @@ public class TransactionDatabaseManager {
             }
             if (EXISTING_TRANSACTIONS_FILTER != null) { return; }
 
-            final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
+            final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
 
             final Long batchSize = 4096L;
             long lastTransactionId = 0L;

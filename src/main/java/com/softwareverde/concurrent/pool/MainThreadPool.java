@@ -10,6 +10,7 @@ public class MainThreadPool implements ThreadPool {
     protected final Integer _maxThreadCount;
     protected final Long _threadKeepAliveMilliseconds;
     protected ThreadPoolExecutor _executorService;
+    protected Runnable _shutdownCallback;
 
     final AtomicInteger _nextThreadId = new AtomicInteger(0);
 
@@ -22,6 +23,30 @@ public class MainThreadPool implements ThreadPool {
                 final Thread thread = new Thread(runnable);
                 thread.setName("MainThreadPool - " + nextThreadId);
                 thread.setDaemon(false);
+                thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                    @Override
+                    public void uncaughtException(final Thread thread, final Throwable throwable) {
+                        try {
+                            throwable.printStackTrace(System.err);
+                        }
+                        catch (final Throwable t) { }
+
+                        if (throwable instanceof Error) {
+                            final Runnable shutdownCallback = _shutdownCallback;
+                            if (shutdownCallback != null) {
+                                try {
+                                    shutdownCallback.run();
+                                }
+                                catch (final Throwable shutdownError) {
+                                    System.exit(1);
+                                }
+                            }
+                            else {
+                                System.exit(1);
+                            }
+                        }
+                    }
+                });
                 return thread;
             }
         });
@@ -101,6 +126,16 @@ public class MainThreadPool implements ThreadPool {
             executorService.shutdownNow(); // Re-cancel if current thread also interrupted...
             Thread.currentThread().interrupt(); // Preserve interrupt status...
         }
+    }
+
+    /**
+     * Sets the callback that is executed when an java.lang.Error is thrown.
+     *  This procedure is not invoked if a thread encounters a recoverable Exception (i.e. An uncaught RuntimeException).
+     *  The shutdownCallback should attempt to gracefully terminate the application and not attempt to "recover";
+     *  it is acceptable to directly invoke System.exit() within shutdownCallback.
+     */
+    public void setShutdownCallback(final Runnable shutdownCallback) {
+        _shutdownCallback = shutdownCallback;
     }
 
     /**

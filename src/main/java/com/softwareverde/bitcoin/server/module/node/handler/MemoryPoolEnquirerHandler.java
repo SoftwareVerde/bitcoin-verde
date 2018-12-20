@@ -29,7 +29,7 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final MutableBloomFilter bloomFilter = new MutableBloomFilter((long) transactionIds.getSize(), 0.01D);
+            final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance((long) transactionIds.getSize(), 0.01D);
 
             for (final TransactionId transactionId : transactionIds) {
                 final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
