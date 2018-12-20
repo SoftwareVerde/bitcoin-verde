@@ -614,7 +614,6 @@ public class NodeModule {
 
         if (_shouldWarmUpCache) {
             _warmUpCache();
-            runtime.gc();
         }
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
@@ -693,7 +692,6 @@ public class NodeModule {
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
             try { Thread.sleep(60000); } catch (final Exception exception) { break; }
 
-            runtime.gc();
             Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
             Logger.log("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());

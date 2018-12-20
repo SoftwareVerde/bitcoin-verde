@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database.cache;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.server.database.cache.conscientious.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.conscientious.MemoryConscientiousCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.JvmUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
@@ -24,7 +25,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
             _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
         }
         else {
-            _unspentTransactionOutputCache = MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
+            _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
         }
     }
 
@@ -34,7 +35,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
             _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
         }
         else {
-            _unspentTransactionOutputCache = MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
+            _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
         }
 
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());

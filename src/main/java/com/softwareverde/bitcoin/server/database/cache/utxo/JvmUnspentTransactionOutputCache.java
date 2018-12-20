@@ -36,6 +36,8 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
 
     protected void _removeTransactionOutputId(final TransactionOutputIdentifier transactionOutputIdentifier) {
         final Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionOutputIdentifier.getTransactionHash());
+        if (map == null) { return; }
+
         for (final Integer transactionOutputIndex : map.keySet()) {
             final TransactionOutputId mapTransactionOutputId = map.get(transactionOutputIndex);
             if (Util.areEqual(transactionOutputIdentifier.getOutputIndex(), mapTransactionOutputId)) {
