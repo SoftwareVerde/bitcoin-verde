@@ -353,6 +353,12 @@
     display: none;
 }
 
+.nodes .node .initialization-timestamp,
+.nodes .node .last-message-timestamp {
+    white-space: nowrap;
+    font-size: 95%;
+}
+
 @media only screen and (max-width: 960px) {
     .statistics {
         padding-top: 1em;

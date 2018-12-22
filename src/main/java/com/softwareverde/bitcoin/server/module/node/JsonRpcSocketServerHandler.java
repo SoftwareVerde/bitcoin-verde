@@ -559,11 +559,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 final Json statisticsJson = new Json();
                 statisticsJson.put("blockHeaderHeight", blockHeaderHeight);
                 statisticsJson.put("blockHeadersPerSecond", _averageBlockHeadersPerSecond.value);
-                statisticsJson.put("blockHeaderDate", DateUtil.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
+                statisticsJson.put("blockHeaderDate", DateUtil.Utc.timestampToDatetimeString(blockHeaderTimestampInSeconds * 1000));
+                statisticsJson.put("blockHeaderTimestamp", blockHeaderTimestampInSeconds);
 
                 statisticsJson.put("blockHeight", blockHeight);
                 statisticsJson.put("blocksPerSecond", _averageBlocksPerSecond.value);
-                statisticsJson.put("blockDate", DateUtil.timestampToDatetimeString(blockTimestampInSeconds * 1000));
+                statisticsJson.put("blockDate", DateUtil.Utc.timestampToDatetimeString(blockTimestampInSeconds * 1000));
+                statisticsJson.put("blockTimestamp", blockTimestampInSeconds);
 
                 statisticsJson.put("transactionsPerSecond", _averageTransactionsPerSecond.value);
                 response.put("statistics", statisticsJson);
@@ -682,8 +684,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             nodeJson.put("host", nodeIpAddress.getIp());
             nodeJson.put("port", nodeIpAddress.getPort());
             nodeJson.put("userAgent", node.getUserAgent());
-            nodeJson.put("initializationTimestamp", node.getInitializationTimestamp());
-            nodeJson.put("lastMessageReceivedTimestamp", node.getLastMessageReceivedTimestamp());
+            nodeJson.put("initializationTimestamp", (node.getInitializationTimestamp() / 1000L));
+            nodeJson.put("lastMessageReceivedTimestamp", (node.getLastMessageReceivedTimestamp() / 1000L));
             nodeJson.put("networkOffset", node.getNetworkTimeOffset());
 
             final NodeIpAddress localNodeIpAddress = node.getLocalNodeIpAddress();

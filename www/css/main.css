@@ -183,7 +183,7 @@
 }
 
 .block .block-header div.timestamp .value::after {
-    content: '(UTC)';
+    /* content: '(UTC)'; */
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
     margin-left: 0.5em;

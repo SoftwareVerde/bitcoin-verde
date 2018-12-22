@@ -276,7 +276,7 @@ class Ui {
         Ui.makeHashCopyable(previousBlockHashElement);
         previousBlockHashElement.on("click", Ui._makeNavigateToBlockEvent(block.previousBlockHash));
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
-        $(".block-header .timestamp .value", blockUi).text(block.timestamp.date);
+        $(".block-header .timestamp .value", blockUi).text(DateUtil.formatDateIso(block.timestamp.value));
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
         $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toLocaleString());
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
@@ -398,6 +398,33 @@ class Ui {
         }
 
         return transactionUi;
+    }
+}
+
+class DateUtil {
+    static getTimeZoneAbbreviation() {
+        // Derived From: https://stackoverflow.com/questions/1954397/detect-timezone-abbreviation-using-javascript#38708623
+        try {
+            // Chrome, Firefox
+            return (/.*\s(.+)/.exec((new Date()).toLocaleDateString(navigator.language, { timeZoneName:'short' }))[1]);
+        }
+        catch(exception) {
+            // IE
+            return ((new Date()).toTimeString().match(new RegExp("[A-Z](?!.*[\(])","g")).join(''));
+        }
+    }
+
+    static padLeft(number) {
+        return ((number < 10 ? "0" : "") + number);
+    }
+
+    static formatDateIso(date) {
+        if ( (typeof date == "number") || (typeof date == "string") ) {
+            const newDate = new Date(0);
+            newDate.setUTCSeconds(date);
+            date = newDate;
+        }
+        return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth()) + "-" + DateUtil.padLeft(date.getDay()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
     }
 }
 

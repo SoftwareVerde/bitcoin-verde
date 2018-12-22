@@ -33,9 +33,9 @@ class StatusUi {
 
             if (wasSuccess) {
                 $(".block-header-height-value").text(statistics.blockHeaderHeight);
-                $(".block-header-date-value").text(statistics.blockHeaderDate);
+                $(".block-header-date-value").text(DateUtil.formatDateIso(statistics.blockHeaderTimestamp));
                 $(".block-height-value").text(statistics.blockHeight);
-                $(".block-date-value").text(statistics.blockDate);
+                $(".block-date-value").text(DateUtil.formatDateIso(statistics.blockTimestamp));
 
                 $(".block-headers-per-second").text(statistics.blockHeadersPerSecond);
                 $(".blocks-per-second").text(statistics.blocksPerSecond);
@@ -121,8 +121,8 @@ class StatusUi {
 
                     $(".network-offset", nodeElement).text(node.networkOffset);
                     $(".handshake-complete", nodeElement).text(node.handshakeIsComplete);
-                    $(".initialization-timestamp", nodeElement).text(node.initializationTimestamp);
-                    $(".last-message-timestamp", nodeElement).text(node.lastMessageReceivedTimestamp);
+                    $(".initialization-timestamp", nodeElement).text(DateUtil.formatDateIso(node.initializationTimestamp));
+                    $(".last-message-timestamp", nodeElement).text(DateUtil.formatDateIso(node.lastMessageReceivedTimestamp));
 
                     $(".local-host", nodeElement).text(node.localHost);
                     $(".local-port", nodeElement).text(node.localPort);

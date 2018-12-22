@@ -64,8 +64,13 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 previousBlockHash = blockHash;
             }
 
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+            try {
+                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+            }
+            catch (final DatabaseException databaseException) {
+                Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+            }
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

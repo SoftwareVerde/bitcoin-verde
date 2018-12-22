@@ -29,10 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Orphaned
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
 import com.softwareverde.bitcoin.server.module.node.rpc.*;
-import com.softwareverde.bitcoin.server.module.node.sync.AddressProcessor;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockDownloadRequester;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
-import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
+import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
@@ -61,6 +58,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
+import com.softwareverde.util.Util;
 
 import java.io.File;
 import java.net.InetAddress;
@@ -235,6 +233,8 @@ public class NodeModule {
 
         _environment.getMasterDatabaseManagerCache().close();
 
+        Logger.shutdown();
+
         synchronized (_shutdownPin) {
             _shutdownPin.notifyAll();
         }
@@ -255,16 +255,20 @@ public class NodeModule {
         _mainThreadPool.setShutdownCallback(new Runnable() {
             @Override
             public void run() {
-                _shutdown();
-                System.exit(1);
+                try {
+                    _shutdown();
+                } catch (final Throwable ignored) { }
             }
         });
 
         mainThread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
             @Override
             public void uncaughtException(final Thread thread, final Throwable throwable) {
-                _shutdown();
-                System.exit(1);
+                try {
+                    Logger.log(throwable);
+                    _shutdown();
+                }
+                catch (final Throwable ignored) { }
             }
         });
 
@@ -406,7 +410,12 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+        if (serverProperties.shouldTrimBlocks()) {
+            _addressProcessor = new DisabledAddressProcessor();
+        }
+        else {
+            _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+        }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
         final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseConnectionFactory, localDatabaseCache);
@@ -610,10 +619,11 @@ public class NodeModule {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseCache);
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
-            final Long headBlockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId);
-            final Long headBlockHeight = blockHeaderDatabaseManager.getBlockHeight(headBlockId);
+            final Long headBlockHeaderHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId));
+            final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId));
 
-            if (headBlockHeaderHeight > headBlockHeight) {
+            // TODO: Encountering an exception here (and perhaps other places within the constructor) causes the application to stall after _shutdown is called...
+            if ( (headBlockHeaderHeight == 0L) || (headBlockHeaderHeight > headBlockHeight) ) {
                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
             }
             else {

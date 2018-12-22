@@ -37,12 +37,7 @@ public class MainThreadPool implements ThreadPool {
                                 try {
                                     shutdownCallback.run();
                                 }
-                                catch (final Throwable shutdownError) {
-                                    System.exit(1);
-                                }
-                            }
-                            else {
-                                System.exit(1);
+                                catch (final Throwable shutdownError) { }
                             }
                         }
                     }
@@ -132,7 +127,7 @@ public class MainThreadPool implements ThreadPool {
      * Sets the callback that is executed when an java.lang.Error is thrown.
      *  This procedure is not invoked if a thread encounters a recoverable Exception (i.e. An uncaught RuntimeException).
      *  The shutdownCallback should attempt to gracefully terminate the application and not attempt to "recover";
-     *  it is acceptable to directly invoke System.exit() within shutdownCallback.
+     *  System.exit() should not be executed within shutdownCallback.
      */
     public void setShutdownCallback(final Runnable shutdownCallback) {
         _shutdownCallback = shutdownCallback;
