@@ -120,7 +120,7 @@ public class BlockProcessor {
 
                         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
                         final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
-                        if (!blockHeaderIsValid) {
+                        if (! blockHeaderIsValid) {
                             Logger.log("Invalid BlockHeader: " + blockHash);
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
@@ -140,7 +140,7 @@ public class BlockProcessor {
                 final Boolean transactionsStoredSuccessfully = blockDatabaseManager.storeBlockTransactions(block); // Store the Block's transactions (the BlockHeader should have already been stored above)...
                 storeBlockTimer.stop();
 
-                if (!transactionsStoredSuccessfully) {
+                if (! transactionsStoredSuccessfully) {
                     TransactionUtil.rollbackTransaction(databaseConnection);
                     Logger.log("Invalid block. Unable to store transactions for block: " + blockHash);
                     return null;

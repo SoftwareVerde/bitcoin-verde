@@ -55,50 +55,51 @@ public class StatusApi extends ExplorerApiEndpoint {
         {   // CHECK STATUS
             // Requires GET:
             // Requires POST:
-            final SocketConnection socketConnection = _newRpcConnection();
-            if (socketConnection == null) {
-                final StatusResult result = new StatusResult();
-                result.setWasSuccess(false);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
-            }
+            try (final SocketConnection socketConnection = _newRpcConnection()) {
+                if (socketConnection == null) {
+                    final StatusResult result = new StatusResult();
+                    result.setWasSuccess(false);
+                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                }
 
-            final String status;
-            final Json statisticsJson;
-            final Json serverLoadJson;
-            final Json serviceStatusesJson;
-            {
-                final Json rpcRequestJson = new Json();
+                final String status;
+                final Json statisticsJson;
+                final Json serverLoadJson;
+                final Json serviceStatusesJson;
                 {
-                    rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("query", "STATUS");
+                    final Json rpcRequestJson = new Json();
+                    {
+                        rpcRequestJson.put("method", "GET");
+                        rpcRequestJson.put("query", "STATUS");
+                    }
+
+                    socketConnection.write(rpcRequestJson.toString());
+
+                    final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                    if (rpcResponseString == null) {
+                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                    }
+
+                    final Json rpcResponseJson = Json.parse(rpcResponseString);
+                    if (! rpcResponseJson.getBoolean("wasSuccess")) {
+                        final String errorMessage = rpcRequestJson.getString("errorMessage");
+                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                    }
+
+                    statisticsJson = rpcResponseJson.get("statistics");
+                    status = rpcResponseJson.getString("status");
+                    serverLoadJson = rpcResponseJson.get("serverLoad");
+                    serviceStatusesJson = rpcResponseJson.get("serviceStatuses");
                 }
 
-                socketConnection.write(rpcRequestJson.toString());
-
-                final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                if (rpcResponseString == null) {
-                    return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
-                }
-
-                final Json rpcResponseJson = Json.parse(rpcResponseString);
-                if (! rpcResponseJson.getBoolean("wasSuccess")) {
-                    final String errorMessage = rpcRequestJson.getString("errorMessage");
-                    return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
-                }
-
-                statisticsJson = rpcResponseJson.get("statistics");
-                status = rpcResponseJson.getString("status");
-                serverLoadJson = rpcResponseJson.get("serverLoad");
-                serviceStatusesJson = rpcResponseJson.get("serviceStatuses");
+                final StatusResult statusResult = new StatusResult();
+                statusResult.setWasSuccess(true);
+                statusResult.setStatus(status);
+                statusResult.setStatistics(statisticsJson);
+                statusResult.setServerLoad(serverLoadJson);
+                statusResult.setServiceStatuses(serviceStatusesJson);
+                return new JsonResponse(ResponseCodes.OK, statusResult);
             }
-
-            final StatusResult statusResult = new StatusResult();
-            statusResult.setWasSuccess(true);
-            statusResult.setStatus(status);
-            statusResult.setStatistics(statisticsJson);
-            statusResult.setServerLoad(serverLoadJson);
-            statusResult.setServiceStatuses(serviceStatusesJson);
-            return new JsonResponse(ResponseCodes.OK, statusResult);
         }
     }
 }

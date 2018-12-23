@@ -80,7 +80,7 @@ public class AutoCompleteTextField extends TextField {
             if (searchResults.size() > 0) {
                 _populatePopup(searchResults);
                 _hasSearchResults = true;
-                if (!_resultsPopup.isShowing()) {
+                if (! _resultsPopup.isShowing()) {
                     _resultsPopup.show(AutoCompleteTextField.this, Side.BOTTOM, 0, 0);
                 }
             }

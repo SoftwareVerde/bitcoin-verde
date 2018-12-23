@@ -1,5 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
 import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
@@ -20,7 +22,7 @@ public class SearchApi extends ExplorerApiEndpoint {
 
     private static class SearchResult extends ApiResult {
         public enum ObjectType {
-            BLOCK, BLOCK_HEADER, TRANSACTION
+            BLOCK, BLOCK_HEADER, TRANSACTION, ADDRESS
         }
 
         private ObjectType _objectType;
@@ -55,84 +57,91 @@ public class SearchApi extends ExplorerApiEndpoint {
                 return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
             }
 
-            final SocketConnection socketConnection = _newRpcConnection();
-            if (socketConnection == null) {
-                final SearchResult result = new SearchResult();
-                result.setWasSuccess(false);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
-            }
-
-            SearchResult.ObjectType objectType = null;
-            Jsonable object = null;
-            {
-                final int hashCharacterLength = 64;
-
-                final Json rpcRequestJson = new Json();
-                {
-                    final Json rpcParametersJson = new Json();
-                    if (queryParam.length() == hashCharacterLength) {
-                        rpcParametersJson.put("hash", queryParam);
-                    }
-                    else {
-                        if (! Util.isLong(queryParam)) {
-                            return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: query=" + queryParam)));
-                        }
-
-                        rpcParametersJson.put("blockHeight", queryParam);
-                    }
-
-                    rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("parameters", rpcParametersJson);
+            try (final SocketConnection socketConnection = _newRpcConnection()) {
+                if (socketConnection == null) {
+                    final SearchResult result = new SearchResult();
+                    result.setWasSuccess(false);
+                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
                 }
 
-                if ( (queryParam.startsWith("00000000")) || (queryParam.length() != hashCharacterLength) ) {
-                    rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
-                    socketConnection.write(rpcRequestJson.toString());
+                SearchResult.ObjectType objectType = null;
+                Jsonable object = null;
+                {
+                    final int hashCharacterLength = 64;
 
-                    final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                    if (queryBlockResponse == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
-                    }
-                    final Json queryBlockResponseJson = Json.parse(queryBlockResponse);
-                    if (queryBlockResponseJson.getBoolean("wasSuccess")) {
-                        final Json blockJson = queryBlockResponseJson.get("block");
-
-                        final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
-
-                        object = blockJson;
-                        if (isFullBlock) {
-                            objectType = SearchResult.ObjectType.BLOCK;
+                    final Json rpcRequestJson = new Json();
+                    {
+                        final Json rpcParametersJson = new Json();
+                        if (queryParam.length() == hashCharacterLength) {
+                            rpcParametersJson.put("hash", queryParam);
                         }
                         else {
-                            objectType = SearchResult.ObjectType.BLOCK_HEADER;
+                            if (! Util.isLong(queryParam)) {
+                                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: query=" + queryParam)));
+                            }
+
+                            rpcParametersJson.put("blockHeight", queryParam);
+                        }
+
+                        rpcRequestJson.put("method", "GET");
+                        rpcRequestJson.put("parameters", rpcParametersJson);
+                    }
+
+                    final AddressInflater addressInflater = new AddressInflater();
+                    final Address address = addressInflater.fromBase58Check(queryParam);
+
+                    if (address != null) {
+                        // TODO
+                    }
+                    else if ( (queryParam.startsWith("00000000")) || (queryParam.length() != hashCharacterLength) ) {
+                        rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
+                        socketConnection.write(rpcRequestJson.toString());
+
+                        final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                        if (queryBlockResponse == null) {
+                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        }
+                        final Json queryBlockResponseJson = Json.parse(queryBlockResponse);
+                        if (queryBlockResponseJson.getBoolean("wasSuccess")) {
+                            final Json blockJson = queryBlockResponseJson.get("block");
+
+                            final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
+
+                            object = blockJson;
+                            if (isFullBlock) {
+                                objectType = SearchResult.ObjectType.BLOCK;
+                            }
+                            else {
+                                objectType = SearchResult.ObjectType.BLOCK_HEADER;
+                            }
+                        }
+                    }
+
+                    if ( (objectType == null) && (queryParam.length() == hashCharacterLength) ) {
+                        rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
+                        socketConnection.write(rpcRequestJson.toString());
+
+                        final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                        if (queryTransactionResponse == null) {
+                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        }
+
+                        final Json queryTransactionResponseJson = Json.parse(queryTransactionResponse);
+                        if (queryTransactionResponseJson.getBoolean("wasSuccess")) {
+                            final Json transactionJson = queryTransactionResponseJson.get("transaction");
+                            object = transactionJson;
+                            objectType = SearchResult.ObjectType.TRANSACTION;
                         }
                     }
                 }
+                final Boolean wasSuccess = (objectType != null);
 
-                if ( (objectType == null) && (queryParam.length() == hashCharacterLength)) {
-                    rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
-                    socketConnection.write(rpcRequestJson.toString());
-
-                    final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                    if (queryTransactionResponse == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
-                    }
-
-                    final Json queryTransactionResponseJson = Json.parse(queryTransactionResponse);
-                    if (queryTransactionResponseJson.getBoolean("wasSuccess")) {
-                        final Json transactionJson = queryTransactionResponseJson.get("transaction");
-                        object = transactionJson;
-                        objectType = SearchResult.ObjectType.TRANSACTION;
-                    }
-                }
+                final SearchResult searchResult = new SearchResult();
+                searchResult.setWasSuccess(wasSuccess);
+                searchResult.setObjectType(objectType);
+                searchResult.setObject(object);
+                return new JsonResponse(ResponseCodes.OK, searchResult);
             }
-            final Boolean wasSuccess = (objectType != null);
-
-            final SearchResult searchResult = new SearchResult();
-            searchResult.setWasSuccess(wasSuccess);
-            searchResult.setObjectType(objectType);
-            searchResult.setObject(object);
-            return new JsonResponse(ResponseCodes.OK, searchResult);
         }
 
         // return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Nothing to do.")));

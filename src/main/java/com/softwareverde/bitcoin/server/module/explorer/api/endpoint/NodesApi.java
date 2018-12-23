@@ -40,41 +40,42 @@ public class NodesApi extends ExplorerApiEndpoint {
         {   // LIST NODES
             // Requires GET:
             // Requires POST:
-            final SocketConnection socketConnection = _newRpcConnection();
-            if (socketConnection == null) {
-                final NodesResult result = new NodesResult();
-                result.setWasSuccess(false);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
-            }
+            try (final SocketConnection socketConnection = _newRpcConnection()) {
+                if (socketConnection == null) {
+                    final NodesResult result = new NodesResult();
+                    result.setWasSuccess(false);
+                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                }
 
-            final Json nodesJson;
-            {
-                final Json rpcRequestJson = new Json();
+                final Json nodesJson;
                 {
-                    rpcRequestJson.put("method", "GET");
-                    rpcRequestJson.put("query", "NODES");
+                    final Json rpcRequestJson = new Json();
+                    {
+                        rpcRequestJson.put("method", "GET");
+                        rpcRequestJson.put("query", "NODES");
+                    }
+
+                    socketConnection.write(rpcRequestJson.toString());
+
+                    final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                    if (rpcResponseString == null) {
+                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                    }
+
+                    final Json rpcResponseJson = Json.parse(rpcResponseString);
+                    if (! rpcResponseJson.getBoolean("wasSuccess")) {
+                        final String errorMessage = rpcRequestJson.getString("errorMessage");
+                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                    }
+
+                    nodesJson = rpcResponseJson.get("nodes");
                 }
 
-                socketConnection.write(rpcRequestJson.toString());
-
-                final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                if (rpcResponseString == null) {
-                    return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
-                }
-
-                final Json rpcResponseJson = Json.parse(rpcResponseString);
-                if (! rpcResponseJson.getBoolean("wasSuccess")) {
-                    final String errorMessage = rpcRequestJson.getString("errorMessage");
-                    return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
-                }
-
-                nodesJson = rpcResponseJson.get("nodes");
+                final NodesResult nodesResult = new NodesResult();
+                nodesResult.setWasSuccess(true);
+                nodesResult.setNodes(nodesJson);
+                return new JsonResponse(ResponseCodes.OK, nodesResult);
             }
-
-            final NodesResult nodesResult = new NodesResult();
-            nodesResult.setWasSuccess(true);
-            nodesResult.setNodes(nodesJson);
-            return new JsonResponse(ResponseCodes.OK, nodesResult);
         }
     }
 }

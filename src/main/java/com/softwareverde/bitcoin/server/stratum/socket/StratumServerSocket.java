@@ -32,7 +32,7 @@ public class StratumServerSocket {
         synchronized (_connections) {
             Integer i = 0;
             for (final SocketConnection connection : _connections) {
-                if (!connection.isConnected()) {
+                if (! connection.isConnected()) {
                     _connections.remove(i.intValue());
                     System.out.println("Purging disconnected stratum socket: " + i);
 
