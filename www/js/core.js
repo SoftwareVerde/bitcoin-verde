@@ -46,18 +46,18 @@ class Http {
 class Api {
     static search(parameters, callback) {
         const defaultParameters = {
-            hash: null
+            query: null
         };
         const apiParameters = $.extend({}, defaultParameters, parameters);
 
-        const hash = apiParameters.hash;
+        const query = apiParameters.query;
 
         const searchInput = $("#search");
-        searchInput.val(hash);
+        searchInput.val(query);
 
         const queryParams = new URLSearchParams(window.location.search);
-        if (queryParams.get("search") != hash) {
-            window.history.pushState({ hash: hash }, hash, "?search=" + window.encodeURIComponent(hash));
+        if (queryParams.get("search") != query) {
+            window.history.pushState({ query: query}, query, "?search=" + window.encodeURIComponent(query));
         }
 
         Http.get(Api.PREFIX + "search", apiParameters, callback);
@@ -209,7 +209,7 @@ class Ui {
 
         return function() {
             loadingImage.css("visibility", "visible");
-            Api.search({ hash: blockHash }, function(data) {
+            Api.search({ query: blockHash }, function(data) {
                 loadingImage.css("visibility", "hidden");
 
                 const wasSuccess = data.wasSuccess;
@@ -233,7 +233,7 @@ class Ui {
 
         return function() {
             loadingImage.css("visibility", "visible");
-            Api.search({ hash: transactionHash }, function(data) {
+            Api.search({ query: transactionHash }, function(data) {
                 loadingImage.css("visibility", "hidden");
 
                 const wasSuccess = data.wasSuccess;

@@ -7,13 +7,11 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -299,18 +297,20 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected void _getBlockHeader(final Json parameters, final Json response) {
-        if (! parameters.hasKey("hash")) {
-            response.put("errorMessage", "Missing parameters. Required: hash");
+        if ( (! parameters.hasKey("hash")) && (! parameters.hasKey("blockHeight")) ) {
+            response.put("errorMessage", "Missing parameters. Required: [hash|blockHeight]");
             return;
         }
 
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
 
-        final String blockHashString = parameters.getString("hash");
-        final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
+        final Boolean blockHeightWasProvided = parameters.hasKey("blockHeight");
+        final Long paramBlockHeight = parameters.getLong("blockHeight");
+        final String paramBlockHashString = parameters.getString("hash");
+        final Sha256Hash paramBlockHash = Sha256Hash.fromHexString(paramBlockHashString);
 
-        if (blockHash == null) {
-            response.put("errorMessage", "Invalid block hash: " + blockHashString);
+        if ( (paramBlockHash == null) && (! blockHeightWasProvided) ) {
+            response.put("errorMessage", "Invalid block hash: " + paramBlockHashString);
             return;
         }
 
@@ -319,10 +319,27 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-            if (blockId == null) {
-                response.put("errorMessage", "Block not found: " + blockHashString);
-                return;
+            final BlockId blockId;
+            final Sha256Hash blockHash;
+            if (blockHeightWasProvided) {
+                final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, paramBlockHeight);
+                if (blockId == null) {
+                    response.put("errorMessage", "Block not found at height: " + paramBlockHeight);
+                    return;
+                }
+
+                blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            }
+            else {
+                blockHash = paramBlockHash;
+                blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+
+                if (blockId == null) {
+                    response.put("errorMessage", "Block not found: " + paramBlockHashString);
+                    return;
+                }
             }
 
             if (shouldReturnRawBlockData) {
@@ -358,18 +375,20 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected void _getBlock(final Json parameters, final Json response) {
-        if (! parameters.hasKey("hash")) {
-            response.put("errorMessage", "Missing parameters. Required: hash");
+        if ( (! parameters.hasKey("hash")) && (! parameters.hasKey("blockHeight")) ) {
+            response.put("errorMessage", "Missing parameters. Required: [hash|blockHeight]");
             return;
         }
 
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
 
-        final String blockHashString = parameters.getString("hash");
-        final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
+        final Boolean blockHeightWasProvided = parameters.hasKey("blockHeight");
+        final Long paramBlockHeight = parameters.getLong("blockHeight");
+        final String paramBlockHashString = parameters.getString("hash");
+        final Sha256Hash paramBlockHash = Sha256Hash.fromHexString(paramBlockHashString);
 
-        if (blockHash == null) {
-            response.put("errorMessage", "Invalid block hash: " + blockHashString);
+        if ( (paramBlockHash == null) && (! blockHeightWasProvided) ) {
+            response.put("errorMessage", "Invalid block hash: " + paramBlockHashString);
             return;
         }
 
@@ -379,15 +398,32 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
-            if (blockId == null) {
-                response.put("errorMessage", "Block not found: " + blockHashString);
-                return;
+            final BlockId blockId;
+            final Sha256Hash blockHash;
+            if (blockHeightWasProvided) {
+                final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
+                final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+                blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, paramBlockHeight);
+                if (blockId == null) {
+                    response.put("errorMessage", "Block not found at height: " + paramBlockHeight);
+                    return;
+                }
+
+                blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            }
+            else {
+                blockHash = paramBlockHash;
+                blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+
+                if (blockId == null) {
+                    response.put("errorMessage", "Block not found: " + paramBlockHashString);
+                    return;
+                }
             }
 
             final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);
             if (! blockExists) {
-                response.put("errorMessage", "Block not synchronized: " + blockHashString);
+                response.put("errorMessage", "Block not synchronized: " + blockHash.toString());
                 return;
             }
 

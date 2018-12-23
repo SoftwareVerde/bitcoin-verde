@@ -6,7 +6,7 @@ $(document).ready(function() {
 
         if (key == KeyCodes.ENTER) {
             loadingImage.css("visibility", "visible");
-            Api.search({ hash: searchInput.val() }, function(data) {
+            Api.search({ query: searchInput.val() }, function(data) {
                 loadingImage.css("visibility", "hidden");
 
                 const wasSuccess = data.wasSuccess;

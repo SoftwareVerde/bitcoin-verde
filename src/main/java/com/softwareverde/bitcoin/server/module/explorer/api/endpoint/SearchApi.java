@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.servlet.GetParameters;
@@ -10,6 +11,7 @@ import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
 import com.softwareverde.servlet.response.Response;
 import com.softwareverde.socket.SocketConnection;
+import com.softwareverde.util.Util;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
@@ -46,11 +48,11 @@ public class SearchApi extends ExplorerApiEndpoint {
         final PostParameters postParameters = request.getPostParameters();
 
         {   // SEARCH
-            // Requires GET:    hash
+            // Requires GET:    query
             // Requires POST:
-            final String objectHash = getParameters.get("hash");
-            if (objectHash.isEmpty()) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: hash")));
+            final String queryParam = getParameters.get("query");
+            if (queryParam.isEmpty()) {
+                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
             }
 
             final SocketConnection socketConnection = _newRpcConnection();
@@ -63,16 +65,27 @@ public class SearchApi extends ExplorerApiEndpoint {
             SearchResult.ObjectType objectType = null;
             Jsonable object = null;
             {
+                final int hashCharacterLength = 64;
+
                 final Json rpcRequestJson = new Json();
                 {
                     final Json rpcParametersJson = new Json();
-                    rpcParametersJson.put("hash", objectHash);
+                    if (queryParam.length() == hashCharacterLength) {
+                        rpcParametersJson.put("hash", queryParam);
+                    }
+                    else {
+                        if (! Util.isLong(queryParam)) {
+                            return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: query=" + queryParam)));
+                        }
+
+                        rpcParametersJson.put("blockHeight", queryParam);
+                    }
 
                     rpcRequestJson.put("method", "GET");
                     rpcRequestJson.put("parameters", rpcParametersJson);
                 }
 
-                if (objectHash.startsWith("00000000")) {
+                if ( (queryParam.startsWith("00000000")) || (queryParam.length() != hashCharacterLength) ) {
                     rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
                     socketConnection.write(rpcRequestJson.toString());
 
@@ -96,7 +109,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     }
                 }
 
-                if (objectType == null) {
+                if ( (objectType == null) && (queryParam.length() == hashCharacterLength)) {
                     rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
                     socketConnection.write(rpcRequestJson.toString());
 

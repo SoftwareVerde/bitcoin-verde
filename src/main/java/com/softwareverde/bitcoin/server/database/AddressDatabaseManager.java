@@ -314,7 +314,7 @@ public class AddressDatabaseManager {
 
     public List<TransactionId> getTransactionIds(final AddressId addressId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT transactions.id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id LEFT OUTER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id INNER JOIN transactions ON (transactions.id = transaction_outputs.transaction_id OR transactions.id = transaction_inputs.transaction_id) WHERE locking_scripts.address_id = ?")
+            new Query("SELECT transactions.id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id LEFT OUTER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id INNER JOIN transactions ON (transactions.id = transaction_outputs.transaction_id OR transactions.id = transaction_inputs.transaction_id) WHERE locking_scripts.address_id = ? GROUP BY transactions.id")
                 .setParameter(addressId)
         );
 
