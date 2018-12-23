@@ -1,13 +1,16 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockRelationship;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -16,11 +19,11 @@ import com.softwareverde.io.Logger;
 
 import java.math.BigInteger;
 
-public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBalanceHandler {
+public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddressHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected DatabaseManagerCache _databaseManagerCache;
 
-    public QueryBalanceHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryAddressHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
     }
@@ -65,6 +68,31 @@ public class QueryBalanceHandler implements JsonRpcSocketServerHandler.QueryBala
             }
 
             return totalAmount.longValue();
+        }
+        catch (final Exception exception) {
+            Logger.log(exception);
+            return null;
+        }
+    }
+
+    @Override
+    public List<Transaction> getAddressTransactions(final Address address) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
+
+            final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
+
+
+            final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(addressId);
+            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+
+            for (final TransactionId transactionId : transactionIds) {
+                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                transactions.add(transaction);
+            }
+
+            return transactions.build();
         }
         catch (final Exception exception) {
             Logger.log(exception);

@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -201,10 +202,20 @@ public class AddressDatabaseManager {
 
         @Override
         public boolean equals(final Object object) {
+            if (object instanceof ScriptWrapper) {
+                final ScriptWrapper scriptWrapper = ((ScriptWrapper) object);
+                return this.lockingScript.simpleEquals(scriptWrapper.lockingScript);
+            }
+
             return this.lockingScript.simpleEquals(object);
         }
     }
 
+    /**
+     * Returns a list of AddressIds for the provided lockingScripts.
+     *  The returned list is guaranteed to be a 1-to-1 mapping, where AddressId is null if the LockingScript
+     *  does not have an Address.
+     */
     public List<AddressId> storeScriptAddresses(final List<LockingScript> lockingScripts) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
@@ -299,6 +310,20 @@ public class AddressDatabaseManager {
 
     public List<SpendableTransactionOutput> getSpendableTransactionOutputs(final AddressId addressId) throws DatabaseException {
         return _getAddressOutputs(addressId);
+    }
+
+    public List<TransactionId> getTransactionIds(final AddressId addressId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT transactions.id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id LEFT OUTER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id INNER JOIN transactions ON (transactions.id = transaction_outputs.transaction_id OR transactions.id = transaction_inputs.transaction_id) WHERE locking_scripts.address_id = ?")
+                .setParameter(addressId)
+        );
+
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            transactionIds.add(transactionId);
+        }
+        return transactionIds.build();
     }
 
     public BigInteger getAddressBalance(final AddressId addressId) throws DatabaseException {

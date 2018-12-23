@@ -588,7 +588,7 @@ public class NodeModule {
 
             final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
             final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
-            final QueryBalanceHandler queryBalanceHandler = new QueryBalanceHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
             final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
@@ -601,7 +601,7 @@ public class NodeModule {
             final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, synchronizationStatusHandler, statisticsContainer);
             rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
             rpcSocketServerHandler.setNodeHandler(nodeHandler);
-            rpcSocketServerHandler.setQueryBalanceHandler(queryBalanceHandler);
+            rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
             rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
             rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
 

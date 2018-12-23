@@ -62,8 +62,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<BitcoinNode> getNodes();
     }
 
-    public interface QueryBalanceHandler {
+    public interface QueryAddressHandler {
         Long getBalance(Address address);
+        List<Transaction> getAddressTransactions(Address address);
     }
 
     public interface ThreadPoolInquisitor {
@@ -91,7 +92,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     protected ShutdownHandler _shutdownHandler = null;
     protected NodeHandler _nodeHandler = null;
-    protected QueryBalanceHandler _queryBalanceHandler = null;
+    protected QueryAddressHandler _queryAddressHandler = null;
     protected ThreadPoolInquisitor _threadPoolInquisitor = null;
     protected ServiceInquisitor _serviceInquisitor = null;
 
@@ -605,8 +606,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     protected void _queryBalance(final Json parameters, final Json response) {
-        final QueryBalanceHandler queryBalanceHandler = _queryBalanceHandler;
-        if (queryBalanceHandler == null) {
+        final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
+        if (queryAddressHandler == null) {
             response.put("errorMessage", "Operation not supported.");
             return;
         }
@@ -625,7 +626,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             return;
         }
 
-        final Long balance = queryBalanceHandler.getBalance(address);
+        final Long balance = queryAddressHandler.getBalance(address);
 
         if (balance == null) {
             response.put("errorMessage", "Unable to determine balance.");
@@ -633,6 +634,54 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
 
         response.put("balance", balance);
+        response.put("wasSuccess", 1);
+    }
+
+    protected void _queryAddressTransactions(final Json parameters, final Json response) {
+        final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
+        if (queryAddressHandler == null) {
+            response.put("errorMessage", "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("address")) {
+            response.put("errorMessage", "Missing parameters. Required: address");
+            return;
+        }
+
+        final String addressString = parameters.getString("address");
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address address = addressInflater.fromBase58Check(addressString);
+
+        if (address == null) {
+            response.put("errorMessage", "Invalid address.");
+            return;
+        }
+
+        final List<Transaction> addressTransactions = queryAddressHandler.getAddressTransactions(address);
+
+        if (addressTransactions == null) {
+            response.put("errorMessage", "Unable to determine address transactions.");
+            return;
+        }
+
+        final Json transactionsJson = new Json(true);
+
+        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+            for (final Transaction transaction : addressTransactions) {
+                final Json transactionJson = transaction.toJson();
+                _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
+                transactionsJson.add(transactionJson);
+            }
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            response.put("errorMessage", "Error loading transaction metadata.");
+            return;
+        }
+
+        response.put("transactions", transactionsJson);
         response.put("wasSuccess", 1);
     }
 
@@ -724,8 +773,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _nodeHandler = nodeHandler;
     }
 
-    public void setQueryBalanceHandler(final QueryBalanceHandler queryBalanceHandler) {
-        _queryBalanceHandler = queryBalanceHandler;
+    public void setQueryAddressHandler(final QueryAddressHandler queryAddressHandler) {
+        _queryAddressHandler = queryAddressHandler;
     }
 
     public void setThreadPoolInquisitor(final ThreadPoolInquisitor threadPoolInquisitor) {

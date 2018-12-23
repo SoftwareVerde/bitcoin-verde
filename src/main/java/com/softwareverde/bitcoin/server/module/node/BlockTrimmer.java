@@ -32,7 +32,7 @@ public class BlockTrimmer {
                 final TransactionOutputId transactionOutputId = transactionInputDatabaseManager.getPreviousTransactionOutputId(transactionInputId);
                 if (transactionOutputId == null) { continue; }
 
-                Logger.log("Trimming Transaction Output Id: " + transactionOutputId);
+                // Logger.log("Trimming Transaction Output Id: " + transactionOutputId);
                 transactionOutputDatabaseManager.deleteTransactionOutput(transactionOutputId);
             }
         }
