@@ -15,7 +15,7 @@ public class NativeUnspentTransactionOutputCacheTests {
     }
 
     @Test
-    public void should_not_leak_memory() {
+    public void should_store_and_purge_items_from_the_native_utxo_cache() {
         NativeUnspentTransactionOutputCache.init();
 
         Assert.assertTrue(NativeUnspentTransactionOutputCache.isEnabled());

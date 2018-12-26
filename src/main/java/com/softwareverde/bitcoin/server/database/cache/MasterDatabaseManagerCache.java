@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.io.Logger;
 
 public class MasterDatabaseManagerCache implements AutoCloseable {
     protected static <T, S> void _commitToCache(final MutableCache<T, S> cache, final MutableCache<T, S> destination) {
@@ -40,7 +41,8 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         _maxCachedUtxoCount = maxUtxoCount;
 
         if (NativeUnspentTransactionOutputCache.isEnabled()) {
-            _unspentTransactionOutputCache = MemoryConscientiousCache.wrap(0.95F, new NativeUnspentTransactionOutputCache(maxUtxoCount));
+            Logger.log("NativeUnspentTransactionOutputCache max item count: " + maxUtxoCount);
+            _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
         }
         else {
             _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
