@@ -18,6 +18,9 @@ $(document).ready(function() {
                     if ( (objectType == Constants.BLOCK) || (objectType == Constants.BLOCK_HEADER) ) {
                         Ui.renderBlock(object);
                     }
+                    if (objectType == Constants.ADDRESS) {
+                        Ui.renderAddress(object);
+                    }
                     else {
                         Ui.renderTransaction(object);
                     }

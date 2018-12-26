@@ -690,7 +690,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
-            response.put("errorMessage", "Invalid address.");
+            response.put("errorMessage", "Invalid address: " + addressString);
             return;
         }
 
@@ -873,6 +873,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "BALANCE": {
                                 _queryBalance(parameters, response);
+                            } break;
+
+                            case "ADDRESS": {
+                                _queryAddressTransactions(parameters, response);
                             } break;
 
                             default: {

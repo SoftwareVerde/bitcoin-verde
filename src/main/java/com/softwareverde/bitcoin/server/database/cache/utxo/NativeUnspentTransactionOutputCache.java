@@ -110,8 +110,8 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         _setMaxItemCount(_cacheId, maxUtxoCount.unwrap());
     }
 
-    public void setMaxItemCount(final Long maxItemCount) {
-        _setMaxItemCount(_cacheId, maxItemCount);
+    public void setMaxItemCount(final UtxoCount maxUtxoCount) {
+        _setMaxItemCount(_cacheId, maxUtxoCount.unwrap());
     }
 
     @Override

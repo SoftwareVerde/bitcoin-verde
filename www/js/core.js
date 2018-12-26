@@ -92,6 +92,7 @@ Api.PREFIX = "/api/v1/";
 class Constants {
     static get BLOCK() { return "BLOCK"; }
     static get BLOCK_HEADER() { return "BLOCK_HEADER"; }
+    static get ADDRESS() { return "ADDRESS"; }
     static get TRANSACTION() { return "TRANSACTION"; }
     static get SATOSHIS_PER_BITCOIN() { return 100000000; }
 }
@@ -202,6 +203,27 @@ class Ui {
         main.empty();
         main.append(blockUi);
         blockUi.fadeIn(500);
+    }
+
+    static highlightAddress(address, transactionUi) {
+        
+    }
+
+    static renderAddress(addressTransactions) {
+        const main = $("#main");
+        main.empty();
+
+        for (let i in addressTransactions) {
+            const transaction = addressTransactions[i];
+
+            const transactionUi = Ui.inflateTransaction(transaction);
+            Ui.highlightAddress(address, transactionUi);
+            transactionUi.hide();
+
+            main.append(transactionUi);
+            transactionUi.fadeIn(500);
+        }
+        console.log(addressTransactions);
     }
 
     static _makeNavigateToBlockEvent(blockHash) {

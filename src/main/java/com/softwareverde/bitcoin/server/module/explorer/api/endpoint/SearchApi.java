@@ -69,32 +69,51 @@ public class SearchApi extends ExplorerApiEndpoint {
                 {
                     final int hashCharacterLength = 64;
 
-                    final Json rpcRequestJson = new Json();
-                    {
-                        final Json rpcParametersJson = new Json();
-                        if (queryParam.length() == hashCharacterLength) {
-                            rpcParametersJson.put("hash", queryParam);
-                        }
-                        else {
-                            if (! Util.isLong(queryParam)) {
-                                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: query=" + queryParam)));
-                            }
-
-                            rpcParametersJson.put("blockHeight", queryParam);
-                        }
-
-                        rpcRequestJson.put("method", "GET");
-                        rpcRequestJson.put("parameters", rpcParametersJson);
-                    }
-
                     final AddressInflater addressInflater = new AddressInflater();
                     final Address address = addressInflater.fromBase58Check(queryParam);
 
                     if (address != null) {
-                        // TODO
+                        final Json rpcRequestJson = new Json();
+                        {
+                            final Json rpcParametersJson = new Json();
+                            rpcParametersJson.put("address", address.toBase58CheckEncoded());
+
+                            rpcRequestJson.put("method", "GET");
+                            rpcRequestJson.put("query", "ADDRESS");
+                            rpcRequestJson.put("parameters", rpcParametersJson);
+                        }
+                        socketConnection.write(rpcRequestJson.toString());
+
+                        final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
+                        if (queryBlockResponse == null) {
+                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        }
+                        final Json responseJson = Json.parse(queryBlockResponse);
+                        if (responseJson.getBoolean("wasSuccess")) {
+                            final Json transactionsJson = responseJson.get("transactions");
+
+                            object = transactionsJson;
+                            objectType = SearchResult.ObjectType.ADDRESS;
+                        }
                     }
                     else if ( (queryParam.startsWith("00000000")) || (queryParam.length() != hashCharacterLength) ) {
-                        rpcRequestJson.put("query", SearchResult.ObjectType.BLOCK);
+                        final Json rpcRequestJson = new Json();
+                        {
+                            final Json rpcParametersJson = new Json();
+                            if (queryParam.length() == hashCharacterLength) {
+                                rpcParametersJson.put("hash", queryParam);
+                            }
+                            else {
+                                if (! Util.isLong(queryParam)) {
+                                    return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
+                                }
+                                rpcParametersJson.put("blockHeight", queryParam);
+                            }
+
+                            rpcRequestJson.put("method", "GET");
+                            rpcRequestJson.put("query", "BLOCK");
+                            rpcRequestJson.put("parameters", rpcParametersJson);
+                        }
                         socketConnection.write(rpcRequestJson.toString());
 
                         final String queryBlockResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
@@ -108,17 +127,20 @@ public class SearchApi extends ExplorerApiEndpoint {
                             final Boolean isFullBlock = (blockJson.get("transactions").length() > 0);
 
                             object = blockJson;
-                            if (isFullBlock) {
-                                objectType = SearchResult.ObjectType.BLOCK;
-                            }
-                            else {
-                                objectType = SearchResult.ObjectType.BLOCK_HEADER;
-                            }
+                            objectType = (isFullBlock ? SearchResult.ObjectType.BLOCK : SearchResult.ObjectType.BLOCK_HEADER);
                         }
                     }
 
                     if ( (objectType == null) && (queryParam.length() == hashCharacterLength) ) {
-                        rpcRequestJson.put("query", SearchResult.ObjectType.TRANSACTION);
+                        final Json rpcRequestJson = new Json();
+                        {
+                            final Json rpcParametersJson = new Json();
+                            rpcParametersJson.put("hash", queryParam);
+
+                            rpcRequestJson.put("method", "GET");
+                            rpcRequestJson.put("query", "TRANSACTION");
+                            rpcRequestJson.put("parameters", rpcParametersJson);
+                        }
                         socketConnection.write(rpcRequestJson.toString());
 
                         final String queryTransactionResponse = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);

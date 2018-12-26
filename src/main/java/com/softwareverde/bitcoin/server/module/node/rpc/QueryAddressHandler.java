@@ -83,7 +83,6 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
 
             final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
 
-
             final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(addressId);
             final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
 

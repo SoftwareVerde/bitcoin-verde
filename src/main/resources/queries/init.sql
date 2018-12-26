@@ -55,7 +55,7 @@ CREATE TABLE pending_transactions_dependent_transactions (
 
 CREATE TABLE addresses (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    address VARCHAR(255) NOT NULL,
+    address VARCHAR(255) BINARY NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY addresses_uq (address)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

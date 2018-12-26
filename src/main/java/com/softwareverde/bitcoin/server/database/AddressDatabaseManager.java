@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -24,6 +25,7 @@ import com.softwareverde.io.Logger;
 
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class AddressDatabaseManager {
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -312,18 +314,30 @@ public class AddressDatabaseManager {
         return _getAddressOutputs(addressId);
     }
 
+    /**
+     * Returns a set of TransactionIds that either spend from or send to the provided AddressId.
+     */
     public List<TransactionId> getTransactionIds(final AddressId addressId) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT transactions.id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id LEFT OUTER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id INNER JOIN transactions ON (transactions.id = transaction_outputs.transaction_id OR transactions.id = transaction_inputs.transaction_id) WHERE locking_scripts.address_id = ? GROUP BY transactions.id")
+            // Include Transactions that send to the Address...
+            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ? GROUP BY transaction_outputs.transaction_id")
                 .setParameter(addressId)
         );
+        rows.addAll(
+            _databaseConnection.query(
+                // Include Transactions that spend from the Address...
+                new Query("SELECT transaction_inputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id INNER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id WHERE locking_scripts.address_id = ? GROUP BY transaction_inputs.transaction_id")
+                    .setParameter(addressId)
+            )
+        );
 
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(rows.size());
+        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
         for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
-            transactionIds.add(transactionId);
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            transactionIdSet.add(transactionId);
         }
-        return transactionIds.build();
+
+        return new ImmutableList<TransactionId>(transactionIdSet);
     }
 
     public BigInteger getAddressBalance(final AddressId addressId) throws DatabaseException {

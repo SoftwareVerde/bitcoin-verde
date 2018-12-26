@@ -239,31 +239,37 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1cacheUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index, jlong transaction_output_id) {
-    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
-    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
-
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
     cache* const cache = CACHES[cache_index];
     if (cache == 0) { return; }
 
+    jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
     const prevout* const prevout = new struct prevout(transaction_hash, transaction_output_index);
     cache->cache_utxo(prevout, transaction_output_id);
+
+    environment->ReleaseByteArrayElements(jni_transaction_hash, transaction_hash, 0);
 }
 
 JNIEXPORT jlong JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1getCachedUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
-    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
-    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
-
     if (cache_index >= 256) { return -1; }
     if (cache_index < 0) { return -1; }
 
     const cache* const cache = CACHES[cache_index];
     if (cache == 0) { return -1; }
 
+    jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
     const prevout prevout(transaction_hash, transaction_output_index);
-    return cache->get_cached_utxo(prevout);
+    const jlong transaction_output_id = cache->get_cached_utxo(prevout);
+
+    environment->ReleaseByteArrayElements(jni_transaction_hash, transaction_hash, 0);
+
+    return transaction_output_id;
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1setMasterCache(JNIEnv* environment, jclass _class, jint cache_index, jint master_cache_index) {
@@ -285,17 +291,19 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1invalidateUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jbyteArray jni_transaction_hash, jint transaction_output_index) {
-    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
-    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
-
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
     cache* const cache = CACHES[cache_index];
     if (cache == 0) { return; }
 
+    jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
     const prevout* const prevout = new struct prevout(transaction_hash, transaction_output_index);
     cache->invalidate_utxo(prevout);
+
+    environment->ReleaseByteArrayElements(jni_transaction_hash, transaction_hash, 0);
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1commit__II(JNIEnv* environment, jclass _class, jint commit_to_cache_index, jint cache_index) {
@@ -335,17 +343,19 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1loadUnspentTransactionOutputId(JNIEnv* environment, jclass _class, jint cache_index, jlong insert_id, jbyteArray jni_transaction_hash, jint transaction_output_index, jlong transaction_output_id) {
-    const jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
-    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
-
     if (cache_index >= 256) { return; }
     if (cache_index < 0) { return; }
 
     cache* const cache = CACHES[cache_index];
     if (cache == 0) { return; }
 
+    jbyte* transaction_hash = environment->GetByteArrayElements(jni_transaction_hash, NULL);
+    const jsize length = 32; // environment->GetArrayLength(environment, jni_transaction_hash);
+
     const prevout* const prevout = new struct prevout(insert_id, transaction_hash, transaction_output_index);
     cache->cache_utxo(prevout, transaction_output_id);
+
+    environment->ReleaseByteArrayElements(jni_transaction_hash, transaction_hash, 0);
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1pruneHalf(JNIEnv* environment, jclass _class, jint cache_index) {
