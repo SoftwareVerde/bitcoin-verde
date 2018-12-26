@@ -90,7 +90,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                         }
                         final Json responseJson = Json.parse(queryBlockResponse);
                         if (responseJson.getBoolean("wasSuccess")) {
-                            final Json transactionsJson = responseJson.get("transactions");
+                            final Json transactionsJson = responseJson.get("address");
 
                             object = transactionsJson;
                             objectType = SearchResult.ObjectType.ADDRESS;

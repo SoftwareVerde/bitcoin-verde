@@ -701,23 +701,31 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             return;
         }
 
-        final Json transactionsJson = new Json(true);
+        final Json addressJson = new Json();
+        addressJson.put("base58CheckEncoded", address.toBase58CheckEncoded());
+        addressJson.put("balance", queryAddressHandler.getBalance(address));
 
-        final EmbeddedMysqlDatabase database = _environment.getDatabase();
-        try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
-            for (final Transaction transaction : addressTransactions) {
-                final Json transactionJson = transaction.toJson();
-                _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
-                transactionsJson.add(transactionJson);
+        { // Address Transactions
+            final Json transactionsJson = new Json(true);
+
+            final EmbeddedMysqlDatabase database = _environment.getDatabase();
+            try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                for (final Transaction transaction : addressTransactions) {
+                    final Json transactionJson = transaction.toJson();
+                    _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
+                    transactionsJson.add(transactionJson);
+                }
             }
-        }
-        catch (final DatabaseException exception) {
-            Logger.log(exception);
-            response.put("errorMessage", "Error loading transaction metadata.");
-            return;
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                response.put("errorMessage", "Error loading transaction metadata.");
+                return;
+            }
+
+            addressJson.put("transactions", transactionsJson);
         }
 
-        response.put("transactions", transactionsJson);
+        response.put("address", addressJson);
         response.put("wasSuccess", 1);
     }
 

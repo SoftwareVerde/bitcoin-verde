@@ -323,6 +323,64 @@
     box-shadow: 0px 0px 2px #00B512;
 }
 
+.transaction-output > .label.highlight {
+    border-color: #1BAB1B !important;
+}
+.transaction-output .address.highlight {
+    color: #1BAB1B !important;
+}
+
+.transaction-input > .label.highlight {
+    border-color: #AB1B1B !important;
+}
+.transaction-input .address.highlight {
+    color: #AB1B1B !important;
+}
+
+#main .address {
+}
+
+.address .address-metadata {
+    margin-top: 1em;
+    padding: 1em;
+    padding-left: 3em;
+    padding-right: 3em;
+    border: solid 1px #AAA;
+    margin: 1em;
+    background-color: #FFFFFF;
+}
+
+.address-metadata .address {
+    font-size: 125%;
+    font-weight: bold;
+    display: block;
+}
+
+.address-metadata .address-balance {
+    margin-top: 0.5em;
+    display: block;
+}
+.address-metadata .address-balance::before {
+    content: 'Balance:';
+    color: #BBBBBB;
+    font-size: 0.95em;
+    margin-right: 0.5em;
+    display: inline-block;
+    font-weight: bold;
+}
+
+.address-metadata .address-balance::after {
+    content: '(satoshis)';
+    font-size: 0.75em;
+    color: #BBBBBB;
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.address-metadata .qr-code {
+    float: right;
+}
+
 @media only screen and (max-width: 960px) {
     .block .block-header > div {
         width: calc(100% - 0.5em);

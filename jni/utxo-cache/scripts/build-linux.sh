@@ -2,7 +2,7 @@
 set -o xtrace
 
 PORT=21
-LINUX_MACHINE='24.35.60.138'
+LINUX_MACHINE='bitcoinverde.org'
 
 cd ..
 scp -P ${PORT} -r utxo-cache ${LINUX_MACHINE}:.

@@ -23,7 +23,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 
-import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
 
@@ -48,69 +47,104 @@ public class AddressDatabaseManager {
         public Boolean isMined() { return (_blockId != null); }
     }
 
-    protected List<SpendableTransactionOutput> _getAddressOutputs(final AddressId addressId) throws DatabaseException {
+    protected List<TransactionId> _getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query(
-                "SELECT " +
-                        "transactions.block_id, transactions.id AS transaction_id, transaction_outputs.id AS transaction_output_id, transaction_outputs.amount " +
-                    "FROM " +
-                        "transactions " +
-                        "INNER JOIN transaction_outputs " +
-                            "ON transactions.id = transaction_outputs.transaction_id " +
-                        "INNER JOIN locking_scripts " +
-                            "ON transaction_outputs.id = locking_scripts.transaction_output_id " +
-                    "WHERE " +
-                        "locking_scripts.address_id = ?"
-            )
-            .setParameter(addressId)
+            // Include Transactions that send to the Address...
+            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ? GROUP BY transaction_outputs.transaction_id")
+                .setParameter(addressId)
         );
 
+        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            if (blockId == null) {
+                if (! includeUnconfirmedTransactions) { continue; }
+                else {
+                    final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                    if (! isUnconfirmedTransaction) { continue; }
+                }
+            }
+
+            transactionIdSet.add(transactionId);
+        }
+
+        return new ImmutableList<TransactionId>(transactionIdSet);
+    }
+
+    protected List<TransactionId> _getTransactionIdsSpendingFrom(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            // Include Transactions that spend from the Address...
+            new Query("SELECT transaction_inputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id INNER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id WHERE locking_scripts.address_id = ? GROUP BY transaction_inputs.transaction_id")
+                .setParameter(addressId)
+        );
+
+        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+            if (blockId == null) {
+                if (! includeUnconfirmedTransactions) { continue; }
+                else {
+                    final Boolean isUnconfirmedTransaction = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
+                    if (! isUnconfirmedTransaction) { continue; }
+                }
+            }
+
+            transactionIdSet.add(transactionId);
+        }
+
+        return new ImmutableList<TransactionId>(transactionIdSet);
+    }
+
+    protected List<SpendableTransactionOutput> _getAddressOutputs(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT transactions.id AS transaction_id, transaction_outputs.id AS transaction_output_id, transaction_outputs.amount FROM transactions INNER JOIN transaction_outputs ON transactions.id = transaction_outputs.transaction_id INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ?")
+                .setParameter(addressId)
+        );
         if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
 
-        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-
-        final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
         final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<SpendableTransactionOutput>(rows.size());
 
         for (final Row row : rows) {
-            final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
+            final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
+            final Long amount = row.getLong("amount");
+
+            final BlockId blockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
 
             final SpendableTransactionOutput spendableTransactionOutput = new SpendableTransactionOutput();
             {
                 spendableTransactionOutput._blockId = blockId;
-                spendableTransactionOutput._transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-                spendableTransactionOutput._transactionOutputId = TransactionOutputId.wrap(row.getLong("transaction_output_id"));
-                spendableTransactionOutput._amount = row.getLong("amount");
+                spendableTransactionOutput._transactionId = transactionId;
+                spendableTransactionOutput._transactionOutputId = transactionOutputId;
+                spendableTransactionOutput._amount = amount;
             }
 
             if (spendableTransactionOutput.isMined()) {
-                final Boolean transactionWasMinedOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headBlockchainSegmentId, BlockRelationship.ANY);
-
-                if (! transactionWasMinedOnMainChain) {
-                    continue;
-                }
+                final Boolean transactionWasMinedOnChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+                if (! transactionWasMinedOnChain) { continue; }
             }
 
             {
                 final java.util.List<Row> rowsSpendingTransactionOutput = _databaseConnection.query(
-                    new Query(
-                        "SELECT " +
-                                "transactions.block_id, transactions.id AS transaction_id, transaction_inputs.id AS transaction_input_id " +
-                            "FROM " +
-                                "transaction_inputs " +
-                                "INNER JOIN transactions " +
-                                    "ON transactions.id = transaction_inputs.transaction_id " +
-                            "WHERE " +
-                                "previous_transaction_output_id = ?"
-                    )
-                    .setParameter(spendableTransactionOutput._transactionOutputId)
+                    new Query("SELECT transactions.id AS transaction_id, transaction_inputs.id AS transaction_input_id FROM transaction_inputs INNER JOIN transactions ON transactions.id = transaction_inputs.transaction_id WHERE previous_transaction_output_id = ?")
+                        .setParameter(spendableTransactionOutput._transactionOutputId)
                 );
 
                 for (final Row rowSpendingTransactionOutput : rowsSpendingTransactionOutput) {
-                    final BlockId spendingBlockId = BlockId.wrap(rowSpendingTransactionOutput.getLong("block_id"));
-                    final TransactionId spendingTransactionId = TransactionId.wrap(rowSpendingTransactionOutput.getLong("transaction_id"));
+                    final BlockId spendingBlockId = transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId);
+                    // final TransactionId spendingTransactionId = TransactionId.wrap(rowSpendingTransactionOutput.getLong("transaction_id"));
                     final TransactionInputId spendingTransactionInputId = TransactionInputId.wrap(rowSpendingTransactionOutput.getLong("transaction_input_id"));
 
                     final Boolean spendingTransactionIsMined = (spendingBlockId != null);
@@ -120,7 +154,7 @@ public class AddressDatabaseManager {
                         transactionOutputHasBeenSpent = true;
                     }
                     else {
-                        final Boolean spendingTransactionIsMinedOnMainChain = (blockHeaderDatabaseManager.isBlockConnectedToChain(spendingBlockId, headBlockchainSegmentId, BlockRelationship.ANY));
+                        final Boolean spendingTransactionIsMinedOnMainChain = (blockHeaderDatabaseManager.isBlockConnectedToChain(spendingBlockId, blockchainSegmentId, BlockRelationship.ANY));
                         transactionOutputHasBeenSpent = spendingTransactionIsMinedOnMainChain;
                     }
 
@@ -310,43 +344,44 @@ public class AddressDatabaseManager {
         return addressId;
     }
 
-    public List<SpendableTransactionOutput> getSpendableTransactionOutputs(final AddressId addressId) throws DatabaseException {
-        return _getAddressOutputs(addressId);
+    public List<SpendableTransactionOutput> getSpendableTransactionOutputs(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
+        return _getAddressOutputs(blockchainSegmentId, addressId);
     }
 
     /**
      * Returns a set of TransactionIds that either spend from or send to the provided AddressId.
      */
-    public List<TransactionId> getTransactionIds(final AddressId addressId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            // Include Transactions that send to the Address...
-            new Query("SELECT transaction_outputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ? GROUP BY transaction_outputs.transaction_id")
-                .setParameter(addressId)
-        );
-        rows.addAll(
-            _databaseConnection.query(
-                // Include Transactions that spend from the Address...
-                new Query("SELECT transaction_inputs.transaction_id FROM transaction_outputs INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id INNER JOIN transaction_inputs ON transaction_inputs.previous_transaction_output_id = transaction_outputs.id WHERE locking_scripts.address_id = ? GROUP BY transaction_inputs.transaction_id")
-                    .setParameter(addressId)
-            )
-        );
+    public List<TransactionId> getTransactionIds(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        final List<TransactionId> transactionIdsIn = _getTransactionIdsSendingTo(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
+        final List<TransactionId> transactionIdsOut = _getTransactionIdsSpendingFrom(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
 
-        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
-        for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
-            transactionIdSet.add(transactionId);
-        }
-
-        return new ImmutableList<TransactionId>(transactionIdSet);
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactionIdsIn.getSize() + transactionIdsOut.getSize());
+        transactionIds.addAll(transactionIdsIn);
+        transactionIds.addAll(transactionIdsOut);
+        return transactionIds.build();
     }
 
-    public BigInteger getAddressBalance(final AddressId addressId) throws DatabaseException {
-        final List<SpendableTransactionOutput> spendableTransactionOutputs = _getAddressOutputs(addressId);
+    /**
+     * Returns a set of TransactionIds that send to the provided AddressId.
+     */
+    public List<TransactionId> getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        return _getTransactionIdsSendingTo(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
+    }
 
-        BigInteger amount = BigInteger.ZERO;
+    /**
+     * Returns a set of TransactionIds that spend from the provided AddressId.
+     */
+    public List<TransactionId> getTransactionIdsSpendingFrom(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
+        return _getTransactionIdsSpendingFrom(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
+    }
+
+    public Long getAddressBalance(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
+        final List<SpendableTransactionOutput> spendableTransactionOutputs = _getAddressOutputs(blockchainSegmentId, addressId);
+
+        long amount = 0;
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             if (! spendableTransactionOutput.wasSpent()) {
-                amount = amount.add(BigInteger.valueOf(spendableTransactionOutput.getAmount()));
+                amount += spendableTransactionOutput.getAmount();
             }
         }
 

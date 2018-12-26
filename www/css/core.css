@@ -165,3 +165,9 @@ a {
     vertical-align: text-bottom;
 }
 
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+

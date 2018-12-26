@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.gui.VerdeWallet;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
@@ -147,10 +146,6 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 ExplorerModule.execute(configurationFile);
-            } break;
-
-            case "WALLET": {
-                VerdeWallet.launch(VerdeWallet.class, _arguments);
             } break;
 
             case "VALIDATE": {

@@ -124,7 +124,7 @@ class Ui {
 
     static inflateTransactionInput(transactionInput) {
         const templates = $("#templates");
-        const transactionInputTemplate = $(".transaction-input", templates);
+        const transactionInputTemplate = $("> .transaction-input", templates);
         const transactionInputUi = transactionInputTemplate.clone();
 
         $("div.label", transactionInputUi).on("click", function() {
@@ -133,6 +133,9 @@ class Ui {
         });
 
         $(".address", transactionInputUi).text(transactionInput.address || "[CUSTOM SCRIPT]");
+        if (transactionInput.address) {
+            Ui.makeHashCopyable($(".address", transactionInputUi));
+        }
         $(".amount", transactionInputUi).text((transactionInput.previousTransactionAmount || 0).toLocaleString());
 
         const transactionLink = $(".transaction-hash .value", transactionInputUi);
@@ -154,7 +157,7 @@ class Ui {
         const operations = unlockingScript.operations;
         for (let i = 0; i < operations.length; i += 1) {
             const operation = operations[i];
-            const scriptOperationUi = $(".script-operation", templates).clone();
+            const scriptOperationUi = $("> .script-operation", templates).clone();
             $(".value", scriptOperationUi).text(operation);
             operationsContainer.append(scriptOperationUi);
         }
@@ -166,7 +169,7 @@ class Ui {
 
     static inflateTransactionOutput(transactionOutput) {
         const templates = $("#templates");
-        const transactionOutputTemplate = $(".transaction-output", templates);
+        const transactionOutputTemplate = $("> .transaction-output", templates);
         const transactionOutputUi = transactionOutputTemplate.clone();
 
         $("div.label", transactionOutputUi).on("click", function() {
@@ -175,6 +178,9 @@ class Ui {
         });
 
         $(".address", transactionOutputUi).text(transactionOutput.address || "[CUSTOM SCRIPT]");
+        if (transactionOutput.address) {
+            Ui.makeHashCopyable($(".address", transactionOutputUi));
+        }
         $(".amount", transactionOutputUi).text((transactionOutput.amount || 0).toLocaleString());
 
         const lockingScript = transactionOutput.lockingScript;
@@ -183,7 +189,7 @@ class Ui {
         const operations = lockingScript.operations;
         for (let i = 0; i < operations.length; i += 1) {
             const operation = operations[i];
-            const scriptOperationUi = $(".script-operation", templates).clone();
+            const scriptOperationUi = $("> .script-operation", templates).clone();
             $(".value", scriptOperationUi).text(operation);
             operationsContainer.append(scriptOperationUi);
         }
@@ -206,24 +212,19 @@ class Ui {
     }
 
     static highlightAddress(address, transactionUi) {
-        
+        $("label.address", transactionUi).each(function() {
+            const shouldHighlight = (address == $(this).text());
+            $(this).toggleClass("highlight", shouldHighlight);
+            $(this).parent().toggleClass("highlight", shouldHighlight);
+        });
     }
 
-    static renderAddress(addressTransactions) {
+    static renderAddress(addressObject) {
         const main = $("#main");
         main.empty();
 
-        for (let i in addressTransactions) {
-            const transaction = addressTransactions[i];
-
-            const transactionUi = Ui.inflateTransaction(transaction);
-            Ui.highlightAddress(address, transactionUi);
-            transactionUi.hide();
-
-            main.append(transactionUi);
-            transactionUi.fadeIn(500);
-        }
-        console.log(addressTransactions);
+        const addressUi = Ui.inflateAddress(addressObject);
+        main.append(addressUi);
     }
 
     static _makeNavigateToBlockEvent(blockHash) {
@@ -285,7 +286,7 @@ class Ui {
 
     static inflateBlock(block) {
         const templates = $("#templates");
-        const blockTemplate = $(".block", templates);
+        const blockTemplate = $("> .block", templates);
         const blockUi = blockTemplate.clone();
 
         $(".block-header .height .value", blockUi).text(block.height.toLocaleString());
@@ -337,7 +338,7 @@ class Ui {
 
     static inflateTransaction(transaction) {
         const templates = $("#templates");
-        const transactionTemplate = $(".transaction", templates);
+        const transactionTemplate = $("> .transaction", templates);
         const transactionUi = transactionTemplate.clone();
 
         $("> div > div", transactionUi).on("click", function() {
@@ -420,6 +421,33 @@ class Ui {
         }
 
         return transactionUi;
+    }
+
+    static inflateAddress(addressObject) {
+        const templates = $("#templates");
+        const addressTemplate = $("> .address", templates);
+        const addressUi = addressTemplate.clone();
+
+        const addressString = (addressObject.base58CheckEncoded || "");
+        const addressBalance = (addressObject.balance || 0);
+        const addressTransactions = addressObject.transactions;
+
+        const qrCodeElement = window.ninja.qrCode.createCanvas(addressString, 4);
+
+        $(".address", addressUi).text(addressString);
+        $(".address-balance", addressUi).text(addressBalance.toLocaleString());
+        $(".qr-code", addressUi).append(qrCodeElement);
+
+        const addressTransactionsContainer = $(".address-transactions", addressUi);
+        for (let i in addressTransactions) {
+            const transaction = addressTransactions[i];
+
+            const transactionUi = Ui.inflateTransaction(transaction);
+            Ui.highlightAddress(addressString, transactionUi);
+            addressTransactionsContainer.append(transactionUi);
+        }
+
+        return addressUi;
     }
 }
 

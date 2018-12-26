@@ -11,13 +11,13 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.SortUtil;
 
-import java.math.BigInteger;
+import java.util.HashMap;
 
 public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddressHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -31,43 +31,13 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
     @Override
     public Long getBalance(final Address address) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final java.util.List<Row> rows = databaseConnection.query(
-                new Query(
-                    "SELECT " +
-                        "blocks.id AS block_id, " +
-                        "transaction_outputs.amount AS amount " +
-                    "FROM " +
-                        "addresses " +
-                        "INNER JOIN locking_scripts " +
-                            "ON locking_scripts.address_id = addresses.id " +
-                        "INNER JOIN transaction_outputs " +
-                            "ON transaction_outputs.id = locking_scripts.transaction_output_id " +
-                        "INNER JOIN transactions " +
-                            "ON transactions.id = transaction_outputs.transaction_id " +
-                        "INNER JOIN blocks " +
-                            "ON blocks.id = transactions.block_id " +
-                    "WHERE " +
-                        "addresses.address = ?"
-                )
-                .setParameter(address.toBase58CheckEncoded())
-            );
+            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            BigInteger totalAmount = BigInteger.ZERO;
-            for (final Row row : rows) {
-                final BlockId blockId = BlockId.wrap(row.getLong("block_id"));
-                final Long amount = row.getLong("amount");
-
-                final Boolean transactionIsOnMainChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, headChainSegmentId, BlockRelationship.ANY);
-                if (transactionIsOnMainChain) {
-                    totalAmount = totalAmount.add(BigInteger.valueOf(amount));
-                }
-            }
-
-            return totalAmount.longValue();
+            final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
+            return addressDatabaseManager.getAddressBalance(headChainSegmentId, addressId);
         }
         catch (final Exception exception) {
             Logger.log(exception);
@@ -78,17 +48,50 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
     @Override
     public List<Transaction> getAddressTransactions(final Address address) {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final AddressId addressId = addressDatabaseManager.getAddressId(address.toBase58CheckEncoded());
+            final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(addressId);
-            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+            final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
+
+            final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
+            final MutableList<Long> timestamps = new MutableList<Long>(transactionIds.getSize());
+            final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getSize());
 
             for (final TransactionId transactionId : transactionIds) {
+                final BlockId blockId = transactionDatabaseManager.getBlockId(headChainSegmentId, transactionId);
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                transactions.add(transaction);
+
+                if (blockId != null) {
+                    final Long transactionTimestamp = blockHeaderDatabaseManager.getBlockTimestamp(blockId);
+
+                    MutableList<Transaction> transactions = transactionTimestamps.get(transactionTimestamp);
+                    if (transactions == null) {
+                        transactions = new MutableList<Transaction>(1);
+                        transactionTimestamps.put(transactionTimestamp, transactions);
+                    }
+
+                    transactions.add(transaction);
+                    timestamps.add(transactionTimestamp);
+                }
+                else {
+                    pendingTransactions.add(transaction);
+                }
+            }
+
+            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+            { // Add the Transactions in ascending order by timestamp...
+                timestamps.sort(SortUtil.longComparator);
+
+                for (final Long timestamp : timestamps) {
+                    transactions.addAll(transactionTimestamps.get(timestamp));
+                }
+
+                transactions.addAll(pendingTransactions);
             }
 
             return transactions.build();
