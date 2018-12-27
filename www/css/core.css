@@ -103,7 +103,7 @@ a {
     border: none;
     border-bottom: solid 2px #F7931D;
     color: #F7931D;
-    text-transform: uppercase;
+    /* text-transform: uppercase; */
     float: left;
 }
 

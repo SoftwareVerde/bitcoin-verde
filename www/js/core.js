@@ -106,16 +106,7 @@ class Ui {
         const copyButton = $("<span class=\"copy\"></span>");
         copyButton.on("click", function() {
             const parent = $(this).parent();
-            const dummyTextElement = $("<textarea />");
-            dummyTextElement.css({ position: "absolute", left: "-1000px", top: "-1000px" });
-            dummyTextElement.text(parent.text());
-            $("body").append(dummyTextElement);
-            dummyTextElement.select();
-            try {
-                document.execCommand("copy");
-            }
-            catch (exception) { console.log(exception); }
-            dummyTextElement.remove();
+            window.Clipboard.copy(parent.text());
             return false;
         });
         element.append(copyButton);

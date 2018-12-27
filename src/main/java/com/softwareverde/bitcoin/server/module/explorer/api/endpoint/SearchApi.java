@@ -13,6 +13,7 @@ import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
 import com.softwareverde.servlet.response.Response;
 import com.softwareverde.socket.SocketConnection;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
@@ -52,7 +53,7 @@ public class SearchApi extends ExplorerApiEndpoint {
         {   // SEARCH
             // Requires GET:    query
             // Requires POST:
-            final String queryParam = getParameters.get("query");
+            final String queryParam = getParameters.get("query").trim();
             if (queryParam.isEmpty()) {
                 return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
             }
@@ -104,7 +105,8 @@ public class SearchApi extends ExplorerApiEndpoint {
                                 rpcParametersJson.put("hash", queryParam);
                             }
                             else {
-                                if (! Util.isLong(queryParam)) {
+                                final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9 ])", queryParam).isEmpty());
+                                if ( (! Util.isLong(queryParam)) || (queryParamContainsNonNumeric) ) {
                                     return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                                 }
                                 rpcParametersJson.put("blockHeight", queryParam);
