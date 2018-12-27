@@ -72,6 +72,8 @@ a {
     margin-top: 0.88em;
     margin-left: 0.1em;
     position: relative;
+    display: inline-block;
+    margin-top: 0.5em;
 }
 
 #header .brand .title:before {
@@ -82,7 +84,7 @@ a {
     font-family: 'Bree Serif', serif;
     position: absolute;
     left: 0;
-    top: -1.1em;
+    top: -1.0em;
 }
 
 #header .search {
@@ -138,6 +140,7 @@ a {
 
     -ms-overflow-style: none;
     overflow: -moz-scrollbars-none;
+    white-space: nowrap;
 }
 
 .fixed::-webkit-scrollbar { 

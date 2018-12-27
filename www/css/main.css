@@ -5,7 +5,6 @@
 
 .transaction,
 .block {
-    overflow: auto;
     border: solid 1px rgba(0, 0, 0, 0.05);
 
     box-sizing: border-box;
@@ -132,6 +131,9 @@
 
     padding-left: 1.5em;
     text-indent: -0.75em;
+
+    display: block;
+    word-break: break-word;
 }
 
 .transaction .io .transaction-input > .label .address,
@@ -176,7 +178,7 @@
 
 .transaction > div > div .value,
 .block .block-header div .value {
-    display: block;
+    display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
     box-sizing: border-box;
     padding-left: 1em;
     margin-top: 0.25em;
@@ -225,6 +227,14 @@
 
 .block .block-header div.difficulty {
     float: right;
+}
+
+.script > .value {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+
+    padding-left: 0 !important;
+    padding-right: 0 !important;
 }
 
 .transaction .io .transaction-input .unlocking-script > div > label,
@@ -385,12 +395,19 @@
 }
 
 @media only screen and (max-width: 1100px) {
+    .block,
     .transaction {
         margin-left: 0;
         margin-right: 0;
 
         padding-left: 0;
         padding-right: 0;
+    }
+
+    .transaction .io .transaction-inputs::before,
+    .transaction .io .transaction-outputs::before,
+    .transaction::before, .block::before {
+        margin-left: 0;
     }
 }
 
@@ -445,6 +462,15 @@
     .address-metadata .qr-code {
         float: none;
         margin-bottom: 1em;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .transaction > div > div,
+    .block .block-header > div {
+        width: auto;
+        float: none !important;
+        overflow-x: hidden;
     }
 }
 

@@ -106,7 +106,7 @@ class Ui {
         const copyButton = $("<span class=\"copy\"></span>");
         copyButton.on("click", function() {
             const parent = $(this).parent();
-            window.Clipboard.copy(parent.text());
+            window.Clipboard.copy(parent.data("hash-value") || parent.text());
             return false;
         });
         element.append(copyButton);
@@ -119,7 +119,9 @@ class Ui {
         const transactionInputUi = transactionInputTemplate.clone();
 
         $("div.label", transactionInputUi).on("click", function() {
-            $("> div:not(:first-child)", transactionInputUi).slideToggle(250);
+            $("> div:not(:first-child)", transactionInputUi).slideToggle(250, function() {
+                window.HashResizer(transactionInputUi);
+            });
             return false;
         });
 
@@ -164,7 +166,9 @@ class Ui {
         const transactionOutputUi = transactionOutputTemplate.clone();
 
         $("div.label", transactionOutputUi).on("click", function() {
-            $("> div:not(:first-child)", transactionOutputUi).slideToggle(250);
+            $("> div:not(:first-child)", transactionOutputUi).slideToggle(250, function() {
+                window.HashResizer(transactionOutputUi);
+            });
             return false;
         });
 
@@ -199,7 +203,9 @@ class Ui {
         const main = $("#main");
         main.empty();
         main.append(blockUi);
-        blockUi.fadeIn(500);
+        blockUi.fadeIn(500, function() {
+            window.HashResizer(blockUi);
+        });
     }
 
     static highlightAddress(address, transactionUi) {
@@ -216,6 +222,7 @@ class Ui {
 
         const addressUi = Ui.inflateAddress(addressObject);
         main.append(addressUi);
+        window.HashResizer(addressUi);
     }
 
     static _makeNavigateToBlockEvent(blockHash) {
@@ -272,7 +279,9 @@ class Ui {
         const main = $("#main");
         main.empty();
         main.append(transactionUi);
-        transactionUi.fadeIn(500);
+        transactionUi.fadeIn(500, function() {
+            window.HashResizer(transactionUi);
+        });
     }
 
     static inflateBlock(block) {
@@ -354,6 +363,8 @@ class Ui {
 
                         if (elements.animationCompleteCount >= elements.length) {
                             transactionUi.toggleClass("collapsed");
+
+                            window.HashResizer(transactionUi);
                         }
                     });
                 }
@@ -364,11 +375,13 @@ class Ui {
 
                         if (elements.animationCompleteCount >= elements.length) {
                             transactionUi.toggleClass("collapsed");
+
+                            window.HashResizer(transactionUi);
                         }
                     });
                 }
             });
-            // $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).slideToggle(500);
+
             return false;
         });
         $(".hash label, .version, .byte-count, .fee, .block-hashes, .lock-time, .version", transactionUi).css("display", "none");
@@ -385,11 +398,11 @@ class Ui {
         const blocks = (transaction.blocks || []);
         for (let i = 0; i < blocks.length; i += 1) {
             const blockHash = blocks[i];
-            const blockLink = $("<div class=\"fixed clickable\"></div>");
+            const blockLink = $("<div class=\"value fixed clickable\"></div>");
             blockLink.text(blockHash);
             Ui.makeHashCopyable(blockLink);
             blockLink.on("click", Ui._makeNavigateToBlockEvent(blockHash));
-            $(".block-hashes .value", transactionUi).append(blockLink);
+            $(".block-hashes .values", transactionUi).append(blockLink);
         }
 
         const lockTime = transaction.lockTime;
