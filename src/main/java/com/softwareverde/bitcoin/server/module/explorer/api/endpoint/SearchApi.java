@@ -105,7 +105,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                                 rpcParametersJson.put("hash", queryParam);
                             }
                             else {
-                                final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9 ])", queryParam).isEmpty());
+                                final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9,. ])", queryParam).isEmpty());
                                 if ( (! Util.isLong(queryParam)) || (queryParamContainsNonNumeric) ) {
                                     return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                                 }

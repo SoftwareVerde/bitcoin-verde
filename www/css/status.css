@@ -120,6 +120,7 @@
     width: calc(33% - 4em);
     box-sizing: border-box;
     min-width: 250px;
+    vertical-align: top;
 }
 
 .statistics .server-memory .server-memory-bar,
@@ -155,9 +156,7 @@
 }
 
 .statistics .service-statuses {
-    display: table;
-    table-layout: fixed;
-    width: calc(100% - 4em);
+    width: auto;
     margin-bottom: 2em;
     border-spacing: 1em;
     border-collapse: separate;
@@ -165,6 +164,8 @@
     margin-top: 0;
     margin-bottom: 0;
     text-align: center;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .statistics .service-statuses > div {

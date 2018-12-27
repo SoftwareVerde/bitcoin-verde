@@ -64,17 +64,11 @@
 }
 .transaction .io img.tx-arrow {
     width: 2em;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-1em);
-    margin-left: calc(2.5% - 1.5em);
     opacity: 0.75;
-}
-.transaction .io .transaction-component-separator img {
     position: absolute;
-    width: 4em;
-    top: 50%;
-    transform: translate-y(-2em);
+    top: calc(50% - 0.5em);
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .transaction .io .transaction-inputs > div,
