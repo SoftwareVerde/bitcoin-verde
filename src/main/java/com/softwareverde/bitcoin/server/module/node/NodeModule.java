@@ -28,7 +28,8 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHan
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
-import com.softwareverde.bitcoin.server.module.node.rpc.*;
+import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -586,25 +587,31 @@ public class NodeModule {
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
-            final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
-            final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(statisticsContainer);
+            {
+                final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
+                final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
+                final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+                final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+                final DataHandler dataHandler = new DataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+                final MetadataHandler metadataHandler = new MetadataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
-            final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
-            for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
-                serviceInquisitor.addService(sleepyService.getClass().getSimpleName(), sleepyService.getStatusMonitor());
+                final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
+                for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
+                    serviceInquisitor.addService(sleepyService.getClass().getSimpleName(), sleepyService.getStatusMonitor());
+                }
+
+                rpcSocketServerHandler.setSynchronizationStatusHandler(synchronizationStatusHandler);
+                rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
+                rpcSocketServerHandler.setNodeHandler(nodeHandler);
+                rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
+                rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
+                rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
+                rpcSocketServerHandler.setDataHandler(dataHandler);
+                rpcSocketServerHandler.setMetadataHandler(metadataHandler);
             }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
-
-            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(_environment, synchronizationStatusHandler, statisticsContainer);
-            rpcSocketServerHandler.setShutdownHandler(shutdownHandler);
-            rpcSocketServerHandler.setNodeHandler(nodeHandler);
-            rpcSocketServerHandler.setQueryAddressHandler(queryAddressHandler);
-            rpcSocketServerHandler.setThreadPoolInquisitor(threadPoolInquisitor);
-            rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
-
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
             _jsonRpcSocketServer = jsonRpcSocketServer;
         }

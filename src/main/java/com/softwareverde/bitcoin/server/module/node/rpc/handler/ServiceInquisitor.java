@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.server.module.node.rpc;
+package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
-import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
 import com.softwareverde.concurrent.service.SleepyService;
 
 import java.util.HashMap;

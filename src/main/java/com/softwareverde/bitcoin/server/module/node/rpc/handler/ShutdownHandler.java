@@ -1,8 +1,8 @@
-package com.softwareverde.bitcoin.server.module.node.rpc;
+package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.server.State;
-import com.softwareverde.bitcoin.server.module.node.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockchainBuilder;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
