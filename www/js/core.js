@@ -48,7 +48,7 @@ class Api {
         const defaultParameters = {
             query: null
         };
-        const apiParameters = $.extend({}, defaultParameters, parameters);
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         const query = apiParameters.query;
 
@@ -68,23 +68,30 @@ class Api {
             blockHeight: null,
             maxBlockCount: 25
         };
-        const apiParameters = $.extend({}, defaultParameters, parameters);
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         Http.get(Api.PREFIX + "blocks", apiParameters, callback);
     }
 
     static getStatus(parameters, callback) {
         const defaultParameters = { };
-        const apiParameters = $.extend({}, defaultParameters, parameters);
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         Http.get(Api.PREFIX + "status", apiParameters, callback);
     }
 
     static getNodes(parameters, callback) {
         const defaultParameters = { };
-        const apiParameters = $.extend({}, defaultParameters, parameters);
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         Http.get(Api.PREFIX + "nodes", apiParameters, callback);
+    }
+
+    static getBlockchainMetadata(parameters, callback) {
+        const defaultParameters = { };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "blockchain", apiParameters, callback);
     }
 }
 Api.PREFIX = "/api/v1/";

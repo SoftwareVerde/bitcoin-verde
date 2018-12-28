@@ -18,14 +18,14 @@ public class BlockchainApi extends ExplorerApiEndpoint {
     private static class BlockchainResult extends ApiResult {
         private Json _blockchainJson = new Json();
 
-        public void setBlockchainJson(final Json blockchainJson) {
+        public void setBlockchainMetadataJson(final Json blockchainJson) {
             _blockchainJson = blockchainJson;
         }
 
         @Override
         public Json toJson() {
             final Json json = super.toJson();
-            json.put("blockchain", _blockchainJson);
+            json.put("blockchainMetadata", _blockchainJson);
             return json;
         }
     }
@@ -72,12 +72,12 @@ public class BlockchainApi extends ExplorerApiEndpoint {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
-                    blockchainJson = rpcResponseJson.get("blockchain");
+                    blockchainJson = rpcResponseJson.get("blockchainMetadata");
                 }
 
                 final BlockchainResult blockchainResult = new BlockchainResult();
                 blockchainResult.setWasSuccess(true);
-                blockchainResult.setBlockchainJson(blockchainJson);
+                blockchainResult.setBlockchainMetadataJson(blockchainJson);
                 return new JsonResponse(ResponseCodes.OK, blockchainResult);
             }
         }

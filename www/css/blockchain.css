@@ -1,0 +1,22 @@
+h1 {
+    text-align: center;
+}
+
+#blockchain-metadata {
+    width: 75vw;
+    height: 50vh;
+    margin: auto;
+    background: #FFFFFF;
+    margin-top: 2em;
+    border: solid 2px #CDCDCD;
+    border-radius: 3em;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+@media only screen and (max-width: 800px) {
+    #blockchain-metadata {
+        width: 99vw;
+        border-radius: 0;
+    }
+}

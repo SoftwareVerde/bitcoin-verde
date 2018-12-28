@@ -595,6 +595,7 @@ public class NodeModule {
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
                 final DataHandler dataHandler = new DataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
                 for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
@@ -609,6 +610,7 @@ public class NodeModule {
                 rpcSocketServerHandler.setServiceInquisitor(serviceInquisitor);
                 rpcSocketServerHandler.setDataHandler(dataHandler);
                 rpcSocketServerHandler.setMetadataHandler(metadataHandler);
+                rpcSocketServerHandler.setQueryBlockchainHandler(queryBlockchainHandler);
             }
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);

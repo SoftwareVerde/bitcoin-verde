@@ -50,7 +50,7 @@ a {
     color: #EEEEEE;
     font-weight: bold;
     cursor: pointer;
-    padding-top: 1.4em;
+    padding-top: 0.5em;
 }
 
 #header .navigation ul li:hover {
@@ -174,3 +174,8 @@ a {
   display: table;
 }
 
+@media only screen and (max-width: 600px) {
+    #header .navigation ul {
+        padding-left: 0;
+    }
+}

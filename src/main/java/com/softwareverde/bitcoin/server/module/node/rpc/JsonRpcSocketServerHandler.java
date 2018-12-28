@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -55,6 +56,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         Map<String, String> getServiceStatuses();
     }
 
+    public interface QueryBlockchainHandler {
+        List<BlockchainMetadata> getBlockchainMetadata();
+    }
+
     public interface DataHandler {
         Long getBlockHeaderHeight();
         Long getBlockHeight();
@@ -96,6 +101,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected ServiceInquisitor _serviceInquisitor = null;
     protected DataHandler _dataHandler = null;
     protected MetadataHandler _metadataHandler = null;
+    protected QueryBlockchainHandler _queryBlockchainHandler = null;
 
     public JsonRpcSocketServerHandler(final StatisticsContainer statisticsContainer) {
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
@@ -492,6 +498,29 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    protected void _queryBlockchainMetadata(final Json response) {
+        final QueryBlockchainHandler queryBlockchainHandler = _queryBlockchainHandler;
+        if (queryBlockchainHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Json blockchainMetadataJson = new Json(true);
+
+        final List<BlockchainMetadata> blockchainMetadataList = queryBlockchainHandler.getBlockchainMetadata();
+        if (blockchainMetadataList == null) {
+            response.put(ERROR_MESSAGE_KEY, "Error loading Blockchain metadata.");
+            return;
+        }
+
+        for (final BlockchainMetadata blockchainMetadata : blockchainMetadataList) {
+            blockchainMetadataJson.add(blockchainMetadata.toJson());
+        }
+
+        response.put("blockchainMetadata", blockchainMetadataJson);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     protected void _shutdown(final Json parameters, final Json response) {
         final ShutdownHandler shutdownHandler = _shutdownHandler;
         if (shutdownHandler == null) {
@@ -604,6 +633,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _metadataHandler = metadataHandler;
     }
 
+    public void setQueryBlockchainHandler(final QueryBlockchainHandler queryBlockchainHandler) {
+        _queryBlockchainHandler = queryBlockchainHandler;
+    }
+
     @Override
     public void run(final JsonSocket socketConnection) {
         Logger.log("New Connection: " + socketConnection);
@@ -660,6 +693,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "ADDRESS": {
                                 _queryAddressTransactions(parameters, response);
+                            } break;
+
+                            case "BLOCKCHAIN": {
+                                _queryBlockchainMetadata(response);
                             } break;
 
                             default: {
