@@ -5,13 +5,78 @@ h1 {
 #blockchain-metadata {
     width: 75vw;
     height: 50vh;
-    margin: auto;
-    background: #FFFFFF;
+    margin: 0;
     margin-top: 2em;
-    border: solid 2px #CDCDCD;
-    border-radius: 3em;
     overflow: hidden;
     box-sizing: border-box;
+}
+
+#blockchain-metadata-details {
+    float: right;
+    width: 24vw;
+    height: 50vh;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 1em;
+    border: solid 1px #AAAAAA;
+    margin-right: 0.5vw;
+}
+
+#blockchain-metadata-details .blockchain-segment-id.empty::before {
+    content: '';
+}
+#blockchain-metadata-details .blockchain-segment-id::before {
+    content: 'ID:';
+    margin-right: 0.5em;
+    font-weight: bold;
+    font-size: 75%;
+}
+#blockchain-metadata-details .blockchain-segment-id {
+    text-align: center;
+    margin-bottom: 1em;
+}
+
+#blockchain-metadata-details .blockchain-segment-block-count.empty::before {
+    content: '';
+}
+#blockchain-metadata-details .blockchain-segment-block-count::before {
+    content: 'Block Count:';
+    margin-right: 0.5em;
+    display: inline-block;
+    width: 10em;
+    font-weight: bold;
+    font-size: 75%;
+}
+#blockchain-metadata-details .blockchain-segment-block-count { }
+
+#blockchain-metadata-details .blockchain-segment-min-height.empty::before {
+    content: '';
+}
+#blockchain-metadata-details .blockchain-segment-min-height::before {
+    content: 'Min Block Height: #';
+    margin-right: 0.5em;
+    display: inline-block;
+    width: 10em;
+    font-weight: bold;
+    font-size: 75%;
+}
+#blockchain-metadata-details .blockchain-segment-min-height {
+    cursor: pointer;
+}
+
+#blockchain-metadata-details .blockchain-segment-max-height.empty::before {
+    content: '';
+}
+#blockchain-metadata-details .blockchain-segment-max-height::before {
+    content: 'Max Block Height: #';
+    margin-right: 0.5em;
+    display: inline-block;
+    width: 10em;
+    font-weight: bold;
+    font-size: 75%;
+}
+#blockchain-metadata-details .blockchain-segment-max-height {
+    cursor: pointer;
 }
 
 @media only screen and (max-width: 800px) {

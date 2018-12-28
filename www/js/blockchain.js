@@ -5,6 +5,7 @@ class BlockchainUi {
 
     static renderBlockchainMetadata(blockchainMetadata) {
 
+        const blockchainSegments = {};
         const sortedBlockCounts = [];
 
         const nodes = [];
@@ -20,8 +21,8 @@ class BlockchainUi {
             });
 
             sortedBlockCounts.push(metadata.blockCount);
+            blockchainSegments[metadata.blockchainSegmentId] = metadata;
         }
-
 
         { // Sort the blockCounts and make them unique...
             sortedBlockCounts.sort(function(a, b){ return (a - b); });
@@ -40,7 +41,7 @@ class BlockchainUi {
 
         const buckets = [];
         { // Create scaling buckets for the custom scaling function...
-            const bucketCount = 5;
+            const bucketCount = 10;
             const itemsPerBucket = Math.ceil(sortedBlockCounts.length / bucketCount);
             for (let i = 0; i < bucketCount; i += 1) {
                 buckets.push({ min: Number.MAX_VALUE, max: 0 });
@@ -83,10 +84,10 @@ class BlockchainUi {
                 }
             },
             nodes: {
-                borderWidth: 1,
+                borderWidth: 2,
                 scaling: {
-                    min: 10,
-                    max: 50,
+                    min: 8,
+                    max: 56,
                     label: {
                         min: 10,
                         max: 10
@@ -104,19 +105,81 @@ class BlockchainUi {
                     }
                 },
                 color: {
-                    border: "#AAAAAA",
-                    background: "#EEEEEE"
+                    border: "#313131",
+                    background: "#F99500",
+                    hover: {
+                        border: "#424242",
+                        background: "#FFA010",
+                    }
                 },
                 font: {
                     color:"#202020"
+                },
+                chosen: {
+                    node: function(values, id, selected, hovering) { }
+                },
+                fixed: {
+                    x: true,
+                    y: true
                 }
             },
             edges: {
                 color: "#AAAAAA"
+            },
+            interaction: {
+                hover: true,
+                hoverConnectedEdges: false
             }
         };
 
         const network = new vis.Network(container, data, options);
+
+        let sticky = false;
+        const hideBlockchainSegmentDetails = function(data) {
+            const isClickEvent = (data.nodes ? true : false);
+
+            if (isClickEvent) {
+                sticky = false;
+            }
+            else if (sticky) {
+                return;
+            }
+
+            const detailsElement = $("#blockchain-metadata-details");
+            $(".blockchain-segment-id", detailsElement).text("").toggleClass("empty", true);
+            $(".blockchain-segment-block-count", detailsElement).text("").toggleClass("empty", true);
+            $(".blockchain-segment-min-height", detailsElement).text("").toggleClass("empty", true);
+            $(".blockchain-segment-max-height", detailsElement).text("").toggleClass("empty", true);
+        };
+
+        const displayBlockchainSegmentDetails = function(data) {
+            const isClickEvent = (data.nodes ? true : false);
+            const nodeId = (isClickEvent ? data.nodes[0] : data.node);
+
+            if (isClickEvent) {
+                sticky = nodeId;
+            }
+            else if (sticky) {
+                return;
+            }
+
+            const blockchainSegment = blockchainSegments[nodeId];
+            if (! blockchainSegment) { return; }
+
+            const detailsElement = $("#blockchain-metadata-details");
+            $(".blockchain-segment-id", detailsElement).text(blockchainSegment.blockchainSegmentId).toggleClass("empty", false);
+            $(".blockchain-segment-block-count", detailsElement).text(blockchainSegment.blockCount.toLocaleString()).toggleClass("empty", false);
+            $(".blockchain-segment-min-height", detailsElement).text(blockchainSegment.minBlockHeight.toLocaleString()).toggleClass("empty", false);
+            $(".blockchain-segment-max-height", detailsElement).text(blockchainSegment.maxBlockHeight.toLocaleString()).toggleClass("empty", false);
+        };
+
+        network.on("selectNode", displayBlockchainSegmentDetails);
+        network.on("hoverNode", displayBlockchainSegmentDetails);
+        // network.on("hoverEdge", displayBlockchainSegmentDetails);
+
+        network.on("deselectNode", hideBlockchainSegmentDetails);
+        network.on("blurNode", hideBlockchainSegmentDetails);
+        network.on("blurEdge", hideBlockchainSegmentDetails);
     }
 }
 
@@ -144,6 +207,12 @@ $(document).ready(function() {
 
         const blockchainMetadata = data.blockchainMetadata;
         BlockchainUi.renderBlockchainMetadata(blockchainMetadata);
+    });
+
+    const detailsElement = $("#blockchain-metadata-details");
+    $(".blockchain-segment-min-height, .blockchain-segment-max-height", detailsElement).on("click", function() {
+        searchInput.val($(this).text());
+        searchInput.trigger($.Event( "keypress", { which: KeyCodes.ENTER } ));
     });
 
 });
