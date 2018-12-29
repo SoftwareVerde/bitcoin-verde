@@ -5,10 +5,10 @@ import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.util.ByteUtil;
 
 public class DatabaseConfigurer {
-    public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Configuration.ServerProperties serverProperties) {
+    public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Configuration.ServerProperties serverProperties, final Configuration.DatabaseProperties databaseProperties) {
         final Integer maxDatabaseThreadCount = Math.max(512, (serverProperties.getMaxPeerCount() * 8));
 
-        commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
+        commandLineArguments.setInnoDbBufferPoolByteCount(databaseProperties.getMaxMemoryByteCount());
         commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
 
         commandLineArguments.setInnoDbLogBufferByteCount(ByteUtil.Unit.GIGABYTES);

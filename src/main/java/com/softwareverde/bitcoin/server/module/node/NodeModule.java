@@ -51,7 +51,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -247,7 +246,7 @@ public class NodeModule {
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
@@ -283,7 +282,7 @@ public class NodeModule {
                 });
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties);
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
 
                 // databaseInstance = new DebugEmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
                 Logger.log("[Initializing Database]");

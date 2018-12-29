@@ -8,7 +8,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 
 import java.io.File;
@@ -36,7 +35,7 @@ public class DatabaseModule {
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         Logger.log("[Starting Database]");
         final EmbeddedMysqlDatabase database;
@@ -49,7 +48,7 @@ public class DatabaseModule {
                 });
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties);
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }

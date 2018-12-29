@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
@@ -14,6 +13,12 @@ public class Configuration {
     public static final Integer BITCOIN_PORT = 8333;
     public static final Integer BITCOIN_RPC_PORT = 8334;
     public static final Integer STRATUM_PORT = 3333;
+
+    public static class DatabaseProperties extends com.softwareverde.database.mysql.embedded.properties.DatabaseProperties {
+        protected Long _maxMemoryByteCount;
+
+        public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
+    }
 
     public static class SeedNodeProperties {
         private final String _address;
@@ -36,7 +41,6 @@ public class Configuration {
         private Integer _maxPeerCount;
         private Integer _maxThreadCount;
         private Long _trustedBlockHeight;
-        private Long _maxMemoryByteCount;
         private Boolean _shouldSkipNetworking;
         private Long _maxUtxoCacheByteCount;
         private Boolean _useTransactionBloomFilter;
@@ -50,7 +54,6 @@ public class Configuration {
         public Integer getMaxPeerCount() { return _maxPeerCount; }
         public Integer getMaxThreadCount() { return _maxThreadCount; }
         public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
-        public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
         public Boolean skipNetworking() { return _shouldSkipNetworking; }
         public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
         public Boolean shouldUseTransactionBloomFilter() { return _useTransactionBloomFilter; }
@@ -70,19 +73,10 @@ public class Configuration {
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
     }
 
-    public static class WalletProperties {
-        private String _bitcoinRpcUrl;
-        private Integer _bitcoinRpcPort;
-
-        public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
-        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
-    }
-
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
     private ExplorerProperties _explorerProperties;
-    private WalletProperties _walletProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -92,6 +86,7 @@ public class Configuration {
         final String schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
         final Integer port = Util.parseInt(_properties.getProperty("database.port", "8336"));
         final String dataDirectory = _properties.getProperty("database.dataDirectory", "data");
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty("database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
@@ -101,6 +96,7 @@ public class Configuration {
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
         databaseProperties.setDataDirectory(dataDirectory);
+        databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         _databaseProperties = databaseProperties;
     }
 
@@ -132,7 +128,6 @@ public class Configuration {
         _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
         _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
         _serverProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
-        _serverProperties._maxMemoryByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
         _serverProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
         _serverProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
         _serverProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
@@ -155,17 +150,6 @@ public class Configuration {
         _explorerProperties = explorerProperties;
     }
 
-    private void _loadWalletProperties() {
-        final String bitcoinRpcUrl = _properties.getProperty("wallet.bitcoinRpcUrl", "");
-        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("wallet.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
-
-        final WalletProperties walletProperties = new WalletProperties();
-        walletProperties._bitcoinRpcUrl = bitcoinRpcUrl;
-        walletProperties._bitcoinRpcPort = bitcoinRpcPort;
-
-        _walletProperties = walletProperties;
-    }
-
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
@@ -177,14 +161,11 @@ public class Configuration {
 
         _loadServerProperties();
 
-        _loadWalletProperties();
-
         _loadExplorerProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
-    public WalletProperties getWalletProperties() { return _walletProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
 
 }

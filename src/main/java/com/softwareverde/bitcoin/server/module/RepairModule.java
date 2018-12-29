@@ -33,7 +33,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
@@ -76,7 +75,7 @@ public class RepairModule {
         _blockHashes = blockHashesBuilder.build();
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         final EmbeddedMysqlDatabase database;
         {
@@ -89,7 +88,7 @@ public class RepairModule {
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
                 {
-                    commandLineArguments.setInnoDbBufferPoolByteCount(serverProperties.getMaxMemoryByteCount());
+                    commandLineArguments.setInnoDbBufferPoolByteCount(databaseProperties.getMaxMemoryByteCount());
                     commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
                     commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
                     commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
