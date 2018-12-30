@@ -388,6 +388,25 @@
     float: right;
 }
 
+.button {
+    border-radius: 1em;
+    padding: 0.5em;
+    border: solid 2px #262626;
+    background-color: #F7931D;
+    display: inline-block;
+    cursor: pointer;
+    color: #262626;
+}
+
+.button:hover {
+    background-color: #FD9A26;
+    border-color: #363636;
+}
+
+.documentation {
+    margin: 1em;
+}
+
 @media only screen and (max-width: 1100px) {
     .block,
     .transaction {

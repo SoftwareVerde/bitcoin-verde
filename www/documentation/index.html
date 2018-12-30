@@ -1,0 +1,250 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/documentation.css" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
+        <script src="/js/core.js"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Bree+Serif" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Cash Block Explorer</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Block Explorer</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/blocks/">Blocks</a></li>
+                    <li><a href="/blockchain/">Blockchain</a></li>
+                    <li><a href="/status/">Status</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="sidebar-underlay" class="sidebar">
+            <h1>Bitcoin Verde Documentation</h1>
+        </div>
+        <div id="main">
+            <div id="sidebar" class="sidebar">
+                <ol id="outline">
+                    <li><a href="#purpose">Purpose</a></li>
+                    <li><a href="#project-structure">Project Structure</a></li>
+                    <li><a href="#build">Build</a></li>
+                    <li><a href="#run">Run</a></li>
+                    <li><a href="#configuration">Configuration</a></li>
+                    <li><a href="#rpc">RPC</a></li>
+                    <li><a href="#technical-notes">Development/Technical Notes</a></li>
+                </ol>
+            </div>
+
+            <div id="content">
+                <a name="purpose"></a>
+                <div class="section purpose">
+                    <p>
+                        Bitcoin (Core) (BTC) is the sole group responsible for development on BTC's client.  In the past, lack of a diversified development team
+                        and node implementation, have caused bugs to become a part of the protocol.  BCH currently has roughly three full-node implementations
+                        (Bitcoin ABC, Bitcoin XT, Bitcoin Unlimited).  However, these implementations are forked versions of the same Bitcoin (Core) reference
+                        client, which means they may share the same (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the
+                        protocol will result in incompatible blocks, causing a temporary fork.  This situation is healthy for the network in the long term, as
+                        the temporary forks will resolve over time, with the intended implementation becoming the consensus.
+                    </p>
+                    <p>
+                        Bitcoin Verde is a ground-up implementation of the Bitcoin (Cash) protocol.  This primary function of this project is to be a unique
+                        java implementaion of a BCH full node to diversify the BCH network's implementation.
+                    </p>
+                    <p>
+                        Bitcoin Verde is also a blockchain explorer and library.  Incomplete (as of v1.0.0) ambitions include a wallet module and mining-pool
+                        module (via the Stratum protocol).
+                    </p>
+                    <p>
+                        Unlike the reference client, Bitcoin Verde stores the blockchain completely within a database and does not rely on <tt>dat</tt> files
+                        to serve past blocks--instead, they are inflated from the database.  In this way, the database <i>is</i> the blockchain.  The database
+                        allows for insightful queries to be run within the entire history of Bitcoin--for instance, via a query, Bitcoin Verde can report the
+                        ratio of P2PKH vs P2SH outputs, or easily report the number of transactions added to the network per a historic date.
+                    </p>
+                    <p>
+                        Bitcoin Verde tracks and syncs forks; it determines the <i>head</i> blockchain by respecting the chain with the most Proof of Work
+                        (with a compatible ruleset). Forked/Orphaned blockchains may be visualized within the explorer.
+                        Forked blocks are stored as BlockchainSegments.  These segments are stored as a Nested Set, allowing efficient queries to determine
+                        relationship among one another.
+                    </p>
+                    <p>
+                        Transactions are stored with referential integrity to their spent inputs and are inserted when they are received (assuming validity and
+                        its dependant outputs have been stored).  In this sense, Bitcoin Verde has an unlimited mempool size, since transactions are written
+                        to disk.  Transactions attempting to spend outputs that have not yet been received are stored in a separate table until their dependent
+                        transactions have been received; in theory, this is also of unlimited size but may need to be limited in order to prevent exhaustion attacks.
+                        Since transactions are stored as they are received, they are not stored a second time once they are included in a block.
+                        Stored transactions respect the first-seen principle and not inserted into the database unless provided within a mined block.
+                    </p>
+                    <p>
+                        TransactionOutput addresses are indexed as transactions are received.  This functionality is required for the Explorer to be able to
+                        query the balance of addresses.  With addresses indexed, it is possible to instantly sync SPV wallets in the future, once privacy concerns
+                        have been addressed and the protocol is expanded to support this functionality.
+                    </p>
+                    <p>
+                        Reorgs are handled slightly differently than the reference client.  Since all forked blocks are tracked and validated, and a full ledger is
+                        maintained (not just the UTXO set as in the reference client), switching to a new fork is a trivial process and does not require a reorg
+                        at all in order to validate new transactions.  However, when mining, the existing mempool must be cleaned up during a reorg.  This mempool
+                        reorg is handled by undoing the abandoned blocks and reapplying the blocks within the new head chain.
+                    </p>
+                    <p>
+                        Nodes are also tracked within the database.  In this way, Bitcoin Verde can report on the distribution of node versions and supported features.
+                    </p>
+                    <p>
+                        Transactions may be trimmed from Bitcoin Verde once they are spent.  This feature is experimental.  With trimming enabled, spent
+                        TransactionOutputs are deleted from the database once they are a certain number of blocks old (currently 144).  Currently, with this feature
+                        enabled, the Node no longer becomes a Full Node as it loses the ability to serve past blocks.  Additionally, the Explorer fails to
+                        display blocks that include a transaction that has been trimmed.  In the future, it possible that trimmed blocks may be stored on disk
+                        as dat files to still serve to peers; at first thought, this defeats the purpose of trimming, but still serves to reduce the disk-space
+                        footprint since these trimmed blocks will not be indexed in the database which incurs hefty space overhead due to row indexing.  Without
+                        trimming enabled, a fully synced node uses 600+ GB (as of Block #562933).
+                    </p>
+                </div>
+
+                <a name="project-structure"></a>
+                <div class="section project-structure">
+                    <p>
+                        The project's scripts are located within <tt>scripts</tt>, its java source code is located within <tt>src</tt>, its html assets are
+                        located within <tt>www</tt>, its jni-libraries are located within <tt>jni</tt>, its default configuration is located within
+                        <tt>conf</tt>, and the built project is located within <tt>out</tt>.  The <tt>sql</tt> directory contains sometimes-useful sql scripts
+                        for development and debugging.  When deploying the application to a server, the <tt>out</tt> is intended to contain everything necessary
+                        for the application to run.
+                    </p>
+                    <p>
+                        In general, all scripts located within any <tt>scripts</tt> directory are expected to be ran from the project root-directory.  Scripts
+                        for sub-projects, such as utxo-cache, are expected to be ran from their respective sub-project root-directory.
+                    </p>
+                </div>
+
+                <a name="build"></a>
+                <div class="section build">
+                    <p>
+                        At a minimum, the build process consists of a single script: <tt>scripts/make.sh</tt> .  The make script
+                        creates an <tt>out</tt> directory, builds the application, copies dependencies, loads assets, creates a default configuration file,
+                        and creates scripts to run the application.
+                    </p>
+                    <p>
+                        NOTE: Currently, the <tt>scripts/make.sh</tt> deletes the <tt>out</tt> directory, so re-running <tt>make.sh</tt> after a sync has
+                        started will cause all synchronization progress and configuration changes to be lost.  It is instead recommended to run
+                        <tt>scripts/make-jar.sh</tt> when making incremental changes to the application jar.
+                    </p>
+                    <p>
+                        To update the Explorer HTML/CSS/JS, run <tt>scripts/copy-www-data.sh</tt>.  Changes made to the
+                        <tt>out/www</tt> directory can be made, but excluded from commits.  The Explorer may not always find new
+                        resources once the server has been started, so it is recommended to restart the Explorer in between modifications.
+                    </p>
+                    <h2>libsecp256k1 &amp; NativeUnspentTransactionOutputCache</h2>
+                    <div class="h2-content">
+                        <p>
+                            By default, <tt>libsecp256k1</tt> and <tt>NativeUnspentTransactionOutputCache</tt> prebuilt binaries are included in this project.
+                            The prebuilt libraries were built for 64-bit Linux, 64-bit OSX, and 64-bit Windows.
+                        </p>
+                        <h3>libsecp256k1</h3>
+                        <div class="h3-content">
+                            <p>
+                                libsecp256k1 is an open-source C library for validating secp256k1 signatures.  It is heavily optimized and provides a substantial
+                                speedup for transaction signature verification.  libsecp256k1 was written by Bitcoin Core developers, Pieter Wuille and Gregory
+                                Maxwell.
+                            </p>
+                            <p>
+                                If preferred, libsecp256k1 may be built from source (located at
+                                <a href="https://github.com/bitcoin-core/secp256k1" target="_blank">https://github.com/bitcoin-core/secp256k1</a>) and included
+                                in Bitcoin Verde by copying the new binaries to <tt>src/main/resources/lib/libsecp256k1.[so, dylib, dll]</tt>, then rebuilding the
+                                application jar.
+                            </p>
+                            <p>
+                                It is not necessary to use libsecp256k1, and if the binaries are removed before building, then the application
+                                will fallback to using <i>Bouncy Castle</i>'s implementation of secp256k1.
+                            </p>
+                        </div>
+                        <h3>NativeUnspentTransactionOutputCache</h3>
+                        <div class="h3-content">
+                            <p>
+                                NativeUnspentTransactionOutputCache is a C++ library written specifically for Bitcoin Verde.  It uses <tt>cpp-btree</tt>, a B-Tree template
+                                library, written by Josh MacDonald to store Utxos in-memory with little overhead.  The sourcecode for the
+                                NativeUnspentTransactionOutputCache is included in this project within <tt>jni/utxo-cache</tt>.  It may be built from source via the scripts
+                                located within the <tt>jni/utxo-cache</tt> directory.  The rebuilt library must be copied to <tt>src/main/resources/lib/utxocache.[so, dylib, dll]</tt>.
+                            </p>
+                            <p>
+                                The <tt>cpp-btree</tt> source code is included in this projected but may also be located at:
+                                <a href="http://code.google.com/p/cpp-btree/" target="_blank">http://code.google.com/p/cpp-btree/</a> .
+                            </p>
+                            <p>
+                                It is not necessary to use the NativeUnspentTransactionOutputCache, and if the binaries are removed before building, then the application
+                                will not use any in-memory utxo caching.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <a name="run"></a>
+                <div class="section run">
+                    <p>Forward ports script.</p>
+                </div>
+                <a name="configuration"></a>
+                <div class="section configuration">
+                    <p>
+                        The comitted node configuration is located at <tt>conf/server.conf</tt> and it copied to <tt>out/conf/server.conf</tt> at build-time.  Users are expected
+                        to modify the conf file located at <tt>out/conf/server.conf</tt>.
+                    </p>
+                    <p>
+                        Below is a table with each configuration property and its purpose.
+                    </p>
+                    <table class="configuration">
+                        <tr><th>Module</th><th>Property</th><th>Default Value</th><th>Description</th></tr>
+                        <tr><td>database</td><td>rootPassword</td><td>d3d4a3d0533e3e83bc16db93414afd96</td><td>The root password configured for the database.  This field is not necessary to exist after the initial start of the node.</td></tr>
+
+                        <tr><td>database</td><td>url</td><td>localhost</td><td>The host used to connect to the database.  Currently localhost is the only value supported.</td></tr>
+                        <tr><td>database</td><td>port</td><td>8336</td><td>The port used to connect to the database.</td></tr>
+                        <tr><td>database</td><td>dataDirectory</td><td>data</td><td>The name of the directory that contains the database data within the out directory.</td></tr>
+                        <tr><td>database</td><td>schema</td><td>bitcoin</td><td>The name of the database schema used to hold all tables.</td></tr>
+                        <tr><td>database</td><td>maxMemoryByteCount</td><td>2GB</td><td>The maximum byte count for the InnoDB buffer pool.  The buffer pool size is one of the most important configurations for performance as it configures the space used to store/cache table indexes.</td></tr>
+                        <tr><td>database</td><td>username</td><td>bitcoin</td><td>The username used when connecting to the database.  This value may only be changed before the initial start of the node.</td></tr>
+                        <tr><td>database</td><td>password</td><td>81b797117e8e0233ea8fd1d46923df54</td><td>The password used when connecting to the database.  This value may only be changed before the initial start of the node.</td></tr>
+
+                        <tr><td>bitcoin</td><td>port</td><td>8333</td><td>The port used to listen for incoming connections from other nodes on the network.</td></tr>
+                        <tr><td>bitcoin</td><td>rpcPort</td><td>8334</td><td>The port used to listen for RPC commands sent to this node.</td></tr>
+                        <tr><td>bitcoin</td><td>seedNodes</td><td>["btc.softwareverde.com", "bitcoinverde.org"]</td><td>The seed nodes which are initially connected to on start.  Currently at least one seed node is required since DNS seeding is not currently supported.  Should not exceed maxPeerCount.  May optionally contain a port (eg: "bitcoinverde.org:8333").</td></tr>
+                        <tr><td>bitcoin</td><td>maxPeerCount</td><td>32</td><td>The maximum number of peers that the node will accept.</td></tr>
+                        <tr><td>bitcoin</td><td>maxThreadCount</td><td>4</td><td>The max number of threads used to validate a block.  Currently, the server will create max(maxPeerCount * 8, 256) threads for network communication; in the future this property will likely claim this label.</td></tr>
+                        <tr><td>bitcoin</td><td>trustedBlockHeight</td><td>391180</td><td>Blocks prior to this height will not have their transactions validated.</td></tr>
+                        <tr><td>bitcoin</td><td>skipNetworking</td><td>0</td><td>When set, this property disables networking with other nodes.</td></tr>
+                        <tr><td>bitcoin</td><td>maxUtxoCacheByteCount</td><td>536870912</td><td>The max memory used to store Unspent Transaction Outputs in memory.  This properties does nothing if the NativeUnspentTransactionOutputCache library is not loaded.</td></tr>
+                        <tr><td>bitcoin</td><td>useTransactionBloomFilter</td><td>1</td><td>When set, uses an internal bloom filter to maintain a filter of transactions that have already been seen, greatly reducing the time required to store a block.  When enabled, this setting requires about 1GB of memory.  This property is safe to be toggled on/off between restarts.</td></tr>
+                        <tr><td>bitcoin</td><td>trimBlocks</td><td>0</td><td>Experimental feature.  When enabled, spent TransactionOutputs that are older than 144 blocks will be deleted from the database.  Enabling this feature disables full-node functionality and will prevent the block explorer from functioning.</td></tr>
+
+                        <tr><td>stratum</td><td>port</td><td>3333</td><td>The external stratum protocol port.</td></tr>
+
+                        <tr><td>explorer</td><td>port</td><td>8080</td><td>The port the explorer will listen on for incoming HTTP requests.  Setting to a value lower than 1024 would require the application be run as root; this is highly discouraged.  Instead, consider running on a higher port and running the forward-ports script.</td></tr>
+                        <tr><td>explorer</td><td>rootDirectory</td><td>www</td><td>The directory where the explorer will serve its HTTP content from (eg. <tt>out/www</tt>).</td></tr>
+                        <tr><td>explorer</td><td>bitcoinRpcUrl</td><td>localhost</td><td>The host the explorer will connect to the Bitvoin Verde node on.</td></tr>
+                        <tr><td>explorer</td><td>bitcoinRpcPort</td><td>8334</td><td>The port the explorer will connect to the Bitcoin Verde node on.</td></tr>
+                    </table>
+                </div>
+                <a name="rpc"></a>
+                <div class="section rpc">
+                    <p></p>
+                </div>
+                <a name="technical-notes"></a>
+                <div class="section technical-notes">
+                    <p>The database is a self contained MariaDB database.  Currently, this is the only database supported; in the future it may be possible to use a remote/external database.</p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

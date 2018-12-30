@@ -485,7 +485,7 @@ class DateUtil {
             newDate.setUTCSeconds(date);
             date = newDate;
         }
-        return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth()) + "-" + DateUtil.padLeft(date.getDay()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
+        return (date.getFullYear() + "-" + DateUtil.padLeft(date.getMonth() + 1) + "-" + DateUtil.padLeft(date.getDate()) + " " + DateUtil.padLeft(date.getHours()) + ":" + DateUtil.padLeft(date.getMinutes()) + ":" + DateUtil.padLeft(date.getSeconds()) + " " + DateUtil.getTimeZoneAbbreviation());
     }
 }
 

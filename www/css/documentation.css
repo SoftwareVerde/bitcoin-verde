@@ -1,0 +1,154 @@
+#header {
+    z-index: 1;
+}
+
+#main {
+    margin-top: 5px;
+}
+
+.sidebar {
+    background: #FFFFFF;
+    float: left;
+    position: fixed;
+    box-sizing: border-box;
+    border-right: solid 2px #ADADAD;
+    height: 100%;
+    width: 19em;
+}
+
+#sidebar-underlay {
+    top: 0px;
+    z-index: -1;
+    text-align: center;
+    padding-top: 1em;
+    overflow: hidden;
+}
+
+#sidebar-underlay h1 {
+    background-color: #262626;
+    margin-top: -2em;
+    padding-top: 2em;
+    padding-bottom: 1em;
+    color: #FFFFFF;
+    border-bottom: solid 2px #F99300;
+    box-shadow: 0px 1px 25px #262626;
+}
+
+#sidebar {
+    padding-right: 2em;
+    padding-top: 0;
+    padding-left: 1em;
+}
+
+#outline {
+}
+
+#content {
+    float: right;
+    width: calc(100% - 20em);
+    box-sizing: border-box;
+    margin-right: 2em;
+}
+
+tt {
+    display: inline-block;
+    position: relative;
+    top: -2px;
+    vertical-align: middle;
+
+    background-color: #FFFFFF;
+    color: #731212;
+
+    font-family: consolas, monospace;
+    font-size: 0.75em;
+
+    padding: 1px;
+    padding-left: 0.5em;
+    padding-right: 0.5em;
+
+    border: solid 1px #ADADAD;
+    border-radius: 0.5em;
+}
+
+.section {
+    margin-bottom: 2em;
+}
+
+.section {
+    padding-left: 3em;
+}
+.section h2 {
+    padding-left: 1.33em;
+}
+.section .h2-content {
+    padding-left: 2em;
+}
+.section h3 {
+    padding-left: 1.71em;
+}
+.section .h3-content {
+    padding-left: 2em;
+}
+
+.section table {
+    margin-left: 2em;
+    border: solid 1px #B0B0B0;
+    border-collapse: collapse;
+}
+.section table th {
+    background-color: rgba(0, 0, 0, 0.05);
+    border-bottom: solid 1px #B0B0B0;
+    padding: 0.25em;
+}
+.section table tr:nth-child(odd) {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.section table td {
+    padding: 0.25em;
+    font-size: 0.85em;
+}
+
+.section::before {
+    font-family: 'Bree Serif', serif;
+    font-size: 150%;
+    font-weight: bold;
+    margin-bottom: 0.5em;
+    margin-top: 1em;
+}
+
+#content {
+    padding-top: 3em;
+}
+
+.section.purpose::before {
+    content: 'Purpose';
+}
+
+.section.project-structure::before {
+    content: 'Project Structure';
+}
+
+.section.build::before {
+    content: 'Build';
+}
+
+.section.run::before {
+    content: 'Run';
+}
+
+.section.configuration::before {
+    content: 'Configuration';
+}
+
+.section.rpc::before {
+    content: 'RPC';
+}
+
+.section.technical-notes::before {
+    content: 'Development/Technical Notes';
+}
+
+.section:last-child {
+    padding-bottom: 90vh;
+}
+
