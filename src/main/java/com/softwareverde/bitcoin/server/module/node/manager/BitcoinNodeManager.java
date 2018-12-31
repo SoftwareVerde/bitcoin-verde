@@ -92,7 +92,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 final String host = ip.toString();
                 final Integer port = bitcoinNodeIpAddress.getPort();
                 final BitcoinNode node = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool());
-                this.addNode(node); // NOTE: _addNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
+                this.addNode(node); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                 Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
             }
@@ -130,20 +130,44 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    protected void _addNode(final BitcoinNode node) {
+    public void _addHandshakedNode(final BitcoinNode node) {
+        final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
+        if (blockchainIsEnabled == null) {
+            Logger.log("NOTICE: Unable to determine feature for node: " + node.getConnectionString());
+        }
+
+        if ( (! Util.coalesce(blockchainIsEnabled, false)) && (! blockchainIsSynchronized) ) {
+            node.disconnect();
+            return; // Reject SPV Nodes during the initial-sync...
+        }
+
+        super._addHandshakedNode(node);
+    }
+
+    @Override
+    protected void _addNotHandshakedNode(final BitcoinNode node) {
         final String host = node.getHost();
         final Integer port = node.getPort();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final Boolean isBanned = nodeDatabaseManager.isBanned(host);
-            if (isBanned) { return; }
-
+            if (isBanned) {
+                node.disconnect();
+                return;
+            }
 
             synchronized (_mutex) {
-                if (_isShuttingDown) { return; }
+                if (_isShuttingDown) {
+                    node.disconnect();
+                    return;
+                }
 
-                for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
+                allNodes.addAll(_nodes.values());
+
+                for (final BitcoinNode bitcoinNode : allNodes) {
                     final String existingNodeHost = bitcoinNode.getHost();
                     final Integer existingNodePort = bitcoinNode.getPort();
 
@@ -152,7 +176,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                     }
                 }
 
-                super._addNode(node);
+                super._addNotHandshakedNode(node);
             }
 
             nodeDatabaseManager.storeNode(node);

@@ -178,6 +178,18 @@ public class BitcoinNode extends Node {
     protected Integer _compactBlocksVersion = null;
 
     @Override
+    protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
+        if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
+            _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
+        }
+        else {
+            Logger.log("NOTICE: Invalid SynchronizeVersionMessage type provided to BitcoinNode::_onSynchronizeVersion.");
+        }
+
+        super._onSynchronizeVersion(synchronizeVersionMessage);
+    }
+
+    @Override
     protected BitcoinPingMessage _createPingMessage() {
         return new BitcoinPingMessage();
     }
@@ -213,13 +225,6 @@ public class BitcoinNode extends Node {
 
     @Override
     protected BitcoinAcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
-        if (synchronizeVersionMessage instanceof BitcoinSynchronizeVersionMessage) {
-            _synchronizeVersionMessage = (BitcoinSynchronizeVersionMessage) synchronizeVersionMessage;
-        }
-        else {
-            Logger.log("NOTICE: Invalid SynchronizeVersionMessage type provided to BitcoinNode._createAcknowledgeVersionMessage.");
-        }
-
         return new BitcoinAcknowledgeVersionMessage();
     }
 
@@ -255,7 +260,7 @@ public class BitcoinNode extends Node {
                     } break;
 
                     case SYNCHRONIZE_VERSION: {
-                        _onSynchronizeVersion((BitcoinSynchronizeVersionMessage) message);
+                        _onSynchronizeVersion((SynchronizeVersionMessage) message);
                     } break;
 
                     case ACKNOWLEDGE_VERSION: {

@@ -83,6 +83,7 @@ public class NodeManager<NODE extends Node> {
     protected final SystemTime _systemTime;
     protected final NodeFactory<NODE> _nodeFactory;
     protected final Map<NodeId, NODE> _nodes;
+    protected Map<NodeId, NODE> _pendingNodes = new HashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
     protected final Map<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final MutableList<NodeApiMessage<NODE>> _queuedTransmissions = new MutableList<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
@@ -99,10 +100,31 @@ public class NodeManager<NODE extends Node> {
     protected void _onNodeHandshakeComplete(final NODE node) { }
     protected void _onNodeConnected(final NODE node) { }
 
-    protected void _addNode(final NODE node) {
+    protected void _addHandshakedNode(final NODE node) {
         final NodeId newNodeId = node.getId();
         _nodes.put(newNodeId, node);
         _nodeHealthMap.put(newNodeId, new MutableNodeHealth(newNodeId, _systemTime));
+    }
+
+    protected void _addNotHandshakedNode(final NODE node) {
+        final Long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
+
+        { // Cleanup any pending nodes that still haven't completed their handshake...
+            final Map<NodeId, NODE> pendingNodes = _pendingNodes;
+            _pendingNodes = new HashMap<NodeId, NODE>(pendingNodes);
+
+            for (final NODE oldPendingNode : pendingNodes.values()) {
+                final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
+                if (nowInMilliseconds - pendingSinceTimeMilliseconds < 30000L) {
+                    _pendingNodes.put(oldPendingNode.getId(), oldPendingNode);
+                }
+                else {
+                    oldPendingNode.disconnect();
+                }
+            }
+        }
+
+        _pendingNodes.put(node.getId(), node);
     }
 
     protected void _removeNode(final NODE node) {
@@ -245,13 +267,19 @@ public class NodeManager<NODE extends Node> {
                         }
 
                         synchronized (_mutex) {
-                            _removeNode(node);
-                        }
+                            _pendingNodes.remove(node.getId());
 
-                        node.disconnect();
+                            node.disconnect();
 
-                        if (LOGGING_ENABLED) {
-                            Logger.log("P2P: Node purged.");
+                            if (LOGGING_ENABLED) {
+                                Logger.log("P2P: Node purged.");
+                            }
+
+                            if (_nodes.isEmpty()) {
+                                if (!_isShuttingDown) {
+                                    _onAllNodesDisconnected();
+                                }
+                            }
                         }
                     }
                 }
@@ -313,7 +341,7 @@ public class NodeManager<NODE extends Node> {
 
                         _checkMaxNodeCount(_maxNodeCount - 1);
 
-                        _addNode(newNode);
+                        _addNotHandshakedNode(newNode);
                     }
                 }
             }
@@ -349,16 +377,21 @@ public class NodeManager<NODE extends Node> {
         node.setNodeHandshakeCompleteCallback(new NODE.NodeHandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
+                synchronized (_mutex) {
+                    _pendingNodes.remove(node.getId());
+                    _addHandshakedNode(node);
+                }
+
                 final Long nodeNetworkTimeOffset = node.getNetworkTimeOffset();
                 if (nodeNetworkTimeOffset != null) {
                     _networkTime.includeOffsetInSeconds(nodeNetworkTimeOffset);
                 }
 
+                _onNodeHandshakeComplete(node);
+
                 synchronized (_mutex) {
                     _processQueuedMessages();
                 }
-
-                _onNodeHandshakeComplete(node);
             }
         });
 
@@ -593,7 +626,7 @@ public class NodeManager<NODE extends Node> {
             _initNode(node);
 
             _checkMaxNodeCount(_maxNodeCount - 1);
-            _addNode(node);
+            _addNotHandshakedNode(node);
         }
     }
 
@@ -752,11 +785,13 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void shutdown() {
-        final List<NODE> nodes;
+        final MutableList<NODE> nodes;
         synchronized (_mutex) {
             _isShuttingDown = true;
             nodes = new MutableList<NODE>(_nodes.values());
+            nodes.addAll(_pendingNodes.values());
             _nodes.clear();
+            _pendingNodes.clear();
         }
 
         // Nodes must be disconnected outside of the _mutex lock in order to prevent deadlock...

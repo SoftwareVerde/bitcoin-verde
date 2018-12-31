@@ -102,6 +102,8 @@ public abstract class Node {
     }
 
     protected void _disconnect() {
+        _onDisconnect();
+
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;
         _nodeHandshakeCompleteCallback = null;
