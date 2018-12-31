@@ -87,14 +87,7 @@ public class RepairModule {
                 });
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                {
-                    commandLineArguments.setInnoDbBufferPoolByteCount(databaseProperties.getMaxMemoryByteCount());
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
-                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setQueryCacheByteCount(0L);
-                    commandLineArguments.setMaxAllowedPacketByteCount(32 * ByteUtil.Unit.MEGABYTES);
-                }
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
@@ -161,7 +154,6 @@ public class RepairModule {
                 BitcoinUtil.exitFailure();
             }
         }
-
 
         final BitcoinNode bitcoinNode = bitcoinNodes.get(0);
 

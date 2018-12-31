@@ -40,14 +40,6 @@ public class Main {
         _printError("\t----------------");
         _printError("");
 
-        _printError("\tModule: WALLET");
-        _printError("\tArguments:");
-        _printError("\tDescription: Provides a GUI to send and receive funds.");
-        _printError("\tArgument Description: <Configuration File>");
-        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
-        _printError("\t----------------");
-        _printError("");
-
         _printError("\tModule: VALIDATE");
         _printError("\tArguments: <Configuration File> [<Starting Block Hash>]");
         _printError("\tDescription: Iterates through the entire block chain and identifies any invalid/corrupted blocks.");
@@ -213,17 +205,6 @@ public class Main {
                 final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
                 final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
                 MinerModule.execute(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
-            } break;
-
-            case "CHAIN_WORK": {
-                if (_arguments.length != 2) {
-                    _printUsage();
-                    BitcoinUtil.exitFailure();
-                    break;
-                }
-
-                final String configurationFile = _arguments[1];
-                ChainWorkModule.execute(configurationFile);
             } break;
 
             default: {

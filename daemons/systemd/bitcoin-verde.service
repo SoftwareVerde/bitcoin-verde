@@ -1,0 +1,12 @@
+[Unit]
+Description=BitcoinVerde
+
+[Service]
+Type=simple
+User=bitcoin-verde
+WorkingDirectory=/opt/bitcoin-verde/
+ExecStart=/opt/bitcoin-verde/out/run-node.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

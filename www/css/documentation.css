@@ -1,3 +1,8 @@
+#main a, #main a:hover, #main a:visited, #main a:active {
+    text-decoration: none;
+    color: #B56200;
+}
+
 #header {
     z-index: 1;
 }
@@ -14,6 +19,8 @@
     border-right: solid 2px #ADADAD;
     height: 100%;
     width: 19em;
+    max-width: 25vw;
+    word-break: break-word;
 }
 
 #sidebar-underlay {
@@ -45,9 +52,10 @@
 
 #content {
     float: right;
-    width: calc(100% - 20em);
+    width: calc(100% - 19em);
     box-sizing: border-box;
-    margin-right: 2em;
+    padding-right: 2em;
+    padding-top: 3em;
 }
 
 tt {
@@ -72,10 +80,15 @@ tt {
 
 .section {
     margin-bottom: 2em;
+    border-bottom: solid 2px #F7931D;
+    padding-bottom: 1em;
+    padding-left: 2em;
 }
 
-.section {
-    padding-left: 3em;
+.section h1, .section h2, .section h3,
+.section th {
+    font-family: 'Bree Serif', serif;
+    word-break: break-word;
 }
 .section h2 {
     padding-left: 1.33em;
@@ -108,6 +121,26 @@ tt {
     font-size: 0.85em;
 }
 
+.section table.configuration td:nth-child(2),
+.section table.configuration td:nth-child(3) {
+    font-family: consolas, monospace;
+    width: 10%;
+    text-align: center;
+}
+.section table.configuration td:nth-child(3) {
+    width: auto;
+}
+
+.section.run .parameter {
+    display: inline-block;
+}
+.section.run .parameter::before {
+    content: '<';
+}
+.section.run .parameter::after {
+    content: '>';
+}
+
 .section::before {
     font-family: 'Bree Serif', serif;
     font-size: 150%;
@@ -116,8 +149,8 @@ tt {
     margin-top: 1em;
 }
 
-#content {
-    padding-top: 3em;
+.section.getting-started::before {
+    content: 'Getting Started';
 }
 
 .section.purpose::before {
@@ -149,6 +182,107 @@ tt {
 }
 
 .section:last-child {
-    padding-bottom: 90vh;
+    margin-bottom: 90vh;
 }
 
+/* @media only screen and (max-width: 1000px) { */
+@media only screen and (max-width: 1024px) {
+    .section {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .sidebar {
+        position: initial;
+        width: 100%;
+        max-width: unset;
+        border: none;
+    }
+
+    #sidebar-underlay h1 {
+        background: none;
+        color: #262626;
+        padding-top: 1.5em;
+        margin-top: -1em;
+        box-shadow: none;
+        margin-bottom: 0;
+        border-bottom: none;
+        background: #EEEEEE;
+    }
+
+    #sidebar {
+        position: fixed;
+        height: auto;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-top: solid 2px #F99300;
+        text-align: center;
+        z-index: 1;
+        padding-left: 0;
+        padding-right: 0;
+        padding-top: 1em;
+        padding-bottom: 1em;
+        background: #262626;
+    }
+
+    #sidebar ol {
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    #sidebar ol li {
+        text-decoration: none;
+        border: solid 1px #262626;
+        padding: 0.5em;
+        border-radius: 0.5em;
+        background-color: #F99300;
+        font-size: 85%;
+        font-weight: bold;
+        margin: 1px;
+        display: inline-flex;
+        padding-left: 0.5em;
+        padding-right: 0.5em;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    #sidebar ol li a {
+        color: #262626 !important;
+    }
+    #sidebar ol li.technical-notes {
+        /* max-width: 10%;*/
+    }
+    #sidebar ol li.technical-notes a {
+        word-break: normal;
+        height: 1em;
+        overflow: hidden;
+    }
+    #sidebar ol li.technical-notes a::before {
+        content: 'Notes\A';
+        display: block;
+        color: #202020;
+        text-align: center;
+    }
+
+    #content {
+        width: auto;
+        float: none;
+        padding-left: 1em;
+        padding-right: 1em;
+        margin: 0;
+        padding-top: 0;
+    }
+
+    .section h2,
+    .section .h2-content,
+    .section h3,
+    .section .h3-content {
+        padding-left: 0;
+    }
+
+    .section table {
+        margin-left: 0;
+    }
+}
