@@ -131,6 +131,21 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     public void _addHandshakedNode(final BitcoinNode node) {
+        final String host = node.getHost();
+        final Integer port = node.getPort();
+
+        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
+        allNodes.addAll(_nodes.values());
+
+        for (final BitcoinNode bitcoinNode : allNodes) {
+            final String existingNodeHost = bitcoinNode.getHost();
+            final Integer existingNodePort = bitcoinNode.getPort();
+
+            if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
+                return; // Duplicate Node...
+            }
+        }
+
         final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
         final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
         if (blockchainIsEnabled == null) {

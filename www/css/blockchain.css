@@ -1,5 +1,14 @@
+html, body {
+    min-height: 100vh;
+}
+#main {
+    min-height: calc(100vh - 100px);
+    position: relative;
+}
+
 h1 {
     text-align: center;
+    width: 75vw;
 }
 
 #blockchain-metadata {
@@ -12,14 +21,24 @@ h1 {
 }
 
 #blockchain-metadata-details {
-    float: right;
-    width: 24vw;
-    height: 50vh;
+    width: 25vw;
     box-sizing: border-box;
     margin: 0;
     padding: 1em;
-    border: solid 1px #AAAAAA;
-    margin-right: 0.5vw;
+    background-color: #FFFFFF;
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    
+}
+
+#blockchain-metadata-details div::before {
+    margin-right: 0.5em;
+    display: inline-block;
+    width: 10em;
+    font-weight: bold;
+    font-size: 75%;
 }
 
 #blockchain-metadata-details .blockchain-segment-id.empty::before {
@@ -27,9 +46,7 @@ h1 {
 }
 #blockchain-metadata-details .blockchain-segment-id::before {
     content: 'ID:';
-    margin-right: 0.5em;
-    font-weight: bold;
-    font-size: 75%;
+    width: auto;
 }
 #blockchain-metadata-details .blockchain-segment-id {
     text-align: center;
@@ -41,11 +58,6 @@ h1 {
 }
 #blockchain-metadata-details .blockchain-segment-block-count::before {
     content: 'Block Count:';
-    margin-right: 0.5em;
-    display: inline-block;
-    width: 10em;
-    font-weight: bold;
-    font-size: 75%;
 }
 #blockchain-metadata-details .blockchain-segment-block-count { }
 
@@ -54,11 +66,6 @@ h1 {
 }
 #blockchain-metadata-details .blockchain-segment-min-height::before {
     content: 'Min Block Height: #';
-    margin-right: 0.5em;
-    display: inline-block;
-    width: 10em;
-    font-weight: bold;
-    font-size: 75%;
 }
 #blockchain-metadata-details .blockchain-segment-min-height {
     cursor: pointer;
@@ -69,19 +76,66 @@ h1 {
 }
 #blockchain-metadata-details .blockchain-segment-max-height::before {
     content: 'Max Block Height: #';
-    margin-right: 0.5em;
-    display: inline-block;
-    width: 10em;
-    font-weight: bold;
-    font-size: 75%;
 }
 #blockchain-metadata-details .blockchain-segment-max-height {
     cursor: pointer;
 }
 
-@media only screen and (max-width: 800px) {
+@media only screen and (max-width: 1000px) {
+    #blockchain-metadata-details .blockchain-segment-id::before {
+        content: 'Id:' !important;
+    }
+    #blockchain-metadata-details .blockchain-segment-block-count::before {
+        content: 'Count:' !important;
+    }
+    #blockchain-metadata-details .blockchain-segment-min-height::before {
+        content: 'Min Height:' !important;
+    }
+    #blockchain-metadata-details .blockchain-segment-max-height::before {
+        content: 'Max Height:' !important;
+    }
+
+    #blockchain-metadata-details {
+        position: initial;
+        width: auto;
+        float: none;
+        height: auto;
+        border: none;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        font-size: 1em !important;
+        justify-content: space-between;
+    }
+
+    #blockchain-metadata-details div {
+        margin: 0;
+        width: 50%;
+        box-sizing: border-box;
+        white-space: nowrap;
+        word-break: keep-all;
+        overflow-x: hidden;
+    }
+
+    #blockchain-metadata-details div::before {
+        font-size: 0.8em !important;
+        font-family: 'Bree Serif', serif;
+        font-weight: normal !important;
+        width: auto;
+        text-overflow: ellipsis;
+    }
+
+    #blockchain-metadata-details .blockchain-segment-id {
+        text-align: left;
+        margin-bottom: 0;
+    }
+
     #blockchain-metadata {
         width: 99vw;
         border-radius: 0;
+    }
+
+    h1 {
+        width: auto;
     }
 }
