@@ -109,7 +109,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
     }
 
-    // Requires GET: [blockHeight=null], [maxBlockCount=10]
+    // Requires GET: [blockHeight], [maxBlockCount=10]
     protected void _getBlockHeaders(final Json parameters, final Json response) {
 
         final Long startingBlockHeight;
@@ -160,6 +160,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <blockHeight | hash>
     protected void _getBlockHeader(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -222,6 +223,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <blockHeight | hash>, [rawFormat=0]
     protected void _getBlock(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -293,6 +295,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <hash>, [rawFormat=0]
     protected void _getTransaction(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -339,6 +342,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET:
     protected void _queryBlockHeight(final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
@@ -354,6 +358,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET:
     protected void _queryStatus(final Json response) {
         { // Status
             response.put("status", (_synchronizationStatusHandler != null ? _synchronizationStatusHandler.getState() : null));
@@ -413,6 +418,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <address>
     protected void _queryBalance(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -445,6 +451,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET: <address>
     protected void _queryAddressTransactions(final Json parameters, final Json response) {
         final QueryAddressHandler queryAddressHandler = _queryAddressHandler;
         if (queryAddressHandler == null) {
@@ -498,6 +505,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires GET:
     protected void _queryBlockchainMetadata(final Json response) {
         final QueryBlockchainHandler queryBlockchainHandler = _queryBlockchainHandler;
         if (queryBlockchainHandler == null) {
@@ -521,6 +529,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST:
     protected void _shutdown(final Json parameters, final Json response) {
         final ShutdownHandler shutdownHandler = _shutdownHandler;
         if (shutdownHandler == null) {
@@ -532,6 +541,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
     }
 
+    // Requires POST: <host>, <port>
     protected void _addNode(final Json parameters, final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
@@ -551,7 +561,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
     }
 
-    protected void _nodeStatus(final Json response) {
+    // Requires GET:
+    protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
         if (nodeHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
@@ -684,7 +695,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             case "NODES": {
-                                _nodeStatus(response);
+                                _listNodes(response);
                             } break;
 
                             case "BALANCE": {
@@ -722,7 +733,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     } break;
 
                     default: {
-                        response.put(ERROR_MESSAGE_KEY, "Invalid method: " + method);
+                        response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method.toUpperCase() + "/" + query.toUpperCase());
                     } break;
                 }
 

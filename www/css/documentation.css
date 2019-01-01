@@ -58,17 +58,19 @@
     padding-top: 3em;
 }
 
-tt {
-    display: inline-block;
-    position: relative;
-    top: -2px;
-    vertical-align: middle;
-
+pre, tt {
     background-color: #FFFFFF;
     color: #731212;
 
     font-family: consolas, monospace;
     font-size: 0.75em;
+}
+
+tt {
+    display: inline-block;
+    position: relative;
+    top: -2px;
+    vertical-align: middle;
 
     padding: 1px;
     padding-left: 0.5em;
@@ -76,6 +78,16 @@ tt {
 
     border: solid 1px #ADADAD;
     border-radius: 0.5em;
+}
+
+pre {
+    padding-left: 1em;
+    padding-right: 1em;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+    margin-left: 2em;
+    border: solid 1px #E0E0E0;
+    border-left: solid 2px #731212;
 }
 
 .section {
@@ -131,14 +143,32 @@ tt {
     width: auto;
 }
 
-.section.run .parameter {
-    display: inline-block;
+.section table.rpc td:nth-child(1),
+.section table.rpc td:nth-child(2) {
+    font-family: consolas, monospace;
+    width: 10%;
+    text-align: center;
 }
-.section.run .parameter::before {
+
+.section table.rpc td:nth-child(3) {
+    text-align: center;
+}
+
+.parameter {
+    display: inline-block;
+    font-family: consolas, monospace;
+}
+.parameter::before {
     content: '<';
 }
-.section.run .parameter::after {
+.parameter::after {
     content: '>';
+}
+.parameter.optional {
+    font-style: italic;
+}
+.parameter.mandatory {
+    font-weight: bold;
 }
 
 .section::before {

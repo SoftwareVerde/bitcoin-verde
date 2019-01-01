@@ -321,11 +321,91 @@
                 </div>
                 <a name="rpc"></a>
                 <div class="section rpc">
-                    <p></p>
+                    <p>
+                        Bitcoin Verde has an RPC protocol to control the node while its running.  The protocol listens on port 8334 by default and is configurable via the <tt>bitcoin.rpcPort</tt> configuration parameter.  The RPC protocol is JSON-based and
+                        loosely mimics HTTP methods, using both <tt>GET</tt> and <tt>POST</tt> to indicate mutating/write and immutable/read operations.
+                    </p>
+                    <p>
+                        An example RPC invocation to shutdown the node looks like:
+                    </p>
+<pre>{
+    "method": "POST",
+    "query":  "SHUTDOWN"
+}</pre>
+
+                    <p>
+                        An example RPC invocation to retrieve information about a transaction looks like:
+                    </p>
+<pre>{
+    "method": "GET",
+    "query":  "TRANSACTION",
+    "parameters": {
+        "hash": "917A95AADA7B17A10661CAA2EE379E05CD816E9AB9E5C7651A371909B7222812"
+    }
+}</pre>
+
+                    <p>
+                        The procedures Bitcoin Verde currently support are listed below:
+                    </p>
+                    <table class="rpc">
+                        <thead>
+                            <tr><th>Method</th><th>Query</th><th>Parameters</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEADERS</td><td data-label="Parameters"><span class="parameter optional">blockHeight</span> <span class="parameter optional">maxBlockCount=10</span></td><td data-label="Description">List block headers starting after <tt>blockHeight</tt>, or the head block if not provided.  Returns at most <tt>maxBlockCount</tt> headers.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEADER</td><td data-label="Parameters"><span class="parameter mandatory">blockHeight | hash</span></td><td data-label="Description">Returns the blockHeader of matching <tt>hash</tt> or at <tt>blockHeight</tt> of the head chain.  <tt>blockHeight</tt> is ignored if <tt>hash</tt> is provided.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK</td><td data-label="Parameters"><span class="parameter mandatory">blockHeight | hash</span> <span class="parameter optional">rawFormat=0</span></td><td data-label="Description">Returns the block of matching <tt>hash</tt> or at <tt>blockHeight</tt> of the head chain.  <tt>blockHeight</tt> is ignored if <tt>hash</tt> is provided.  When <tt>rawFormat</tt> is set to <tt>1</tt> the returned block will be as hex-encoded bytes; otherwise, it is a detailed breakdown of the block as JSON.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">TRANSACTION</td><td data-label="Parameters"><span class="parameter mandatory">hash</span> <span class="parameter optional">rawFormat=0</span></td><td data-label="Description">Returns the transaction by its <tt>hash</tt>.  When <tt>rawFormat</tt> is set to <tt>1</tt> the returned transaction will be as hex-encoded bytes; otherwise, it is a detailed breakdown of the transaction as JSON. </td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEIGHT</td><td data-label="Parameters"></td><td data-label="Description">Returns the current head block height and the block header height.  These values can be used to determine synchronization progress, assuming block headers have finished processing.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">STATUS</td><td data-label="Parameters"></td><td data-label="Description">Returns the node's status, including block/header height, services' statuses, memory usage, thread-pool utiliztion, and synchronization statistics.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">NODES</td><td data-label="Parameters"></td><td data-label="Description">Returns a list of connected peers.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BALANCE</td><td data-label="Parameters"><span class="parameter mandatory">address</span></td><td data-label="Description">Returns the current balance of the provided address.  Keep in mind that nodes that have not completed the initial block download may not have an up-to-date balance.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">ADDRESS</td><td data-label="Parameters"><span class="parameter mandatory">address</span></td><td data-label="Description">Returns transactions that have either sent-to or were sent-from the provided address.  Keep in mind that nodes that have not completed the initial block download may not have an up-to-date list.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCKCHAIN</td><td data-label="Parameters"></td><td data-label="Description">Returns forked and orphaned blockchains that the node has witnessed.  Forks and orphans are fairly rare until after the initial block download has completed.</td></tr>
+
+                            <tr><td class="hr" colspan="4">&nbsp;</td></tr>
+
+                            <tr><td data-label="Method">POST</td><td data-label="Query">SHUTDOWN</td><td data-label="Parameters"></td><td data-label="Description">Gracefully shuts down the node.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">ADD_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span> <span class="parameter mandatory">port</span></td><td data-label="Description">Forces the node to connect to the specified peer.  Once <tt>maxPeerCount</tt> has been reached, adding a peer will eject a node from the currently connected set.</td></tr>
+                        </tbody>
+                    </table>
+
                 </div>
                 <a name="technical-notes"></a>
                 <div class="section technical-notes">
-                    <p>The database is a self contained MariaDB database.  Currently, this is the only database supported; in the future it may be possible to use a remote/external database.</p>
+                    <h2>Architecture</h2>
+                    <div class="h2-content">
+                    <p>
+                        Most of the node's operations are asychronous.  The primary asynchronous services are the <tt>BlockDownloader</tt>, <tt>BlockHeaderDownloader</tt>, <tt>BlockchainBuilder</tt>,
+                        <tt>AddressProcessor</tt>, <tt>TransactionDownloader</tt>, and <tt>TransactionProcessor</tt>.  These various services alongside the <tt>NodeManager</tt> and the
+                        <tt>JsonRpcSocketServerHandler</tt> comprise the majority of the node's functionality.  Events from one service often trigger other services to wake up; for instance,
+                        completing a block download from within the <tt>BlockDownloader</tt> triggers the <tt>BlockchainBuilder</tt> to check for available blocks to process.
+                    </p>
+                    <p>
+                        Three steps are taken when a block hash or header is received: the hash is queued for download within the <tt>pending_blocks</tt> table, the <tt>node_block_inventory</tt>
+                        table is updated to keep a record of which node(s) can be used to download the block, and the BlockDownloader is woken up.  The <tt>BlockDownloader</tt>
+                        queries <tt>pending_blocks</tt> for any blocks that have not been downloaded; when a match is found, the <tt>BlockDownloader</tt> checks the <tt>NodeManager</tt> for
+                        nodes that have the block inventory, and requests the block.  If there are blocks that can't be downloaded because there are no peers connected that have announced that block,
+                        then a <tt>BlockFinder</tt> message is broadcasted and the pending block hashes are deleted from <tt>pending_blocks</tt>.
+                    </p>
+                    <p>
+                        When a block is downloaded, the <tt>BlockchainDownloader</tt> is woken up.  If there is a block that has been downloaded that has its parent block processed, the
+                        <tt>BlockchainBuilder</tt> stores and validates the block.  The <tt>BlockchainBuilder</tt> continues to process blocks until it runs out of available blocks; once complete,
+                        a <tt>BlockFinder</tt> message is broadcast to all peers to ensure there are no new blocks available before the service goes back to sleep.
+                    </p>
+                    <p>
+                        The <tt>AddressProcessor</tt> is woken up when a new block has been stored and validated.  The <tt>AddressProcessor</tt> iterates through each TransactionOutput to index
+                        Addresses for the Block Explorer.  When blockTrimming is enabled, the <tt>AddressProcessor</tt> is disabled.
+                    </p>
+                    <p>
+                        Similarly to how blocks are queued for download, when a new transaction is announced its hash is queued into <tt>pending_transactions</tt>. The <tt>TransactionDownloader</tt>,
+                        <tt>TransactionProcessor</tt> share the same relationship and life-cycles as the <tt>BlockDownloader</tt> and <tt>BlockchainBuilder</tt>.
+                    </p>
+                    <p>
+                        Bitcoin Verde's database is a self contained MariaDB database.  The database is started when the node starts and is shut down when the node shuts down.  If the node crashes,
+                        the database is not always shut down with it and lives as a zombie process; in this state, the node will fail to restart until the database is killed manually (usually via
+                        a kill command).
+                    </p>
                 </div>
             </div>
         </div>
