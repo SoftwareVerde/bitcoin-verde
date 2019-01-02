@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.type.hash;
+package com.softwareverde.bitcoin.hash;
 
-import com.softwareverde.bitcoin.type.bytearray.overflow.ImmutableOverflowingByteArray;
+import com.softwareverde.bitcoin.bytearray.overflow.ImmutableOverflowingByteArray;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 

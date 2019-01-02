@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;

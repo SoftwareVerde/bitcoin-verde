@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.address;
 
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.key.PublicKey;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;

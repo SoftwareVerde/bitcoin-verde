@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;

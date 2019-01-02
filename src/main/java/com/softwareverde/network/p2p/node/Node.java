@@ -102,15 +102,12 @@ public abstract class Node {
     }
 
     protected void _disconnect() {
-        _onDisconnect();
+        final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;
         _nodeHandshakeCompleteCallback = null;
         _nodeDisconnectedCallback = null;
-
-        _connection.setMessageReceivedCallback(null);
-        _connection.disconnect();
 
         _handshakeIsComplete = false;
         _postHandshakeMessageQueue.clear();
@@ -119,6 +116,21 @@ public abstract class Node {
 
         if (_threadPool instanceof ThreadPoolThrottle) {
             ((ThreadPoolThrottle) _threadPool).stop();
+        }
+
+        _connection.setOnDisconnectCallback(null); // Intentionally avoid triggering the normal socket disconnect callback...
+        _connection.disconnect();
+
+        Logger.log("Socket disconnected.");
+
+        if (nodeDisconnectedCallback != null) {
+            // Intentionally not using the thread pool since it has been shutdown...
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    nodeDisconnectedCallback.onNodeDisconnected();
+                }
+            })).start();
         }
     }
 
@@ -172,22 +184,6 @@ public abstract class Node {
                     final NodeConnectedCallback callback = _nodeConnectedCallback;
                     if (callback != null) {
                         callback.onNodeConnected();
-                    }
-                }
-            });
-        }
-    }
-
-    protected void _onDisconnect() {
-        Logger.log("Socket disconnected.");
-
-        if (_nodeDisconnectedCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    final NodeDisconnectedCallback callback = _nodeDisconnectedCallback;
-                    if (callback != null) {
-                        callback.onNodeDisconnected();
                     }
                 }
             });

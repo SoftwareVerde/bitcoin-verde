@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.type.hash.ripemd160;
+package com.softwareverde.bitcoin.hash.ripemd160;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.hash.Hash;
 
 public interface Ripemd160Hash extends Hash {
     Integer BYTE_COUNT = 20;

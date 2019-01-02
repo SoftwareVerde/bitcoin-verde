@@ -133,11 +133,11 @@ public class NodeManager<NODE extends Node> {
         _nodes.remove(nodeId);
         final MutableNodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
 
-        node.disconnect();
-
         if (LOGGING_ENABLED) {
             Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.getHealth() + "hp");
         }
+
+        node.disconnect();
 
         if (_nodes.isEmpty()) {
             if (! _isShuttingDown) {
@@ -285,6 +285,11 @@ public class NodeManager<NODE extends Node> {
                 }
                 catch (final Exception exception) { }
             }
+
+            @Override
+            public String toString() {
+                return (NodeManager.this.getClass().getCanonicalName() + "." + "TimeoutRunnable"); // Used a hack for FakeThreadPools...
+            }
         };
 
         node.setNodeAddressesReceivedCallback(new NODE.NodeAddressesReceivedCallback() {
@@ -402,10 +407,10 @@ public class NodeManager<NODE extends Node> {
             }
         });
 
+        _threadPool.execute(timeoutRunnable);
+
         node.connect();
         node.handshake();
-
-        _threadPool.execute(timeoutRunnable);
     }
 
     // NOTE: Requires Mutex Lock...

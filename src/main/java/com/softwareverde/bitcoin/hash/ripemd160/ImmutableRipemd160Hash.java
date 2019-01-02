@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.type.hash.ripemd160;
+package com.softwareverde.bitcoin.hash.ripemd160;
 
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.bitcoin.hash.ImmutableHash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 

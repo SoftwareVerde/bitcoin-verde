@@ -1,15 +1,14 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
@@ -146,11 +145,11 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public ScriptSignature asScriptSignature() {
-        return ScriptSignature.fromBytes(MutableByteArray.wrap(_bytes));
+        return ScriptSignature.fromBytes(this);
     }
 
     public PublicKey asPublicKey() {
-        return new PublicKey(_bytes);
+        return PublicKey.fromBytes(this);
     }
 
     public String asString() {

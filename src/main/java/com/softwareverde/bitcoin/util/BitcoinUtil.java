@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.murmur.MurmurHashUtil;

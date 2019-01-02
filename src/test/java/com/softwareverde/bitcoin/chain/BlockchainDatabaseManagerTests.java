@@ -5,7 +5,9 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.*;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.miner.Miner;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockRelationship;
@@ -29,8 +31,6 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -1134,7 +1134,7 @@ class Void {
         mutableBlock.setTimestamp(block5.getTimestamp() + (tenMinutesInSeconds));
         mutableBlock.setVersion(block5.getVersion());
 
-        final PrivateKey privateKey = PrivateKey.parseFromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
+        final PrivateKey privateKey = PrivateKey.fromHexString("9F40477DAB2F6822360E6C690F8278DB73E536156A402BBBE798A85DCBE1A8AC");
         final Address payToAddress = addressInflater.fromPrivateKey(privateKey);
 
         {

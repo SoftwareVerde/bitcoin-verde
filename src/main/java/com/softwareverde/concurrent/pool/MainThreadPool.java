@@ -15,6 +15,8 @@ public class MainThreadPool implements ThreadPool {
     final AtomicInteger _nextThreadId = new AtomicInteger(0);
 
     protected ThreadPoolExecutor _createExecutorService() {
+        if (_maxThreadCount < 1) { return null; }
+
         final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(_maxThreadCount, _maxThreadCount, _threadKeepAliveMilliseconds, TimeUnit.MILLISECONDS, _queue, new ThreadFactory() {
             @Override
             public Thread newThread(final Runnable runnable) {

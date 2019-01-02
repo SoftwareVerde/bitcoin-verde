@@ -20,7 +20,7 @@ import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;

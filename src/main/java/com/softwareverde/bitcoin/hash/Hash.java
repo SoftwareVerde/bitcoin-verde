@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.hash;
+package com.softwareverde.bitcoin.hash;
 
 import com.softwareverde.constable.bytearray.ByteArray;
 

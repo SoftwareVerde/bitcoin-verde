@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.util.Util;
 

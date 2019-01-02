@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.util.bytearray.Endian;

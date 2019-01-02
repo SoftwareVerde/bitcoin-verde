@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.type.merkleroot;
+package com.softwareverde.bitcoin.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 

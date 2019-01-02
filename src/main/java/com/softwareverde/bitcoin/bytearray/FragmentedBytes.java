@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.bytearray;
+package com.softwareverde.bitcoin.bytearray;
 
 public class FragmentedBytes {
     public final byte[] headBytes;

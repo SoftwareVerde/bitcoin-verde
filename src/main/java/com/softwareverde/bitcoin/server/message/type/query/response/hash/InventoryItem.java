@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.hash;
 
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;

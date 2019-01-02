@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.address.CompressedAddress;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -125,7 +125,7 @@ public class ScriptPatternMatcher {
 
         final PushOperation pushOperation = (PushOperation) operation;
         final ByteArray bytes = MutableByteArray.wrap(pushOperation.getValue().getBytes());
-        final PublicKey publicKey = new PublicKey(bytes);
+        final PublicKey publicKey = PublicKey.fromBytes(bytes);
         return publicKey;
     }
 

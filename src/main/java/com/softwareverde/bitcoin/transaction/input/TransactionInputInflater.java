@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;

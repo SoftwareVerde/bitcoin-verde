@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.key;
+package com.softwareverde.bitcoin.secp256k1.key;
 
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.constable.Const;
@@ -6,16 +6,22 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 
 public class PublicKey extends ImmutableByteArray implements Const {
+    public static PublicKey fromBytes(final ByteArray bytes) {
+        if (bytes == null) { return null; }
+
+        return new PublicKey(bytes);
+    }
+
     protected Boolean _isCompressed() {
         final byte firstByte = _bytes[0];
         return ( (firstByte == (byte) 0x02) || (firstByte == (byte) 0x03) );
     }
 
-    public PublicKey(final byte[] bytes) {
+    protected PublicKey(final byte[] bytes) {
         super(bytes);
     }
 
-    public PublicKey(final ByteArray byteArray) {
+    protected PublicKey(final ByteArray byteArray) {
         super(byteArray);
     }
 

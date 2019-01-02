@@ -34,8 +34,8 @@ import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransa
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.callback.Callback;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.callback.Callback;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -202,6 +202,28 @@ public class BitcoinNode extends Node {
     }
 
     @Override
+    protected void _disconnect() {
+        { // Unset all callback and handlers...
+            _queryBlocksCallback = null;
+            _queryBlockHeadersCallback = null;
+            _requestDataMessageCallback = null;
+            _blockInventoryMessageHandler = null;
+            _requestExtraThinBlockCallback = null;
+            _requestExtraThinTransactionCallback = null;
+            _transactionsAnnouncementCallback = null;
+        }
+
+        synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
+        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
+        synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
+        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
+        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
+        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
+
+        super._disconnect();
+    }
+
+    @Override
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
 
@@ -364,14 +386,14 @@ public class BitcoinNode extends Node {
         _connection.setOnConnectFailureCallback(new Runnable() {
             @Override
             public void run() {
-                _onDisconnect();
+                _disconnect();
             }
         });
 
         _connection.setOnDisconnectCallback(new Runnable() {
             @Override
             public void run() {
-                _onDisconnect();
+                _disconnect();
             }
         });
     }
@@ -882,27 +904,5 @@ public class BitcoinNode extends Node {
         bitcoinNodeIpAddress.setPort(nodeIpAddress.getPort());
         bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
         return bitcoinNodeIpAddress;
-    }
-
-    @Override
-    public void disconnect() {
-        super.disconnect();
-
-        { // Unset all callback and handlers...
-            _queryBlocksCallback = null;
-            _queryBlockHeadersCallback = null;
-            _requestDataMessageCallback = null;
-            _blockInventoryMessageHandler = null;
-            _requestExtraThinBlockCallback = null;
-            _requestExtraThinTransactionCallback = null;
-            _transactionsAnnouncementCallback = null;
-        }
-
-        synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
-        synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
-        synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
-        synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
-        synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
-        synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
     }
 }

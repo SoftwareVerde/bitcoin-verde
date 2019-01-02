@@ -1,6 +1,6 @@
-package com.softwareverde.bitcoin.type.hash.sha256;
+package com.softwareverde.bitcoin.hash.sha256;
 
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.hash.MutableHash;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.ByteUtil;
 

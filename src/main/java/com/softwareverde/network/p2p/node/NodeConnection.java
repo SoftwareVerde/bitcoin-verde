@@ -295,6 +295,14 @@ public class NodeConnection {
     }
 
     public void disconnect() {
+        final Runnable onDisconnectCallback = _onDisconnectCallback;
+
+        _messageReceivedCallback = null;
+        _onDisconnectCallback = null;
+        _onReconnectCallback = null;
+        _onConnectCallback = null;
+        _onConnectFailureCallback = null;
+
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 _shutdownConnectionThread();
@@ -302,8 +310,14 @@ public class NodeConnection {
         }
 
         final BinarySocket binarySocket = _binarySocket;
+        _binarySocket = null;
         if (binarySocket != null) {
+            binarySocket.setMessageReceivedCallback(null);
             binarySocket.close();
+        }
+
+        if (onDisconnectCallback != null) {
+            (new Thread(onDisconnectCallback)).start();
         }
     }
 

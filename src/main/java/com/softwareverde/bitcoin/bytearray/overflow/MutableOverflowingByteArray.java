@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.type.bytearray.overflow;
+package com.softwareverde.bitcoin.bytearray.overflow;
 
 import com.softwareverde.constable.bytearray.MutableByteArray;
 

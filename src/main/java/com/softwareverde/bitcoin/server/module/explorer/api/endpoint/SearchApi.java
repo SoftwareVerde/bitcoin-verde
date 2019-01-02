@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.servlet.GetParameters;

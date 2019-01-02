@@ -15,6 +15,8 @@ import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
@@ -33,9 +35,7 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -55,7 +55,7 @@ import org.junit.Test;
 import java.util.TimeZone;
 
 public class BlockValidatorTests extends IntegrationTest {
-    final PrivateKey _privateKey = PrivateKey.parseFromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
+    final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
 
     public static class FakeNetworkTime extends MutableNetworkTime {
         private final Long _fakeTime;

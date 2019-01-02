@@ -3,8 +3,12 @@ package com.softwareverde.bitcoin.type.key;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.address.CompressedAddress;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -22,7 +26,7 @@ public class PrivateKeyTests {
         final byte[] expectedPublicKey = HexUtil.hexStringToByteArray("04889CC9F2F56A9C8E7BF0437EA41ECEB2C7375780049D6EBB0B8D542CA7AFA46F7C8AFD5C91566ECA2BE4B477BCB808FDF45140D811683A06B36321DE09FDB9E0");
         final byte[] expectedCompressedPublicKey = HexUtil.hexStringToByteArray("02889CC9F2F56A9C8E7BF0437EA41ECEB2C7375780049D6EBB0B8D542CA7AFA46F");
 
-        final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
+        final PrivateKey privateKey = PrivateKey.fromBytes(MutableByteArray.wrap(privateKeyBytes));
 
         final AddressInflater addressInflater = new AddressInflater();
 
@@ -53,7 +57,7 @@ public class PrivateKeyTests {
         final byte[] expectedPublicKey = HexUtil.hexStringToByteArray("040DD64F3EC3AEBBE5FD7E5C7360AD7A02D5E0648BFAA11ABD1BCD8A747D4D72EAB6A65A9D842943C631D2BB1B261179EE801DD09989B8DFFE3A49DE396CB4FB09");
         final byte[] expectedCompressedPublicKey = HexUtil.hexStringToByteArray("030DD64F3EC3AEBBE5FD7E5C7360AD7A02D5E0648BFAA11ABD1BCD8A747D4D72EA");
 
-        final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
+        final PrivateKey privateKey = PrivateKey.fromBytes(MutableByteArray.wrap(privateKeyBytes));
 
         final AddressInflater addressInflater = new AddressInflater();
 
@@ -82,7 +86,7 @@ public class PrivateKeyTests {
         final String expectedAddressString = "12Y8pRcJSrXCy1NuTuzTnPVbmM7Q63vTVo";
         final String expectedCompressedAddressString = "152sweTR1yQsihW88hStanc6EN9aiKX87C";
 
-        final PrivateKey privateKey = new PrivateKey(privateKeyBytes);
+        final PrivateKey privateKey = PrivateKey.fromBytes(MutableByteArray.wrap(privateKeyBytes));
         final PublicKey publicKey = privateKey.getPublicKey();
         final PublicKey compressedPublicKey = publicKey.compress();
         final PublicKey decompressedPublicKey = compressedPublicKey.decompress();
@@ -99,5 +103,65 @@ public class PrivateKeyTests {
 
         Assert.assertEquals(expectedAddressString, decompressedBitcoinAddress.toBase58CheckEncoded());
         Assert.assertEquals(expectedCompressedAddressString, compressedAddress.toBase58CheckEncoded());
+    }
+
+    @Test
+    public void should_not_create_private_key_with_all_zero_bytes() {
+        // Setup
+        final ByteArray privateKeyBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"));
+
+        // Action
+        final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+        // Assert
+        Assert.assertNull(privateKey);
+    }
+
+    @Test
+    public void should_create_private_key_with_min_value() {
+        // Setup
+        final ByteArray privateKeyBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000001"));
+
+        // Action
+        final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+        // Assert
+        Assert.assertNotNull(privateKey);
+    }
+
+    @Test
+    public void should_create_private_key_with_max_valid_value() {
+        // Setup
+        final ByteArray privateKeyBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364140"));
+
+        // Action
+        final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+        // Assert
+        Assert.assertNotNull(privateKey);
+    }
+
+    @Test
+    public void should_not_create_private_key_with_one_over_max_valid_value() {
+        // Setup
+        final ByteArray privateKeyBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"));
+
+        // Action
+        final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+        // Assert
+        Assert.assertNull(privateKey);
+    }
+
+    @Test
+    public void should_not_create_private_key_with_all_F_bytes() {
+        // Setup
+        final ByteArray privateKeyBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"));
+
+        // Action
+        final PrivateKey privateKey = PrivateKey.fromBytes(privateKeyBytes);
+
+        // Assert
+        Assert.assertNull(privateKey);
     }
 }
