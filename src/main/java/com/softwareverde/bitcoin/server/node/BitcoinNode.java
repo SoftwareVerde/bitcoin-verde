@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.callback.Callback;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
@@ -12,6 +14,7 @@ import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddressMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.request.RequestPeersMessage;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
@@ -34,8 +37,6 @@ import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransa
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.callback.Callback;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -57,6 +58,7 @@ import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -153,6 +155,28 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected static <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
+        synchronized (destinationMap) {
+            Set<S> destinationSet = destinationMap.get(key);
+            if (destinationSet == null) {
+                destinationSet = new HashSet<S>();
+                destinationMap.put(key, destinationSet);
+            }
+            destinationSet.add(value);
+        }
+    }
+
+    protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
+        synchronized (destinationList) {
+            MutableList<S> destinationSet = destinationList.get(key);
+            if (destinationSet == null) {
+                destinationSet = new MutableList<S>();
+                destinationList.put(key, destinationSet);
+            }
+            destinationSet.add(value);
+        }
+    }
+
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
@@ -173,6 +197,8 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
+
+    protected final LocalNodeFeatures _localNodeFeatures;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
@@ -227,12 +253,15 @@ public class BitcoinNode extends Node {
     protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
 
+        final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
+        synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
+
         synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions());
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
             final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
-            remoteNodeIpAddress.setIp(Ipv4.parse(_connection.getRemoteIp()));
+            remoteNodeIpAddress.setIp(_connection.getIp());
             remoteNodeIpAddress.setPort(_connection.getPort());
             remoteNodeIpAddress.setNodeFeatures(new NodeFeatures());
             synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
@@ -398,14 +427,16 @@ public class BitcoinNode extends Node {
         });
     }
 
-    public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool) {
+    public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
+        _localNodeFeatures = localNodeFeatures;
 
         _initConnection();
     }
 
-    public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool) {
+    public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(binarySocket, threadPool);
+        _localNodeFeatures = localNodeFeatures;
 
         _initConnection();
     }

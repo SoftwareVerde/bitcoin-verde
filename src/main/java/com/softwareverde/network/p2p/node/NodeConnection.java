@@ -3,15 +3,17 @@ package com.softwareverde.network.p2p.node;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.ip.Ipv4;
+import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Util;
 
 import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
@@ -83,15 +85,6 @@ public class NodeConnection {
             }
 
             if ( (socket != null) && (socket.isConnected()) ) {
-                {
-                    final SocketAddress socketAddress = socket.getRemoteSocketAddress();
-                    final String socketIpString = socketAddress.toString();
-                    final java.util.List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
-                    // final String domainName = urlParts.get(0);
-                    _remoteIp = urlParts.get(1); // Ip Address
-                    // final String portString = urlParts.get(2);
-                }
-
                 _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
                 _onSocketConnected();
             }
@@ -105,7 +98,6 @@ public class NodeConnection {
 
     protected final String _host;
     protected final Integer _port;
-    protected String _remoteIp;
     protected final BinaryPacketFormat _binaryPacketFormat;
 
     protected final ConcurrentLinkedQueue<ProtocolMessage> _outboundMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
@@ -126,7 +118,18 @@ public class NodeConnection {
     protected final ThreadPool _threadPool;
 
     protected String _toString() {
-        return (_host +":" + _port);
+        String hostString = _host;
+        {
+            final BinarySocket binarySocket = _binarySocket;
+            if (binarySocket != null) {
+                final Ip ip = binarySocket.getIp();
+                if (ip != null) {
+                    hostString = ip.toString();
+                }
+            }
+        }
+
+        return (hostString + ":" + _port);
     }
 
     protected void _shutdownConnectionThread() {
@@ -230,7 +233,6 @@ public class NodeConnection {
         }
     }
 
-
     public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         _host = host;
         _port = port;
@@ -244,7 +246,8 @@ public class NodeConnection {
      *  NodeConnection::connect should still be invoked in order to initiate the ::_onSocketConnected procedure.
      */
     public NodeConnection(final BinarySocket binarySocket, final ThreadPool threadPool) {
-        _host = binarySocket.getHost();
+        final Ip ip = binarySocket.getIp();
+        _host = (ip != null ? ip.toString() : binarySocket.getHost());
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
@@ -340,13 +343,29 @@ public class NodeConnection {
         _messageReceivedCallback = messageReceivedCallback;
     }
 
-    public String getRemoteIp() {
-        return _remoteIp;
+    /**
+     * Attempts to return the hostname via a hostname lookup or the provided host if not found.
+     */
+    public String getHost() {
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket == null) { return _host; }
+
+        return Util.coalesce(binarySocket.getHost(), _host);
     }
 
-    public String getHost() { return _host; }
-
     public Integer getPort() { return _port; }
+
+    /**
+     * Returns the Ip if connected, or attempts to look up the Ip from the provided host.  Returns null if the host is unknown.
+     */
+    public Ip getIp() {
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket != null) {
+            return binarySocket.getIp();
+        }
+
+        return Ip.fromHostName(_host);
+    }
 
     @Override
     public String toString() {

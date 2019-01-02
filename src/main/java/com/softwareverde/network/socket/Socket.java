@@ -3,7 +3,9 @@ package com.softwareverde.network.socket;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
+import com.softwareverde.util.Util;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,8 +48,9 @@ public abstract class Socket {
     protected final Object _rawOutputStreamWriteMutex = new Object();
 
     protected String _getHost() {
+        Logger.log("INFO: Performing reverse lookup.");
         final InetAddress inetAddress = _socket.getInetAddress();
-        return inetAddress.getHostName();
+        return (inetAddress != null ? inetAddress.getHostName() : null);
     }
 
     protected Integer _getPort() {
@@ -181,8 +184,15 @@ public abstract class Socket {
         return _messages.poll();
     }
 
+    /**
+     * Attempts to return the DNS lookup of the connection or null if the lookup fails.
+     */
     public String getHost() {
         return _getHost();
+    }
+
+    public Ip getIp() {
+        return Ip.fromSocket(_socket);
     }
 
     public Integer getPort() {
@@ -220,6 +230,6 @@ public abstract class Socket {
 
     @Override
     public String toString() {
-        return _getHost() + ":" + _getPort();
+        return (Ip.fromSocket(_socket) + ":" + _getPort());
     }
 }

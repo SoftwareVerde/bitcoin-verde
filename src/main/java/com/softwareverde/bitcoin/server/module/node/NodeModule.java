@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransac
 import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.CacheWarmer;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
@@ -362,6 +363,19 @@ public class NodeModule {
             }
         };
 
+        final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                final NodeFeatures nodeFeatures = new NodeFeatures();
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                if (! serverProperties.shouldTrimBlocks()) {
+                    nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+                }
+                nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
+                return nodeFeatures;
+            }
+        };
+
         { // Initialize NodeInitializer...
             final Runnable newInventoryCallback = new Runnable() {
                 @Override
@@ -374,11 +388,11 @@ public class NodeModule {
             final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures);
         }
 
         { // Initialize NodeManager...
-            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, threadPoolFactory);
+            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, threadPoolFactory, localNodeFeatures);
         }
 
         { // Initialize the TransactionDownloader...
@@ -555,22 +569,22 @@ public class NodeModule {
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
-                final String host = binarySocket.getHost();
+                final Ip ip = binarySocket.getIp();
 
-                final Boolean isBanned = _banFilter.isHostBanned(host);
+                final Boolean isBanned = _banFilter.isIpBanned(ip);
                 if (isBanned) {
                     binarySocket.close();
                     return;
                 }
 
-                final Boolean shouldBan = _banFilter.shouldBanHost(host);
+                final Boolean shouldBan = _banFilter.shouldBanIp(ip);
                 if (shouldBan) {
-                    _banFilter.banHost(host);
+                    _banFilter.banIp(ip);
                     binarySocket.close();
                     return;
                 }
 
-                Logger.log("New Connection: " + binarySocket);
+                Logger.log("New Connection: " + binarySocket.toString());
                 final BitcoinNode node = _nodeInitializer.initializeNode(binarySocket);
                 _bitcoinNodeManager.addNode(node);
             }

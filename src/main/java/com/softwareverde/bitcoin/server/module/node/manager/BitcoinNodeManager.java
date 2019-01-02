@@ -7,12 +7,14 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
@@ -20,7 +22,6 @@ import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
@@ -63,6 +64,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
     protected final SynchronizationStatus _synchronizationStatusHandler;
     protected final ThreadPoolFactory _threadPoolFactory;
+    protected final LocalNodeFeatures _localNodeFeatures;
 
     // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
     protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
@@ -91,7 +93,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 final String host = ip.toString();
                 final Integer port = bitcoinNodeIpAddress.getPort();
-                final BitcoinNode node = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool());
+                final BitcoinNode node = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
                 this.addNode(node); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                 Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
@@ -121,27 +123,27 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
         final Boolean handshakeIsComplete = node.handshakeIsComplete();
         if (! handshakeIsComplete) {
-            final String host = node.getHost();
+            final Ip ip = node.getIp();
 
-            if (_banFilter.shouldBanHost(host)) {
-                _banFilter.banHost(host);
+            if (_banFilter.shouldBanIp(ip)) {
+                _banFilter.banIp(ip);
             }
         }
     }
 
     @Override
     public void _addHandshakedNode(final BitcoinNode node) {
-        final String host = node.getHost();
+        final Ip ip = node.getIp();
         final Integer port = node.getPort();
 
         final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
         allNodes.addAll(_nodes.values());
 
         for (final BitcoinNode bitcoinNode : allNodes) {
-            final String existingNodeHost = bitcoinNode.getHost();
+            final Ip existingNodeIp = bitcoinNode.getIp();
             final Integer existingNodePort = bitcoinNode.getPort();
 
-            if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
+            if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
                 return; // Duplicate Node...
             }
         }
@@ -162,12 +164,12 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _addNotHandshakedNode(final BitcoinNode node) {
-        final String host = node.getHost();
+        final Ip ip = node.getIp();
         final Integer port = node.getPort();
 
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Boolean isBanned = nodeDatabaseManager.isBanned(host);
+            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
             if (isBanned) {
                 node.disconnect();
                 return;
@@ -183,10 +185,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 allNodes.addAll(_nodes.values());
 
                 for (final BitcoinNode bitcoinNode : allNodes) {
-                    final String existingNodeHost = bitcoinNode.getHost();
+                    final Ip existingNodeIp = bitcoinNode.getIp();
                     final Integer existingNodePort = bitcoinNode.getPort();
 
-                    if (Util.areEqual(host, existingNodeHost) && Util.areEqual(port, existingNodePort)) {
+                    if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
                         return; // Duplicate Node...
                     }
                 }
@@ -214,8 +216,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory) {
-        super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory), networkTime, threadPool);
+    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
+        super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures), networkTime, threadPool);
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeInitializer = nodeInitializer;
@@ -223,6 +225,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _memoryPoolEnquirer = memoryPoolEnquirer;
         _synchronizationStatusHandler = synchronizationStatusHandler;
         _threadPoolFactory = threadPoolFactory;
+        _localNodeFeatures = localNodeFeatures;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -335,7 +338,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         if (apiRequest.didTimeout) { return; }
 
                         if (callback != null) {
-                            Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getHost());
+                            Logger.log("Received Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
                             callback.onResult(block);
                         }
                     }

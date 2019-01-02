@@ -23,9 +23,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class NodeManager<NODE extends Node> {
-    public static Boolean LOGGING_ENABLED = false;
+    public static Boolean LOGGING_ENABLED = true;
 
     protected static ThreadPool _threadPool;
 
@@ -84,7 +85,7 @@ public class NodeManager<NODE extends Node> {
     protected final NodeFactory<NODE> _nodeFactory;
     protected final Map<NodeId, NODE> _nodes;
     protected Map<NodeId, NODE> _pendingNodes = new HashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
-    protected final Map<NodeId, MutableNodeHealth> _nodeHealthMap;
+    protected final ConcurrentHashMap<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final MutableList<NodeApiMessage<NODE>> _queuedTransmissions = new MutableList<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
     protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
@@ -131,10 +132,10 @@ public class NodeManager<NODE extends Node> {
         final NodeId nodeId = node.getId();
 
         _nodes.remove(nodeId);
-        final MutableNodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
 
         if (LOGGING_ENABLED) {
-            Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + nodeHealth.getHealth() + "hp");
+            final MutableNodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
+            Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") +  "hp");
         }
 
         node.disconnect();
@@ -382,6 +383,10 @@ public class NodeManager<NODE extends Node> {
         node.setNodeHandshakeCompleteCallback(new NODE.NodeHandshakeCompleteCallback() {
             @Override
             public void onHandshakeComplete() {
+                if (LOGGING_ENABLED) {
+                    Logger.log("P2P: HandshakeComplete: " + node.getConnectionString());
+                }
+
                 synchronized (_mutex) {
                     _pendingNodes.remove(node.getId());
                     _addHandshakedNode(node);
@@ -476,7 +481,7 @@ public class NodeManager<NODE extends Node> {
 
         if (LOGGING_ENABLED) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(selectedNode.getId());
-            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + nodeHealth.getHealth() + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
+            Logger.log("P2P: Selected Node: " + (selectedNode.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (selectedNode.getConnectionString()) + " - " + _nodes.size());
         }
 
         return selectedNode;
@@ -492,7 +497,7 @@ public class NodeManager<NODE extends Node> {
 
             if (LOGGING_ENABLED) {
                 final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
-                Logger.log("P2P: Selected Node: " + (node.getId()) + " (" + nodeHealth.getHealth() + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
+                Logger.log("P2P: Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
             }
 
             return node;
@@ -602,7 +607,7 @@ public class NodeManager<NODE extends Node> {
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
         _systemTime = new SystemTime();
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
@@ -613,7 +618,7 @@ public class NodeManager<NODE extends Node> {
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
         _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new HashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;

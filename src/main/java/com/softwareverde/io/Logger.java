@@ -89,6 +89,10 @@ public class Logger {
 
     public static String _getMetadata(final Exception exception, final Integer backtraceIndex) {
         final StackTraceElement stackTraceElements[] = exception.getStackTrace();
+        if (stackTraceElements.length == 0) {
+            return "UNKNOWN";
+        }
+
         final StackTraceElement stackTraceElement = stackTraceElements[Math.min(backtraceIndex, stackTraceElements.length - 1)];
         return stackTraceElement.getFileName() + ":" + stackTraceElement.getLineNumber();
     }

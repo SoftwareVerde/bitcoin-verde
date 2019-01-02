@@ -3,10 +3,8 @@ package com.softwareverde.network.p2p.node;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -16,7 +14,8 @@ import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
@@ -40,28 +39,6 @@ public abstract class Node {
     private static final Object NODE_ID_MUTEX = new Object();
     private static Long _nextId = 0L;
 
-    protected static <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
-        synchronized (destinationMap) {
-            Set<S> destinationSet = destinationMap.get(key);
-            if (destinationSet == null) {
-                destinationSet = new HashSet<S>();
-                destinationMap.put(key, destinationSet);
-            }
-            destinationSet.add(value);
-        }
-    }
-
-    protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
-        synchronized (destinationList) {
-            MutableList<S> destinationSet = destinationList.get(key);
-            if (destinationSet == null) {
-                destinationSet = new MutableList<S>();
-                destinationList.put(key, destinationSet);
-            }
-            destinationSet.add(value);
-        }
-    }
-
     protected final NodeId _id;
     protected final NodeConnection _connection;
     protected final Long _initializationTime;
@@ -72,17 +49,17 @@ public abstract class Node {
     protected Boolean _handshakeHasBeenInvoked = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
-    protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
 
-    protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
+    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
     protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
     protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
-    protected final LinkedList<Runnable> _postConnectQueue = new LinkedList<Runnable>();
+    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
 
     protected final ThreadPool _threadPool;
 
@@ -97,7 +74,7 @@ public abstract class Node {
             _connection.queueMessage(message);
         }
         else {
-            _postHandshakeMessageQueue.addLast(message);
+            _postHandshakeMessageQueue.offer(message);
         }
     }
 
@@ -160,7 +137,7 @@ public abstract class Node {
                     createAndQueueHandshake.run();
                 }
                 else {
-                    _postConnectQueue.addLast(createAndQueueHandshake);
+                    _postConnectQueue.offer(createAndQueueHandshake);
                 }
             }
 
@@ -171,8 +148,8 @@ public abstract class Node {
     protected void _onConnect() {
         _handshake();
         synchronized (_postConnectQueue) {
-            while (! _postConnectQueue.isEmpty()) {
-                final Runnable postConnectRunnable = _postConnectQueue.removeLast();
+            Runnable postConnectRunnable;
+            while ((postConnectRunnable = _postConnectQueue.poll()) != null) {
                 postConnectRunnable.run();
             }
         }
@@ -238,20 +215,20 @@ public abstract class Node {
 
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
-        if (_nodeHandshakeCompleteCallback != null) {
-            _threadPool.execute(new Runnable() {
-                @Override
-                public void run() {
-                    final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
-                    if (callback != null) {
-                        callback.onHandshakeComplete();
-                    }
-                }
-            });
-        }
 
-        while (! _postHandshakeMessageQueue.isEmpty()) {
-            _queueMessage(_postHandshakeMessageQueue.removeFirst());
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
+                if (callback != null) {
+                    callback.onHandshakeComplete();
+                }
+            }
+        });
+
+        ProtocolMessage protocolMessage;
+        while ((protocolMessage = _postHandshakeMessageQueue.poll()) != null) {
+            _queueMessage(protocolMessage);
         }
     }
 
@@ -333,16 +310,20 @@ public abstract class Node {
     }
 
     public String getConnectionString() {
-        return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
+        final Ip ip = _connection.getIp();
+        return ((ip != null ? ip.toString() : _connection.getHost()) + ":" + _connection.getPort());
     }
 
     public NodeIpAddress getRemoteNodeIpAddress() {
-        final String remoteAddress = Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
-        if (remoteAddress == null) { return null; }
+        final Ip ip;
+        {
+            final Ip connectionIp = _connection.getIp();
+            ip = (connectionIp != null ? connectionIp : Ip.fromString(_connection.getHost()));
+        }
 
-        final IpInflater ipInflater = new IpInflater();
-        final Ip ip = ipInflater.fromString(remoteAddress);
-        if (ip == null) { return null; }
+        if (ip == null) {
+            return null;
+        }
 
         return new NodeIpAddress(ip, _connection.getPort());
     }
@@ -411,8 +392,15 @@ public abstract class Node {
         return _connection.isConnected();
     }
 
+    /**
+     * Attempts to look up the Node's host, or returns null if the lookup fails.
+     */
     public String getHost() {
-        return Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
+        return _connection.getHost();
+    }
+
+    public Ip getIp() {
+        return _connection.getIp();
     }
 
     public Integer getPort() {

@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -109,6 +111,15 @@ public class RepairModule {
 
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
+        final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
+            @Override
+            public NodeFeatures getNodeFeatures() {
+                final NodeFeatures nodeFeatures = new NodeFeatures();
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+                return nodeFeatures;
+            }
+        };
+
         { // Initialize NodeInitializer...
             final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
             final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
@@ -125,7 +136,7 @@ public class RepairModule {
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures);
         }
     }
 

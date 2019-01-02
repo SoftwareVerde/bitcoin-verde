@@ -4,6 +4,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
 
 public class BanFilter {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -30,11 +31,11 @@ public class BanFilter {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
-    public Boolean isHostBanned(final String host) {
+    public Boolean isIpBanned(final Ip ip) {
         try {
             final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Boolean isBanned = nodeDatabaseManager.isBanned(host);
+            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
             return isBanned;
         }
         catch (final DatabaseException exception) {
@@ -45,11 +46,11 @@ public class BanFilter {
         }
     }
 
-    public Boolean shouldBanHost(final String host) {
+    public Boolean shouldBanIp(final Ip ip) {
         try {
             final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForHost(host);
+            final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip);
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
         }
         catch (final DatabaseException exception) {
@@ -61,13 +62,13 @@ public class BanFilter {
         return false;
     }
 
-    public void banHost(final String host) {
-        Logger.log("Banning Node: " + host);
+    public void banIp(final Ip ip) {
+        Logger.log("Banning Node: " + ip);
 
         try {
             final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            nodeDatabaseManager.setIsBanned(host, true);
+            nodeDatabaseManager.setIsBanned(ip, true);
         }
         catch (final DatabaseException exception) {
             _closeDatabaseConnection();
