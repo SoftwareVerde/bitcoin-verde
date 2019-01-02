@@ -121,7 +121,7 @@ public abstract class Node {
         _connection.setOnDisconnectCallback(null); // Intentionally avoid triggering the normal socket disconnect callback...
         _connection.disconnect();
 
-        Logger.log("Socket disconnected.");
+        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         if (nodeDisconnectedCallback != null) {
             // Intentionally not using the thread pool since it has been shutdown...
