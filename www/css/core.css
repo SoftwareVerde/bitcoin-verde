@@ -88,11 +88,9 @@ a {
 }
 
 #header .search {
-    float: left;
     clear: left;
     margin-top: 0.5em;
     margin-left: 0.5em;
-    width: 100%;
 }
 
 #header .search #search {
@@ -106,7 +104,6 @@ a {
     border-bottom: solid 2px #F7931D;
     color: #F7931D;
     /* text-transform: uppercase; */
-    float: left;
 }
 
 #header .search #search:focus {
@@ -116,9 +113,8 @@ a {
 #header .search .loading {
     height: 2em;
     margin-left: 1em;
-    float: left;
-    margin-top: 0.25em;
     visibility: hidden;
+    vertical-align: middle;
 }
 
 #header input:-webkit-autofill,
