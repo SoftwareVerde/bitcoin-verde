@@ -372,3 +372,23 @@
         vertical-align: top;
     }
 }
+
+@media only screen and (max-width: 320px) {
+    #main .status-container {
+        width: auto;
+        border-radius: 0;
+    }
+
+    .statistics {
+        margin-left: 0;
+        margin-right: 0;
+        box-shadow: none;
+    }
+
+    .node {
+        margin-left: 0;
+        margin-right: 0;
+        box-shadow: none;
+    }
+}
+

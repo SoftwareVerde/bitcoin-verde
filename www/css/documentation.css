@@ -88,6 +88,7 @@ pre {
     margin-left: 2em;
     border: solid 1px #E0E0E0;
     border-left: solid 2px #731212;
+    overflow-x: scroll;
 }
 
 .section {
@@ -246,14 +247,11 @@ pre {
         left: 0;
         right: 0;
         bottom: 0;
-        border-top: solid 2px #F99300;
+        border-top: solid 2px #b3b3b3;
         text-align: center;
         z-index: 1;
-        padding-left: 0;
-        padding-right: 0;
-        padding-top: 1em;
-        padding-bottom: 1em;
-        background: #262626;
+        background: #FFF;
+        padding: 0.5em;
     }
 
     #sidebar ol {
@@ -265,10 +263,8 @@ pre {
 
     #sidebar ol li {
         text-decoration: none;
-        border: solid 1px #262626;
+        border: solid 1px #e2e2e2;
         padding: 0.5em;
-        border-radius: 0.5em;
-        background-color: #F99300;
         font-size: 85%;
         font-weight: bold;
         margin: 1px;

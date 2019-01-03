@@ -46,11 +46,11 @@ a {
     float: left;
     line-height: 2em;
     text-align: center;
-    min-width: 100px;
     color: #EEEEEE;
     font-weight: bold;
     cursor: pointer;
-    padding-top: 0.5em;
+    padding: 1em;
+    overflow: hidden;
 }
 
 #header .navigation ul li:hover {
@@ -173,5 +173,11 @@ a {
 @media only screen and (max-width: 600px) {
     #header .navigation ul {
         padding-left: 0;
+    }
+}
+
+@media only screen and (max-width: 320px) {
+    * {
+        font-size: 95%;
     }
 }
