@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.StringUtil;
 import org.junit.Assert;

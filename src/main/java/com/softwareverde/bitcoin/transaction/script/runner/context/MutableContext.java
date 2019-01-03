@@ -54,7 +54,7 @@ public class MutableContext implements Context, Const {
         _transactionInput = transactionInput;
     }
 
-    public void setTransactionOutput(final TransactionOutput transactionOutput) {
+    public void setTransactionOutputBeingSpent(final TransactionOutput transactionOutput) {
         _transactionOutput = transactionOutput;
     }
 

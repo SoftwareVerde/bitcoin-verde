@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block;
 
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -29,6 +30,24 @@ public class BlockDeflater {
         }
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
+    }
+
+    public Integer getByteCount(final Block block) {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+
+        final List<Transaction> transactions = block.getTransactions();
+
+        Integer byteCount = BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT;
+
+        final int transactionCount = transactions.getSize();
+        byteCount += ByteUtil.variableLengthIntegerToBytes(transactionCount).length;
+
+        for (int i=0; i<transactionCount; ++i) {
+            final Transaction transaction = transactions.get(i);
+            byteCount += transactionDeflater.getByteCount(transaction);
+        }
+
+        return byteCount;
     }
 
     public Json toJson(final Block block) {

@@ -1,37 +1,53 @@
 package com.softwareverde.network.p2p.node;
 
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
+import com.softwareverde.network.ip.Ipv4;
+import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Util;
 
 import java.io.IOException;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.UnknownHostException;
-import java.util.LinkedList;
-import java.util.List;
+import java.net.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
+    public static Boolean LOGGING_ENABLED = true;
+
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
     }
 
     protected static final Integer MAX_CONNECTION_ATTEMPTS = 10; // Sanity check for connection attempts...
 
+    protected static Boolean _socketIsConnected(final BinarySocket binarySocket) {
+        return ( (binarySocket != null) && (binarySocket.isConnected()) );
+    }
+
     protected class ConnectionThread extends Thread {
         @Override
         public void run() {
-            if (_socketIsConnected()) { return; }
+            if (_socketIsConnected(_binarySocket)) {
+                _onSocketConnected(); // Necessary for NodeConnection(BinarySocket) constructor...
+                return;
+            }
 
             if (_socketUsedToBeConnected) {
-                if (_onDisconnectCallback != null) {
-                    (new Thread(_onDisconnectCallback)).start();
+
+                final Runnable onDisconnectCallback = _onDisconnectCallback;
+                if (onDisconnectCallback != null) {
+                    _threadPool.execute(onDisconnectCallback);
                 }
                 _socketUsedToBeConnected = false;
-                Logger.log("IO: NodeConnection: Connection lost.");
+
+                if (LOGGING_ENABLED) {
+                    Logger.log("IO: NodeConnection: Connection lost. " + _toString());
+                }
             }
 
             Socket socket = null;
@@ -39,11 +55,13 @@ public class NodeConnection {
             int attemptCount = 0;
             while (true) {
                 if (attemptCount >= MAX_CONNECTION_ATTEMPTS) {
-                    Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached.");
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection could not be established. Max attempts reached. " + _toString());
+                    }
                     break;
                 }
 
-                if (_socketIsConnected()) { break; }
+                if (_socketIsConnected(_binarySocket)) { break; }
 
                 try {
                     attemptCount += 1;
@@ -51,28 +69,23 @@ public class NodeConnection {
                     if (socket.isConnected()) { break; }
                 }
                 catch (final UnknownHostException exception) {
-                    Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _host + ":" + _port);
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection could not be established. Unknown host: " + _toString());
+                    }
                     break;
                 }
                 catch (final IOException e) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
-                    Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + (_host + ":" + _port) + ")");
+                    if (LOGGING_ENABLED) {
+                        Logger.log("IO: NodeConnection: Connection failed. Retrying in 3000ms... (" + _toString() + ")");
+                    }
                     try { Thread.sleep(3000); } catch (final Exception exception) { break; }
                 }
             }
 
             if ( (socket != null) && (socket.isConnected()) ) {
-                {
-                    final SocketAddress socketAddress = socket.getRemoteSocketAddress();
-                    final String socketIpString = socketAddress.toString();
-                    final List<String> urlParts = StringUtil.pregMatch("^([^/]*)/([0-9:.]+):([0-9]+)$", socketIpString); // Example: btc.softwareverde.com/0.0.0.0:8333
-                    // final String domainName = urlParts.get(0);
-                    _remoteIp = urlParts.get(1); // Ip Address
-                    // final String portString = urlParts.get(2);
-                }
-
-                _binarySocket = new BinarySocket(socket, _binaryPacketFormat);
+                _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
                 _onSocketConnected();
             }
             else {
@@ -85,10 +98,9 @@ public class NodeConnection {
 
     protected final String _host;
     protected final Integer _port;
-    protected String _remoteIp;
     protected final BinaryPacketFormat _binaryPacketFormat;
 
-    protected final LinkedList<ProtocolMessage> _outboundMessageQueue = new LinkedList<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _outboundMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
 
     protected final Object _connectionThreadMutex = new Object();
     protected BinarySocket _binarySocket;
@@ -103,8 +115,21 @@ public class NodeConnection {
     protected Runnable _onConnectCallback;
     protected Runnable _onConnectFailureCallback;
 
-    protected Boolean _socketIsConnected() {
-        return ( (_binarySocket != null) && (_binarySocket.isConnected()) );
+    protected final ThreadPool _threadPool;
+
+    protected String _toString() {
+        String hostString = _host;
+        {
+            final BinarySocket binarySocket = _binarySocket;
+            if (binarySocket != null) {
+                final Ip ip = binarySocket.getIp();
+                if (ip != null) {
+                    hostString = ip.toString();
+                }
+            }
+        }
+
+        return (hostString + ":" + _port);
     }
 
     protected void _shutdownConnectionThread() {
@@ -116,8 +141,16 @@ public class NodeConnection {
         _binarySocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
+                final ProtocolMessage protocolMessage = _binarySocket.popMessage();
+
+                if (LOGGING_ENABLED) {
+                    if (protocolMessage instanceof BitcoinProtocolMessage) {
+                        Logger.log("Received: " + ((BitcoinProtocolMessage) protocolMessage).getCommand() + " " + _toString());
+                    }
+                }
+
                 if (_messageReceivedCallback != null) {
-                    _messageReceivedCallback.onMessageReceived(_binarySocket.popMessage());
+                    _messageReceivedCallback.onMessageReceived(protocolMessage);
                 }
             }
         });
@@ -125,20 +158,26 @@ public class NodeConnection {
 
         final Boolean isFirstConnection = (_connectionCount == 0);
         if (isFirstConnection) {
-            Logger.log("IO: NodeConnection: Connection established.");
+            if (LOGGING_ENABLED) {
+                Logger.log("IO: NodeConnection: Connection established. " + _toString());
+            }
 
             _processOutboundMessageQueue();
 
-            if (_onConnectCallback != null) {
-                (new Thread(_onConnectCallback)).start();
+            final Runnable onConnectCallback = _onConnectCallback;
+            if (onConnectCallback != null) {
+                _threadPool.execute(onConnectCallback);
             }
         }
         else {
-            Logger.log("IO: NodeConnection: Connection regained.");
+            if (LOGGING_ENABLED) {
+                Logger.log("IO: NodeConnection: Connection regained. " + _toString());
+            }
             _processOutboundMessageQueue();
 
-            if (_onReconnectCallback != null) {
-                (new Thread(_onReconnectCallback)).start();
+            final Runnable onReconnectCallback = _onReconnectCallback;
+            if (onReconnectCallback != null) {
+                _threadPool.execute(onReconnectCallback);
             }
         }
 
@@ -156,13 +195,15 @@ public class NodeConnection {
     }
 
     protected void _processOutboundMessageQueue() {
-        synchronized (_outboundMessageQueue) {
-            while (! _outboundMessageQueue.isEmpty()) {
-                if ((_binarySocket == null) || (! _binarySocket.isConnected())) { return; }
-
-                final ProtocolMessage message = _outboundMessageQueue.removeFirst();
-                _binarySocket.write(message);
+        ProtocolMessage message;
+        while ((message = _outboundMessageQueue.poll()) != null) {
+            final BinarySocket binarySocket = _binarySocket;
+            if (! _socketIsConnected(binarySocket)) {
+                _outboundMessageQueue.offer(message); // Return the item to the queue (not ideal, as this queues it to the back, but it's acceptable)...
+                return;
             }
+
+            binarySocket.write(message);
         }
 
         _onMessagesProcessed();
@@ -171,14 +212,19 @@ public class NodeConnection {
     protected void _writeOrQueueMessage(final ProtocolMessage message) {
         final Boolean messageWasQueued;
 
-        synchronized (_outboundMessageQueue) {
-            if (_socketIsConnected()) {
-                _binarySocket.write(message);
-                messageWasQueued = false;
-            }
-            else {
-                _outboundMessageQueue.addLast(message);
-                messageWasQueued = true;
+        final BinarySocket binarySocket = _binarySocket;
+        if (_socketIsConnected(binarySocket)) {
+            binarySocket.write(message);
+            messageWasQueued = false;
+        }
+        else {
+            _outboundMessageQueue.offer(message);
+            messageWasQueued = true;
+        }
+
+        if (LOGGING_ENABLED) {
+            if (message instanceof BitcoinProtocolMessage) {
+                Logger.log((messageWasQueued ? "Queued" : "Wrote") + ": " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
             }
         }
 
@@ -187,24 +233,28 @@ public class NodeConnection {
         }
     }
 
-
-    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public NodeConnection(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         _host = host;
         _port = port;
 
         _binaryPacketFormat = binaryPacketFormat;
+        _threadPool = threadPool;
     }
 
-    public NodeConnection(final BinarySocket binarySocket) {
-        _host = binarySocket.getHost();
+    /**
+     * Creates a NodeConnection with an already-established BinarySocket.
+     *  NodeConnection::connect should still be invoked in order to initiate the ::_onSocketConnected procedure.
+     */
+    public NodeConnection(final BinarySocket binarySocket, final ThreadPool threadPool) {
+        final Ip ip = binarySocket.getIp();
+        _host = (ip != null ? ip.toString() : binarySocket.getHost());
         _port = binarySocket.getPort();
         _binarySocket = binarySocket;
         _binaryPacketFormat = binarySocket.getBinaryPacketFormat();
-
-        _onSocketConnected();
+        _threadPool = threadPool;
     }
 
-    public void startConnectionThread() {
+    public void connect() {
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 if (! _connectionThread.isAlive()) {
@@ -219,7 +269,7 @@ public class NodeConnection {
         }
     }
 
-    public void stopConnectionThread() {
+    public void cancelConnecting() {
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 _shutdownConnectionThread();
@@ -244,48 +294,81 @@ public class NodeConnection {
     }
 
     public Boolean isConnected() {
-        return _socketIsConnected();
+        return _socketIsConnected(_binarySocket);
     }
 
     public void disconnect() {
+        final Runnable onDisconnectCallback = _onDisconnectCallback;
+
+        _messageReceivedCallback = null;
+        _onDisconnectCallback = null;
+        _onReconnectCallback = null;
+        _onConnectCallback = null;
+        _onConnectFailureCallback = null;
+
         synchronized (_connectionThreadMutex) {
             if (_connectionThread != null) {
                 _shutdownConnectionThread();
             }
         }
 
-        if (_binarySocket != null) {
-            _binarySocket.close();
+        final BinarySocket binarySocket = _binarySocket;
+        _binarySocket = null;
+        if (binarySocket != null) {
+            binarySocket.setMessageReceivedCallback(null);
+            binarySocket.close();
+        }
+
+        if (onDisconnectCallback != null) {
+            (new Thread(onDisconnectCallback)).start();
         }
     }
 
     public void queueMessage(final ProtocolMessage message) {
         if (message instanceof BitcoinProtocolMessage) {
-            Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()) );
+            if (LOGGING_ENABLED) {
+                Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
+            }
         }
 
-        (new Thread(new Runnable() {
+        _threadPool.execute(new Runnable() {
             @Override
             public void run() {
                 _writeOrQueueMessage(message);
             }
-        })).start();
+        });
     }
 
     public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {
         _messageReceivedCallback = messageReceivedCallback;
     }
 
-    public String getRemoteIp() {
-        return _remoteIp;
-    }
+    /**
+     * Attempts to return the hostname via a hostname lookup or the provided host if not found.
+     */
+    public String getHost() {
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket == null) { return _host; }
 
-    public String getHost() { return _host; }
+        return Util.coalesce(binarySocket.getHost(), _host);
+    }
 
     public Integer getPort() { return _port; }
 
+    /**
+     * Returns the Ip if connected, or attempts to look up the Ip from the provided host.  Returns null if the host is unknown.
+     */
+    public Ip getIp() {
+        final BinarySocket binarySocket = _binarySocket;
+        if (binarySocket != null) {
+            return binarySocket.getIp();
+        }
+
+        return Ip.fromHostName(_host);
+    }
+
     @Override
     public String toString() {
-        return (_host +":" + _port);
+        return _toString();
     }
 }

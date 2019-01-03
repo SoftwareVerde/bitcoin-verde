@@ -5,13 +5,13 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.ImmutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.util.ConstUtil;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableTransaction implements Transaction, Const {
     protected final ImmutableSha256Hash _hash;
@@ -19,6 +19,8 @@ public class ImmutableTransaction implements Transaction, Const {
     protected final List<ImmutableTransactionInput> _transactionInputs;
     protected final List<ImmutableTransactionOutput> _transactionOutputs;
     protected final ImmutableLockTime _lockTime;
+
+    protected Integer _cachedHashCode;
 
     public ImmutableTransaction(final Transaction transaction) {
         _hash = transaction.getHash().asConst();
@@ -30,7 +32,7 @@ public class ImmutableTransaction implements Transaction, Const {
     }
 
     @Override
-    public Sha256Hash getHash() {
+    public ImmutableSha256Hash getHash() {
         return _hash;
     }
 
@@ -70,5 +72,20 @@ public class ImmutableTransaction implements Transaction, Const {
     public Json toJson() {
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
         return transactionDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        _cachedHashCode = _hash.hashCode();
+        return _cachedHashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Transaction)) { return false; }
+        return Util.areEqual(this.getHash(), ((Transaction) object).getHash());
     }
 }

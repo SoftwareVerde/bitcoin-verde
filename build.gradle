@@ -1,5 +1,5 @@
 group 'com.softwareverde'
-version '0.2.1'
+version '1.0.0'
 
 apply plugin: 'java'
 
@@ -14,15 +14,16 @@ dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
     compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
-    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.2.+'
-    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.2.1+'
+    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.3.5'
+    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.2.6'
     compile     group: 'com.github.softwareverde',  name: 'java-tls',               version: 'v0.2.+'
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.+'
-    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v0.1.4'
-    compile     group: 'com.github.softwareverde',  name: 'java-socket',            version: 'v0.1.1+'
+    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v2.1.7'
+    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v0.1.7'
+    compile     group: 'com.github.softwareverde',  name: 'java-socket',            version: 'v0.2.3'
     compile     group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
-
-    compile     group: 'org.jocl',                      name: 'jocl',               version: '0.1.9'
+    
+    compile     group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
 
     compile     group: 'com.github.softwareverde', name: 'http-servlet',            version: 'v1.1.0'
     compile     group: 'com.github.softwareverde', name: 'java-socket',             version: 'v0.2.0'
@@ -37,7 +38,7 @@ dependencies {
     testCompile group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
 }
 
-task makeJar(type: Jar) {
+task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
@@ -54,7 +55,26 @@ task makeJar(type: Jar) {
             exclude 'META-INF/*.RSA'
         }
     }
+
     with jar
+}
+
+task makeJar(type: Jar) {
+    manifest {
+        attributes  'Implementation-Title': 'Bitcoin Server',
+                    'Implementation-Version': version,
+                    'Main-Class': 'com.softwareverde.bitcoin.server.Main',
+                    'Class-Path': configurations.compile.collect { 'libs/' + it.getName() }.join(' ')
+    }
+
+    baseName = project.name + '-server'
+
+    with jar
+}
+
+task copyDependencies(type: Copy) {
+    from configurations.runtime
+    into "$buildDir/libs/libs"
 }
 
 tasks.withType(Test) {
@@ -84,4 +104,3 @@ tasks.withType(Test) {
         }
     }
 }
-

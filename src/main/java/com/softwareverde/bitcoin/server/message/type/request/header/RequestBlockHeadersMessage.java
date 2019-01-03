@@ -3,23 +3,21 @@ package com.softwareverde.bitcoin.server.message.type.request.header;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000; // NOTE: This value is a "not-to-exceed"...
 
     protected Integer _version;
-    protected final List<Sha256Hash> _blockHeaderHashes = new ArrayList<Sha256Hash>();
+    protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
     protected MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public RequestBlockHeadersMessage() {
@@ -30,7 +28,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     public Integer getVersion() { return _version; }
 
     public void addBlockHeaderHash(final Sha256Hash blockHeaderHash) {
-        if (_blockHeaderHashes.size() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
+        if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
         _blockHeaderHashes.add(blockHeaderHash);
     }
 
@@ -39,7 +37,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     }
 
     public List<Sha256Hash> getBlockHeaderHashes() {
-        return Util.copyList(_blockHeaderHashes);
+        return _blockHeaderHashes;
     }
 
     public Sha256Hash getStopBeforeBlockHash() {
@@ -52,7 +50,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaderHashes.size();
+        final int blockHeaderCount = _blockHeaderHashes.getSize();
         final int blockHeaderHashByteCount = 32;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
@@ -11,7 +12,7 @@ public class ScriptPatternMatcherTests {
     @Test
     public void should_match_pay_to_public_key_hash_script() {
         // Setup
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("76A914ADEDB2E16DB029CA2482AC2E0CEFEB887DB37AFF88AC"));
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("76A914ADEDB2E16DB029CA2482AC2E0CEFEB887DB37AFF88AC")));
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         // Action
@@ -24,7 +25,7 @@ public class ScriptPatternMatcherTests {
     @Test
     public void should_not_match_invalid_pay_to_public_key_hash_script() {
         // Setup
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("76A9000088AC"));
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("76A9000088AC")));
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         // Action
@@ -37,7 +38,7 @@ public class ScriptPatternMatcherTests {
     @Test
     public void should_match_pay_to_script_hash_script() {
         // Setup
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("A914E9C3DD0C07AAC76179EBC76A6C78D4D67C6C160A87"));
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("A914E9C3DD0C07AAC76179EBC76A6C78D4D67C6C160A87")));
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         // Action
@@ -50,7 +51,7 @@ public class ScriptPatternMatcherTests {
     @Test
     public void should_not_match_invalid_pay_to_script_hash_script() {
         // Setup
-        final LockingScript lockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("A90087"));
+        final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("A90087")));
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
         // Action
@@ -62,7 +63,7 @@ public class ScriptPatternMatcherTests {
 
     @Test
     public void should_match_pay_to_public_key_script() {
-        final LockingScript lockingScript = new MutableLockingScript(HexUtil.hexStringToByteArray("41042F462D3245D2F3A015F7F9505F763EE1080CAB36191D07AE9E6509F71BB68818719E6FB41C019BF48AE11C45B024D476E19B6963103CE8647FC15FEE513B15C7AC"));
+        final LockingScript lockingScript = new MutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("41042F462D3245D2F3A015F7F9505F763EE1080CAB36191D07AE9E6509F71BB68818719E6FB41C019BF48AE11C45B024D476E19B6963103CE8647FC15FEE513B15C7AC")));
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
@@ -76,7 +77,7 @@ public class ScriptPatternMatcherTests {
 
     @Test
     public void should_match_pay_to_compressed_public_key_script() {
-        final LockingScript lockingScript = new MutableLockingScript(HexUtil.hexStringToByteArray("21032F462D3245D2F3A015F7F9505F763EE1080CAB36191D07AE9E6509F71BB68818AC"));
+        final LockingScript lockingScript = new MutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("21032F462D3245D2F3A015F7F9505F763EE1080CAB36191D07AE9E6509F71BB68818AC")));
 
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 

@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.message.type.query.block;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -28,8 +28,8 @@ public class QueryBlocksMessageInflater extends BitcoinProtocolMessageInflater {
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Sha256Hash blockHeaderHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
-            queryBlocksMessage._blockHeaderHashes.add(blockHeaderHash);
+            final Sha256Hash blockHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
+            queryBlocksMessage._blockHeaderHashes.add(blockHash);
         }
 
         final byte[] blockHeaderHashBytes = byteArrayReader.readBytes(32, Endian.LITTLE);

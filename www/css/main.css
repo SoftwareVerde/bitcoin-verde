@@ -1,8 +1,11 @@
 
-.transaction,
 .block {
     background-color: rgba(0, 0, 0, 0.05);
-    overflow: auto;
+}
+
+.transaction,
+.block {
+    border: solid 1px rgba(0, 0, 0, 0.05);
 
     box-sizing: border-box;
     margin-top: 2em;
@@ -13,29 +16,33 @@
     padding-bottom: 2em;
 }
 
-.transaction .io .transaction-inputs:before,
-.transaction .io .transaction-outputs:before,
-.transaction:before,
-.block:before {
+.transaction .io .transaction-inputs::before,
+.transaction .io .transaction-outputs::before,
+.transaction::before,
+.block::before {
     content: 'Block';
-    color: rgba(0, 0, 0, 0.2);
+    color: #404040;
     font-weight: bold;
-    font-size: 1.5em;
+    font-size: 1.0em;
     margin-left: -1em;
     position: relative;
     top: 0.25em;
 }
 
-.transaction:before {
+.transaction::before {
     content: 'Transaction';
+    color: #404040;
+    transition: all 500ms ease;
 }
-.transaction .io .transaction-inputs:before {
+.transaction .io .transaction-inputs::before {
     content: 'Transaction Inputs';
     margin-left: 0px;
+    transition: all 500ms ease;
 }
-.transaction .io .transaction-outputs:before {
+.transaction .io .transaction-outputs::before {
     content: 'Transaction Outputs';
     margin-left: 0px;
+    transition: all 500ms ease;
 }
 
 .transaction .io {
@@ -50,23 +57,18 @@
     overflow: auto;
     float: left;
     width: calc(48.5% - 0.5em);
+    cursor: default;
 }
 .transaction .io .transaction-outputs {
     margin-left: calc(5% - 1.5em);
 }
 .transaction .io img.tx-arrow {
     width: 2em;
-    position: absolute;
-    top: 50%;
-    transform: translateY(-1em);
-    margin-left: calc(2.5% - 1.5em);
     opacity: 0.75;
-}
-.transaction .io .transaction-component-separator img {
     position: absolute;
-    width: 4em;
-    top: 50%;
-    transform: translate-y(-2em);
+    top: calc(50% - 0.5em);
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .transaction .io .transaction-inputs > div,
@@ -123,12 +125,16 @@
 
     padding-left: 1.5em;
     text-indent: -0.75em;
+
+    display: block;
+    word-break: break-word;
 }
 
 .transaction .io .transaction-input > .label .address,
 .transaction .io .transaction-output > .label .address {
     float: left;
     color: #262626;
+    font-size: 1.0em;
 }
 
 .transaction .io .transaction-input > .label .amount,
@@ -159,28 +165,28 @@
 .block .block-header div label {
     display: inline-block;
     box-sizing: border-box;
-    font-size: 1.2em;
+    font-size: 0.75em;
     font-weight: bold;
     color: #404040;
 }
 
 .transaction > div > div .value,
 .block .block-header div .value {
-    display: block;
+    display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
     box-sizing: border-box;
     padding-left: 1em;
     margin-top: 0.25em;
 }
 
-.block .block-header div.timestamp .value:after {
-    content: '(UTC)';
+.block .block-header div.timestamp .value::after {
+    /* content: '(UTC)'; */
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
     margin-left: 0.5em;
     font-style: italic;
 }
 
-.block .block-header div.reward .value:after {
+.block .block-header div.reward .value::after {
     content: '(bitcoin)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -188,9 +194,9 @@
     font-style: italic;
 }
 
-.transaction div div.fee .value:after,
-.transaction div div.byte-count .value:after,
-.block .block-header div.byte-count .value:after {
+.transaction div div.fee .value::after,
+.transaction div div.byte-count .value::after,
+.block .block-header div.byte-count .value::after {
     content: '(bytes)';
     font-size: 0.75em;
     color: rgba(0, 0, 0, 0.4);
@@ -198,12 +204,12 @@
     font-style: italic;
 }
 
-.transaction div div.fee .value:after {
+.transaction div div.fee .value::after {
     content: '(satoshis)';
 }
 
 .transaction div div.block-hashes {
-    min-height: 7.75em;
+    min-height: 6.5em;
 }
 
 .transaction div div.lock-time div {
@@ -217,6 +223,14 @@
     float: right;
 }
 
+.script > .value {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
 .transaction .io .transaction-input .unlocking-script > div > label,
 .transaction .io .transaction-output .locking-script > div > label,
 .transaction-input div.unlocking-script div label,
@@ -225,7 +239,6 @@
 .block .block-header div.difficulty div label {
     margin-left: 0.5em;
     color: rgba(0, 0, 0, 0.5);
-    font-size: 1.1em;
     margin-top: 0.2em;
 }
 
@@ -242,8 +255,235 @@
     transition: all 500ms ease;
 }
 
+.is-disabled span.value,
+.type span.value {
+    font-style: italic;
+    font-weight: bold;
+    font-size: 0.75em;
+}
+
+.transaction {
+    transition: all 500ms ease;
+    transition: opacity 500ms ease;
+}
+
+.transaction.collapsed {
+    padding-bottom: 0px;
+    background-color: initial;
+    cursor: pointer;
+    border: none;
+}
+
+.transaction.collapsed .hash .value {
+    font-size: 1em;
+}
+
+.transaction.collapsed .io .transaction-outputs::before, 
+.transaction.collapsed .io .transaction-inputs::before,
+.transaction.collapsed::before {
+    opacity: 0;
+    position: absolute;
+}
+
+.transaction.collapsed > div > div {
+    width: calc(100% - 0.5em);
+}
+
+.transaction.collapsed .hash span.value::before {
+    content: 'Transaction:';
+    font-size: 0.75em;
+    color: #404040 !important;
+    font-weight: bold;
+    margin-right: 0.5em;
+    font-family: sans-serif;
+    transition: all 500ms ease;
+}
+
+.transaction.collapsed > div > div {
+    border: none;
+    background-color: initial;
+}
+
+.transaction.collapsed .io .transaction-inputs,
+.transaction.collapsed .io .transaction-outputs,
+.transaction.collapsed .io .transaction-inputs > div,
+.transaction.collapsed .io .transaction-outputs > div {
+    margin-top: 0px;
+}
+
+.transaction.collapsed .io {
+    margin-top: 0.5em;
+}
+
+.transaction.collapsed .io {
+    padding-bottom: 1em;
+    border-bottom: solid 1px #AAA;
+    box-shadow: -1px 5px 5px 0px #000000;
+}
+
+.transaction.collapsed > div > div {
+    padding: 0px;
+    margin: 0px;
+}
+
+.block .transactions .transaction:hover {
+    box-shadow: 0px 0px 2px #00B512;
+}
+
+.transaction-output > .label.highlight {
+    border-color: #1BAB1B !important;
+}
+.transaction-output .address.highlight {
+    color: #1BAB1B !important;
+}
+
+.transaction-input > .label.highlight {
+    border-color: #AB1B1B !important;
+}
+.transaction-input .address.highlight {
+    color: #AB1B1B !important;
+}
+
+#main .address {
+}
+
+.address .address-metadata {
+    margin-top: 1em;
+    padding: 1em;
+    padding-left: 3em;
+    padding-right: 3em;
+    border: solid 1px #AAA;
+    margin: 1em;
+    background-color: #FFFFFF;
+}
+
+.address-metadata .address {
+    font-size: 125%;
+    font-weight: bold;
+    display: block;
+}
+
+.address-metadata .address-balance {
+    margin-top: 0.5em;
+    display: block;
+}
+.address-metadata .address-balance::before {
+    content: 'Balance:';
+    color: #BBBBBB;
+    font-size: 0.95em;
+    margin-right: 0.5em;
+    display: inline-block;
+    font-weight: bold;
+}
+
+.address-metadata .address-balance::after {
+    content: '(satoshis)';
+    font-size: 0.75em;
+    color: #BBBBBB;
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.address-metadata .qr-code {
+    float: right;
+}
+
+.button {
+    border-radius: 1em;
+    padding: 0.5em;
+    border: solid 2px #262626;
+    background-color: #F7931D;
+    display: inline-block;
+    cursor: pointer;
+    color: #262626;
+}
+
+.button:hover {
+    background-color: #FD9A26;
+    border-color: #363636;
+}
+
+.documentation {
+    margin: 1em;
+}
+
+@media only screen and (max-width: 1100px) {
+    .block,
+    .transaction {
+        margin-left: 0;
+        margin-right: 0;
+
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .transaction .io .transaction-inputs::before,
+    .transaction .io .transaction-outputs::before,
+    .transaction::before, .block::before {
+        margin-left: 0;
+    }
+}
+
 @media only screen and (max-width: 960px) {
     .block .block-header > div {
         width: calc(100% - 0.5em);
     }
 }
+
+@media only screen and (max-width: 800px) {
+    .transaction .io {
+        text-align: center;
+    }
+
+    .transaction .io img.tx-arrow {
+        position: initial;
+        transform: initial;
+        top: initial;
+        margin: auto;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+        float: initial;
+        transform: rotateZ(90deg);
+    }
+
+    .transaction .io .transaction-inputs,
+    .transaction .io .transaction-outputs {
+        float: none;
+        margin: 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .transaction .io .transaction-inputs .transaction-input,
+    .transaction .io .transaction-outputs .transaction-output {
+        margin-bottom: 1px;
+    }
+}
+
+@media only screen and (max-width: 700px) {
+    .address .address-metadata {
+        text-align: center;
+        padding: 0;
+        padding-top: 1em;
+        padding-bottom: 1em;
+    }
+
+    .address .address-metadata .address {
+        font-size: 100%;
+    }
+
+    .address-metadata .qr-code {
+        float: none;
+        margin-bottom: 1em;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .transaction > div > div,
+    .block .block-header > div {
+        width: auto;
+        float: none !important;
+        overflow-x: hidden;
+    }
+}
+

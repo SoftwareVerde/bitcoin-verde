@@ -1,10 +1,10 @@
 package com.softwareverde.network.p2p.node;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.IpInflater;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -14,10 +14,11 @@ import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class Node {
-    public interface NodeAddressesReceivedCallback { void onNewNodeAddress(NodeIpAddress nodeIpAddress); }
+    public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
     public interface NodeConnectedCallback { void onNodeConnected();}
     public interface NodeHandshakeCompleteCallback { void onHandshakeComplete(); }
     public interface NodeDisconnectedCallback { void onNodeDisconnected(); }
@@ -27,9 +28,9 @@ public abstract class Node {
         public final PingCallback pingCallback;
         public final Long timestamp;
 
-        public PingRequest(final PingCallback pingCallback) {
+        public PingRequest(final PingCallback pingCallback, final Long currentTimeInMilliseconds) {
             this.pingCallback = pingCallback;
-            this.timestamp = System.currentTimeMillis();
+            this.timestamp = currentTimeInMilliseconds;
         }
     }
 
@@ -38,45 +39,29 @@ public abstract class Node {
     private static final Object NODE_ID_MUTEX = new Object();
     private static Long _nextId = 0L;
 
-    protected static <T, S> void _storeInMapSet(final Map<T, Set<S>> destinationMap, final T key, final S value) {
-        Set<S> destinationSet = destinationMap.get(key);
-        if (destinationSet == null) {
-            destinationSet = new HashSet<S>();
-            destinationMap.put(key, destinationSet);
-        }
-        destinationSet.add(value);
-    }
-
-    protected static <T, S> void _storeInMapList(final Map<T, MutableList<S>> destinationList, final T key, final S value) {
-        MutableList<S> destinationSet = destinationList.get(key);
-        if (destinationSet == null) {
-            destinationSet = new MutableList<S>();
-            destinationList.put(key, destinationSet);
-        }
-        destinationSet.add(value);
-    }
-
     protected final NodeId _id;
     protected final NodeConnection _connection;
-    protected final Long _initializationTime = System.currentTimeMillis();
+    protected final Long _initializationTime;
 
-    protected final SystemTime _systemTime = new SystemTime();
+    protected final SystemTime _systemTime;
 
     protected NodeIpAddress _localNodeIpAddress = null;
     protected Boolean _handshakeHasBeenInvoked = false;
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
-    protected final LinkedList<ProtocolMessage> _postHandshakeMessageQueue = new LinkedList<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
 
-    protected final Map<Long, PingRequest> _pingRequests = new HashMap<Long, PingRequest>();
+    protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
 
     protected NodeAddressesReceivedCallback _nodeAddressesReceivedCallback = null;
     protected NodeConnectedCallback _nodeConnectedCallback = null;
     protected NodeHandshakeCompleteCallback _nodeHandshakeCompleteCallback = null;
     protected NodeDisconnectedCallback _nodeDisconnectedCallback = null;
 
-    protected final LinkedList<Runnable> _postConnectQueue = new LinkedList<Runnable>();
+    protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
+
+    protected final ThreadPool _threadPool;
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -89,22 +74,41 @@ public abstract class Node {
             _connection.queueMessage(message);
         }
         else {
-            _postHandshakeMessageQueue.addLast(message);
+            _postHandshakeMessageQueue.offer(message);
         }
     }
 
     protected void _disconnect() {
+        final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
+
         _nodeAddressesReceivedCallback = null;
         _nodeConnectedCallback = null;
         _nodeHandshakeCompleteCallback = null;
         _nodeDisconnectedCallback = null;
 
-        _connection.disconnect();
-
         _handshakeIsComplete = false;
         _postHandshakeMessageQueue.clear();
 
         _pingRequests.clear();
+
+        if (_threadPool instanceof ThreadPoolThrottle) {
+            ((ThreadPoolThrottle) _threadPool).stop();
+        }
+
+        _connection.setOnDisconnectCallback(null); // Intentionally avoid triggering the normal socket disconnect callback...
+        _connection.disconnect();
+
+        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
+
+        if (nodeDisconnectedCallback != null) {
+            // Intentionally not using the thread pool since it has been shutdown...
+            (new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    nodeDisconnectedCallback.onNodeDisconnected();
+                }
+            })).start();
+        }
     }
 
     /**
@@ -133,7 +137,7 @@ public abstract class Node {
                     createAndQueueHandshake.run();
                 }
                 else {
-                    _postConnectQueue.addLast(createAndQueueHandshake);
+                    _postConnectQueue.offer(createAndQueueHandshake);
                 }
             }
 
@@ -144,14 +148,14 @@ public abstract class Node {
     protected void _onConnect() {
         _handshake();
         synchronized (_postConnectQueue) {
-            while (! _postConnectQueue.isEmpty()) {
-                final Runnable postConnectRunnable = _postConnectQueue.removeLast();
+            Runnable postConnectRunnable;
+            while ((postConnectRunnable = _postConnectQueue.poll()) != null) {
                 postConnectRunnable.run();
             }
         }
 
         if (_nodeConnectedCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     final NodeConnectedCallback callback = _nodeConnectedCallback;
@@ -159,23 +163,7 @@ public abstract class Node {
                         callback.onNodeConnected();
                     }
                 }
-            })).start();
-        }
-    }
-
-    protected void _onDisconnect() {
-        Logger.log("Socket disconnected.");
-
-        if (_nodeDisconnectedCallback != null) {
-            (new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final NodeDisconnectedCallback callback = _nodeDisconnectedCallback;
-                    if (callback != null) {
-                        callback.onNodeDisconnected();
-                    }
-                }
-            })).start();
+            });
         }
     }
 
@@ -187,10 +175,11 @@ public abstract class Node {
     protected void _onPongReceived(final PongMessage pongMessage) {
         final Long nonce = pongMessage.getNonce();
         final PingRequest pingRequest = _pingRequests.remove(nonce);
+        if (pingRequest == null) { return; }
 
-        final PingCallback pingCallback = (pingRequest != null ? pingRequest.pingCallback : null);
+        final PingCallback pingCallback = pingRequest.pingCallback;
         if (pingCallback != null) {
-            final Long now = System.currentTimeMillis();
+            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             final Long msElapsed = (now - pingRequest.timestamp);
             pingCallback.onResult(msElapsed);
         }
@@ -226,60 +215,77 @@ public abstract class Node {
 
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
         _handshakeIsComplete = true;
-        if (_nodeHandshakeCompleteCallback != null) {
-            (new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
-                    if (callback != null) {
-                        callback.onHandshakeComplete();
-                    }
-                }
-            })).start();
-        }
 
-        while (! _postHandshakeMessageQueue.isEmpty()) {
-            _queueMessage(_postHandshakeMessageQueue.removeFirst());
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                final NodeHandshakeCompleteCallback callback = _nodeHandshakeCompleteCallback;
+                if (callback != null) {
+                    callback.onHandshakeComplete();
+                }
+            }
+        });
+
+        ProtocolMessage protocolMessage;
+        while ((protocolMessage = _postHandshakeMessageQueue.poll()) != null) {
+            _queueMessage(protocolMessage);
         }
     }
 
     protected void _onNodeAddressesReceived(final NodeIpAddressMessage nodeIpAddressMessage) {
-        for (final NodeIpAddress nodeIpAddress : nodeIpAddressMessage.getNodeIpAddresses()) {
-            if (_nodeAddressesReceivedCallback != null) {
-                (new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        final NodeAddressesReceivedCallback callback = _nodeAddressesReceivedCallback;
-                        if (callback != null) {
-                            callback.onNewNodeAddress(nodeIpAddress);
-                        }
-                    }
-                })).start();
-            }
+        final NodeAddressesReceivedCallback nodeAddressesReceivedCallback = _nodeAddressesReceivedCallback;
+        final List<NodeIpAddress> nodeIpAddresses = nodeIpAddressMessage.getNodeIpAddresses();
+        if (nodeIpAddresses.isEmpty()) { return; }
+
+        if (nodeAddressesReceivedCallback != null) {
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    nodeAddressesReceivedCallback.onNewNodeAddresses(nodeIpAddresses);
+                }
+            });
         }
     }
 
-    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat) {
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
-        _connection = new NodeConnection(host, port, binaryPacketFormat);
+        _systemTime = new SystemTime();
+        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
     }
 
-    public Node(final BinarySocket binarySocket) {
+    public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
             _nextId += 1;
         }
 
-        _connection = new NodeConnection(binarySocket);
+        _systemTime = systemTime;
+        _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
+    }
+
+    public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
+        synchronized (NODE_ID_MUTEX) {
+            _id = NodeId.wrap(_nextId);
+            _nextId += 1;
+        }
+
+        _systemTime = new SystemTime();
+        _connection = new NodeConnection(binarySocket, threadPool);
+        _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
+        _threadPool = threadPool;
     }
 
     public NodeId getId() { return _id; }
 
-    public Long getInitializationTime() {
+    public Long getInitializationTimestamp() {
         return _initializationTime;
     }
 
@@ -304,16 +310,20 @@ public abstract class Node {
     }
 
     public String getConnectionString() {
-        return (Util.coalesce(_connection.getRemoteIp(), _connection.getHost()) + ":" + _connection.getPort());
+        final Ip ip = _connection.getIp();
+        return ((ip != null ? ip.toString() : _connection.getHost()) + ":" + _connection.getPort());
     }
 
     public NodeIpAddress getRemoteNodeIpAddress() {
-        final String remoteAddress = Util.coalesce(_connection.getRemoteIp(), _connection.getHost());
-        if (remoteAddress == null) { return null; }
+        final Ip ip;
+        {
+            final Ip connectionIp = _connection.getIp();
+            ip = (connectionIp != null ? connectionIp : Ip.fromString(_connection.getHost()));
+        }
 
-        final IpInflater ipInflater = new IpInflater();
-        final Ip ip = ipInflater.fromString(remoteAddress);
-        if (ip == null) { return null; }
+        if (ip == null) {
+            return null;
+        }
 
         return new NodeIpAddress(ip, _connection.getPort());
     }
@@ -349,7 +359,9 @@ public abstract class Node {
 
     public void ping(final PingCallback pingCallback) {
         final PingMessage pingMessage = _createPingMessage();
-        final PingRequest pingRequest = new PingRequest(pingCallback);
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final PingRequest pingRequest = new PingRequest(pingCallback, now);
         _pingRequests.put(pingMessage.getNonce(), pingRequest);
         _queueMessage(pingMessage);
     }
@@ -369,7 +381,7 @@ public abstract class Node {
     }
 
     public void connect() {
-        _connection.startConnectionThread();
+        _connection.connect();
     }
 
     public void disconnect() {
@@ -380,8 +392,15 @@ public abstract class Node {
         return _connection.isConnected();
     }
 
+    /**
+     * Attempts to look up the Node's host, or returns null if the lookup fails.
+     */
     public String getHost() {
         return _connection.getHost();
+    }
+
+    public Ip getIp() {
+        return _connection.getIp();
     }
 
     public Integer getPort() {

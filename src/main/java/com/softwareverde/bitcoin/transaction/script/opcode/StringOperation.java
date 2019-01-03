@@ -10,9 +10,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class StringOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_STRING;
-    public static final Integer MAX_BYTE_COUNT = 520;   // NOTE: This value does not have consensus, since the opcodes that use it are disabled.
-                                                        //  However, this value is in parity with the max-bytes per script value.
-                                                        //  (https://en.bitcoin.it/wiki/Script#Arithmetic)
+    public static final Integer MAX_BYTE_COUNT = 520;
 
     protected static StringOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
@@ -41,16 +39,18 @@ public class StringOperation extends SubTypedOperation {
         }
 
         switch (_opcode) {
-            case STRING_CONCATENATE: {
-                final Value value0 = stack.pop();
+            case CONCATENATE: {
+                // value0 value1 CONCATENATE -> { value0, value1 }
+                // { Ox11 } { 0x22, 0x33 } CONCATENATE -> 0x112233
+
                 final Value value1 = stack.pop();
+                final Value value0 = stack.pop();
 
                 final int value0ByteCount = value0.getByteCount();
                 final int value1ByteCount = value1.getByteCount();
                 final int totalByteCount = (value0ByteCount + value1ByteCount);
 
-                // NOTE: This opcode is not enabled, and its details have no consensus...
-                //  The concept of a MAX_BYTE_COUNT is to prevent memory exhaustion attacks, which can happen by repeating
+                // NOTE: The concept of a MAX_BYTE_COUNT is to prevent memory exhaustion attacks, which can happen by repeating
                 //  multiple COPY_1ST STRING_CONCATENATE commands multiple times.  For instance, every 10 repetitions,
                 //  the memory usage increases 1024 times.
                 if (totalByteCount > MAX_BYTE_COUNT) {
@@ -59,72 +59,108 @@ public class StringOperation extends SubTypedOperation {
                 }
 
                 final byte[] concatenatedBytes = new byte[totalByteCount];
-                ByteUtil.setBytes(concatenatedBytes, value1.getBytes());
-                ByteUtil.setBytes(concatenatedBytes, value0.getBytes(), value0ByteCount);
+                ByteUtil.setBytes(concatenatedBytes, value0.getBytes());
+                ByteUtil.setBytes(concatenatedBytes, value1.getBytes(), value0ByteCount);
                 final Value newValue = Value.fromBytes(concatenatedBytes);
                 stack.push(newValue);
 
                 return (! stack.didOverflow());
             }
 
-            case STRING_SUBSTRING: {
-                final Value value = stack.pop();
+            case SPLIT: {
+                // { 0x00, 0x11, 0x22 } 0x00 SPLIT -> { } { 0x00, 0x11, 0x22 }
+                // { 0x00, 0x11, 0x22 } 0x01 SPLIT -> { 0x00 } { 0x11, 0x22 }
+                // { 0x00, 0x11, 0x22 } 0x02 SPLIT -> { 0x00, 0x11 } { 0x22 }
+                // { 0x00, 0x11, 0x22 } 0x03 SPLIT -> { 0x00, 0x11, 0x22 } { }
+
                 final Value beginIndexValue = stack.pop();
-                final Value byteCountValue = stack.pop();
+                final Value value = stack.pop();
 
-                final Integer beginIndex = beginIndexValue.asInteger();
-                final Integer byteCount = byteCountValue.asInteger();
+                final byte[] valueBytes = value.getBytes();
+                final Integer valueByteCount = valueBytes.length;
 
-                // NOTE: This opcode is not enabled, and its details have no consensus...
-                //  If the operation goes out of bounds, the opcode fails.
-                if ((beginIndex < 0) || (byteCount < 0) || (beginIndex + byteCount >= value.getByteCount())) {
+                final Integer index = beginIndexValue.asInteger();
+
+                if ( (index < 0) || (index > valueByteCount) ) {
                     Logger.log("NOTICE: Index out of bounds for Opcode: " + _opcode);
                     return false;
+                }
+
+                final Integer bytes0ByteCount = index;
+                final Integer bytes1ByteCount = (valueByteCount - index);
+
+                final byte[] bytes0 = new byte[bytes0ByteCount];
+                final byte[] bytes1 = new byte[bytes1ByteCount];
+
+                ByteUtil.setBytes(bytes0, valueBytes);
+
+                for (int i = 0; i < bytes1ByteCount; ++i) {
+                    bytes1[i] = valueBytes[index + i];
+                }
+
+                stack.push(Value.fromBytes(bytes0));
+                stack.push(Value.fromBytes(bytes1));
+
+                return (! stack.didOverflow());
+            }
+
+            // Encodes a signed binary number into Bitcoin's MPI format.
+            case ENCODE_NUMBER: { // TODO: Write tests for this implementation...
+                // NOTE: Bitcoin Verde's internal representation is always big-endian.
+                // value ENCODE_NUMBER -> { minimum-encoded value }
+                // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
+                // { 0x00, 0x00, 0x00, 0x02 } ENCODE_NUMBER -> { 0x02 }
+                // { 0x80, 0x00, 0x05 } ENCODE_NUMBER -> { 0x80, 0x00, 0x05 }
+
+                final Value value = stack.pop();
+
+                final Long valueInteger = value.asLong();
+                if (_didIntegerOverflow(valueInteger)) { return false; }
+
+                stack.push(Value.fromInteger(valueInteger));
+
+                return (! stack.didOverflow());
+            }
+
+            // Decodes an MPI-encoded number into a signed byte array of specific size.
+            case DECODE_NUMBER: { // TODO: Write tests for this implementation...
+                // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
+                // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
+                // { 0x85 } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x05 }
+                // { 0x85 } { 0x02 } DECODE_NUMBER -> { 0x80, 0x05 }
+                // { 0x80, 0xFF } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0xFF }
+
+                final Value byteCountValue = stack.pop();
+                final Value value = stack.pop();
+
+                final Integer byteCount = byteCountValue.asInteger();
+                final Long valueAsInteger = value.asLong();
+                final Value reinterpretedValue = Value.fromInteger(valueAsInteger);
+
+                final byte[] minimallyEncodedValue = ByteUtil.reverseEndian(reinterpretedValue.getBytes());
+                if (byteCount < minimallyEncodedValue.length) { return false; }
+
+                final Boolean isNegative = (valueAsInteger < 0);
+
+                { // Remove the sign bit from the minimally encoded value...
+                    if (minimallyEncodedValue.length > 0) {
+                        minimallyEncodedValue[0] &= 0x7F;
+                    }
                 }
 
                 final byte[] bytes = new byte[byteCount];
-                ByteUtil.setBytes(bytes, value.getBytes(), beginIndex);
-                stack.push(Value.fromBytes(bytes));
-
-                return (! stack.didOverflow());
-            }
-
-            case STRING_LEFT: {
-                final Value value = stack.pop();
-                final Value leftByteCountValue = stack.pop();
-
-                final Integer leftByteCount = leftByteCountValue.asInteger();
-
-                // NOTE: This opcode is not enabled, and its details have no consensus...
-                //  If the operation goes out of bounds, the opcode fails.
-                if ((leftByteCount < 0) || (leftByteCount >= value.getByteCount())) {
-                    Logger.log("NOTICE: Index out of bounds for Opcode: " + _opcode);
-                    return false;
+                for (int i = 0; i < minimallyEncodedValue.length; ++i) {
+                    final byte b = minimallyEncodedValue[minimallyEncodedValue.length - i - 1];
+                    bytes[bytes.length - i - 1] = b;
                 }
 
-                final byte[] bytes = new byte[leftByteCount];
-                ByteUtil.setBytes(bytes, value.getBytes());
-                stack.push(Value.fromBytes(bytes));
-
-                return (! stack.didOverflow());
-            }
-
-            case STRING_RIGHT: {
-                final Value value = stack.pop();
-                final Value skippedByteCountValue = stack.pop();
-
-                final Integer skippedByteCount = skippedByteCountValue.asInteger();
-
-                // NOTE: This opcode is not enabled, and its details have no consensus...
-                //  If the operation goes out of bounds, the opcode fails.
-                if ((skippedByteCount < 0) || (skippedByteCount >= value.getByteCount())) {
-                    Logger.log("NOTICE: Index out of bounds for Opcode: " + _opcode);
-                    return false;
+                if ( (isNegative) && (byteCount > 0) ) {
+                    bytes[0] |= (byte) 0x80;
                 }
 
-                final Integer byteCount = (value.getByteCount() - skippedByteCount);
-                final byte[] bytes = ByteUtil.copyBytes(value.getBytes(), skippedByteCount, byteCount);
-                stack.push(Value.fromBytes(bytes));
+                final byte[] littleEndianBytes = ByteUtil.reverseEndian(bytes);
+                final Value decodedValue = Value.fromBytes(littleEndianBytes);
+                stack.push(decodedValue);
 
                 return (! stack.didOverflow());
             }

@@ -13,8 +13,9 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -114,7 +115,7 @@ public class Miner {
                                     final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
                                     byteArrayBuilder.appendBytes(originalCoinbaseSignature.getBytes());
                                     byteArrayBuilder.appendBytes(scriptBuilder.build().getBytes());
-                                    mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(byteArrayBuilder.build()));
+                                    mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayBuilder.build())));
                                     coinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
                                     mutableBlock.replaceTransaction(0, coinbaseTransaction);
                                 }
@@ -185,7 +186,7 @@ public class Miner {
                                 final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
                                 byteArrayBuilder.appendBytes(originalCoinbaseSignature.getBytes());
                                 byteArrayBuilder.appendBytes(scriptBuilder.build().getBytes());
-                                mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(byteArrayBuilder.build()));
+                                mutableTransactionInput.setUnlockingScript(new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayBuilder.build())));
                                 coinbaseTransaction.setTransactionInput(0, mutableTransactionInput);
                                 mutableBlock.replaceTransaction(0, coinbaseTransaction);
                             }

@@ -3,16 +3,14 @@ package com.softwareverde.bitcoin.server.message.type.request;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHash;
-import com.softwareverde.bitcoin.server.message.type.query.response.hash.DataHashInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
-    public static final Integer HASH_BYTE_COUNT = 32;
-
     @Override
     public RequestDataMessage fromBytes(final byte[] bytes) {
-        final DataHashInflater dataHashInflater = new DataHashInflater();
+        final InventoryItemInflater inventoryItemInflater = new InventoryItemInflater();
 
         final RequestDataMessage inventoryMessage = new RequestDataMessage();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
@@ -22,8 +20,8 @@ public class RequestDataMessageInflater extends BitcoinProtocolMessageInflater {
 
         final Long inventoryCount = byteArrayReader.readVariableSizedInteger();
         for (int i=0; i<inventoryCount; ++i) {
-            final DataHash dataHash = dataHashInflater.fromBytes(byteArrayReader);
-            inventoryMessage.addInventoryItem(dataHash);
+            final InventoryItem inventoryItem = inventoryItemInflater.fromBytes(byteArrayReader);
+            inventoryMessage.addInventoryItem(inventoryItem);
         }
 
         if (byteArrayReader.didOverflow()) { return null; }

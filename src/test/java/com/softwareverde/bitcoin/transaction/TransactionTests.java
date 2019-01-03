@@ -3,8 +3,7 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
@@ -59,7 +58,7 @@ public class TransactionTests {
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(IoUtil.getResource("/blocks/00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523")));
         final Transaction transaction = block.getTransactions().get(1);
 
-        final Sha256Hash expectedTransactionHash = MutableSha256Hash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957");
+        final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957");
         final int expectedInputCount = 320;
         final int expectedOutputCount = 1;
 

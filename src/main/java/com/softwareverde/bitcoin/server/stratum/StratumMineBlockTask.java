@@ -12,11 +12,10 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
-import com.softwareverde.bitcoin.type.bytearray.FragmentedBytes;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -181,7 +180,7 @@ public class StratumMineBlockTask {
     }
 
     public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
-        final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
+        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
         _prototypeBlock.setPreviousBlockHash(previousBlockHash);
     }
 

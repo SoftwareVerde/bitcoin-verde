@@ -47,7 +47,7 @@ public class ScriptInflaterTests {
     @Test
     public void should_inflate_poorly_formed_coinbase_script() {
         // Block 00000000000000001371D439D02C92C514146E6C3A801399DAAB4742FB707BB1 has a coinbase that contains invalid opcodes...
-        //  The ScriptInflater should inflate these as OP_UNKNOWN.
+        //  The ScriptInflater should inflate these as OP_INVALID.
 
         // Setup
         final String hexString = "03937405E4B883E5BDA9E7A59EE4BB99E9B1BCFABE6D6DE5C01B6F48B22335B821F00B179D9A4B03C561F73453D3E91C7B356095F2254D10000000000000000068D65924BD00004D696E656420627920736F6E676C656936363636";
@@ -61,9 +61,10 @@ public class ScriptInflaterTests {
         Assert.assertNotNull(script);
 
         final List<Operation> operations = script.getOperations();
-        Assert.assertEquals(2, operations.getSize());
+        Assert.assertEquals(24, operations.getSize());
         Assert.assertEquals(Operation.Type.OP_PUSH, operations.get(0).getType());
         Assert.assertEquals(Operation.Type.OP_INVALID, operations.get(1).getType());
-        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E4B883E5BDA9E7A59EE4BB99E9B1BCFABE6D6DE5C01B6F48B22335B821F00B179D9A4B03C561F73453D3E91C7B356095F2254D10000000000000000068D65924BD00004D696E656420627920736F6E676C656936363636"), operations.get(1).getBytes());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray("E4"), operations.get(1).getBytes());
+        TestUtil.assertEqual(HexUtil.hexStringToByteArray(hexString), script.getBytes().getBytes());
     }
 }

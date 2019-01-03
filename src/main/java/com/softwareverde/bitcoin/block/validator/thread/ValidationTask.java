@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -9,15 +10,18 @@ import java.util.concurrent.Future;
 
 class ValidationTask<T, S> implements Runnable {
     private final MysqlDatabaseConnection _databaseConnection;
+    private final DatabaseManagerCache _databaseManagerCache;
     private final TaskHandler<T, S> _taskHandler;
     private final List<T> _list;
     private int _startIndex;
     private int _itemCount;
     private Future _future;
     private boolean _didEncounterError = false;
+    private volatile boolean _shouldAbort = false;
 
-    public ValidationTask(final MysqlDatabaseConnection databaseConnection, final List<T> list, final TaskHandler<T, S> taskHandler) {
+    public ValidationTask(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final List<T> list, final TaskHandler<T, S> taskHandler) {
         _databaseConnection = databaseConnection;
+        _databaseManagerCache = databaseManagerCache;
         _list = list;
         _taskHandler = taskHandler;
     }
@@ -37,9 +41,11 @@ class ValidationTask<T, S> implements Runnable {
     @Override
     public void run() {
         try {
-            _taskHandler.init(_databaseConnection);
+            _taskHandler.init(_databaseConnection, _databaseManagerCache);
 
             for (int j = 0; j < _itemCount; ++j) {
+                if (_shouldAbort) { return; }
+
                 final T item = _list.get(_startIndex + j);
                 _taskHandler.executeTask(item);
             }
@@ -62,10 +68,19 @@ class ValidationTask<T, S> implements Runnable {
             }
             catch (final Exception exception) {
                 Logger.log(exception);
+
+                final Thread currentThread = Thread.currentThread();
+                currentThread.interrupt(); // Do not consume the interrupted status...
+
                 return null;
             }
         }
 
         return _taskHandler.getResult();
+    }
+
+    public void abort() {
+        _shouldAbort = true;
+        _didEncounterError = true;
     }
 }

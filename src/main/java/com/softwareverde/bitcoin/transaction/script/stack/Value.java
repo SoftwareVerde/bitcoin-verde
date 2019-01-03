@@ -1,15 +1,14 @@
 package com.softwareverde.bitcoin.transaction.script.stack;
 
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
@@ -24,6 +23,7 @@ public class Value extends ImmutableByteArray implements Const {
     //      MPI:            0x80FF00
     //      Signed Hex:     -0xFF00
     //      2's Complement: 0xFFFFFFFFFFFF0100
+    // The returned byte array is little-endian.
     protected static byte[] _longToBytes(final Long value) {
         if (value == 0L) { return new byte[0]; }
 
@@ -33,13 +33,7 @@ public class Value extends ImmutableByteArray implements Const {
         final int unsignedByteCount = ( (BitcoinUtil.log2((int) absValue) / 8) + 1 );
         final byte[] absValueBytes = ByteUtil.integerToBytes(absValue);
 
-        final boolean requiresSignPadding;
-        if (isNegative) {
-            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
-        }
-        else {
-            requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
-        }
+        final boolean requiresSignPadding = ((absValueBytes[absValueBytes.length - unsignedByteCount] & 0x80) == 0x80);
 
         final byte[] bytes = new byte[(requiresSignPadding ? unsignedByteCount + 1 : unsignedByteCount)];
         ByteUtil.setBytes(bytes, ByteUtil.reverseEndian(absValueBytes));
@@ -52,7 +46,7 @@ public class Value extends ImmutableByteArray implements Const {
 
     public static Value fromInteger(final Long longValue) {
         final byte[] bytes = _longToBytes(longValue);
-        return new Value(ByteUtil.reverseEndian(bytes));
+        return new Value(bytes);
     }
 
     public static Value fromBoolean(final Boolean booleanValue) {
@@ -66,8 +60,48 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     protected static boolean _isNegativeNumber(final byte[] bytes) {
-        final byte mostSignificantByte = bytes[bytes.length - 1];
+        final byte mostSignificantByte = bytes[0];
         return ( (mostSignificantByte & ((byte) 0x80)) != ((byte) 0x00) );
+    }
+
+    protected Integer _asInteger() {
+        if (_bytes.length == 0) { return 0; }
+
+        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
+
+        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
+
+        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of an integer)
+            bigEndianBytes[0] &= (byte) 0x7F;
+        }
+
+        final Integer value = ByteUtil.bytesToInteger(bigEndianBytes);
+        return (isNegative ? -value : value);
+    }
+
+    protected Long _asLong() {
+        if (_bytes.length == 0) { return 0L; }
+
+        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
+
+        final boolean isNegative = _isNegativeNumber(bigEndianBytes);
+
+        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of a long)
+            bigEndianBytes[0] &= (byte) 0x7F;
+        }
+
+        final Long value = ByteUtil.bytesToLong(bigEndianBytes);
+        return (isNegative ? -value : value);
+    }
+
+    protected Boolean _asBoolean() {
+        if (_bytes.length == 0) { return false; }
+
+        for (int i=0; i<_bytes.length; ++i) {
+            if ( (i == (_bytes.length - 1)) && (_bytes[i] == (byte) 0x80) ) { continue; } // Negative zero can still be false... (Little-Endian)
+            if (_bytes[i] != 0x00) { return true; }
+        }
+        return false;
     }
 
     protected Value(final byte[] bytes) {
@@ -79,41 +113,27 @@ public class Value extends ImmutableByteArray implements Const {
      * If _bytes is empty, zero is returned.
      */
     public Integer asInteger() {
-        if (_bytes.length == 0) { return 0; }
-
-        final boolean isNegative = _isNegativeNumber(_bytes);
-
-        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
-        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of an integer)
-            bigEndianBytes[0] &= (byte) 0x7F;
-        }
-
-        final Integer value = ByteUtil.bytesToInteger(bigEndianBytes);
-        return (isNegative ? -value : value);
+        return _asInteger();
     }
 
     public Long asLong() {
-        if (_bytes.length == 0) { return 0L; }
-
-        final boolean isNegative = _isNegativeNumber(_bytes);
-
-        final byte[] bigEndianBytes = ByteUtil.reverseEndian(_bytes);
-        { // Remove the sign bit... (only matters when _bytes.length is less than the byteCount of a long)
-            bigEndianBytes[0] &= (byte) 0x7F;
-        }
-
-        final Long value = ByteUtil.bytesToLong(bigEndianBytes);
-        return (isNegative ? -value : value);
+        return _asLong();
     }
 
     public Boolean asBoolean() {
-        if (_bytes.length == 0) { return false; }
+        return _asBoolean();
+    }
 
-        for (int i=0; i<_bytes.length; ++i) {
-            if ( (i == (_bytes.length - 1)) && (_bytes[i] == (byte) 0x80) ) { continue; } // Negative zero can still be false... (Little-Endian)
-            if (_bytes[i] != 0x00) { return true; }
-        }
-        return false;
+    public Boolean isMinimallyEncodedInteger() {
+        final Integer asInteger = _asInteger();
+        final byte[] minimallyEncodedBytes = _longToBytes(asInteger.longValue());
+        return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
+    }
+
+    public Boolean isMinimallyEncodedLong() {
+        final Long asLong = _asLong();
+        final byte[] minimallyEncodedBytes = _longToBytes(asLong);
+        return ByteUtil.areEqual(minimallyEncodedBytes, _bytes);
     }
 
     public LockTime asLockTime() {
@@ -125,11 +145,11 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public ScriptSignature asScriptSignature() {
-        return ScriptSignature.fromBytes(MutableByteArray.wrap(_bytes));
+        return ScriptSignature.fromBytes(this);
     }
 
     public PublicKey asPublicKey() {
-        return new PublicKey(_bytes);
+        return PublicKey.fromBytes(this);
     }
 
     public String asString() {

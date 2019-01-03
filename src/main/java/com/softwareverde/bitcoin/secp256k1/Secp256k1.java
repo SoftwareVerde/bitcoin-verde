@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
@@ -72,7 +72,7 @@ public class Secp256k1 {
 
     protected static Boolean _verifySignatureViaJni(final Signature signature, final PublicKey publicKey, final byte[] message) {
         try {
-            return NativeSecp256k1.verify(message, signature.toCanonical().encodeAsDer().getBytes(), publicKey.getBytes());
+            return NativeSecp256k1.verify(message, signature.asCanonical().encodeAsDer().getBytes(), publicKey.getBytes());
         }
         catch (Exception e) {
             Logger.log(e);

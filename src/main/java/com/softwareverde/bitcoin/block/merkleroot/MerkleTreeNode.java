@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
-import com.softwareverde.bitcoin.type.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.list.List;
@@ -225,6 +225,29 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
 
         _itemCount += 1;
         _hashIsValid = false;
+    }
+
+    @Override
+    public T getItem(final int index) {
+        if ( (_item0 != null) || (_item1 != null) ) {
+            if (index == 0) {
+                return _item0;
+            }
+            else if (index == 1) {
+                return _item1;
+            }
+        }
+        else {
+            final int childNode0ItemCount = _childNode0.getItemCount();
+            if (index < childNode0ItemCount) {
+                return _childNode0.getItem(index);
+            }
+            else {
+                return _childNode1.getItem(index - childNode0ItemCount);
+            }
+        }
+
+        return null; // Invalid state...
     }
 
     @Override

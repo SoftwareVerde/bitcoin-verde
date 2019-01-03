@@ -15,8 +15,8 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
@@ -46,7 +46,7 @@ public class MinerModule {
 
     public void run() {
         try {
-            final Sha256Hash previousBlockHash = MutableSha256Hash.fromHexString(_previousBlockHashString);
+            final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_previousBlockHashString);
             final AddressInflater addressInflater = new AddressInflater();
 
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);

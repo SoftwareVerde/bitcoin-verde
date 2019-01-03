@@ -46,11 +46,11 @@ a {
     float: left;
     line-height: 2em;
     text-align: center;
-    min-width: 100px;
     color: #EEEEEE;
     font-weight: bold;
     cursor: pointer;
-    padding-top: 1.4em;
+    padding: 1em;
+    overflow: hidden;
 }
 
 #header .navigation ul li:hover {
@@ -60,27 +60,42 @@ a {
 
 #header .brand .logo {
     width: 20em;
+    max-width: 50%;
     margin: 0.25em;
-    float: left;
+    position: relative;
+    top: 0.35em;
 }
 
 #header .brand .title {
     color: #EEEEEE;
     font-size: 1.5em;
-    float: left;
     margin-top: 0.88em;
     margin-left: 0.1em;
+    position: relative;
+    display: inline-block;
+    margin-top: 0.5em;
+}
+
+#header .brand .title:before {
+    content: 'Bitcoin Verde';
+    color: #1AB326;
+    font-weight: bold;
+    font-size: 0.75em;
+    font-family: 'Bree Serif', serif;
+    position: absolute;
+    left: 0;
+    top: -1.0em;
 }
 
 #header .search {
-    float: left;
     clear: left;
     margin-top: 0.5em;
     margin-left: 0.5em;
 }
 
 #header .search #search {
-    width: 42em;
+    max-width: 42em;
+    width: calc(100% - 5em);
     font-size: 1em;
     font-weight: bold;
     padding: 0.5em;
@@ -88,8 +103,7 @@ a {
     border: none;
     border-bottom: solid 2px #F7931D;
     color: #F7931D;
-    text-transform: uppercase;
-    float: left;
+    /* text-transform: uppercase; */
 }
 
 #header .search #search:focus {
@@ -99,9 +113,8 @@ a {
 #header .search .loading {
     height: 2em;
     margin-left: 1em;
-    float: left;
-    margin-top: 0.25em;
     visibility: hidden;
+    vertical-align: middle;
 }
 
 #header input:-webkit-autofill,
@@ -123,14 +136,48 @@ a {
 
     -ms-overflow-style: none;
     overflow: -moz-scrollbars-none;
+    white-space: nowrap;
 }
 
 .fixed::-webkit-scrollbar { 
     display: none;
 }
 
+.clickable {
+    display: table !important; /* Treats item as an inline-block on a newline... */
+}
 .clickable:hover {
     cursor: pointer;
     color: #F7931D;
 }
 
+.copy {
+    display: inline-block !important;
+    height: 1em;
+    width: 1em;
+    background: transparent url('/img/copy.svg');
+    background-repeat: no-repeat;
+    background-size: 95% 95%;
+    cursor: pointer;
+    margin-left: 0.5em;
+    background-position-y: 100%;
+    vertical-align: text-bottom;
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+@media only screen and (max-width: 600px) {
+    #header .navigation ul {
+        padding-left: 0;
+    }
+}
+
+@media only screen and (max-width: 320px) {
+    * {
+        font-size: 95%;
+    }
+}

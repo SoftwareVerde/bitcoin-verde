@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.bip.Bip55;
+import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -148,7 +148,7 @@ public class SignatureContext {
     }
 
     public Boolean shouldUseBitcoinCashSigningAlgorithm() {
-        if (! Bip55.isEnabled(_blockHeight)) { return false; }
+        if (! Buip55.isEnabled(_blockHeight)) { return false; }
 
         return _hashType.isBitcoinCashType();
     }

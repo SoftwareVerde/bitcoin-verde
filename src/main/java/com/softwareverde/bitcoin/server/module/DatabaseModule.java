@@ -4,12 +4,10 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
-import com.softwareverde.database.mysql.embedded.properties.DatabaseProperties;
 import com.softwareverde.io.Logger;
 
 import java.io.File;
@@ -37,7 +35,7 @@ public class DatabaseModule {
         _configuration = _loadConfigurationFile(configurationFilename);
 
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
         Logger.log("[Starting Database]");
         final EmbeddedMysqlDatabase database;
@@ -50,15 +48,7 @@ public class DatabaseModule {
                 });
 
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                {
-                    commandLineArguments.enableSlowQueryLog("slow-query.log", 1L);
-                    commandLineArguments.setInnoDbBufferPoolByteCount(2L * ByteUtil.Unit.GIGABYTES);
-                    commandLineArguments.setInnoDbBufferPoolInstanceCount(1);
-                    commandLineArguments.setInnoDbLogFileByteCount(64 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setInnoDbLogBufferByteCount(8 * ByteUtil.Unit.MEGABYTES);
-                    commandLineArguments.setQueryCacheByteCount(0L);
-                    commandLineArguments.addArgument("--performance_schema");
-                }
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
 
                 databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
             }
@@ -70,7 +60,7 @@ public class DatabaseModule {
             Logger.log("[Database Online]");
         }
 
-        _environment = new Environment(database);
+        _environment = new Environment(database, null);
     }
 
     public void loop() {

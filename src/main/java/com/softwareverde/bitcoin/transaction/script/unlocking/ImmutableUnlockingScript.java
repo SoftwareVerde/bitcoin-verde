@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.transaction.script.unlocking;
 
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.constable.bytearray.ByteArray;
 
 public class ImmutableUnlockingScript extends ImmutableScript implements UnlockingScript {
 
@@ -9,7 +10,7 @@ public class ImmutableUnlockingScript extends ImmutableScript implements Unlocki
         super();
     }
 
-    public ImmutableUnlockingScript(final byte[] bytes) {
+    public ImmutableUnlockingScript(final ByteArray bytes) {
         super(bytes);
     }
 

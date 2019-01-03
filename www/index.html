@@ -4,10 +4,18 @@
         <link rel="stylesheet" href="/css/core.css" />
         <link rel="stylesheet" href="/css/main.css" />
 
+        <link rel="icon" href="/img/favicon.png">
+
         <script src="/js/constants.js"></script>
         <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
         <script src="/js/core.js"></script>
         <script src="/js/main.js"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Bree+Serif" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>Bitcoin Cash Block Explorer</title>
     </head>
@@ -21,6 +29,7 @@
                 <ul>
                     <li><a href="/">Home</a></li>
                     <li><a href="/blocks/">Blocks</a></li>
+                    <li><a href="/blockchain/">Blockchain</a></li>
                     <li><a href="/status/">Status</a></li>
                 </ul>
             </div>
@@ -30,8 +39,8 @@
             </div>
         </div>
         <div id="main">
+            <a href="/documentation/"><span class="button documentation">Documentation</span></a>
         </div>
-
         <div id="templates">
             <div class="block">
                 <div class="block-header">
@@ -53,13 +62,13 @@
                 <div class="transactions"></div>
             </div>
 
-            <div class="transaction">
+            <div class="transaction collapsed">
                 <div>
-                    <div class="hash clickable"><label>Hash</label><span class="value fixed">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                    <div class="hash"><label>Hash</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
                     <div class="version"><label>Version</label><span class="value">1</span></div>
                     <div class="byte-count"><label>Total Size</label><span class="value">1024</span></div>
                     <div class="fee"><label>Fee</label><span class="value">0.0000</span></div>
-                    <div class="block-hashes"><label>Mined In Blocks</label><div class="value fixed"></div></div>
+                    <div class="block-hashes"><label>Mined In Blocks</label><div class="values"></div></div>
                     <div class="lock-time">
                         <label>Lock Time</label>
                         <div class="type"><label>Type</label><span class="value">BLOCK_HEIGHT</span></div>
@@ -75,7 +84,7 @@
 
             <div class="transaction-input">
                 <div class="label"><label class="address">1111111111111111111111111111111111</label><span class="amount">0.0000</span></div>
-                <div class="transaction-hash"><label>Transaction Hash</label><span class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</span></div>
+                <div class="transaction-hash"><label>Transaction Hash</label><div class="value fixed clickable">0000000000000000000000000000000000000000000000000000000000000000</div></div>
                 <div class="transaction-output-index"><label>Transaction Output Index</label><span class="value">0</span></div>
                 <div class="sequence-number">
                     <label>Sequence Number</label>
@@ -101,6 +110,15 @@
 
             <div class="script-operation">
                 <span class="value"></span>
+            </div>
+
+            <div class="address">
+                <div class="address-metadata clearfix">
+                    <div class="qr-code"></div>
+                    <label class="address"></label>
+                    <label class="address-balance"></label>
+                </div>
+                <div class="address-transactions"></div>
             </div>
         </div>
     </body>

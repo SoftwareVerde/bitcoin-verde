@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -20,9 +23,6 @@ import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.key.PrivateKey;
-import com.softwareverde.bitcoin.type.key.PublicKey;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -297,7 +297,10 @@ public class TransactionSigner {
 
         { // 10. Serialize this Transaction's HashType...
             // TODO: Bitcoin ABC has additional code here, including XOR'ing with 0xDEAD... Unsure of its purpose/intent. Might have to revisit.
-            byteArrayBuilder.appendBytes(ByteUtil.integerToBytes((FORK_ID << 8) | hashType.toByte()), Endian.LITTLE);
+            final byte hashTypeByte = hashType.toByte();
+            final byte[] hashTypeWithForkId = ByteUtil.integerToBytes(FORK_ID << 8);
+            hashTypeWithForkId[3] |= hashTypeByte;
+            byteArrayBuilder.appendBytes(hashTypeWithForkId, Endian.LITTLE);
         }
 
         return BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));

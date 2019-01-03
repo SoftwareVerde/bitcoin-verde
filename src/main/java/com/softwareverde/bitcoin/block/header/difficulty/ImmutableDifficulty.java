@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -13,12 +14,14 @@ import java.math.BigInteger;
 public class ImmutableDifficulty implements Difficulty, Const {
     public static final Long MAX_SIGNIFICAND_VALUE = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray("7FFFFF"));
 
+    protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
+
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
 
     private ByteArray _cachedBytes = null;
 
-    protected static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
+    public static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
         final int significandByteCount = 3;
 
         final byte[] bytes = bigInteger.toByteArray();
@@ -165,6 +168,21 @@ public class ImmutableDifficulty implements Difficulty, Const {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
         return fromBigInteger(bigDecimal.toBigInteger());
+    }
+
+    @Override
+    public BlockWork calculateWork() {
+        final BigInteger difficultyBigInteger = _toBigInteger();
+        final BigInteger proofOfWorkBigInteger = MAX_WORK.divide(difficultyBigInteger.add(BigInteger.ONE));
+        final byte[] workBytes = proofOfWorkBigInteger.toByteArray();
+
+        final MutableByteArray workByteArray = new MutableByteArray(32);
+        for (int i = 0; i < workBytes.length; ++i) {
+            final byte b = workBytes[workBytes.length - i - 1];
+            workByteArray.set(workByteArray.getByteCount() - i - 1, b);
+        }
+
+        return BlockWork.fromByteArray(workByteArray);
     }
 
     @Override

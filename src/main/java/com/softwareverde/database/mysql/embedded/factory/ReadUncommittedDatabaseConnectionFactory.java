@@ -1,16 +1,15 @@
 package com.softwareverde.database.mysql.embedded.factory;
 
-import com.softwareverde.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 
-import java.sql.Connection;
-
-public class ReadUncommittedDatabaseConnectionFactory implements DatabaseConnectionFactory<Connection> {
+public class ReadUncommittedDatabaseConnectionFactory extends MysqlDatabaseConnectionFactory {
     protected final MysqlDatabaseConnectionFactory _mysqlDatabaseConnectionFactory;
 
     public ReadUncommittedDatabaseConnectionFactory(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory) {
+        super("", "", "");
+
         _mysqlDatabaseConnectionFactory = mysqlDatabaseConnectionFactory;
     }
 

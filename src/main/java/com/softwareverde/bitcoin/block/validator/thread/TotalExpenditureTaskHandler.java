@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -22,13 +22,14 @@ import java.util.Map;
  */
 public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Long> {
     protected MysqlDatabaseConnection _databaseConnection;
+    protected DatabaseManagerCache _databaseManagerCache;
     protected boolean _allTransactionsExpendituresAreValid = true;
 
-    protected static TransactionOutput _getTransactionOutput(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection) {
+    protected static TransactionOutput _getTransactionOutput(final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         try {
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection);
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
 
-            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(blockChainSegmentId, outputTransactionHash, transactionOutputIndex);
+            final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(outputTransactionHash, transactionOutputIndex);
             final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
             if (transactionOutputId != null) {
                 return transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
@@ -51,7 +52,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         return null;
     }
 
-    protected static Long _calculateTotalTransactionInputs(final BlockChainSegmentId blockChainSegmentId, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection) {
+    protected static Long _calculateTotalTransactionInputs(final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
@@ -61,7 +62,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
             final Sha256Hash outputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
             final Integer transactionOutputIndex = transactionInput.getPreviousOutputIndex();
 
-            final TransactionOutput transactionOutput = _getTransactionOutput(blockChainSegmentId, outputTransactionHash, transactionOutputIndex, queuedTransactions, databaseConnection);
+            final TransactionOutput transactionOutput = _getTransactionOutput(outputTransactionHash, transactionOutputIndex, queuedTransactions, databaseConnection, databaseManagerCache);
 
             if (transactionOutput == null) {
                 Logger.log("Tx Input, Output Not Found: " + HexUtil.toHexString(outputTransactionHash.getBytes()) + ":" + transactionOutputIndex);
@@ -74,18 +75,17 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         return totalInputValue;
     }
 
-    private final BlockChainSegmentId _blockChainSegmentId;
     private final Map<Sha256Hash, Transaction> _queuedTransactionOutputs;
     private Long _totalFees = 0L;
 
-    public TotalExpenditureTaskHandler(final BlockChainSegmentId blockChainSegmentId, final Map<Sha256Hash, Transaction> queuedTransactionOutputs) {
-        _blockChainSegmentId = blockChainSegmentId;
+    public TotalExpenditureTaskHandler(final Map<Sha256Hash, Transaction> queuedTransactionOutputs) {
         _queuedTransactionOutputs = queuedTransactionOutputs;
     }
 
     @Override
-    public void init(final MysqlDatabaseConnection databaseConnection) {
+    public void init(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
+        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
@@ -93,7 +93,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Lon
         if (! _allTransactionsExpendituresAreValid) { return; }
 
         final Long totalOutputValue = transaction.getTotalOutputValue();
-        final Long totalInputValue = _calculateTotalTransactionInputs(_blockChainSegmentId, transaction, _queuedTransactionOutputs, _databaseConnection);
+        final Long totalInputValue = _calculateTotalTransactionInputs(transaction, _queuedTransactionOutputs, _databaseConnection, _databaseManagerCache);
 
         final boolean transactionExpenditureIsValid = (totalOutputValue <= totalInputValue);
         if (! transactionExpenditureIsValid) {

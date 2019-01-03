@@ -5,9 +5,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.mutable.MutableList;
 
 public class BlockInflater {
+    public static final Integer MAX_TRANSACTION_COUNT = Integer.MAX_VALUE; // TODO: Set to the the current consensus value...
+
     protected MutableBlock _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
         final TransactionInflater transactionInflater = new TransactionInflater();
@@ -15,10 +18,12 @@ public class BlockInflater {
         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final Long transactionCount = byteArrayReader.readVariableSizedInteger();
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount.intValue());
+        final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
+        if (transactionCount > MAX_TRANSACTION_COUNT) { return null; }
 
-        for (long i=0; i<transactionCount; ++i) {
+        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);
+
+        for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }
 
@@ -32,6 +37,10 @@ public class BlockInflater {
 
     public MutableBlock fromBytes(final ByteArrayReader byteArrayReader) {
         return _fromByteArrayReader(byteArrayReader);
+    }
+
+    public MutableBlock fromBytes(final ByteArray byteArrayReader) {
+        return _fromByteArrayReader(new ByteArrayReader(byteArrayReader));
     }
 
     public MutableBlock fromBytes(final byte[] bytes) {

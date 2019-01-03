@@ -2,15 +2,15 @@ package com.softwareverde.bitcoin.transaction.script;
 
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.type.hash.ripemd160.MutableRipemd160Hash;
-import com.softwareverde.bitcoin.type.hash.ripemd160.Ripemd160Hash;
+import com.softwareverde.bitcoin.hash.ripemd160.MutableRipemd160Hash;
+import com.softwareverde.bitcoin.hash.ripemd160.Ripemd160Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableScript implements Script, Const {
     protected List<Operation> _cachedOperations;
@@ -27,8 +27,8 @@ public class ImmutableScript implements Script, Const {
         _bytes = new MutableByteArray(0);
     }
 
-    public ImmutableScript(final byte[] bytes) {
-        _bytes = new ImmutableByteArray(bytes);
+    public ImmutableScript(final ByteArray bytes) {
+        _bytes = bytes.asConst();
     }
 
     public ImmutableScript(final Script script) {
@@ -105,5 +105,22 @@ public class ImmutableScript implements Script, Const {
     @Override
     public int hashCode() {
         return _bytes.hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Script)) { return false; }
+        final Script script = (Script) object;
+        return (Util.areEqual(_bytes, script.getBytes()));
+    }
+
+    @Override
+    public int simpleHashCode() {
+        return super.hashCode();
+    }
+
+    @Override
+    public boolean simpleEquals(final Object object) {
+        return super.equals(object);
     }
 }

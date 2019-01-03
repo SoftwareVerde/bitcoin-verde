@@ -4,10 +4,10 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.type.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -234,14 +234,13 @@ public class MerkleTreeTests {
         TestUtil.assertEqual(expectedMerkleRoot, merkleRoot.getBytes());
     }
 
-    // @Test
-    // TODO: Unsure why this test fails...  Considering this is block #300,000, it's possibly a change in the protocol.
+    @Test
     public void should_calculate_the_merkle_root_with_over_a_hundred_transactions() {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
         final String blockData = IoUtil.getResource("/blocks/000000000000000082CCF8F1557C5D40B21EDABB18D2D691CFBF87118BAC7254");
 
-        final byte[] expectedMerkleRoot = HexUtil.hexStringToByteArray("3DDE8912B6BF03E04DFFF24408B4643DE1E3419C84585FB96E4EC7ACA6CC29A9");
+        final byte[] expectedMerkleRoot = HexUtil.hexStringToByteArray("915C887A2D9EC3F566A648BEDCF4ED30D0988E22268CFE43AB5B0CF8638999D3");
         final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
         final MerkleTree<Transaction> merkleTree = new MerkleTreeNode<Transaction>();
 
@@ -315,7 +314,7 @@ public class MerkleTreeTests {
         Assert.assertEquals(MutableSha256Hash.fromHexString("0E0ABB91667C0BB906E9ED8BBBFB5876FCCB707C2D9E7DAB3603B57F41EC431F"), block.getTransactions().get(0).getHash());
         Assert.assertEquals(MutableSha256Hash.fromHexString("3A5769FB2126D870ADED5FCACED3BC49FA9768436101895931ADB5246E41E957"), block.getTransactions().get(1).getHash());
 
-        final Sha256Hash expectedBlockHash = MutableSha256Hash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
+        final Sha256Hash expectedBlockHash = Sha256Hash.fromHexString("00000000AFE94C578B4DC327AA64E1203283C5FD5F152CE886341766298CF523");
         final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("C5997D1CAD40AFEC154AA99B8988E97B1F113D8076357A77572455574765A533");
 
         // Action
@@ -414,5 +413,23 @@ public class MerkleTreeTests {
     @Test
     public void should_create_partial_tree_for_coinbase_transaction_with_item_count_26() {
         _should_create_partial_tree_for_missing_transaction_N_with_item_count_M(0, 26, 5);
+    }
+
+    @Test
+    public void should_get_items_in_order() {
+        // Setup
+        final MerkleTreeNode<Item> merkleTree = new MerkleTreeNode<Item>();
+        for (int i = 0; i < 100; ++i) {
+            merkleTree.addItem(new Item(i));
+
+            for (int j = 0; j < merkleTree.getItemCount(); ++j) {
+                final Item item = merkleTree.getItem(j);
+                Assert.assertEquals(new Item(j).getHash(), item.getHash());
+            }
+        }
+
+        // Action
+
+        // Assert
     }
 }

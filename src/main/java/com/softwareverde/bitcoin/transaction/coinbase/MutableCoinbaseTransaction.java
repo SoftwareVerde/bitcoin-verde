@@ -21,8 +21,9 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
             return;
         }
 
-        final MutableTransactionInput transactionInput = _transactionInputs.get(0);
+        final MutableTransactionInput transactionInput = new MutableTransactionInput(_transactionInputs.get(0));
         transactionInput.setUnlockingScript(unlockingScript.asConst());
+        _transactionInputs.set(0, transactionInput);
     }
 
     @Override

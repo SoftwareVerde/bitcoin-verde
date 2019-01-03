@@ -7,14 +7,14 @@ import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMess
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.test.util.TestUtil;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
-
-import java.util.List;
 
 public class ProtocolMessageTests {
     @Test
@@ -37,16 +37,21 @@ public class ProtocolMessageTests {
             "00"                                // Relay Enabled
         ;
 
-        final NodeFeatures nodeFeatures = new NodeFeatures();
-        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        final NodeFeatures remoteNodeFeatures = new NodeFeatures();
+        remoteNodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
 
         final BitcoinNodeIpAddress remoteNodeIpAddress = new BitcoinNodeIpAddress();
         remoteNodeIpAddress.setIp(Ipv4.parse("192.168.1.1"));
         remoteNodeIpAddress.setPort(8333);
-        remoteNodeIpAddress.setNodeFeatures(nodeFeatures);
+        remoteNodeIpAddress.setNodeFeatures(remoteNodeFeatures);
+
+        final NodeFeatures nodeFeatures = new NodeFeatures();
+        nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
         synchronizeVersionMessage.setRemoteAddress(remoteNodeIpAddress);
+        synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
 
         // Action
         final ByteArray serializedMessage = synchronizeVersionMessage.getBytes();
@@ -105,11 +110,11 @@ public class ProtocolMessageTests {
 
         Assert.assertEquals(0x60D6774E90FB4282L, synchronizeVersionMessage.getNonce().longValue());
         Assert.assertEquals(0x000000000007E11DL, synchronizeVersionMessage.getCurrentBlockHeight().longValue());
-        Assert.assertTrue(synchronizeVersionMessage.relayIsEnabled());
+        Assert.assertTrue(synchronizeVersionMessage.transactionRelayIsEnabled());
     }
 
     @Test
-    public void shoul_deserialize_bitcoin_xt_getheaders_protocol_message() {
+    public void should_deserialize_bitcoin_xt_getheaders_protocol_message() {
         // Setup
         final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
@@ -166,7 +171,7 @@ public class ProtocolMessageTests {
         Assert.assertEquals(MessageType.REQUEST_BLOCK_HEADERS, requestBlockHeadersMessage.getCommand());
 
         final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
-        Assert.assertEquals(30, blockHeaderHashes.size());
+        Assert.assertEquals(30, blockHeaderHashes.getSize());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
@@ -175,7 +180,7 @@ public class ProtocolMessageTests {
     }
 
     @Test
-    public void shoul_deserialize_bitcoin_xt_getblocks_protocol_message() {
+    public void should_deserialize_bitcoin_xt_getblocks_protocol_message() {
         // Setup
         final BitcoinProtocolMessageFactory protocolMessageFactory = new BitcoinProtocolMessageFactory();
 
@@ -231,12 +236,14 @@ public class ProtocolMessageTests {
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("E8F3E1E3"), queryBlocksMessage.getMagicNumber().getBytes());
         Assert.assertEquals(MessageType.QUERY_BLOCKS, queryBlocksMessage.getCommand());
 
-        final List<Sha256Hash> blockHeaderHashes = queryBlocksMessage.getBlockHeaderHashes();
-        Assert.assertEquals(30, blockHeaderHashes.size());
+        final List<Sha256Hash> blockHeaderHashes = queryBlocksMessage.getBlockHashes();
+        Assert.assertEquals(30, blockHeaderHashes.getSize());
 
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000007E223EED2B34F72186409AB46E49D0E76CA298A988D613"), blockHeaderHashes.get(0).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("00000000000000000326CF3DB12FA4D9782E0F6FFECE312B99C135F52E42E34D"), blockHeaderHashes.get(1).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F"), blockHeaderHashes.get(29).getBytes());
         TestUtil.assertEqual(HexUtil.hexStringToByteArray("0000000000000000000000000000000000000000000000000000000000000000"), queryBlocksMessage.getStopBeforeBlockHash().getBytes());
+
+        Assert.assertEquals(MutableByteArray.wrap(versionMessage), queryBlocksMessage.getBytes());
     }
 }

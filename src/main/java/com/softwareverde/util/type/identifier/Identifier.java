@@ -1,8 +1,9 @@
 package com.softwareverde.util.type.identifier;
 
 import com.softwareverde.constable.Const;
+import com.softwareverde.util.Util;
 
-public class Identifier implements Const, Comparable<Long> {
+public class Identifier implements Const, Comparable<Identifier> {
     public static Identifier wrap(final Long value) {
         if (value == null) { return null; }
         return new Identifier(value);
@@ -31,10 +32,10 @@ public class Identifier implements Const, Comparable<Long> {
     public boolean equals(final Object object) {
         if (object instanceof Identifier) {
             final Identifier databaseId = (Identifier) object;
-            return _value.equals(databaseId._value);
+            return Util.areEqual(_value, databaseId._value);
         }
 
-        return _value.equals(object);
+        return Util.areEqual(_value, object);
     }
 
     @Override
@@ -43,7 +44,7 @@ public class Identifier implements Const, Comparable<Long> {
     }
 
     @Override
-    public int compareTo(final Long value) {
-        return _value.compareTo(value);
+    public int compareTo(final Identifier value) {
+        return _value.compareTo(value._value);
     }
 }

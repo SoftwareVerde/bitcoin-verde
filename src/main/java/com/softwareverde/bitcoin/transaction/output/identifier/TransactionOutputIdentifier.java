@@ -1,16 +1,19 @@
 package com.softwareverde.bitcoin.transaction.output.identifier;
 
-import com.softwareverde.bitcoin.chain.segment.BlockChainSegmentId;
-import com.softwareverde.bitcoin.type.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.Const;
+import com.softwareverde.util.Util;
 
 public class TransactionOutputIdentifier implements Const {
-    protected final BlockChainSegmentId _blockChainSegmentId;
+    public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
+        return new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+    }
+
     protected final Sha256Hash _transactionHash;
     protected final Integer _outputIndex;
 
-    public TransactionOutputIdentifier(final BlockChainSegmentId blockChainSegmentId, final Sha256Hash transactionHash, final Integer outputIndex) {
-        _blockChainSegmentId = blockChainSegmentId;
+    public TransactionOutputIdentifier(final Sha256Hash transactionHash, final Integer outputIndex) {
         _transactionHash = transactionHash.asConst();
         _outputIndex = outputIndex;
     }
@@ -23,31 +26,19 @@ public class TransactionOutputIdentifier implements Const {
         return _outputIndex;
     }
 
-    public BlockChainSegmentId getBlockChainSegmentId() {
-        return _blockChainSegmentId;
-    }
-
     @Override
     public boolean equals(final Object object) {
         if (! (object instanceof TransactionOutputIdentifier)) { return false; }
         final TransactionOutputIdentifier transactionOutputIdentifier = (TransactionOutputIdentifier) object;
 
-        if (_blockChainSegmentId != null) {
-            if (! _blockChainSegmentId.equals(transactionOutputIdentifier._blockChainSegmentId)) { return false; }
-        }
-        else {
-            if (transactionOutputIdentifier._blockChainSegmentId != null) { return false; }
-        }
-
-        if (_outputIndex != null) {
-            if (! _outputIndex.equals(transactionOutputIdentifier._outputIndex)) { return false; }
-        }
-        else {
-            if (transactionOutputIdentifier._outputIndex != null) { return false; }
-        }
-
-        if (! _transactionHash.equals(transactionOutputIdentifier._transactionHash)) { return false; }
+        if (! Util.areEqual(_transactionHash, transactionOutputIdentifier._transactionHash)) { return false; }
+        if (! Util.areEqual(_outputIndex, transactionOutputIdentifier._outputIndex)) { return false; }
 
         return true;
+    }
+
+    @Override
+    public int hashCode() {
+        return (_transactionHash.hashCode() + _outputIndex.hashCode());
     }
 }

@@ -47,19 +47,20 @@ public enum Opcode {
     SWAP_1ST_2ND_WITH_3RD_4TH           (0x72),
 
     // STRING
-    STRING_CONCATENATE                  (0x7E, false),
-    STRING_SUBSTRING                    (0x7F, false),
-    STRING_LEFT                         (0x80, false),
-    STRING_RIGHT                        (0x81, false),
+    CONCATENATE                         (0x7E),
+    SPLIT                               (0x7F),
+    DECODE_NUMBER                       (0x80),
+    ENCODE_NUMBER                       (0x81),
     STRING_PUSH_LENGTH                  (0x82),
 
     // BITWISE
-    BITWISE_INVERT                      (0x83, false),
-    BITWISE_AND                         (0x84, false),
-    BITWISE_OR                          (0x85, false),
-    BITWISE_XOR                         (0x86, false),
-    SHIFT_LEFT                          (0x98, false),
-    SHIFT_RIGHT                         (0x99, false),
+    BITWISE_INVERT                      (0x83),
+    BITWISE_AND                         (0x84),
+    BITWISE_OR                          (0x85),
+    BITWISE_XOR                         (0x86),
+    SHIFT_LEFT                          (0x98),
+    SHIFT_RIGHT                         (0x99),
+
 
     // COMPARISON
     INTEGER_AND                         (0x9A),
@@ -86,9 +87,9 @@ public enum Opcode {
     NOT                                 (0x91),
     ADD                                 (0x93),
     SUBTRACT                            (0x94),
-    MULTIPLY                            (0x95, false),
-    DIVIDE                              (0x96, false),
-    MODULUS                             (0x97, false),
+    MULTIPLY                            (0x95),
+    DIVIDE                              (0x96),
+    MODULUS                             (0x97),
     MIN                                 (0xA3),
     MAX                                 (0xA4),
 
@@ -106,6 +107,9 @@ public enum Opcode {
     CODE_SEPARATOR                      (0xAB), //  CODE_SEPARATOR's intended use was to designate where signed-content is supposed to begin (rendering parts of the script mutable).
                                                 //  Its benefit seems rare and borderline useless, and is likely a security risk.
                                                 //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
+
+    CHECK_DATA_SIGNATURE                (0xBA),
+    CHECK_DATA_SIGNATURE_THEN_VERIFY    (0xBB),
 
     // LOCK TIME
     CHECK_LOCK_TIME_THEN_VERIFY         (0xB1),

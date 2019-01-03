@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.transaction.input;
 
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.unlocking.ImmutableUnlockingScript;
-import com.softwareverde.bitcoin.type.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
@@ -17,7 +17,7 @@ public class TransactionInputInflater {
         transactionInput._previousOutputIndex = byteArrayReader.readInteger(4, Endian.LITTLE);
 
         final Integer scriptByteCount = byteArrayReader.readVariableSizedInteger().intValue();
-        transactionInput._unlockingScript = new ImmutableUnlockingScript(byteArrayReader.readBytes(scriptByteCount, Endian.BIG));
+        transactionInput._unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(byteArrayReader.readBytes(scriptByteCount, Endian.BIG)));
         transactionInput._sequenceNumber = new ImmutableSequenceNumber(byteArrayReader.readLong(4, Endian.LITTLE));
 
         if (byteArrayReader.didOverflow()) { return null; }

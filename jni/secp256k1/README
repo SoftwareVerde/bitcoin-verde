@@ -1,0 +1,4 @@
+libsecp256k1.dll was built from commit e34ceb333b1c0e6f4115ecbb80c632ac1042fa49 of https//github.com/bitcoin-core/secp256k1.git .
+It was cross-compiled on Debian Linux for Windows 64 bit.
+Building this library was not easy.  Please document your future successes and make contributions to this process and submit a pull request.
+
