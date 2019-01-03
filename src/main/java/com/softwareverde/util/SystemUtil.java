@@ -10,4 +10,9 @@ public class SystemUtil {
         final String jvmName = ManagementFactory.getRuntimeMXBean().getName();
         return Util.parseLong(jvmName); // Relies on Util::parseLong being very tolerant of strings containing non-numeric characters...
     }
+
+    public static Boolean isWindowsOperatingSystem() {
+        final String operatingSystemName = System.getProperty("os.name").toLowerCase();
+        return operatingSystemName.contains("win");
+    }
 }
