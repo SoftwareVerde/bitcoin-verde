@@ -8,6 +8,7 @@ import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Endpoint;
 import com.softwareverde.servlet.Servlet;
+import com.softwareverde.util.IoUtil;
 
 import java.io.File;
 
@@ -44,11 +45,16 @@ public class ExplorerModule {
         final Configuration configuration = _loadConfigurationFile(configurationFilename);
         _explorerProperties = configuration.getExplorerProperties();
 
+        final String tlsKeyFile = _explorerProperties.getTlsKeyFile();
+        final String tlsCertificateFile = _explorerProperties.getTlsCertificateFile();
+        if ( (tlsKeyFile != null) && (tlsCertificateFile != null) ) {
+            _apiServer.setTlsPort(_explorerProperties.getTlsPort());
+            _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
+            _apiServer.enableEncryption(true);
+            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+        }
+
         _apiServer.setPort(_explorerProperties.getPort());
-        // _apiServer.setTlsPort(_explorerProperties.getTlsPort());
-        // _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
-        // _apiServer.enableEncryption(true);
-        // _apiServer.redirectToTls(true);
 
         { // Account Api
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));

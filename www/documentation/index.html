@@ -233,6 +233,15 @@
                             </p>
                         </div>
                     </div>
+                    <h2>Enabling SSL/TLS</h2>
+                    <div class="h2-content">
+                        <p>
+                            Enabling SSL/TLS for the Block Explorer can be done by providing a certificate key and certificate to the explorer configuration.  To generate a
+                            key, consider using the <tt>scripts/ssl/generate-certificate.sh</tt> script, or use any normal SSL script generation/signature process.  In order
+                            for HttpServlet to read the certificate key, the keyfile must be in PKCS format.  To convert a PEM file to a PKCS format, use the
+                            <tt>scripts/ssl/pem2pkcs.sh</tt> script.  A typical location for the SSL certificates is <tt>out/ssl</tt>.
+                        </p>
+                    </div>
                 </div>
                 <a name="run"></a>
                 <div class="section run">
@@ -317,6 +326,10 @@
                             <tr><td data-label="Module">explorer</td><td data-label="Property">rootDirectory</td><td data-label="Default Value">www</td><td data-label="Description">The directory where the explorer will serve its HTTP content from (eg. <tt>out/www</tt>).</td></tr>
                             <tr><td data-label="Module">explorer</td><td data-label="Property">bitcoinRpcUrl</td><td data-label="Default Value">localhost</td><td data-label="Description">The host the explorer will connect to the Bitvoin Verde node on.</td></tr>
                             <tr><td data-label="Module">explorer</td><td data-label="Property">bitcoinRpcPort</td><td data-label="Default Value">8334</td><td data-label="Description">The port the explorer will connect to the Bitcoin Verde node on.</td></tr>
+
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsPort</td><td data-label="Default Value">4443</td><td data-label="Description">The port the explorer will listen on for incoming HTTPS requests.  Setting to a value lower than 1024 would require the application be run as root; this is highly discouraged.  Instead, consider running on a higher port and running the forward-ports script.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsKeyFile</td><td data-label="Default Value"></td><td data-label="Description">The SSL/TLS certificate private key filename.  A typical value would be something like "out/ssl/certificate.key".  The default value is empty; when empty, SSL/TLS is disabled on the explorer.  To generate a certificate, consider looking at <tt>scripts/ssl/generate-certificate.sh</tt>.  The private key file must be in PKCS format; to convert a PEM private key to a PKCS private key, use <tt>scripts/ssl/pem2pkcs.sh</tt>.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsCertificateFile</td><td data-label="Default Value"></td><td data-label="Description">The SSL/TLS certificate filename.  A typical value would be something like "out/ssl/certificate.crt".  The default value is empty; when empty, SSL/TLS is disabled on the explorer.</td></tr>
                         </tbody>
                     </table>
                 </div>

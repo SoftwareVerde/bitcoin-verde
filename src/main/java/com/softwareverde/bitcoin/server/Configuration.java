@@ -67,10 +67,18 @@ public class Configuration {
         private String _bitcoinRpcUrl;
         private Integer _bitcoinRpcPort;
 
+        private Integer _tlsPort;
+        private String _tlsKeyFile;
+        private String _tlsCertificateFile;
+
         public Integer getPort() { return _port; }
         public String getRootDirectory() { return _rootDirectory; }
         public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+
+        public Integer getTlsPort() { return _tlsPort; }
+        public String getTlsKeyFile() { return _tlsKeyFile; }
+        public String getTlsCertificateFile() { return _tlsCertificateFile; }
     }
 
     private final Properties _properties;
@@ -141,11 +149,19 @@ public class Configuration {
         final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
         final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
 
+        final Integer tlsPort = Util.parseInt(_properties.getProperty("explorer.tlsPort", "4443"));
+        final String tlsKeyFile = _properties.getProperty("explorer.tlsKeyFile", "");
+        final String tlsCertificateFile = _properties.getProperty("explorer.tlsCertificateFile", "");
+
         final ExplorerProperties explorerProperties = new ExplorerProperties();
         explorerProperties._port = port;
         explorerProperties._rootDirectory = rootDirectory;
         explorerProperties._bitcoinRpcUrl = bitcoinRpcUrl;
         explorerProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        explorerProperties._tlsPort = tlsPort;
+        explorerProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
+        explorerProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
 
         _explorerProperties = explorerProperties;
     }
