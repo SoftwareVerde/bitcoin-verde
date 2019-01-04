@@ -470,6 +470,8 @@ public class TransactionDatabaseManager {
             }
             transactionHashes = transactionHashesBuilder.build();
 
+            final Integer positivesCount = possiblySeenTransactionHashes.getSize();
+            final Integer falsePositiveCount;
             { // Of the "possibly seen" transactions, prove they've actually been seen...
                 final java.util.List<Row> rows = _databaseConnection.query(
                     new Query("SELECT id, hash FROM transactions WHERE hash IN (" + DatabaseUtil.createInClause(possiblySeenTransactionHashes) + ")")
@@ -482,8 +484,15 @@ public class TransactionDatabaseManager {
                     existingTransactions.put(transactionHash, transactionId);
                     unseenTransactionMap.remove(transactionHash);
                 }
+
+                falsePositiveCount = (positivesCount - rows.size());
             }
             txHashMapTimer.stop();
+
+            final Float falsePositiveRate = (falsePositiveCount.floatValue() / positivesCount);
+            if ( (EXISTING_TRANSACTIONS_FILTER != null) && (falsePositiveRate > FILTER_FALSE_POSITIVE_RATE) ) {
+                Logger.log("INFO: TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
+            }
         }
 
         storeTransactionRecordsTimer.start();

@@ -16,7 +16,7 @@ public class MutableBloomFilter implements BloomFilter {
         final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
         if (byteCount < 1) { return 1; }
 
-        return byteCount;
+        return Math.min(byteCount, ByteArray.MAX_BYTE_COUNT);
     }
 
     public static Integer calculateFunctionCount(final Integer byteCount, final Long maxItemCount) {
@@ -83,11 +83,11 @@ public class MutableBloomFilter implements BloomFilter {
 
     public void addItem(final ByteArray item) {
         final Integer byteCount = _bytes.getByteCount();
-        final Integer bitCount = (byteCount * 8);
+        final Long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < _hashFunctionCount; ++i) {
             final Long hash = BitcoinUtil.murmurHash(_nonce, i, item);
-            final Integer index = (int) (hash % bitCount);
+            final Long index = (hash % bitCount);
             _bytes.setBit(index, true);
         }
     }
