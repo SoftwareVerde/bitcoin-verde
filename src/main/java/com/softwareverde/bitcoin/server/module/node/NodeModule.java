@@ -180,7 +180,8 @@ public class NodeModule {
             final Boolean wasAlreadyShuttingDown = _isShuttingDown;
             _isShuttingDown = true;
             if (wasAlreadyShuttingDown) {
-                try { _shutdownPin.wait(); } catch (final Exception exception) { }
+                Logger.log("[Awaiting Shutdown Completion]");
+                try { _shutdownPin.wait(30000); } catch (final Exception exception) { }
                 return;
             }
         }

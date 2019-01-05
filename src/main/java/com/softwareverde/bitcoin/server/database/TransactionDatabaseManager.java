@@ -29,7 +29,9 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.json.Json;
 import com.softwareverde.util.IoUtil;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -46,12 +48,14 @@ public class TransactionDatabaseManager {
     // TODO: Inserting a transaction requires a write lock...
 
     // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
+    protected static final Integer EXISTING_TRANSACTIONS_FILTER_VERSION = 2;
     protected static MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null;
     protected static Sha256Hash EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
     protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
     protected static final Long FILTER_NONCE = 0L;
     protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
 
+    // NOTE: This function intentionally does not use IoUtil::getFileContents in order to reduce the initial memory footprint of the node startup...
     protected static MutableBloomFilter _loadBloomFilterFromFile(final String filename, final Long filterItemCount, final Long filterNonce) {
         final File file = new File(filename);
         if (! file.canRead()) { return null; }
@@ -74,10 +78,20 @@ public class TransactionDatabaseManager {
 
     public static void initializeBloomFilter(final String filename, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
         try {
-            final byte[] loadedFilterLastHashBytes = IoUtil.getFileContents(filename + ".sha");
-            if (loadedFilterLastHashBytes != null) {
-                final Sha256Hash filterLastTransactionHash = Sha256Hash.copyOf(loadedFilterLastHashBytes);
+            final Json json = Json.parse(StringUtil.bytesToString(Util.coalesce(IoUtil.getFileContents(filename + ".json"), new byte[0])));
+            final Integer transactionBloomFilterVersion = json.getInteger("version");
 
+            final Sha256Hash filterLastTransactionHash;
+            {
+                if (Util.areEqual(EXISTING_TRANSACTIONS_FILTER_VERSION, transactionBloomFilterVersion)) {
+                    filterLastTransactionHash = Sha256Hash.fromHexString(json.getString("lastTransactionHash"));
+                }
+                else {
+                    filterLastTransactionHash = null;
+                }
+            }
+
+            if (filterLastTransactionHash != null) {
                 final java.util.List<Row> rows = databaseConnection.query(
                     new Query("SELECT id, hash FROM transactions ORDER BY id DESC LIMIT 1")
                 );
@@ -140,7 +154,10 @@ public class TransactionDatabaseManager {
         IoUtil.putFileContents(filename, filterBytes.unwrap());
 
         final ByteArray filterLastTransactionHash = Util.coalesce(EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH, new MutableByteArray(0));
-        IoUtil.putFileContents(filename + ".sha", filterLastTransactionHash.getBytes());
+        final Json json = new Json();
+        json.put("version", EXISTING_TRANSACTIONS_FILTER_VERSION);
+        json.put("lastTransactionHash", filterLastTransactionHash);
+        IoUtil.putFileContents(filename + ".json", StringUtil.stringToBytes(json.toString()));
     }
 
     protected final DatabaseManagerCache _databaseManagerCache;
@@ -489,7 +506,7 @@ public class TransactionDatabaseManager {
             }
             txHashMapTimer.stop();
 
-            final Float falsePositiveRate = (falsePositiveCount.floatValue() / positivesCount);
+            final Float falsePositiveRate = (falsePositiveCount.floatValue() / transactionCount);
             if ( (EXISTING_TRANSACTIONS_FILTER != null) && (falsePositiveRate > FILTER_FALSE_POSITIVE_RATE) ) {
                 Logger.log("INFO: TransactionBloomFilter exceeded false positive rate: " + positivesCount + " positives, " + falsePositiveCount + " false positives, " + transactionCount + " transactions, " + falsePositiveRate + " false positive rate.");
             }
