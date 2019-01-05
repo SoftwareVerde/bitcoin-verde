@@ -4,16 +4,14 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.Ipv4;
-import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {

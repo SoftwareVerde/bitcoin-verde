@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputDeflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputDeflater;
-import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;

@@ -8,7 +8,6 @@ import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Endpoint;
 import com.softwareverde.servlet.Servlet;
-import com.softwareverde.util.IoUtil;
 
 import java.io.File;
 

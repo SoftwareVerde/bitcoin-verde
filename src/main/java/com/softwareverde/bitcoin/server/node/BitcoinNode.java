@@ -46,7 +46,6 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.PingMessage;
 import com.softwareverde.network.p2p.message.type.PongMessage;
