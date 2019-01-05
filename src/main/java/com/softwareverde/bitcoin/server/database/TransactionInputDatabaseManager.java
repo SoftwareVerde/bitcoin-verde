@@ -157,7 +157,10 @@ public class TransactionInputDatabaseManager {
     }
 
     public List<TransactionInputId> insertTransactionInputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
-        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) { return null; }
+        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
+            Logger.log("NOTICE: Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+            return null;
+        }
         if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
 
         // final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
@@ -189,7 +192,10 @@ public class TransactionInputDatabaseManager {
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
-            if (! transactionIds.containsKey(transactionHash)) { return null; }
+            if (! transactionIds.containsKey(transactionHash)) {
+                Logger.log("NOTICE: Error storing TransactionInputs. Missing Transaction: " + transactionHash);
+                return null;
+            }
             final TransactionId transactionId = transactionIds.get(transactionHash);
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
@@ -232,7 +238,10 @@ public class TransactionInputDatabaseManager {
 
         insertTxInputTimer.start();
         final Long firstTransactionInputId = _databaseConnection.executeSql(batchedInsertQuery);
-        if (firstTransactionInputId == null) { return null; }
+        if (firstTransactionInputId == null) {
+            Logger.log("NOTICE: Error storing TransactionInputs. Error running batch insert.");
+            return null;
+        }
         insertTxInputTimer.stop();
 
         final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(transactionInputIdCount);

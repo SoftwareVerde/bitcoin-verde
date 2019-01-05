@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -14,8 +16,6 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -108,7 +108,7 @@ public class TransactionDatabaseManager {
                         }
                     }
                     else {
-                        Logger.log("Rebuilding ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash + " Expected TransactionHash: " + filterLastTransactionHash);
+                        Logger.log("Rebuilding ExistingTransactionFilter. Filter TransactionHash: " + filterLastTransactionHash + ", Database TransactionHash: " + lastTransactionHash);
                     }
                 }
             }
@@ -116,6 +116,7 @@ public class TransactionDatabaseManager {
 
             final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
 
+            Logger.log("[Building TransactionBloomFilter]");
             final Long batchSize = 4096L;
             long lastTransactionId = 0L;
             Sha256Hash lastTransactionHash = null;
@@ -129,7 +130,6 @@ public class TransactionDatabaseManager {
                 for (final Row row : rows) {
                     final long transactionId = row.getLong("id");
                     final Sha256Hash transactionHash = Sha256Hash.fromHexString(row.getString("hash"));
-
                     mutableBloomFilter.addItem(transactionHash);
                     if (transactionId > lastTransactionId) {
                         lastTransactionId = transactionId;
@@ -301,6 +301,9 @@ public class TransactionDatabaseManager {
         return transactionId;
     }
 
+    /**
+     * Returns a map of newly inserted Transactions and their Ids.  If a transaction already existed, its Hash/Id pair are not returned within the map.
+     */
     protected Map<Sha256Hash, TransactionId> _storeTransactions(final List<Transaction> transactions) throws DatabaseException {
         if (transactions.isEmpty()) { return new HashMap<Sha256Hash, TransactionId>(0); }
 
@@ -320,7 +323,10 @@ public class TransactionDatabaseManager {
         }
 
         final Long firstTransactionId = _databaseConnection.executeSql(batchedInsertQuery);
-        if (firstTransactionId == null) { return null; }
+        if (firstTransactionId == null) {
+            Logger.log("NOTICE: Error storing transactions.");
+            return null;
+        }
 
         final Integer affectedRowCount = _databaseConnection.getRowsAffectedCount();
 
@@ -336,7 +342,10 @@ public class TransactionDatabaseManager {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, hash FROM transactions WHERE id IN (" + DatabaseUtil.createInClause(transactionIdRange) + ")")
         );
-        if (! Util.areEqual(rows.size(), affectedRowCount)) { return null; }
+        if (! Util.areEqual(rows.size(), affectedRowCount)) {
+            Logger.log("NOTICE: Error storing transactions. Insert mismatch: Got " + rows.size() + ", expected " + affectedRowCount);
+            return null;
+        }
 
         final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(affectedRowCount);
         for (final Row row : rows) {
@@ -513,20 +522,46 @@ public class TransactionDatabaseManager {
         }
 
         storeTransactionRecordsTimer.start();
-        final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values());
+        final List<Transaction> unseenTransactions = new MutableList<Transaction>(unseenTransactionMap.values()); // Transactions that are believed to be new...
         final Map<Sha256Hash, TransactionId> newTransactionIds = _storeTransactions(unseenTransactions);
         if (newTransactionIds == null) { return null; }
+
+        // final List<Transaction> newTransactions;
+        // if (newTransactionIds.size() < unseenTransactions.getSize()) {
+        //     // Some of the Transactions that were attempted to be inserted were already seen.
+        //     // Attempting to store their Inputs/Outputs would fail due to duplicates, so they are ignored.
+        //     // BloomFilters only give false positives, not false negatives, so this should never happen...
+        //     //  Encountering this scenario isn't catastrophic, but does represent a bug in the BloomFilter,
+        //     //  or a bug in the code resulting in a Transaction being inserted without being added to the filter.
+        //     final ImmutableListBuilder<Transaction> newTransactionsBuilder = new ImmutableListBuilder<Transaction>(newTransactionIds.size());
+        //     for (final Transaction transaction : unseenTransactions) {
+        //         final Sha256Hash transactionHash = transaction.getHash();
+        //         if (newTransactionIds.containsKey(transactionHash)) {
+        //             newTransactionsBuilder.add(transaction);
+        //         }
+        //         else {
+        //             Logger.log("NOTICE: TxBloomFilter rendered false negative for: " + transactionHash + ". Recovering.");
+        //         }
+        //     }
+        //     newTransactions = newTransactionsBuilder.build();
+        // }
+        // else {
+        //     newTransactions = unseenTransactions;
+        // }
+
         storeTransactionRecordsTimer.stop();
 
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         insertTransactionOutputsTimer.start();
+        // final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(newTransactionIds, newTransactions);
         final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.insertTransactionOutputs(newTransactionIds, unseenTransactions);
         if (transactionOutputIds == null) { return null; }
         insertTransactionOutputsTimer.stop();
 
         insertTransactionInputsTimer.start();
+        // final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, newTransactions);
         final List<TransactionInputId> transactionInputIds = transactionInputDatabaseManager.insertTransactionInputs(newTransactionIds, unseenTransactions);
         if (transactionInputIds == null) { return  null; }
         insertTransactionInputsTimer.stop();
@@ -541,7 +576,10 @@ public class TransactionDatabaseManager {
             final TransactionId transactionId = existingTransactions.get(transactionHash);
             if (transactionId == null) { // Should only happen (rarely) when another thread is attempting to insert the same Transaction at the same time as this thread...
                 final TransactionId missingTransactionId = _getTransactionIdFromHash(transactionHash);
-                if (missingTransactionId == null) { return null; }
+                if (missingTransactionId == null) {
+                    Logger.log("NOTICE: Error storing Transactions. Missing Transaction: " + transactionHash);
+                    return null;
+                }
 
                 allTransactionIds.add(missingTransactionId);
             }

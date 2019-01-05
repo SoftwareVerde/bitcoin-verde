@@ -133,15 +133,21 @@ public class NodeConnection {
     }
 
     protected void _shutdownConnectionThread() {
-        _connectionThread.interrupt();
+        final Thread connectionThread = _connectionThread;
+        if (connectionThread == null) { return; }
+
         _connectionThread = null;
+        connectionThread.interrupt();
     }
 
     protected void _onSocketConnected() {
         _binarySocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
-                final ProtocolMessage protocolMessage = _binarySocket.popMessage();
+                final BinarySocket binarySocket = _binarySocket;
+                if (binarySocket == null) { return; } // Can most likely happen when disconnected before the callback was executed from the threadPool...
+
+                final ProtocolMessage protocolMessage = binarySocket.popMessage();
 
                 if (LOGGING_ENABLED) {
                     if (protocolMessage instanceof BitcoinProtocolMessage) {
@@ -149,8 +155,9 @@ public class NodeConnection {
                     }
                 }
 
-                if (_messageReceivedCallback != null) {
-                    _messageReceivedCallback.onMessageReceived(protocolMessage);
+                final MessageReceivedCallback messageReceivedCallback = _messageReceivedCallback;
+                if (messageReceivedCallback != null) {
+                    messageReceivedCallback.onMessageReceived(protocolMessage);
                 }
             }
         });
@@ -256,15 +263,19 @@ public class NodeConnection {
 
     public void connect() {
         synchronized (_connectionThreadMutex) {
-            if (_connectionThread != null) {
-                if (! _connectionThread.isAlive()) {
-                    _shutdownConnectionThread();
+            { // Shutdown the existing connection thread, if it exists...
+                final Thread connectionThread = _connectionThread;
+                if (connectionThread != null) {
+                    if (! connectionThread.isAlive()) {
+                        _shutdownConnectionThread();
+                    }
                 }
             }
 
             if (_connectionThread == null) {
-                _connectionThread = new ConnectionThread();
-                _connectionThread.start();
+                final Thread connectionThread = new ConnectionThread();
+                _connectionThread = connectionThread;
+                connectionThread.start();
             }
         }
     }
