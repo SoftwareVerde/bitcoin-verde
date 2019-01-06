@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
@@ -29,6 +30,7 @@ import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.concurrent.pool.ThreadPoolThrottle;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
@@ -128,6 +130,12 @@ public class RepairModule {
             final BitcoinNode.RequestDataCallback requestDataHandler = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
             final TransactionInventoryMessageHandlerFactory transactionInventoryMessageHandlerFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
             final BitcoinNode.BlockInventoryMessageCallback inventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
+            final BitcoinNode.RequestPeersHandler requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
+                @Override
+                public List<BitcoinNodeIpAddress> getConnectedPeers() {
+                    return new MutableList<BitcoinNodeIpAddress>(0);
+                }
+            };
 
             final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
                 @Override
@@ -136,7 +144,7 @@ public class RepairModule {
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures);
+            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures, requestPeersHandler);
         }
     }
 
