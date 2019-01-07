@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -13,10 +14,13 @@ import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMet
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
@@ -26,6 +30,9 @@ import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 
 public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
@@ -89,9 +96,28 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         public Container<Float> averageTransactionsPerSecond;
     }
 
+    protected final ThreadPool _threadPool;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageBlockHeadersPerSecond;
     protected final Container<Float> _averageTransactionsPerSecond;
+
+    public enum HookEvent {
+        NEW_BLOCK,
+        NEW_TRANSACTION;
+
+        public static HookEvent fromString(final String string) {
+            for (final HookEvent hookEvent : HookEvent.values()) {
+                final String hookEventName = hookEvent.name();
+                if (hookEventName.equalsIgnoreCase(string)) {
+                    return hookEvent;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    protected final HashMap<HookEvent, MutableList<JsonSocket>> _eventHooks = new HashMap<HookEvent, MutableList<JsonSocket>>();
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
     protected ShutdownHandler _shutdownHandler = null;
@@ -103,10 +129,11 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
 
-    public JsonRpcSocketServerHandler(final StatisticsContainer statisticsContainer) {
+    public JsonRpcSocketServerHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
+        _threadPool = threadPool;
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10]
@@ -561,6 +588,49 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
     }
 
+    // Requires POST: events
+    // Returns true if the connection should remain open...
+    protected Boolean _addHook(final Json parameters, final Json response, final JsonSocket connection) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return false;
+        }
+
+        if (! parameters.hasKey("events")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: events");
+            return false;
+        }
+
+        final HashSet<HookEvent> hookEvents = new HashSet<HookEvent>();
+        final Json events = parameters.get("events");
+        for (int i = 0; i < events.length(); ++i) {
+            final String event = events.getString(i);
+            final HookEvent hookEvent = HookEvent.fromString(event);
+            if (hookEvent != null) {
+                hookEvents.add(hookEvent);
+            }
+        }
+        if (hookEvents.isEmpty()) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid event type(s).");
+            return false;
+        }
+
+        synchronized (_eventHooks) {
+            for (final HookEvent hookEvent : hookEvents) {
+                if (!_eventHooks.containsKey(hookEvent)) {
+                    _eventHooks.put(hookEvent, new MutableList<JsonSocket>());
+                }
+
+                final MutableList<JsonSocket> nodeIpAddresses = _eventHooks.get(hookEvent);
+                nodeIpAddresses.add(connection);
+            }
+        }
+
+        response.put(WAS_SUCCESS_KEY, 1);
+        return true;
+    }
+
     // Requires GET:
     protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -648,14 +718,87 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _queryBlockchainHandler = queryBlockchainHandler;
     }
 
+    public void onNewBlock(final BlockHeader block) {
+        // Ensure the provided block is only the header by copying it...
+        final BlockHeader blockHeader = new ImmutableBlockHeader(block);
+
+        final Json blockJson = blockHeader.toJson();
+        final MetadataHandler metadataHandler = _metadataHandler;
+        if (metadataHandler != null) {
+            _metadataHandler.applyMetadataToBlockHeader(block.getHash(), blockJson);
+        }
+
+        final Json json = new Json();
+        json.put("objectType", "BLOCK");
+        json.put("object", blockJson);
+
+        final ProtocolMessage protocolMessage = new JsonProtocolMessage(json);
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                synchronized (_eventHooks) {
+                    final MutableList<JsonSocket> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
+                    if (sockets == null) { return; }
+
+                    final Iterator<JsonSocket> iterator = sockets.mutableIterator();
+                    while (iterator.hasNext()) {
+                        final JsonSocket jsonSocket = iterator.next();
+
+                        jsonSocket.write(protocolMessage);
+
+                        if (! jsonSocket.isConnected()) {
+                            iterator.remove();
+                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_BLOCK + " " + jsonSocket.toString());
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    public void onNewTransaction(final Transaction transaction) {
+        final Json transactionJson = transaction.toJson();
+        final MetadataHandler metadataHandler = _metadataHandler;
+        if (metadataHandler != null) {
+            _metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+        }
+
+        final Json json = new Json();
+        json.put("objectType", "TRANSACTION");
+        json.put("object", transactionJson);
+
+        final ProtocolMessage protocolMessage = new JsonProtocolMessage(json);
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                synchronized (_eventHooks) {
+                    final MutableList<JsonSocket> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
+                    if (sockets == null) { return; }
+
+                    final Iterator<JsonSocket> iterator = sockets.mutableIterator();
+                    while (iterator.hasNext()) {
+                        final JsonSocket jsonSocket = iterator.next();
+
+                        jsonSocket.write(protocolMessage);
+
+                        if (! jsonSocket.isConnected()) {
+                            iterator.remove();
+                            Logger.log("Dropping HookEvent: " + HookEvent.NEW_TRANSACTION + " " + jsonSocket.toString());
+                        }
+                    }
+                }
+            }
+        });
+    }
+
     @Override
     public void run(final JsonSocket socketConnection) {
-        Logger.log("New Connection: " + socketConnection);
         socketConnection.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
                 final Json message = socketConnection.popMessage().getMessage();
-                Logger.log("Message received: "+ message);
 
                 final String method = message.getString("method");
                 final String query = message.getString("query");
@@ -666,6 +809,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 response.put(ERROR_MESSAGE_KEY, null);
 
                 final Json parameters = message.get("parameters");
+                Boolean closeConnection = true;
 
                 switch (method.toUpperCase()) {
                     case "GET": {
@@ -726,6 +870,11 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                                 _addNode(parameters, response);
                             } break;
 
+                            case "ADD_HOOK": {
+                                final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
+                                closeConnection = (! keepSocketOpen);
+                            } break;
+
                             default: {
                                 response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method + "/" + query);
                             } break;
@@ -737,10 +886,11 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                     } break;
                 }
 
-                final String responseString = response.toString();
-                final String truncatedResponseString = responseString.substring(0, Math.min(256, responseString.length()));
-                Logger.log("Writing: " + truncatedResponseString + (responseString.length() > 256 ? "..." : ""));
                 socketConnection.write(new JsonProtocolMessage(response));
+
+                if (closeConnection) {
+                    socketConnection.close();
+                }
             }
         });
         socketConnection.beginListening();
