@@ -132,7 +132,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    public void _addHandshakedNode(final BitcoinNode node) {
+    protected void _addHandshakedNode(final BitcoinNode node) {
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
 

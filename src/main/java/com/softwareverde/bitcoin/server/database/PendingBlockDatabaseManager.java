@@ -243,6 +243,10 @@ public class PendingBlockDatabaseManager {
         }
     }
 
+    /**
+     * Inserts the blockHash into PendingBlocks if it does not exist.
+     *  If previousBlockHash is provided, then the PendingBlock is updated to include the previousBlockHash.
+     */
     public PendingBlockId storeBlockHash(final Sha256Hash blockHash) throws DatabaseException {
         try {
             WRITE_LOCK.lock();
@@ -402,6 +406,7 @@ public class PendingBlockDatabaseManager {
 
             final Long minSecondsBetweenDownloadAttempts = 5L;
             final Long currentTimestamp = _systemTime.getCurrentTimeInSeconds();
+
             final java.util.List<Row> rows = _databaseConnection.query(
                 new Query("SELECT node_blocks_inventory.node_id, pending_blocks.id AS pending_block_id FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id INNER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id WHERE (pending_block_data.id IS NULL) AND ( (? - COALESCE(last_download_attempt_timestamp, 0)) > ? ) AND (node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ")) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT " + Util.coalesce(maxBlockCount, Integer.MAX_VALUE))
                     .setParameter(currentTimestamp)
@@ -575,6 +580,7 @@ public class PendingBlockDatabaseManager {
     public void deletePendingBlock(final PendingBlockId pendingBlockId) throws DatabaseException {
         try {
             WRITE_LOCK.lock();
+
             _deletePendingBlock(pendingBlockId);
 
         }

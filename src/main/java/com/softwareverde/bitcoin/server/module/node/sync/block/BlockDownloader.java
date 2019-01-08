@@ -90,7 +90,7 @@ public class BlockDownloader extends SleepyService {
                     }
                     catch (final InterruptedException exception) { return false; }
 
-                    if (waitTimer.getMillisecondsElapsed() > MAX_TIMEOUT) {
+                    if (waitTimer.getMillisecondsElapsed() >= MAX_TIMEOUT) {
                         Logger.log("NOTICE: Block download stalled.");
 
                         _markPendingBlockIdsAsFailed(_currentBlockDownloadSet.keySet());

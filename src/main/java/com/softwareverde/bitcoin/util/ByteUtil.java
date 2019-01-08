@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.util;
 
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class ByteUtil extends com.softwareverde.util.ByteUtil {
     public static byte[] variableLengthIntegerToBytes(final long value) {
@@ -61,4 +62,9 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
         return true;
     }
 
+    public static void clearByteArray(final MutableByteArray bytes) {
+        for (int i = 0; i < bytes.getByteCount(); i += 1) {
+            bytes.set(i, (byte) 0x00);
+        }
+    }
 }

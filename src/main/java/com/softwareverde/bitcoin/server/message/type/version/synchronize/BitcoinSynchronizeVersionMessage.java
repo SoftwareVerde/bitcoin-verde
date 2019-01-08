@@ -45,6 +45,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     public NodeFeatures getNodeFeatures() { return _nodeFeatures; }
 
     public Boolean transactionRelayIsEnabled() { return _transactionRelayIsEnabled; }
+
     public Integer getCurrentBlockHeight() { return _currentBlockHeight; }
 
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {

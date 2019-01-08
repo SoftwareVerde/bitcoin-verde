@@ -169,9 +169,12 @@ public class Configuration {
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
-        try {
-            _properties.load(new FileInputStream(configurationFile));
-        } catch (final IOException e) { }
+        try (final FileInputStream fileInputStream = new FileInputStream(configurationFile)) {
+            _properties.load(fileInputStream);
+        }
+        catch (final IOException exception) {
+            Logger.log("Unable to load properties", exception);
+        }
 
         _loadDatabaseProperties();
 
