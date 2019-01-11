@@ -18,6 +18,7 @@
 
         $(".hash, .transaction-hash, .block-hashes, .previous-block-hash", container).each(function() {
             const element = $(this);
+            if (element.is(".no-resize")) { return; }
 
             window.setTimeout(function() {
                 const valueElement = $(".value", element);

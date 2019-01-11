@@ -296,7 +296,7 @@ class Ui {
         const blockTemplate = $("> .block", templates);
         const blockUi = blockTemplate.clone();
 
-        $(".block-header .height .value", blockUi).text(block.height.toLocaleString());
+        $(".block-header .height .value", blockUi).text((block.height || "0").toLocaleString());
         $(".block-header .hash .value", blockUi).text(block.hash);
         Ui.makeHashCopyable($(".block-header .hash .value", blockUi).text(block.hash));
         $(".block-header .difficulty .mask .value", blockUi).text(block.difficulty.mask);

@@ -37,6 +37,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -79,6 +80,7 @@ public class NodeModule {
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final BinarySocketServer _socketServer;
+    protected final JsonRpcSocketServerHandler _jsonRpcSocketServerHandler;
     protected final JsonSocketServer _jsonRpcSocketServer;
     protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
@@ -517,6 +519,11 @@ public class NodeModule {
                                     _bitcoinNodeManager.transmitBlockHash(bitcoinNode, block);
                                 }
                             }
+
+                            final JsonRpcSocketServerHandler jsonRpcSocketServerHandler = _jsonRpcSocketServerHandler;
+                            if (jsonRpcSocketServerHandler != null) {
+                                jsonRpcSocketServerHandler.onNewBlock(block);
+                            }
                         }
                     }
                     catch (final DatabaseException exception) {
@@ -575,6 +582,16 @@ public class NodeModule {
                     _transactionProcessor.wakeUp();
                 }
             });
+
+            _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.NewTransactionProcessedCallback() {
+                @Override
+                public void onNewTransaction(final Transaction transaction) {
+                    final JsonRpcSocketServerHandler jsonRpcSocketServerHandler = _jsonRpcSocketServerHandler;
+                    if (jsonRpcSocketServerHandler != null) {
+                        jsonRpcSocketServerHandler.onNewTransaction(transaction);
+                    }
+                }
+            });
         }
 
         _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _mainThreadPool);
@@ -604,7 +621,6 @@ public class NodeModule {
 
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
-
             final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
             { // Initialize statistics container...
                 statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
@@ -612,7 +628,7 @@ public class NodeModule {
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(statisticsContainer);
+            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(statisticsContainer, _rpcThreadPool);
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
@@ -640,9 +656,11 @@ public class NodeModule {
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
+            _jsonRpcSocketServerHandler = rpcSocketServerHandler;
             _jsonRpcSocketServer = jsonRpcSocketServer;
         }
         else {
+            _jsonRpcSocketServerHandler = null;
             _jsonRpcSocketServer = null;
         }
 

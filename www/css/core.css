@@ -53,6 +53,10 @@ a {
     overflow: hidden;
 }
 
+#header .navigation ul li i {
+    margin-right: 0.25em;
+}
+
 #header .navigation ul li:hover {
     color: #FFFFFF;
     background-color: rgba(255, 255, 255, 0.1);
@@ -168,6 +172,29 @@ a {
   content: "";
   clear: both;
   display: table;
+}
+
+@media only screen and (max-width: 700px) {
+    #header .navigation {
+        float: none;
+    }
+    #header .navigation ul {
+        float: none;
+        display: flex;
+    }
+    #header .navigation ul li {
+        font-size: 0.5em;
+        min-width: 5em;
+        display: inline;
+        display: inline-flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    #header .navigation ul li i {
+        margin-right: 0;
+        font-size: 2.5em;
+        display: block;
+    }
 }
 
 @media only screen and (max-width: 600px) {

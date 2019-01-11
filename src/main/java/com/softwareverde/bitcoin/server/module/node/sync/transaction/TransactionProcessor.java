@@ -34,6 +34,10 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
+    public interface NewTransactionProcessedCallback {
+        void onNewTransaction(Transaction transaction);
+    }
+
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -44,6 +48,7 @@ public class TransactionProcessor extends SleepyService {
 
     protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
+    protected NewTransactionProcessedCallback _newTransactionProcessedCallback;
 
     @Override
     protected void _onStart() { }
@@ -154,6 +159,11 @@ public class TransactionProcessor extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
                     TransactionUtil.commitTransaction(databaseConnection);
+
+                    final NewTransactionProcessedCallback newTransactionProcessedCallback = _newTransactionProcessedCallback;
+                    if (newTransactionProcessedCallback != null) {
+                        newTransactionProcessedCallback.onNewTransaction(transaction);
+                    }
                 }
                 storeTransactionsTimer.stop();
 
@@ -189,5 +199,9 @@ public class TransactionProcessor extends SleepyService {
 
         _systemTime = new SystemTime();
         _lastOrphanPurgeTime = 0L;
+    }
+
+    public void setNewTransactionProcessedCallback(final NewTransactionProcessedCallback newTransactionProcessedCallback) {
+        _newTransactionProcessedCallback = newTransactionProcessedCallback;
     }
 }

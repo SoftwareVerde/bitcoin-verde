@@ -8,6 +8,7 @@ import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Endpoint;
 import com.softwareverde.servlet.Servlet;
+import com.softwareverde.servlet.WebSocketEndpoint;
 
 import java.io.File;
 
@@ -21,6 +22,7 @@ public class ExplorerModule {
 
     protected final HttpServer _apiServer = new HttpServer();
     protected final Configuration.ExplorerProperties _explorerProperties;
+    protected final AnnouncementsApi _announcementsApi;
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
@@ -55,12 +57,21 @@ public class ExplorerModule {
 
         _apiServer.setPort(_explorerProperties.getPort());
 
+        _announcementsApi = new AnnouncementsApi(_explorerProperties);
+
         { // Account Api
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));
             _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties));
             _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties));
             _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties));
             _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties));
+        }
+
+        { // WebSocket
+            final WebSocketEndpoint endpoint = new WebSocketEndpoint(_announcementsApi);
+            endpoint.setPath("/api/v1/announcements");
+            endpoint.setStrictPathEnabled(true);
+            _apiServer.addEndpoint(endpoint);
         }
 
         { // Static Content
@@ -82,6 +93,7 @@ public class ExplorerModule {
 
     public void stop() {
         _apiServer.stop();
+        _announcementsApi.shutdown();
     }
 
     public void loop() {

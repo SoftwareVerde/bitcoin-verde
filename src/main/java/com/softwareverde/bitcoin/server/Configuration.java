@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
@@ -173,7 +174,7 @@ public class Configuration {
             _properties.load(fileInputStream);
         }
         catch (final IOException exception) {
-            Logger.log("Unable to load properties", exception);
+            Logger.log("NOTICE: Unable to load properties.");
         }
 
         _loadDatabaseProperties();
