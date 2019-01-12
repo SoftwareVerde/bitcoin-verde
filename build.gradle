@@ -21,8 +21,8 @@ dependencies {
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v2.1.7'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v0.1.7'
     compile     group: 'com.github.softwareverde',  name: 'java-socket',            version: 'v0.2.3'
-    compile     group: 'com.github.softwareverde',  name: 'java-servlet',           version: 'v2.1.1'
-    compile     group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v2.0.0'
+    compile     group: 'com.github.softwareverde',  name: 'java-servlet',           version: 'v2.2.0'
+    compile     group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v2.0.1'
     compile     group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
 
     compile     group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'

@@ -73,7 +73,12 @@ $(document).ready(function() {
         }
     };
 
-    webSocket = new WebSocket("ws://" + window.location.host + "/api/v1/announcements");
+    if (window.location.protocol == "http:") {
+        webSocket = new WebSocket("ws://" + window.location.host + "/api/v1/announcements");
+    }
+    else {
+        webSocket = new WebSocket("wss://" + window.location.host + "/api/v1/announcements");
+    }
 
     webSocket.onopen = function() { };
 
@@ -103,7 +108,7 @@ $(document).ready(function() {
 
         if (container != null && element != null) {
             const childrenElements = container.children();
-            if (childrenElements.length > 10) {
+            if (childrenElements.length > 9) {
                 childrenElements.last().remove();
             }
 
