@@ -273,7 +273,16 @@ public class PendingBlockDatabaseManager {
             final PendingBlockId existingPendingBlockId = _getPendingBlockId(blockHash);
             if (existingPendingBlockId != null) { return existingPendingBlockId; }
 
-            return _storePendingBlock(blockHash, previousBlockHash);
+            DatabaseException deadlockException = null;
+            for (int i = 0; i < 3; ++i) {
+                try {
+                    return _storePendingBlock(blockHash, previousBlockHash);
+                }
+                catch (final DatabaseException exception) {
+                    deadlockException = exception;
+                }
+            }
+            throw deadlockException;
 
         }
         finally {

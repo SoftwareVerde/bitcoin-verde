@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.database.mysql.embedded.properties.MutableEmbeddedDatabaseProperties;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.ByteUtil;
@@ -15,10 +16,14 @@ public class Configuration {
     public static final Integer BITCOIN_RPC_PORT = 8334;
     public static final Integer STRATUM_PORT = 3333;
 
-    public static class DatabaseProperties extends com.softwareverde.database.mysql.embedded.properties.DatabaseProperties {
+    public static class DatabaseProperties extends MutableEmbeddedDatabaseProperties {
         protected Long _maxMemoryByteCount;
+        protected Boolean _useEmbeddedDatabase;
+
+        public DatabaseProperties() { }
 
         public Long getMaxMemoryByteCount() { return _maxMemoryByteCount; }
+        public Boolean useEmbeddedDatabase() { return _useEmbeddedDatabase; }
     }
 
     public static class SeedNodeProperties {
@@ -89,23 +94,25 @@ public class Configuration {
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
-        final String connectionUrl = _properties.getProperty("database.url", "");
+        final String hostname = _properties.getProperty("database.hostname", "");
         final String username = _properties.getProperty("database.username", "root");
         final String password = _properties.getProperty("database.password", "");
         final String schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
         final Integer port = Util.parseInt(_properties.getProperty("database.port", "8336"));
         final String dataDirectory = _properties.getProperty("database.dataDirectory", "data");
         final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty("database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty("database.useEmbeddedDatabase", "1"));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
-        databaseProperties.setConnectionUrl(connectionUrl);
+        databaseProperties.setHostname(hostname);
         databaseProperties.setUsername(username);
         databaseProperties.setPassword(password);
         databaseProperties.setSchema(schema);
         databaseProperties.setPort(port);
         databaseProperties.setDataDirectory(dataDirectory);
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
+        databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
         _databaseProperties = databaseProperties;
     }
 

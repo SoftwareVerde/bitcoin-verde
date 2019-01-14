@@ -20,8 +20,8 @@
 package com.softwareverde.bitcoin.jni;
 
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
-import org.apache.commons.lang3.SystemUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -60,10 +60,10 @@ public class NativeSecp256k1 {
         try {
             final String extension;
             {
-                if (SystemUtils.IS_OS_WINDOWS) {
+                if (SystemUtil.isWindowsOperatingSystem()) {
                     extension = "dll";
                 }
-                else if (SystemUtils.IS_OS_MAC) {
+                else if (SystemUtil.isMacOperatingSystem()) {
                     extension = "dylib";
                 }
                 else {

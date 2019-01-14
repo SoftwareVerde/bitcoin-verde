@@ -4,13 +4,10 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.embedded.Credentials;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfiguration;
 import com.softwareverde.database.mysql.embedded.vorburger.DBConfigurationBuilder;
-
-import java.sql.Connection;
-import java.sql.SQLException;
+import com.softwareverde.database.mysql.properties.Credentials;
 
 public class MysqlTestDatabase extends MysqlDatabase {
     protected final DB _databaseInstance;
@@ -21,20 +18,17 @@ public class MysqlTestDatabase extends MysqlDatabase {
     protected final String _rootPassword = "";
     protected final String _databaseSchema = "bitcoin_test";
 
-    @Override
-    protected Connection _connect() throws SQLException, ClassNotFoundException {
-        throw new RuntimeException("MysqlTestDatabase._connect() is not supported.");
-    }
-
     public MysqlTestDatabase() {
-        super(null, "", "");
+        super(null, null, null, null);
         final DBConfiguration dbConfiguration;
         {
             final DBConfigurationBuilder configBuilder = DBConfigurationBuilder.newBuilder();
             dbConfiguration = configBuilder.build();
 
-            final String connectionString = configBuilder.getURL(_databaseSchema);
-            _databaseConnectionFactory = new MysqlDatabaseConnectionFactory(connectionString, _rootUsername, _rootPassword);
+            final String host = "localhost";
+            final Integer port = configBuilder.getPort();
+
+            _databaseConnectionFactory = new MysqlDatabaseConnectionFactory(host, port, _databaseSchema, _rootUsername, _rootPassword);
         }
 
         {
@@ -48,12 +42,7 @@ public class MysqlTestDatabase extends MysqlDatabase {
             }
         }
 
-        _credentials = new Credentials(_rootUsername, _rootPassword, _databaseSchema);
-    }
-
-    @Override
-    public void setDatabase(final String databaseName) throws DatabaseException {
-        throw new DatabaseException("MysqlTestDatabase.setDatabase() is not supported.");
+        _credentials = new Credentials(_rootUsername, _rootPassword);
     }
 
     @Override

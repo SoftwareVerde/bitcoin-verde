@@ -49,8 +49,13 @@ a {
     color: #EEEEEE;
     font-weight: bold;
     cursor: pointer;
-    padding: 1em;
+    padding: 0;
     overflow: hidden;
+}
+
+#header .navigation ul li a {
+    display: inline-block;
+    padding: 1em;
 }
 
 #header .navigation ul li i {

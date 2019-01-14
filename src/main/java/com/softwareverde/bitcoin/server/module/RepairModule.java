@@ -4,11 +4,11 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
@@ -32,11 +32,9 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
-import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
-import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 
@@ -80,32 +78,12 @@ public class RepairModule {
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
-        final EmbeddedMysqlDatabase database;
-        {
-            EmbeddedMysqlDatabase databaseInstance = null;
-            try {
-                final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", Constants.DATABASE_VERSION, new DatabaseInitializer.DatabaseUpgradeHandler() {
-                    @Override
-                    public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
-                });
-
-                final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
-
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-            }
-            database = databaseInstance;
-
-            if (database != null) {
-                Logger.log("[Database Online]");
-            }
-            else {
-                BitcoinUtil.exitFailure();
-            }
+        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        if (database == null) {
+            Logger.log("Error initializing database.");
+            BitcoinUtil.exitFailure();
         }
+        Logger.log("[Database Online]");
 
         final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
@@ -123,7 +101,7 @@ public class RepairModule {
         };
 
         { // Initialize NodeInitializer...
-            final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.getDatabaseConnectionFactory();
+            final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
             final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
             final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
@@ -149,7 +127,7 @@ public class RepairModule {
     }
 
     public void run() {
-        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final MysqlDatabase database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
