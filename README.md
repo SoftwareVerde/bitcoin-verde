@@ -4,6 +4,12 @@
 
 ## Updates
 
+**v1.0.2**
+
+- FIX: Subsequent embedded-db restarts no long fail to start. (Broken dependency)
+- Added `BAN_NODE` and `UNBAN_NODE` RPC calls.
+- RPC scripts are now copied to the out directory.
+
 **v1.0.1**
 
 - Added support for remote databases.

@@ -20,6 +20,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -44,8 +45,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     public interface NodeHandler {
-        Boolean addNode(String host, Integer port);
+        void addNode(Ip ip, Integer port);
         List<BitcoinNode> getNodes();
+        void banNode(Ip ip);
+        void unbanNode(Ip ip);
     }
 
     public interface QueryAddressHandler {
@@ -584,8 +587,68 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         final String host = parameters.getString("host");
         final Integer port = parameters.getInteger("port");
 
-        final Boolean wasSuccessful = nodeHandler.addNode(host, port);
-        response.put(WAS_SUCCESS_KEY, (wasSuccessful ? 1 : 0));
+        if ( (port <= 0) || (port > 65535) ) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid port: " + port);
+        }
+
+        final Ip ip = Ip.fromString(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.addNode(ip, port);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _banNode(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromString(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.banNode(ip);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <host>
+    protected void _unbanNode(final Json parameters, final Json response) {
+        final NodeHandler nodeHandler = _nodeHandler;
+        if (nodeHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("host")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: host");
+            return;
+        }
+
+        final String host = parameters.getString("host");
+
+        final Ip ip = Ip.fromString(host);
+        if (ip == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid ip: " + host);
+            return;
+        }
+
+        nodeHandler.unbanNode(ip);
+        response.put(WAS_SUCCESS_KEY, 1);
     }
 
     // Requires POST: events
@@ -868,6 +931,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "ADD_NODE": {
                                 _addNode(parameters, response);
+                            } break;
+
+                            case "BAN_NODE": {
+                                _banNode(parameters, response);
+                            } break;
+
+                            case "UNBAN_NODE": {
+                                _unbanNode(parameters, response);
                             } break;
 
                             case "ADD_HOOK": {
