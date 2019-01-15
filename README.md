@@ -1,5 +1,5 @@
 
-# Bitcoin Verde v1.0.1
+# Bitcoin Verde v1.0.2
 
 
 ## Updates
