@@ -154,11 +154,13 @@ public class BlockValidator {
             }
 
             { // Validate previousOutputTransactionHash...
-                final Sha256Hash requiredHash = new ImmutableSha256Hash();
                 final TransactionInput transactionInput = transactionInputs.get(0);
-                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                if (! requiredHash.equals(previousOutputTransactionHash)) {
-                    Logger.log("Invalid coinbase transaction input. PreviousTransactionHash: " + previousOutputTransactionHash + "; " + "Block: " + block.getHash());
+                final Sha256Hash previousTransactionOutputHash = transactionInput.getPreviousOutputTransactionHash();
+                final Integer previousTransactionOutputIndex = transactionInput.getPreviousOutputIndex();
+                final Boolean previousTransactionOutputHashIsValid = Util.areEqual(Sha256Hash.EMPTY_HASH, previousTransactionOutputHash);
+                final Boolean previousTransactionOutputIndexIsValid = (previousTransactionOutputIndex == -1);
+                if ( (! previousTransactionOutputHashIsValid) || (! previousTransactionOutputIndexIsValid) ) {
+                    Logger.log("Invalid coinbase transaction input. " + previousTransactionOutputHash + ":" + previousTransactionOutputIndex + "; " + "Block: " + block.getHash());
                     totalExpenditureValidationTaskSpawner.abort();
                     transactionValidationTaskSpawner.abort();
                     return false;
