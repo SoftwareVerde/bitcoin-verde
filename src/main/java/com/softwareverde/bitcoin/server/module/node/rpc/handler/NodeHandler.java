@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.network.ip.Ip;
 
 public class NodeHandler implements JsonRpcSocketServerHandler.NodeHandler {
     protected final BitcoinNodeManager _nodeManager;
@@ -16,18 +17,28 @@ public class NodeHandler implements JsonRpcSocketServerHandler.NodeHandler {
     }
 
     @Override
-    public Boolean addNode(final String host, final Integer port) {
-        if ( (host == null) || (port == null) ) { return false; }
-        if ( (port <= 0)    || (port > 65535) ) { return false; }
+    public void addNode(final Ip ip, final Integer port) {
+        if ( (ip == null) || (port == null) ) { return; }
+        if ( (port <= 0) || (port > 65535) ) { return; }
 
-        final BitcoinNode bitcoinNode = _nodeInitializer.initializeNode(host, port);
+        final String ipString = ip.toString();
+
+        final BitcoinNode bitcoinNode = _nodeInitializer.initializeNode(ipString, port);
         _nodeManager.addNode(bitcoinNode);
-
-        return true;
     }
 
     @Override
     public List<BitcoinNode> getNodes() {
         return _nodeManager.getNodes();
+    }
+
+    @Override
+    public void banNode(final Ip ip) {
+        _nodeManager.banNode(ip);
+    }
+
+    @Override
+    public void unbanNode(final Ip ip) {
+        _nodeManager.unbanNode(ip);
     }
 }

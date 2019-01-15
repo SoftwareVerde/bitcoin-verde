@@ -20,3 +20,7 @@ echo -e "#!/bin/bash\n\necho -n \"Previous Block Hash: \"\nread previous_block_h
 echo -e "#!/bin/bash\n\n(echo '{\"method\":\"POST\",\"query\":\"SHUTDOWN\"}' && sleep 2) | nc localhost 8334\n" > out/shutdown.sh
 chmod 770 out/*.sh
 
+mkdir out/rpc 2>/dev/null
+cp scripts/rpc/*.sh out/rpc/.
+chmod 770 out/rpc/*
+

@@ -387,8 +387,15 @@ public class BitcoinNodeDatabaseManager {
             );
         }
         else {
+            // Prevent the node from immediately being re-banned...
             _databaseConnection.executeSql(
-                new Query("UPDATE hosts SET is_banned = 0 WHERE host = ?")
+                new Query("DELETE nodes FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE nodes.last_handshake_timestamp IS NULL AND host = ?")
+                    .setParameter(ip)
+            );
+
+            // Mark the node as not banned...
+            _databaseConnection.executeSql(
+                new Query("UPDATE hosts SET is_banned = 0, banned_timestamp = NULL WHERE host = ?")
                     .setParameter(ip)
             );
         }

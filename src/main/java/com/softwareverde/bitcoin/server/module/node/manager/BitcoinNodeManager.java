@@ -607,4 +607,45 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
         _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
     }
+
+    public void banNode(final Ip ip) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+
+            // Ban any nodes from that ip...
+            nodeDatabaseManager.setIsBanned(ip, true);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+            // Still continue to disconnect from any nodes at that ip, even upon an error...
+        }
+
+        // Disconnect all currently-connected nodes at that ip...
+        synchronized (_mutex) {
+            final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
+
+            for (final NodeId nodeId : _nodes.keySet()) {
+                final BitcoinNode bitcoinNode = _nodes.get(nodeId);
+                if (Util.areEqual(ip, bitcoinNode.getIp())) {
+                    droppedNodes.add(bitcoinNode);
+                }
+            }
+
+            for (final BitcoinNode bitcoinNode : droppedNodes) {
+                _removeNode(bitcoinNode);
+            }
+        }
+    }
+
+    public void unbanNode(final Ip ip) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+
+            // Unban any nodes from that ip...
+            nodeDatabaseManager.setIsBanned(ip, false);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+        }
+    }
 }
