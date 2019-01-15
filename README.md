@@ -1,4 +1,20 @@
-# Bitcoin-Verde v1.0.0
+
+# Bitcoin Verde v1.0.1
+
+
+## Updates
+
+**v1.0.1**
+
+- Added support for remote databases.
+- Added RPC `ADD_HOOK` function.
+- Explorer now lists new transactions and blocks on the home page.
+- Updated documentation to include node message throttling configuration.
+- Changed user-agent to use a space instead of hyphen.
+- Implemented `getaddr` message type to facilitate node discovery.
+- Fixed an issue causing TransactionBloomFilter to render significant false-positives due to integer overflow.
+
+**v1.0.0** - Initial beta release.
 
 
 ## Description
