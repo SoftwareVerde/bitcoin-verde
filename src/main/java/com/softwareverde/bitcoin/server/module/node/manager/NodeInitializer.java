@@ -19,6 +19,7 @@ public class NodeInitializer {
     protected final BitcoinNode.RequestDataCallback _requestDataCallback;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
+    protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
@@ -31,9 +32,11 @@ public class NodeInitializer {
 
         final BitcoinNode.TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);
         bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
+
+        bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
     }
 
-    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, BitcoinNode.RequestPeersHandler requestPeersHandler) {
         _synchronizationStatus = synchronizationStatus;
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
@@ -42,6 +45,7 @@ public class NodeInitializer {
         _requestDataCallback = requestDataCallback;
         _threadPoolFactory = threadPoolFactory;
         _localNodeFeatures = localNodeFeatures;
+        _requestPeersHandler = requestPeersHandler;
     }
 
     public BitcoinNode initializeNode(final String host, final Integer port) {

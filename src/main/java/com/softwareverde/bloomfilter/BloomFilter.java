@@ -36,11 +36,11 @@ public interface BloomFilter extends Constable<ImmutableBloomFilter> {
 class BloomFilterCore {
     public static Boolean containsItem(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final ByteArray item) {
         final Integer byteCount = bytes.getByteCount();
-        final Integer bitCount = (byteCount * 8);
+        final Long bitCount = (byteCount * 8L);
 
         for (int i = 0; i < hashFunctionCount; ++i) {
             final Long hash = BitcoinUtil.murmurHash(nonce, i, item);
-            final Integer index = (int) (hash % bitCount);
+            final Long index = (hash % bitCount);
             final Boolean isSet = bytes.getBit(index);
 
             if (! isSet) {

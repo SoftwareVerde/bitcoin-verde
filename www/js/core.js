@@ -280,6 +280,20 @@ class Ui {
         };
     }
 
+    static _getLoadingElement() {
+        if ($("#loading").length == 0) {
+            const loadingElement = $("<div id=\"loading\"></div>");
+            loadingElement.css({ position: "fixed", left: "0", right: "0", bottom: "0", height: "0.5em", background: "#202020" });
+
+            const progress = $("<div></div>");
+            progress.css({ height: "100%", background: "#1AB326" });
+
+            loadingElement.append(progress);
+            $("body").append(loadingElement);
+        }
+        return $("#loading");
+    }
+
     static renderTransaction(transaction) {
         const transactionUi = Ui.inflateTransaction(transaction);
         transactionUi.hide();
@@ -296,7 +310,7 @@ class Ui {
         const blockTemplate = $("> .block", templates);
         const blockUi = blockTemplate.clone();
 
-        $(".block-header .height .value", blockUi).text(block.height.toLocaleString());
+        $(".block-header .height .value", blockUi).text((block.height || "0").toLocaleString());
         $(".block-header .hash .value", blockUi).text(block.hash);
         Ui.makeHashCopyable($(".block-header .hash .value", blockUi).text(block.hash));
         $(".block-header .difficulty .mask .value", blockUi).text(block.difficulty.mask);
@@ -312,18 +326,7 @@ class Ui {
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
         $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || "-").toLocaleString());
 
-        if ($("#loading").length == 0) {
-            const loadingElement = $("<div id=\"loading\"></div>");
-            loadingElement.css({ position: "fixed", left: "0", right: "0", bottom: "0", height: "0.5em", background: "#202020" });
-
-            const progress = $("<div></div>");
-            progress.css({ height: "100%", background: "#1AB326" });
-
-            loadingElement.append(progress);
-            $("body").append(loadingElement);
-        }
-        const loadingElement = $("#loading");
-
+        const loadingElement = Ui._getLoadingElement();
         const appendTransaction = function(i, transactions) {
             if (i >= transactions.length) {
                 loadingElement.remove();
@@ -450,13 +453,24 @@ class Ui {
         $(".qr-code", addressUi).append(qrCodeElement);
 
         const addressTransactionsContainer = $(".address-transactions", addressUi);
-        for (let i in addressTransactions) {
-            const transaction = addressTransactions[i];
 
+        const loadingElement = Ui._getLoadingElement();
+        const appendTransaction = function(i, transactions) {
+            if (i >= transactions.length) {
+                loadingElement.remove();
+                return;
+            }
+
+            const transaction = transactions[i];
             const transactionUi = Ui.inflateTransaction(transaction);
             Ui.highlightAddress(addressString, transactionUi);
             addressTransactionsContainer.append(transactionUi);
-        }
+
+            $("div", loadingElement).css({ width: (((i*100) / transactions.length) + "%") });
+            window.setTimeout(appendTransaction, 0, (i+1), transactions);
+        };
+
+        appendTransaction(0, addressTransactions);
 
         return addressUi;
     }

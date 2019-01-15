@@ -4,16 +4,14 @@ import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
-import com.softwareverde.network.ip.Ipv4;
-import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import java.io.IOException;
-import java.net.*;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
@@ -133,15 +131,21 @@ public class NodeConnection {
     }
 
     protected void _shutdownConnectionThread() {
-        _connectionThread.interrupt();
+        final Thread connectionThread = _connectionThread;
+        if (connectionThread == null) { return; }
+
         _connectionThread = null;
+        connectionThread.interrupt();
     }
 
     protected void _onSocketConnected() {
         _binarySocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
-                final ProtocolMessage protocolMessage = _binarySocket.popMessage();
+                final BinarySocket binarySocket = _binarySocket;
+                if (binarySocket == null) { return; } // Can most likely happen when disconnected before the callback was executed from the threadPool...
+
+                final ProtocolMessage protocolMessage = binarySocket.popMessage();
 
                 if (LOGGING_ENABLED) {
                     if (protocolMessage instanceof BitcoinProtocolMessage) {
@@ -149,8 +153,9 @@ public class NodeConnection {
                     }
                 }
 
-                if (_messageReceivedCallback != null) {
-                    _messageReceivedCallback.onMessageReceived(protocolMessage);
+                final MessageReceivedCallback messageReceivedCallback = _messageReceivedCallback;
+                if (messageReceivedCallback != null) {
+                    messageReceivedCallback.onMessageReceived(protocolMessage);
                 }
             }
         });
@@ -256,15 +261,19 @@ public class NodeConnection {
 
     public void connect() {
         synchronized (_connectionThreadMutex) {
-            if (_connectionThread != null) {
-                if (! _connectionThread.isAlive()) {
-                    _shutdownConnectionThread();
+            { // Shutdown the existing connection thread, if it exists...
+                final Thread connectionThread = _connectionThread;
+                if (connectionThread != null) {
+                    if (! connectionThread.isAlive()) {
+                        _shutdownConnectionThread();
+                    }
                 }
             }
 
             if (_connectionThread == null) {
-                _connectionThread = new ConnectionThread();
-                _connectionThread.start();
+                final Thread connectionThread = new ConnectionThread();
+                _connectionThread = connectionThread;
+                connectionThread.start();
             }
         }
     }

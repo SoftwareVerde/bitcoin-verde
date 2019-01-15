@@ -8,7 +8,7 @@ public class LoggingConnectionFactoryWrapper extends MysqlDatabaseConnectionFact
     protected final MysqlDatabaseConnectionFactory _mysqlDatabaseConnectionFactory;
 
     public LoggingConnectionFactoryWrapper(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory) {
-        super("", "", "");
+        super(null, null, null, null, null);
 
         _mysqlDatabaseConnectionFactory = mysqlDatabaseConnectionFactory;
     }

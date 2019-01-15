@@ -4,7 +4,9 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
+import com.softwareverde.database.mysql.DatabaseInitializer;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 
@@ -32,7 +34,10 @@ public class IntegrationTest {
         });
         try {
             _database.reset();
-            databaseInitializer.initializeDatabase(_database.getDatabaseInstance(), _database.getDatabaseConnectionFactory(), _database.getCredentials());
+            final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+            try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                databaseInitializer.initializeDatabase(databaseConnection);
+            }
         }
         catch (final Exception exception) {
             throw new RuntimeException(exception);

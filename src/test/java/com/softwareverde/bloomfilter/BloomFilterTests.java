@@ -2,7 +2,10 @@ package com.softwareverde.bloomfilter;
 
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
@@ -11,6 +14,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class BloomFilterTests {
+
+    protected static Sha256Hash createSha256(final int i) {
+        return MutableSha256Hash.wrap(BitcoinUtil.sha256(ByteUtil.integerToBytes(i)));
+    }
 
     @Test
     public void should_have_desired_false_positive_values_when_loaded_to_max_item_count() {
@@ -164,5 +171,46 @@ public class BloomFilterTests {
         Assert.assertEquals(898599222, byteCount.intValue());
         Assert.assertEquals(9, hashFunctionCount.intValue());
         Assert.assertEquals(0.001F, falsePositiveRate, 0.0001F);
+    }
+
+    // Test is disabled due to taking too long to run.
+    // @Test
+    public void should_not_match_items_not_within_bloom_filter() {
+        // NOTE: This test identified an integer overflow bug in ByteArray regarding getting/setting bits in large buffers.
+        // NOTE: This test also identified an integer overflow bug BloomFilter.
+
+        // Setup
+        final Double FALSE_POSITIVE_RATE = 0.001D;
+        final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(500_000_000L, FALSE_POSITIVE_RATE, 0L);
+
+        final Integer itemCount = 266770944;
+
+        // Action
+        for (int i = 0; i < itemCount; ++i) {
+            final ByteArray object = createSha256(i);
+            mutableBloomFilter.addItem(object);
+            // Assert.assertTrue(mutableBloomFilter.containsItem(object));
+            if (i % 1_770_944 == 0) System.out.println(i);
+        }
+
+        // Assert
+        for (int i = 0; i < itemCount; ++i) {
+            final ByteArray object = createSha256(i);
+            Assert.assertTrue(mutableBloomFilter.containsItem(object));
+        }
+
+        int falsePositiveCount = 0;
+        for (int i = 0; i < itemCount; ++i) {
+            final ByteArray object = createSha256(i + itemCount);
+            if (mutableBloomFilter.containsItem(object)) {
+                falsePositiveCount += 1;
+            }
+            if (i % 1_770_944 == 0) System.out.println(i);
+        }
+
+        final float falsePositiveRate = ((float) falsePositiveCount) / itemCount;
+        final int falsePositiveRateTimes1000 = (int) (falsePositiveRate * 1000);
+        final int expectedFalsePositiveTimes1000 = (int) (FALSE_POSITIVE_RATE * 1000);
+        Assert.assertTrue(falsePositiveRateTimes1000 <= expectedFalsePositiveTimes1000);
     }
 }

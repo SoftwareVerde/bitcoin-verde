@@ -407,6 +407,91 @@
     margin: 1em;
 }
 
+#announcements {
+    margin: auto;
+    text-align: center;
+}
+
+.recent-blocks,
+.recent-transactions {
+    display: inline-block;
+    margin: 2em;
+    box-sizing: border-box;
+    /* width: calc(50% - 6em); */
+    border: solid 1px #AAAAAA;
+    vertical-align: top;
+    padding: 0.5em;
+    padding-bottom: 0.75em;
+    padding-right: 0.75em;
+    min-height: 18em;
+    min-width: 36em;
+    background: #FFFFFF;
+    color: #262626;
+}
+
+.recent-blocks::before,
+.recent-transactions::before {
+    display: block;
+    background-color: #FFFFFF;
+    color: #8e8e8e;
+    font-weight: bold;
+    text-align: left;
+    padding: 0.25em;
+    margin: -0.5em;
+    margin-right: -0.75em;
+    margin-bottom: 0em;
+    padding: 1em;
+    background-color: #F3F3F3;
+    border-bottom: solid 1px #dedede;
+}
+
+.recent-blocks::before {
+    content: 'Recent Blocks';
+}
+.recent-transactions::before {
+    content: 'Recent Transactions';
+}
+
+.recent-transactions .transaction::before,
+.recent-transactions .transaction .hash span.value::before,
+.recent-blocks .block::before {
+    content: '' !important;
+    display: none !important;
+}
+
+.recent-transactions .transaction,
+.recent-blocks .block {
+    background-color: unset;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none;
+}
+
+.recent-blocks .block .block-header > div,
+.recent-blocks .block .transactions {
+    display: none;
+}
+
+.recent-blocks .block .block-header > div.hash {
+    display: block;
+    width: auto;
+    background-color: unset;
+    border: none;
+    margin: 0;
+    padding: 0;
+}
+
+.recent-blocks .block .block-header > div.hash label {
+    display: none;
+}
+
+.recent-transactions .transaction > div > div {
+    display: none;
+}
+.recent-transactions .transaction > div > div.hash {
+    display: block;
+}
+
 @media only screen and (max-width: 1100px) {
     .block,
     .transaction {
@@ -479,6 +564,20 @@
 }
 
 @media only screen and (max-width: 600px) {
+    .recent-blocks,
+    .recent-transactions {
+        min-width: unset;
+        width: auto;
+        margin: 0.5em;
+        overflow-x: scroll;
+        display: block;
+    }
+
+    .transaction > div > div .value,
+    .block .block-header div .value {
+        margin: auto;
+    }
+
     .transaction > div > div,
     .block .block-header > div {
         width: auto;

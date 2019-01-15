@@ -5,7 +5,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.util.Util;
 
 import java.io.IOException;
 import java.io.InputStream;

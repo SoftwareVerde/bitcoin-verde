@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -15,7 +16,6 @@ import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.ScriptTypeId;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -28,6 +28,7 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 
 import java.util.HashMap;
@@ -320,7 +321,10 @@ public class TransactionOutputDatabaseManager {
     }
 
     public List<TransactionOutputId> insertTransactionOutputs(final Map<Sha256Hash, TransactionId> transactionIds, final List<Transaction> transactions) throws DatabaseException {
-        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) { return null; }
+        if (! Util.areEqual(transactionIds.size(), transactions.getSize())) {
+            Logger.log("NOTICE: Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
+            return null;
+        }
         if (transactions.isEmpty()) { return new MutableList<TransactionOutputId>(0); }
 
         final Integer transactionCount = transactions.getSize();
@@ -333,7 +337,10 @@ public class TransactionOutputDatabaseManager {
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
             final Sha256Hash transactionHash = transaction.getHash();
-            if (! transactionIds.containsKey(transactionHash)) { return null; }
+            if (! transactionIds.containsKey(transactionHash)) {
+                Logger.log("NOTICE: Error storing TransactionOutputs. Missing Transaction: " + transactionHash);
+                return null;
+            }
             final TransactionId transactionId = transactionIds.get(transactionHash);
 
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
@@ -357,7 +364,10 @@ public class TransactionOutputDatabaseManager {
         }
 
         final Long firstTransactionOutputId = _databaseConnection.executeSql(batchInsertQuery);
-        if (firstTransactionOutputId == null) { return null; }
+        if (firstTransactionOutputId == null) {
+            Logger.log("NOTICE: Error storing TransactionOutputs. Error running batch insert.");
+            return null;
+        }
 
         final Integer transactionOutputCount = lockingScripts.getSize();
 

@@ -62,7 +62,7 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
     protected final ConcurrentLinkedQueue<CachedMysqlDatabaseConnection> _mysqlDatabaseConnections = new ConcurrentLinkedQueue<CachedMysqlDatabaseConnection>();
 
     public MysqlDatabaseConnectionPool(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount) {
-        super("", "", "");
+        super(null, null, null, null, null);
 
         _databaseConnectionFactory = mysqlDatabaseConnectionFactory;
         _maxConnectionCount = maxConnectionCount;
@@ -70,7 +70,7 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
     }
 
     public MysqlDatabaseConnectionPool(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount, final Long deadlockTimeout) {
-        super("", "", "");
+        super(null, null, null, null, null);
 
         _databaseConnectionFactory = mysqlDatabaseConnectionFactory;
         _maxConnectionCount = maxConnectionCount;

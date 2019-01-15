@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.transaction.input;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.util.Util;
 
 /**
  * Is functionally the same as a regular TransactionInputInflater, however additional checks are in place to assert
@@ -8,19 +10,11 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
  *  If these additional assertions fail, null is returned.
  */
 public class CoinbaseTransactionInputInflater extends TransactionInputInflater {
-    protected Boolean _areAllBytesEqualTo(final byte[] bytes, final byte requiredValue) {
-        for (int i=0; i<bytes.length; ++i) {
-            final byte b = bytes[i];
-            if (b != requiredValue) { return false; }
-        }
-        return true;
-    }
-
     @Override
     protected MutableTransactionInput _fromByteArrayReader(final ByteArrayReader byteArrayReader) {
         final MutableTransactionInput transactionInput = super._fromByteArrayReader(byteArrayReader);
 
-        if (! _areAllBytesEqualTo(transactionInput._previousOutputTransactionHash.getBytes(), (byte) 0x00)) { return null; }
+        if (! Util.areEqual(transactionInput._previousOutputTransactionHash, Sha256Hash.EMPTY_HASH)) { return null; }
         if (transactionInput._previousOutputIndex != 0xFFFFFFFF) { return null; }
         if (transactionInput._unlockingScript.getByteCount() > 100) { return null; }
 

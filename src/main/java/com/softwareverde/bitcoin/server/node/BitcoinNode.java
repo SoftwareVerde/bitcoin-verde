@@ -46,7 +46,6 @@ import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.type.PingMessage;
 import com.softwareverde.network.p2p.message.type.PongMessage;
@@ -67,6 +66,10 @@ public class BitcoinNode extends Node {
 
     public interface BlockInventoryMessageCallback {
         void onResult(BitcoinNode bitcoinNode, List<Sha256Hash> blockHashes);
+    }
+
+    public interface RequestPeersHandler {
+        List<BitcoinNodeIpAddress> getConnectedPeers();
     }
 
     public interface DownloadBlockCallback extends Callback<Block> {
@@ -183,6 +186,7 @@ public class BitcoinNode extends Node {
     protected QueryBlockHeadersCallback _queryBlockHeadersCallback = null;
     protected RequestDataCallback _requestDataMessageCallback = null;
     protected BlockInventoryMessageCallback _blockInventoryMessageHandler = null;
+    protected RequestPeersHandler _requestPeersHandler = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
@@ -704,7 +708,15 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onRequestPeersMessageReceived(final RequestPeersMessage requestPeersMessage) {
-        // TODO: Trigger NODE_ADDRESSES with active peers...
+        final RequestPeersHandler requestPeersHandler = _requestPeersHandler;
+        if (requestPeersHandler == null) { return; }
+
+        final List<BitcoinNodeIpAddress> connectedPeers = requestPeersHandler.getConnectedPeers();
+        final BitcoinNodeIpAddressMessage nodeIpAddressMessage = new BitcoinNodeIpAddressMessage();
+        for (final BitcoinNodeIpAddress nodeIpAddress : connectedPeers) {
+            nodeIpAddressMessage.addAddress(nodeIpAddress);
+        }
+        _queueMessage(nodeIpAddressMessage);
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
@@ -873,6 +885,10 @@ public class BitcoinNode extends Node {
 
     public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
+    }
+
+    public void setRequestPeersHandler(final RequestPeersHandler requestPeersHandler) {
+        _requestPeersHandler = requestPeersHandler;
     }
 
     public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {

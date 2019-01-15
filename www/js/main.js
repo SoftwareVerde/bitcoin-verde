@@ -1,3 +1,5 @@
+var webSocket = null;
+
 $(document).ready(function() {
     const searchInput = $("#search");
     const loadingImage = $("#search-loading-image");
@@ -49,7 +51,7 @@ $(document).ready(function() {
         searchInput.blur();
 
         return false;
-    });   
+    });
 
     const queryParams = new URLSearchParams(window.location.search);
     if (queryParams.has("search")) {
@@ -69,6 +71,56 @@ $(document).ready(function() {
             const main = $("#main");
             main.empty();
         }
+    };
+
+    if (window.location.protocol == "http:") {
+        webSocket = new WebSocket("ws://" + window.location.host + "/api/v1/announcements");
+    }
+    else {
+        webSocket = new WebSocket("wss://" + window.location.host + "/api/v1/announcements");
+    }
+
+    webSocket.onopen = function() { };
+
+    webSocket.onmessage = function(event) {
+        const message = JSON.parse(event.data);
+        const objectType = message.objectType;
+
+        let container = null;
+        let element  = null;
+        if (objectType == "TRANSACTION") {
+            const transaction = message.object;
+
+            container = $("#main .recent-transactions");
+            element = Ui.inflateTransaction(transaction);
+            element.off("click");
+        }
+        else if (objectType == "BLOCK") {
+            const blockHeader = message.object;
+
+            container = $("#main .recent-blocks");
+            element = Ui.inflateBlock(blockHeader);
+            const blockLink = $(".hash .value", element);
+            blockLink.toggleClass("clickable", true);
+            blockLink.on("click", Ui._makeNavigateToBlockEvent(blockHeader.hash));
+            element.off("click");
+        }
+
+        if (container != null && element != null) {
+            const childrenElements = container.children();
+            if (childrenElements.length > 9) {
+                childrenElements.last().remove();
+            }
+
+            container.prepend(element);
+            HashResizer.update(container);
+        }
+
+        return false;
+    };
+
+    webSocket.onclose = function() {
+        console.log("WebSocket closed...");
     };
 });
 

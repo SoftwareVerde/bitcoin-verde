@@ -6,26 +6,20 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.MysqlDatabase;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
-import com.softwareverde.database.mysql.embedded.DatabaseInitializer;
-import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -62,32 +56,12 @@ public class ChainValidationModule {
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
-        final EmbeddedMysqlDatabase database;
-        {
-            EmbeddedMysqlDatabase databaseInstance = null;
-            try {
-                final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", Constants.DATABASE_VERSION, new DatabaseInitializer.DatabaseUpgradeHandler() {
-                    @Override
-                    public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
-                });
-
-                final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
-
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-            }
-            database = databaseInstance;
-
-            if (database != null) {
-                Logger.log("[Database Online]");
-            }
-            else {
-                BitcoinUtil.exitFailure();
-            }
+        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        if (database == null) {
+            Logger.log("Error initializing database.");
+            BitcoinUtil.exitFailure();
         }
+        Logger.log("[Database Online]");
 
         { // Initialize the NativeUnspentTransactionOutputCache...
             final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
@@ -105,7 +79,7 @@ public class ChainValidationModule {
     }
 
     public void run() {
-        final EmbeddedMysqlDatabase database = _environment.getDatabase();
+        final MysqlDatabase database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final UnspentTransactionOutputCache unspentTransactionOutputCache = masterDatabaseManagerCache.getUnspentTransactionOutputCache();
 
@@ -120,7 +94,7 @@ public class ChainValidationModule {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
-            final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.getDatabaseConnectionFactory());
+            final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.newConnectionFactory());
             final NetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
 

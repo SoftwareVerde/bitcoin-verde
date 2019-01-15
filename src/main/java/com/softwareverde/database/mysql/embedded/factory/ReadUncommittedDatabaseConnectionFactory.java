@@ -8,7 +8,7 @@ public class ReadUncommittedDatabaseConnectionFactory extends MysqlDatabaseConne
     protected final MysqlDatabaseConnectionFactory _mysqlDatabaseConnectionFactory;
 
     public ReadUncommittedDatabaseConnectionFactory(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory) {
-        super("", "", "");
+        super(null, null, null, null, null);
 
         _mysqlDatabaseConnectionFactory = mysqlDatabaseConnectionFactory;
     }

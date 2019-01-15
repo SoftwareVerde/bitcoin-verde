@@ -13,6 +13,16 @@ public class SystemUtil {
 
     public static Boolean isWindowsOperatingSystem() {
         final String operatingSystemName = System.getProperty("os.name").toLowerCase();
-        return operatingSystemName.contains("win");
+        return operatingSystemName.startsWith("windows");
+    }
+
+    public static Boolean isMacOperatingSystem() {
+        final String operatingSystemName = System.getProperty("os.name").toLowerCase();
+        return operatingSystemName.contains("mac");
+    }
+
+    public static Boolean isLinuxOperatingSystem() {
+        final String operatingSystemName = System.getProperty("os.name").toLowerCase();
+        return operatingSystemName.contains("linux");
     }
 }

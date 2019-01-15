@@ -12,6 +12,7 @@ public class Logger {
     public interface LogCallback {
         void onLog(Object message);
     }
+
     private static final Integer MAX_BATCH_COUNT = 128;
     private static final Object _messagePin = new Object();
     private static final ConcurrentLinkedQueue<String> _queuedMessages = new ConcurrentLinkedQueue<String>();
@@ -67,6 +68,7 @@ public class Logger {
             stringWriter.append("[");
             stringWriter.append(DateUtil.timestampToDatetimeString(System.currentTimeMillis(), TimeZone.getDefault()));
             stringWriter.append("] ");
+
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
                 if (object instanceof Exception) {
                     final String metadata = ("[" + _getMetadata((Exception) object, 1) + "]");

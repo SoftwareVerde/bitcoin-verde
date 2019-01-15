@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
@@ -15,7 +16,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -34,6 +34,10 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 
 public class TransactionProcessor extends SleepyService {
+    public interface NewTransactionProcessedCallback {
+        void onNewTransaction(Transaction transaction);
+    }
+
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -44,6 +48,7 @@ public class TransactionProcessor extends SleepyService {
 
     protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
+    protected NewTransactionProcessedCallback _newTransactionProcessedCallback;
 
     @Override
     protected void _onStart() { }
@@ -154,6 +159,11 @@ public class TransactionProcessor extends SleepyService {
                     TransactionUtil.startTransaction(databaseConnection);
                     pendingTransactionDatabaseManager.deletePendingTransaction(pendingTransactionId);
                     TransactionUtil.commitTransaction(databaseConnection);
+
+                    final NewTransactionProcessedCallback newTransactionProcessedCallback = _newTransactionProcessedCallback;
+                    if (newTransactionProcessedCallback != null) {
+                        newTransactionProcessedCallback.onNewTransaction(transaction);
+                    }
                 }
                 storeTransactionsTimer.stop();
 
@@ -189,5 +199,9 @@ public class TransactionProcessor extends SleepyService {
 
         _systemTime = new SystemTime();
         _lastOrphanPurgeTime = 0L;
+    }
+
+    public void setNewTransactionProcessedCallback(final NewTransactionProcessedCallback newTransactionProcessedCallback) {
+        _newTransactionProcessedCallback = newTransactionProcessedCallback;
     }
 }

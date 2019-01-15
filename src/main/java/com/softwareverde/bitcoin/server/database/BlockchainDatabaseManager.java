@@ -3,8 +3,8 @@ package com.softwareverde.bitcoin.server.database;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -78,6 +78,7 @@ public class BlockchainDatabaseManager {
 
         final BlockchainSegmentId newBlockchainSegmentId = _createNewBlockchainSegment(blockchainSegmentId);
 
+        // Move the blocks after the contentious block height to the new segment...
         _databaseConnection.executeSql(
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE blockchain_segment_id = ? AND block_height >= ?")
                 .setParameter(newBlockchainSegmentId)
@@ -114,7 +115,7 @@ public class BlockchainDatabaseManager {
     protected void _renumberBlockchainSegments() throws DatabaseException {
         final BlockchainSegmentId rootSegmentId = _getRootBlockchainSegmentId();
         _setLeftNumber(rootSegmentId, 1);
-        final Integer endingNumber = _numberBlockChainSegmentChildren(rootSegmentId, 2);
+        final Integer endingNumber = _numberBlockchainSegmentChildren(rootSegmentId, 2);
         _setRightNumber(rootSegmentId, endingNumber);
     }
 
@@ -128,14 +129,14 @@ public class BlockchainDatabaseManager {
         return BlockchainSegmentId.wrap(row.getLong("id"));
     }
 
-    protected Integer _numberBlockChainSegmentChildren(final BlockchainSegmentId blockchainSegmentId, final Integer startingNumber) throws DatabaseException {
+    protected Integer _numberBlockchainSegmentChildren(final BlockchainSegmentId blockchainSegmentId, final Integer startingNumber) throws DatabaseException {
         Integer number = startingNumber;
-        final List<BlockchainSegmentId> childBlockChainSegmentIds = _getChildSegmentIds(blockchainSegmentId);
-        for (final BlockchainSegmentId childBlockchainSegmentId : childBlockChainSegmentIds) {
+        final List<BlockchainSegmentId> childBlockchainSegmentIds = _getChildSegmentIds(blockchainSegmentId);
+        for (final BlockchainSegmentId childBlockchainSegmentId : childBlockchainSegmentIds) {
             _setLeftNumber(childBlockchainSegmentId, number);
             number += 1;
 
-            number = _numberBlockChainSegmentChildren(childBlockchainSegmentId, number);
+            number = _numberBlockchainSegmentChildren(childBlockchainSegmentId, number);
 
             _setRightNumber(childBlockchainSegmentId, number);
             number += 1;

@@ -49,8 +49,17 @@ a {
     color: #EEEEEE;
     font-weight: bold;
     cursor: pointer;
-    padding: 1em;
+    padding: 0;
     overflow: hidden;
+}
+
+#header .navigation ul li a {
+    display: inline-block;
+    padding: 1em;
+}
+
+#header .navigation ul li i {
+    margin-right: 0.25em;
 }
 
 #header .navigation ul li:hover {
@@ -168,6 +177,29 @@ a {
   content: "";
   clear: both;
   display: table;
+}
+
+@media only screen and (max-width: 700px) {
+    #header .navigation {
+        float: none;
+    }
+    #header .navigation ul {
+        float: none;
+        display: flex;
+    }
+    #header .navigation ul li {
+        font-size: 0.5em;
+        min-width: 5em;
+        display: inline;
+        display: inline-flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    #header .navigation ul li i {
+        margin-right: 0;
+        font-size: 2.5em;
+        display: block;
+    }
 }
 
 @media only screen and (max-width: 600px) {
