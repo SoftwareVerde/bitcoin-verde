@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
@@ -71,12 +72,41 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
+    // This function iterates through each Block in-flight, and checks for items that have exceeded the MAX_TIMEOUT.
+    //  Items exceeding the timeout have their onFailure method called.
+    //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
+    // TODO: Investigate why onFailure is not being invoked by the BitcoinNodeManager.
+    protected void _checkForStalledDownloads() {
+        final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
+        for (final Sha256Hash blockHash : _currentBlockDownloadSet.keySet()) {
+            final MilliTimer milliTimer = _currentBlockDownloadSet.get(blockHash);
+            if (milliTimer == null) {
+                stalledBlockHashes.add(blockHash);
+                continue;
+            }
+
+            milliTimer.stop();
+            final Long msElapsed = milliTimer.getMillisecondsElapsed();
+            if (msElapsed >= MAX_TIMEOUT) {
+                stalledBlockHashes.add(blockHash);
+            }
+        }
+
+        for (final Sha256Hash stalledBlockHash : stalledBlockHashes) {
+            Logger.log("Stalled Block Detected: " + stalledBlockHash);
+            _currentBlockDownloadSet.remove(stalledBlockHash);
+            _blockDownloadedCallback.onFailure(stalledBlockHash);
+        }
+    }
+
     @Override
     protected void _onStart() { }
 
     @Override
     protected Boolean _run() {
         final Integer maximumConcurrentDownloadCount = Math.min(21, ((_bitcoinNodeManager.getActiveNodeCount() * 3) + 1) );
+
+        _checkForStalledDownloads();
 
         { // Determine if routine should wait for a request to complete...
             Integer currentDownloadCount = _currentBlockDownloadSet.size();
