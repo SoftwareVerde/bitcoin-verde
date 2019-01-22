@@ -1,32 +1,34 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class ComparisonOperation extends Operation {
+public class ComparisonOperation extends SubTypedOperation {
+    // NOTE: The order of the parameters is the top item being the modifier, and the the 2nd item being the base.
+    //  For instance, pushing "2" then "1" on the stack results in [2, 1].
+    //  In this context, for OP_SUB, 1 is subtracted from 2 (2-1), which results in 1 being put on the stack.
+
     public static final Type TYPE = Type.OP_COMPARISON;
 
-    protected static ComparisonOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new ComparisonOperation(opcodeByte, subType);
+        return new ComparisonOperation(opcodeByte, opcode);
     }
 
-    protected final SubType _subType;
-
-    protected ComparisonOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+    protected ComparisonOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     protected Boolean _opIsEqual(final Stack stack) {
@@ -42,106 +44,138 @@ public class ComparisonOperation extends Operation {
         final Value value1 = stack.pop();
         if (stack.didOverflow()) { return false; }
 
-        final Boolean areEqual = (value0.asInteger().intValue() == value1.asInteger().intValue());
+        final Boolean areEqual = (value1.asInteger().intValue() == value0.asInteger().intValue());
         return (areEqual);
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, Context context) {
-        switch (_subType) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+        switch (_opcode) {
             case IS_EQUAL: {
                 final Boolean isEqual = _opIsEqual(stack);
                 stack.push(Value.fromBoolean(isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_EQUAL_THEN_VERIFY: {
-                return _opIsEqual(stack);
+                final Boolean areEqual = _opIsEqual(stack);
+                if (stack.didOverflow()) { return false; }
+                return areEqual;
             }
 
-            case IS_FALSE: {
-                final Boolean isEqual = _opIsEqual(stack);
-                stack.push(Value.fromBoolean(! isEqual));
-                return true;
+            case IS_TRUE: {
+                final Value value = stack.pop();
+                final Boolean booleanValue = value.asBoolean();
+                stack.push(Value.fromBoolean(booleanValue));
+                return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL: {
                 final Boolean isEqual = _opIsNumericallyEqual(stack);
                 stack.push(Value.fromBoolean(isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_NUMERICALLY_EQUAL_THEN_VERIFY: {
-                return _opIsNumericallyEqual(stack);
+                final Boolean areEqual = _opIsNumericallyEqual(stack);
+                if (stack.didOverflow()) { return false; }
+                return areEqual;
             }
 
             case IS_NUMERICALLY_NOT_EQUAL: {
                 final Boolean isEqual = _opIsNumericallyEqual(stack);
                 stack.push(Value.fromBoolean(! isEqual));
-                return true;
+                return (! stack.didOverflow());
             }
 
             case IS_LESS_THAN: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
-                final Boolean isLessThan = (value0.asInteger() < value1.asInteger());
-                stack.push (Value.fromBoolean(isLessThan));
-                return true;
+                final Boolean isLessThan = (value1.asInteger() < value0.asInteger());
+                stack.push(Value.fromBoolean(isLessThan));
+                return (! stack.didOverflow());
             }
 
             case IS_GREATER_THAN: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
-                final Boolean isGreaterThan = (value0.asInteger() > value1.asInteger());
-                stack.push (Value.fromBoolean(isGreaterThan));
-                return true;
+                final Boolean isGreaterThan = (value1.asInteger() > value0.asInteger());
+                stack.push(Value.fromBoolean(isGreaterThan));
+                return (! stack.didOverflow());
             }
 
             case IS_LESS_THAN_OR_EQUAL: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
 
-                final Boolean isLessThan = (valueInteger0 < valueInteger1);
+                final Boolean isLessThan = (valueInteger1 < valueInteger0);
                 final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push (Value.fromBoolean(isLessThan || areEqual));
-                return true;
+                stack.push(Value.fromBoolean( (isLessThan) || (areEqual) ));
+                return (! stack.didOverflow());
             }
 
             case IS_GREATER_THAN_OR_EQUAL: {
                 final Value value0 = stack.pop();
                 final Value value1 = stack.pop();
-                if (stack.didOverflow()) { return false; }
 
                 final Integer valueInteger0 = value0.asInteger();
                 final Integer valueInteger1 = value1.asInteger();
 
-                final Boolean isGreaterThan = (valueInteger0 > valueInteger1);
-                final Boolean areEqual = (valueInteger0.intValue() == valueInteger1.intValue());
-                stack.push (Value.fromBoolean(isGreaterThan || areEqual));
-                return true;
+                final Boolean isGreaterThan = (valueInteger1 > valueInteger0);
+                final Boolean areEqual = (valueInteger1.intValue() == valueInteger0.intValue());
+                stack.push (Value.fromBoolean( (isGreaterThan) || (areEqual) ));
+                return (! stack.didOverflow());
             }
 
-            case IS_WITHIN_RANGE:
+            case INTEGER_AND: {
+                final Value value0 = stack.pop();
+                final Value value1 = stack.pop();
+
+                final int intValue0 = value0.asInteger();
+                final int intValue1 = value1.asInteger();
+
+                final Boolean value = ((intValue1 != 0) && (intValue0 != 0));
+                stack.push(Value.fromBoolean(value));
+
+                return (! stack.didOverflow());
+            }
+
+            case INTEGER_OR: {
+                final Value value0 = stack.pop();
+                final Value value1 = stack.pop();
+
+                final int intValue0 = value0.asInteger();
+                final int intValue1 = value1.asInteger();
+
+                final Boolean value = ((intValue1 != 0) || (intValue0 != 0));
+                stack.push(Value.fromBoolean(value));
+
+                return (! stack.didOverflow());
+            }
+
+            case IS_WITHIN_RANGE: {
+                // NOTE: Pushes true on the stack if the value is greater than or equal to the min, and less than the max.
+                //  Assuming the oldest items on the stack are on the left, the parameters are defined on the stack as: [..., VALUE, MIN, MAX]
+                final Value valueMax = stack.pop();
+                final Value valueMin = stack.pop();
+                final Value value = stack.pop();
+
+                final int intValueMax = valueMax.asInteger();
+                final int intValueMin = valueMin.asInteger();
+                final int intValue = value.asInteger();
+
+                final Boolean resultValue = ((intValue >= intValueMin) || (intValue < intValueMax));
+                stack.push(Value.fromBoolean(resultValue));
+
+                return (! stack.didOverflow());
+            }
+
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof ComparisonOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final ComparisonOperation operation = (ComparisonOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }

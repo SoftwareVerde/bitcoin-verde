@@ -1,6 +1,6 @@
 package com.softwareverde.jocl;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -19,16 +19,16 @@ public class GpuSha256Tests {
         final GpuSha256 gpuSha256 = GpuSha256.getInstance();
 
         final long cpuStartTime = System.currentTimeMillis();
-        final List<Hash> expectedValues;
+        final List<Sha256Hash> expectedValues;
         {
-            final MutableByteArray mutableByteArray = new MutableByteArray(64);
-            final ImmutableListBuilder<Hash> immutableListBuilder = new ImmutableListBuilder<Hash>(totalHashCount);
+            final MutableByteArray mutableByteArray = new MutableByteArray(32);
+            final ImmutableListBuilder<Sha256Hash> immutableListBuilder = new ImmutableListBuilder<Sha256Hash>(totalHashCount);
             for (int i=0; i<totalHashCount; ++i) {
                 for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
                     mutableByteArray.set(j, (byte) i);
                 }
 
-                final Hash hash = BitcoinUtil.sha256(BitcoinUtil.sha256(mutableByteArray));
+                final Sha256Hash hash = BitcoinUtil.sha256(BitcoinUtil.sha256(mutableByteArray));
                 immutableListBuilder.add(hash);
             }
             expectedValues = immutableListBuilder.build();
@@ -37,14 +37,14 @@ public class GpuSha256Tests {
 
         // Action
         final long gpuStartTime = System.currentTimeMillis();
-        final List<Hash> values;
+        final List<Sha256Hash> values;
         {
-            final ImmutableListBuilder<Hash> immutableListBuilder = new ImmutableListBuilder<Hash>(totalHashCount);
+            final ImmutableListBuilder<Sha256Hash> immutableListBuilder = new ImmutableListBuilder<Sha256Hash>(totalHashCount);
 
             final ImmutableListBuilder<ByteArray> hashBatchBuilder = new ImmutableListBuilder<ByteArray>(batchSize);
             for (int hashCount=0; hashCount<totalHashCount;) {
                 for (int i=0; i<Math.min(batchSize, (totalHashCount - hashCount)); ++i) {
-                    final MutableByteArray mutableByteArray = new MutableByteArray(64);
+                    final MutableByteArray mutableByteArray = new MutableByteArray(32);
                     for (int j=0; j<mutableByteArray.getByteCount(); ++j) {
                         mutableByteArray.set(j, (byte) (hashCount + i));
                     }
@@ -53,7 +53,8 @@ public class GpuSha256Tests {
 
                 hashCount += hashBatchBuilder.getCount();
 
-                final List<Hash> hashes = gpuSha256.sha256(gpuSha256.sha256(hashBatchBuilder.build()));
+                final List<Sha256Hash> hashes = gpuSha256.sha256(gpuSha256.sha256(hashBatchBuilder.build()));
+                // final List<Hash> hashes = gpuSha256.sha256(hashBatchBuilder.build());
                 immutableListBuilder.addAll(hashes);
             }
 
@@ -72,8 +73,8 @@ public class GpuSha256Tests {
         Assert.assertEquals(expectedValues.getSize(), values.getSize());
 
         for (int i=0; i<values.getSize(); ++i) {
-            final Hash expectedHash = expectedValues.get(i);
-            final Hash hash = values.get(i);
+            final Sha256Hash expectedHash = expectedValues.get(i);
+            final Sha256Hash hash = values.get(i);
 
             final boolean areEqual = expectedHash.equals(hash);
             if (! areEqual) {

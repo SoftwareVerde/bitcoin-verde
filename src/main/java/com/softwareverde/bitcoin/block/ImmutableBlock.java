@@ -4,12 +4,15 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.json.Json;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     protected final List<Transaction> _transactions;
@@ -52,13 +55,15 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     @Override
-    public Transaction getCoinbaseTransaction() {
+    public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
-        return _transactions.get(0);
+
+        final Transaction transaction = _transactions.get(0);
+        return new ImmutableCoinbaseTransaction(transaction);
     }
 
     @Override
-    public List<Hash> getPartialMerkleTree(final int transactionIndex) {
+    public List<Sha256Hash> getPartialMerkleTree(final int transactionIndex) {
         if (_merkleTree == null) {
             _buildMerkleTree();
         }
@@ -68,5 +73,16 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     @Override
     public ImmutableBlock asConst() {
         return this;
+    }
+
+    @Override
+    public Integer getTransactionCount() {
+        return _transactions.getSize();
+    }
+
+    @Override
+    public Json toJson() {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        return blockDeflater.toJson(this);
     }
 }

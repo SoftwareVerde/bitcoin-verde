@@ -1,5 +1,5 @@
 #!/bin/bash
 
 cd out
-./run.sh
+./run.sh $@
 

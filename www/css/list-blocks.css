@@ -1,0 +1,133 @@
+.block-header {
+    border-bottom: solid 1px rgba(0, 0, 0, 0.1);
+    display: block;
+    font-size: 0;
+}
+
+.block-header > div {
+    display: inline-block;
+    box-sizing: border-box;
+    border: none;
+    font-size: initial;
+    padding-left: 1em;
+    line-height: 2em;
+}
+
+#main {
+    margin-top: 1em;
+    margin-left: 2em;
+    margin-right: 2em;
+    margin-bottom: 1em;
+}
+
+#main > div.block:not(.table-header):nth-child(even) {
+    background-color: #FFFFFF;
+}
+
+.block-header .height {
+    width: 5%;
+    min-width: 5em;
+}
+
+.block-header .hash {
+    min-width: 50%;
+}
+
+.block-header .timestamp {
+    width: 12em;
+    float: right;
+}
+
+.block-header .transaction-count {
+    width: 6em;
+    float: right;
+    margin-right: 1.5em;
+    text-align: right;
+}
+
+#main > div:not(.table-header) .block-header label {
+    display: none;
+}
+
+#main .table-header label {
+    font-weight: bold;
+    line-height: 2em;
+}
+
+span.value:not(.fixed) {
+    font-size: 0.9em;
+}
+
+.block-header .difficulty {
+    display: none;
+}
+
+.block-header .previous-block-hash {
+    display: none;
+}
+
+.block-header .merkle-root {
+    display: none;
+}
+
+.block-header .nonce {
+    display: none;
+}
+
+.block-header .reward {
+    display: none;
+}
+
+.block-header .byte-count {
+    display: none;
+}
+
+@media only screen and (max-width: 1000px) {
+    #main {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .block.table-header {
+        display: none;
+    }
+
+    .block {
+        margin-bottom: 1em;
+        margin-left: 0.5em;
+        margin-right: 0.5em;
+        padding-top: 1em;
+        padding-bottom: 1em;
+        border-bottom: solid 1px #CCCCCC;
+    }
+
+    .block-header {
+        padding-top: 0.5em;
+        padding-bottom: 0.5em;
+        border: none !important;
+    }
+
+    .block-header > div {
+        display: block;
+        float: none !important;
+        text-align: left !important;
+        width: 100% !important;
+        box-sizing: border-box;
+        line-height: 1em !important;
+        margin-bottom: 0.25em;
+    }
+
+    .block-header label {
+        display: block !important;
+        font-size: 0.8em;
+        font-weight: bold;
+        color: #AAAAAA;
+    }
+
+    .block-header .value {
+        padding-left: 1em;
+    }
+
+    .block:nth-child(even) {
+    }
+}

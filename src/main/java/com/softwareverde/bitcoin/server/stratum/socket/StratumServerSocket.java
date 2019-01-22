@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.stratum.socket;
 
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.socket.SocketConnection;
 
@@ -24,12 +25,14 @@ public class StratumServerSocket {
 
     protected SocketEventCallback _socketEventCallback = null;
 
+    protected final ThreadPool _threadPool;
+
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
             Integer i = 0;
             for (final SocketConnection connection : _connections) {
-                if (!connection.isConnected()) {
+                if (! connection.isConnected()) {
                     _connections.remove(i.intValue());
                     System.out.println("Purging disconnected stratum socket: " + i);
 
@@ -42,32 +45,31 @@ public class StratumServerSocket {
 
     protected void _onConnect(final SocketConnection socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
-
         if (socketEventCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     socketEventCallback.onConnect(socketConnection);
                 }
-            })).start();
+            });
         }
     }
 
     protected void _onDisconnect(final SocketConnection socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
-
         if (socketEventCallback != null) {
-            (new Thread(new Runnable() {
+            _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
                     socketEventCallback.onDisconnect(socketConnection);
                 }
-            })).start();
+            });
         }
     }
 
-    public StratumServerSocket(final Integer port) {
+    public StratumServerSocket(final Integer port, final ThreadPool threadPool) {
         _port = port;
+        _threadPool = threadPool;
     }
 
     public void setSocketEventCallback(final SocketEventCallback socketEventCallback) {

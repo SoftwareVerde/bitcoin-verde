@@ -1,23 +1,9 @@
 group 'com.softwareverde'
-version '0.0.1'
+version '1.0.2'
 
 apply plugin: 'java'
 
 sourceCompatibility = 1.8
-
-sourceSets {
-    reporting {
-        java {
-            srcDir 'src/reporting/java'
-        }
-        resources {
-            srcDir 'src/reporting/resources'
-        }
-
-        compileClasspath += sourceSets.main.runtimeClasspath
-        runtimeClasspath += sourceSets.main.runtimeClasspath
-    }
-}
 
 repositories {
     mavenCentral()
@@ -27,29 +13,38 @@ repositories {
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
-    compile group: 'org.bouncycastle',          name: 'bcprov-jdk16',   version: '1.46'
-    compile group: 'com.github.softwareverde',  name: 'java-constable', version: 'v0.1.1+'
-    compile group: 'com.github.softwareverde',  name: 'java-util',      version: 'v0.1.9+'
-    compile group: 'com.github.softwareverde',  name: 'java-tls',       version: 'v0.2.+'
-    compile group: 'com.github.softwareverde',  name: 'java-async',     version: 'v0.2.+'
-    compile group: 'com.github.softwareverde',  name: 'java-db-mysql',  version: 'v2.1.1+'
-    compile group: 'com.github.softwareverde',  name: 'mariaDB4j',      version: 'v1.0.0'
-    compile group: 'com.github.softwareverde',  name: 'java-socket',    version: 'v0.1.1+'
-    compile group: 'com.github.softwareverde',  name: 'json',           version: 'v1.0.3+'
+    compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
+    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.1'
+    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.2.7'
+    compile     group: 'com.github.softwareverde',  name: 'java-tls',               version: 'v0.2.0'
+    compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
+    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
+    compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
+    compile     group: 'com.github.softwareverde',  name: 'java-socket',            version: 'v0.2.3'
+    compile     group: 'com.github.softwareverde',  name: 'java-servlet',           version: 'v2.2.0'
+    compile     group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v2.0.1'
+    compile     group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
 
-    compile group: 'org.jocl',                  name: 'jocl',           version: '0.1.9'
-
+    compile     group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
 
     // Logging
-    compile group: 'org.slf4j',                 name: 'slf4j-api',          version: '1.7.9'
-    compile group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',   version: '2.8.2'
-    compile group: 'org.apache.logging.log4j',  name: 'log4j-api',          version: '2.8.2'
-    compile group: 'org.apache.logging.log4j',  name: 'log4j-core',         version: '2.8.2'
+    compile     group: 'org.slf4j',                 name: 'slf4j-api',              version: '1.7.9'
+    compile     group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.8.2'
+    compile     group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.8.2'
+    compile     group: 'org.apache.logging.log4j',  name: 'log4j-core',             version: '2.8.2'
 
-    testCompile group: 'junit', name: 'junit', version: '4.11'
+    // Testing
+    testCompile group: 'junit',                     name: 'junit',                  version: '4.11'
+    testCompile group: 'com.github.softwareverde',  name: 'java-mock',              version: 'v2.0.0'
 }
 
-task makeJar(type: Jar) {
+// configurations.all {
+//     resolutionStrategy {
+//         failOnVersionConflict()
+//     }
+// }
+
+task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
@@ -66,7 +61,26 @@ task makeJar(type: Jar) {
             exclude 'META-INF/*.RSA'
         }
     }
+
     with jar
+}
+
+task makeJar(type: Jar) {
+    manifest {
+        attributes  'Implementation-Title': 'Bitcoin Server',
+                    'Implementation-Version': version,
+                    'Main-Class': 'com.softwareverde.bitcoin.server.Main',
+                    'Class-Path': configurations.compile.collect { 'libs/' + it.getName() }.join(' ')
+    }
+
+    baseName = project.name + '-server'
+
+    with jar
+}
+
+task copyDependencies(type: Copy) {
+    from project.configurations.compile.resolvedConfiguration.resolvedArtifacts.file
+    into "$buildDir/libs/libs"
 }
 
 tasks.withType(Test) {
@@ -95,5 +109,24 @@ tasks.withType(Test) {
             }
         }
     }
+}
+
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+task sourcesJar(type: Jar, dependsOn: classes) {
+    classifier = 'sources'
+    from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    classifier = 'javadoc'
+    from javadoc.destinationDir
+}
+
+artifacts {
+    archives sourcesJar
+    archives javadocJar
 }
 

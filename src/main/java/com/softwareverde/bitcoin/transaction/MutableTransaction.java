@@ -1,93 +1,109 @@
 package com.softwareverde.bitcoin.transaction;
 
-import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.constable.util.ConstUtil;
+import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableTransaction implements Transaction {
-    protected Integer _version = Transaction.VERSION;
-    protected Boolean _hasWitnessData = false;
+    protected Long _version = Transaction.VERSION;
     protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
     protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
     protected LockTime _lockTime = new ImmutableLockTime();
 
+    protected Integer _cachedHashCode = null;
+
     /**
      * NOTE: Math with Satoshis
      *  The maximum number of satoshis is 210,000,000,000,000, which is less than the value a Java Long can hold.
-     *  Therefore, using BigInteger is not be necessary any transaction calculation.
+     *  Therefore, using BigInteger is not be necessary any non-multiplicative transaction calculation.
      */
 
     public MutableTransaction() { }
 
     public MutableTransaction(final Transaction transaction) {
         _version = transaction.getVersion();
-        _hasWitnessData = transaction.hasWitnessData();
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            _transactionInputs.add(transactionInput.asConst());
+            _transactionInputs.add(new MutableTransactionInput(transactionInput));
         }
 
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            _transactionOutputs.add(transactionOutput.asConst());
+            _transactionOutputs.add(new MutableTransactionOutput(transactionOutput));
         }
 
         _lockTime = transaction.getLockTime().asConst();
     }
 
     @Override
-    public Hash getHash() {
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final ByteArrayBuilder byteArrayBuilder = transactionDeflater.toByteArrayBuilder(this);
-        final byte[] doubleSha256 = BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
-        return new MutableHash(ByteUtil.reverseEndian(doubleSha256));
+    public Sha256Hash getHash() {
+        final TransactionHasher transactionHasher = new TransactionHasher();
+        return transactionHasher.hashTransaction(this);
     }
 
     @Override
-    public Integer getVersion() { return _version; }
-    public void setVersion(final Integer version) { _version = version; }
+    public Long getVersion() { return _version; }
 
-    @Override
-    public Boolean hasWitnessData() { return _hasWitnessData; }
-    public void setHasWitnessData(final Boolean hasWitnessData) { _hasWitnessData = hasWitnessData; }
+    public void setVersion(final Long version) {
+        _version = version;
+        _cachedHashCode = null;
+    }
 
     @Override
     public final List<TransactionInput> getTransactionInputs() {
-        return _transactionInputs;
+        return ConstUtil.downcastList(_transactionInputs);
     }
+
     public void addTransactionInput(final TransactionInput transactionInput) {
-        _transactionInputs.add(transactionInput);
+        _transactionInputs.add(transactionInput.asConst());
+        _cachedHashCode = null;
     }
-    public void clearTransactionInputs() { _transactionInputs.clear(); }
+
+    public void clearTransactionInputs() {
+        _transactionInputs.clear();
+        _cachedHashCode = null;
+    }
 
     public void setTransactionInput(final Integer index, final TransactionInput transactionInput) {
         _transactionInputs.set(index, transactionInput.asConst());
+        _cachedHashCode = null;
     }
 
     @Override
     public final List<TransactionOutput> getTransactionOutputs() {
         return _transactionOutputs;
     }
+
     public void addTransactionOutput(final TransactionOutput transactionOutput) {
-        _transactionOutputs.add(transactionOutput);
+        _transactionOutputs.add(transactionOutput.asConst());
+        _cachedHashCode = null;
     }
-    public void clearTransactionOutputs() { _transactionOutputs.clear(); }
+
+    public void clearTransactionOutputs() {
+        _transactionOutputs.clear();
+        _cachedHashCode = null;
+    }
 
     public void setTransactionOutput(final Integer index, final TransactionOutput transactionOutput) {
         _transactionOutputs.set(index, transactionOutput.asConst());
+        _cachedHashCode = null;
     }
 
     @Override
     public LockTime getLockTime() { return _lockTime; }
-    public void setLockTime(final LockTime lockTime) { _lockTime = lockTime; }
+
+    public void setLockTime(final LockTime lockTime) {
+        _lockTime = lockTime;
+        _cachedHashCode = null;
+    }
 
     @Override
     public Long getTotalOutputValue() {
@@ -103,5 +119,28 @@ public class MutableTransaction implements Transaction {
     @Override
     public ImmutableTransaction asConst() {
         return new ImmutableTransaction(this);
+    }
+
+    @Override
+    public Json toJson() {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        return transactionDeflater.toJson(this);
+    }
+
+    @Override
+    public int hashCode() {
+        final Integer cachedHashCode = _cachedHashCode;
+        if (cachedHashCode != null) { return cachedHashCode; }
+
+        final TransactionHasher transactionHasher = new TransactionHasher();
+        final Integer hashCode = transactionHasher.hashTransaction(this).hashCode();
+        _cachedHashCode = hashCode;
+        return hashCode;
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Transaction)) { return false; }
+        return Util.areEqual(this.getHash(), ((Transaction) object).getHash());
     }
 }

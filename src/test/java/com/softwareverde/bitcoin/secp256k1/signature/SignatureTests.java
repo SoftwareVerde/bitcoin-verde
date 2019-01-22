@@ -15,10 +15,10 @@ public class SignatureTests {
 
         // Action
         final ByteArray asDer = signature.encodeAsDer();
-        final Signature signatureCopy = Signature.fromBytes(asDer.getBytes());
+        final Signature signatureCopy = Signature.fromBytes(asDer);
 
         // Assert
-        TestUtil.assertEqual(r, signatureCopy.getR());
-        TestUtil.assertEqual(s, signatureCopy.getS());
+        TestUtil.assertEqual(r, signatureCopy.getR().getBytes());
+        TestUtil.assertEqual(s, signatureCopy.getS().getBytes());
     }
 }

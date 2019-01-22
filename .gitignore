@@ -5,8 +5,6 @@
 bin
 out
 
-*.png
-*.jpg
 .idea
 *.iml
 tmp

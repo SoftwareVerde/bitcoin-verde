@@ -1,30 +1,52 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class OperationInflater {
-    public Operation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    public Operation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final Operation.Type type = Operation.Type.getType(scriptReader.peakNextByte());
-        if (type == null) { return null; }
-
-        switch (type) {
-            case OP_PUSH:           { return PushOperation.fromScriptReader(scriptReader); }
-            case OP_DYNAMIC_VALUE:  { return DynamicValueOperation.fromScriptReader(scriptReader); }
-            case OP_CONTROL:        { break; } // TODO
-            case OP_STACK:          { break; } // TODO
-            case OP_STRING:         { break; } // TODO
-            case OP_BITWISE:        { break; } // TODO
-            case OP_COMPARISON:     { return ComparisonOperation.fromScriptReader(scriptReader); }
-            case OP_ARITHMETIC:     { break; } // TODO
-            case OP_CRYPTOGRAPHIC:  { return CryptographicOperation.fromScriptReader(scriptReader); }
-            case OP_LOCK_TIME:      { break; } // TODO
-            case OP_NOTHING:        { return NothingOperation.fromScriptReader(scriptReader); }
+        final byte b = byteArrayReader.peakByte();
+        final Operation.Type type = Operation.Type.getType(b);
+        if (type == null) {
+            Logger.log("Unknown Operation Type: 0x"+ HexUtil.toHexString(new byte[]{ b }));
+            return null;
         }
 
-        Logger.log("Unimplemented Opcode Type: "+ type);
-        return null;
+        final Integer originalPosition = byteArrayReader.getPosition();
+
+        final Operation operation;
+        switch (type) {
+            case OP_PUSH:           { operation = PushOperation.fromBytes(byteArrayReader); }           break;
+            case OP_DYNAMIC_VALUE:  { operation = DynamicValueOperation.fromBytes(byteArrayReader); }   break;
+            case OP_CONTROL:        { operation = ControlOperation.fromBytes(byteArrayReader); }        break;
+            case OP_STACK:          { operation = StackOperation.fromBytes(byteArrayReader); }          break;
+            case OP_STRING:         { operation = StringOperation.fromBytes(byteArrayReader); }         break;
+            case OP_COMPARISON:     { operation = ComparisonOperation.fromBytes(byteArrayReader); }     break;
+            case OP_ARITHMETIC:     { operation = ArithmeticOperation.fromBytes(byteArrayReader); }     break;
+            case OP_CRYPTOGRAPHIC:  { operation = CryptographicOperation.fromBytes(byteArrayReader); }  break;
+            case OP_LOCK_TIME:      { operation = LockTimeOperation.fromBytes(byteArrayReader); }       break;
+            case OP_NOTHING:        { operation = NothingOperation.fromBytes(byteArrayReader); }        break;
+            case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader); }        break;
+            case OP_BITWISE:        { operation = BitwiseOperation.fromBytes(byteArrayReader); }        break;
+            default: {
+                Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
+                return null;
+            }
+        }
+
+        if (operation != null) {
+            return operation;
+        }
+
+        byteArrayReader.setPosition(originalPosition);
+        return InvalidOperation.fromBytes(byteArrayReader);
+    }
+
+    public Operation fromBytes(final ByteArray byteArray) {
+        return fromBytes(new ByteArrayReader(byteArray));
     }
 }

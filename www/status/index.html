@@ -1,0 +1,95 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/status.css" />
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/core.js"></script>
+        <script src="/js/status.js"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Bree+Serif" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Cash Block Explorer</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Block Explorer</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/"><i class="fas fa-home"></i>Home</a></li>
+                    <li><a href="/blocks/"><i class="fas fa-th-large"></i>Blocks</a></li>
+                    <li><a href="/blockchain/"><i class="fas fa-code-branch"></i>Blockchain</a></li>
+                    <li><a href="/status/"><i class="fas fa-poll-h"></i>Status</a></li>
+                    <li><a href="/documentation/"><i class="fas fa-code"></i>Documentation</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="main">
+            <div class="status-container">
+                <div class="status">
+                    <div class="status-label">Status:</div><div class="status-value">OFFLINE</div>
+                </div>
+
+                <div class="sync-progress-container">
+                    <div class="progress-bar"><div class="progress-done"></div></div>
+                    <div class="percent-done-text"></div>
+                    <div class="block-headers">
+                        <div class="block-header-height-value"></div>
+                        <div class="block-header-date-value"></div>
+                    </div>
+
+                    <div class="blocks">
+                        <div class="block-height-value"></div>
+                        <div class="block-date-value"></div>
+                    </div>
+                </div>
+
+                <div class="statistics">
+                    <div class="block-headers-per-second"></div>
+                    <div class="blocks-per-second"></div>
+                    <div class="transactions-per-second"></div>
+                    <div class="server-load">
+                        <div class="server-load-bar"><div class="server-load-fill"></div><div class="server-load-text"></div></div>
+                    </div>
+                    <div class="server-memory">
+                        <div class="server-memory-bar"><div class="server-memory-fill"></div><div class="server-memory-text"></div></div>
+                    </div>
+
+                    <div class="service-statuses"></div>
+                </div>
+
+                <div class="nodes"></div>
+            </div>
+        </div>
+
+        <div id="templates">
+            <div class="node">
+                <div class="id"></div>
+                <div class="user-agent"></div>
+                <div class="host"></div><div class="port"></div>
+                <div class="network-offset"></div>
+                <div class="handshake-complete"></div>
+                <div class="initialization-timestamp"></div>
+                <div class="last-message-timestamp"></div>
+                <div class="local-host"></div>
+                <div class="local-port"></div>
+                <div class="features"></div>
+            </div>
+        </div>
+    </body>
+</html>

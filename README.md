@@ -1,11 +1,33 @@
-# Bitcoin-Verde v0.0.1
+
+# Bitcoin Verde v1.0.2
+
+
+## Updates
+
+**v1.0.2**
+
+- FIX: Subsequent embedded-db restarts no long fail to start. (Broken dependency)
+- Added `BAN_NODE` and `UNBAN_NODE` RPC calls.
+- RPC scripts are now copied to the out directory.
+
+**v1.0.1**
+
+- Added support for remote databases.
+- Added RPC `ADD_HOOK` function.
+- Explorer now lists new transactions and blocks on the home page.
+- Updated documentation to include node message throttling configuration.
+- Changed user-agent to use a space instead of hyphen.
+- Implemented `getaddr` message type to facilitate node discovery.
+- Fixed an issue causing TransactionBloomFilter to render significant false-positives due to integer overflow.
+
+**v1.0.0** - Initial beta release.
 
 
 ## Description
 
 
-Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is intended
-to be(come) a viable implementaion a BCH mining node, a full node, blockchain explorer, and library.
+Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is a
+full node, blockchain explorer, and library.
 
 
 ## Purpose
@@ -24,13 +46,17 @@ the consensus.
 ## Disclaimer
 
 
-Currently (as of v0.0.1), this implementation is very far from complete, and still a ways away from use
-in-production.  In fact, it is very unlikely that the full blockchain will even verify against this
-implementation since many OpCodes are still left unimplemented.  This project is currently great for
-educational purposes and research, however, mining with this node in its current state is mostly a waste
-of time.  Furthermore, this node is currently a read-only node connecting to a single peer located at:
-btc.softwareverde.com -- which is a Bitcoin ABC full-node hosted by Software Verde, LLC.
+Bitcoin Verde has gone through weeks of testing, but v1.0.0 is still considered a Beta release.  Please
+use this software with discretion.  As v1.0.0, the Bitcoin Verde node validates the entirety of the BCH
+blockchain, relays new blocks and transactions, and can process upwards of 4,000 transactions per second;
+however this implementation does not have the bitcoind tests run against it yet, so there may still be
+implementation differences between this implementation and the reference client's derivatives.
 
+
+Windows Users: Bitcoin Verde has been tested heavily on Linux and OS X.  On Windows, there may be many
+issues.  On Windows, expect your node to not run as quickly due to `secp256k1` and `utxo-cache` libraries
+not being cross-compiled for Windows.  Furthermore, the Windows build may not even complete its initial
+block download.  If you are kind enough to run this implementation on windows, please report any problems.
 
 ## Getting Started
 
@@ -50,7 +76,10 @@ directory, run `./scripts/run.sh`, `./scripts/run-node.sh`, `./scripts/run-datab
 
 
 Review the `conf/server.conf` and change any settings as desired.  Changes made to `conf/server.conf`
-will be semi-permanant across builds, while changes made to `out/conf/server.conf` are ephemeral.
+will be semi-permanent across builds, while changes made to `out/conf/server.conf` are ephemeral.
+
+
+For more more detailed instructions, please refer to http://bitcoinverde.org/documentation/
 
 
 ## Contributions
@@ -58,12 +87,11 @@ will be semi-permanant across builds, while changes made to `out/conf/server.con
 
 Any contributions are welcomed and will be reviewed via pull-requests.  In order to be accepted,
 care must be taken for all immutable classes and their mutable counterparts.  Additionally, PR
-resolving bugs shall only be accepted along with a test proving their existance and fix.
+resolving bugs preferrably be accepted along with a test proving their existence and fix.
 
 
 ## Contact
 
 
 Feel free to contact Software Verde, LLC at any appropriate softwareverde.com email address.
-Generic enquiries may be directed at bitcoin@softwareverde.com
-
+Generic enquiries may be directed at bitcoin-verde@softwareverde.com

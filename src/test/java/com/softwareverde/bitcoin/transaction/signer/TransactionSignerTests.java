@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -8,16 +9,17 @@ import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
+import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.stack.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
+import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -32,8 +34,8 @@ public class TransactionSignerTests {
         // Setup
         final String expectedHashToSign = "9302BDA273A887CB40C13E02A50B4071A31FD3AAE3AE04021B0B843DD61AD18E";
 
-        final LockingScript outputBeingSpentLockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("76A914010966776006953D5567439E5E39F86A0D273BEE88AC"));
-        final LockingScript newOutputLockingScript = new ImmutableLockingScript(HexUtil.hexStringToByteArray("76A914097072524438D003D23A2F23EDB65AAE1BB3E46988AC"));
+        final LockingScript outputBeingSpentLockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("76A914010966776006953D5567439E5E39F86A0D273BEE88AC")));
+        final LockingScript newOutputLockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray("76A914097072524438D003D23A2F23EDB65AAE1BB3E46988AC")));
 
         final MutableTransactionOutput transactionOutputBeingSpent = new MutableTransactionOutput();
         transactionOutputBeingSpent.setIndex(1);
@@ -41,12 +43,12 @@ public class TransactionSignerTests {
         transactionOutputBeingSpent.setLockingScript(outputBeingSpentLockingScript);
 
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
-        transactionInput.setPreviousOutputTransactionHash(new ImmutableHash(HexUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
+        transactionInput.setPreviousOutputTransactionHash(MutableSha256Hash.wrap(HexUtil.hexStringToByteArray("F2B3EB2DEB76566E7324307CD47C35EEB88413F971D88519859B1834307ECFEC")));
         transactionInput.setPreviousOutputIndex(1);
-        transactionInput.setSequenceNumber(TransactionInput.MAX_SEQUENCE_NUMBER);
+        transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
         transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
         final MutableTransaction transaction = new MutableTransaction();
-        transaction.setVersion(1);
+        transaction.setVersion(1L);
         transaction.addTransactionInput(transactionInput);
         final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
         transactionOutput.setLockingScript(newOutputLockingScript);
@@ -56,8 +58,9 @@ public class TransactionSignerTests {
         transaction.setLockTime(new ImmutableLockTime(LockTime.MIN_TIMESTAMP));
 
         final TransactionSigner transactionSigner = new TransactionSigner();
-        final SignatureContext signatureContext = new SignatureContext(transaction, ScriptSignature.HashType.SIGNATURE_HASH_ALL);
-        signatureContext.setShouldSignInput(0, true, transactionOutputBeingSpent);
+        final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), 0L);
+        signatureContext.setShouldSignInputScript(0, true, transactionOutputBeingSpent);
+        signatureContext.setCurrentScript(transactionOutputBeingSpent.getLockingScript());
 
         // Action
         final byte[] bytesForSigning = transactionSigner._getBytesForSigning(signatureContext);
@@ -76,8 +79,9 @@ public class TransactionSignerTests {
         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001BE66E10DA854E7AEA9338C1F91CD489768D1D6D7189F586D7A3613F2A24D5396000000008B483045022100DA43201760BDA697222002F56266BF65023FEF2094519E13077F777BAED553B102205CE35D05EABDA58CD50A67977A65706347CC25EF43153E309FF210A134722E9E0141042DAA93315EEBBE2CB9B5C3505DF4C6FB6CACA8B756786098567550D4820C09DB988FE9997D049D687292F815CCD6E7FB5C1B1A91137999818D17C73D0F80AEF9FFFFFFFF0123CE0100000000001976A9142BC89C2702E0E618DB7D59EB5CE2F0F147B4075488AC00000000"));
 
         final ScriptRunner scriptRunner = new ScriptRunner();
-        final Context context = new Context();
+        final MutableContext context = new MutableContext();
         context.setTransaction(transaction);
+        context.setBlockHeight(0L);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int inputIndex=0; inputIndex<transactionInputs.getSize(); ++inputIndex) {
@@ -86,10 +90,10 @@ public class TransactionSignerTests {
 
             context.setTransactionInputIndex(inputIndex);
             context.setTransactionInput(transactionInput);
-            context.setTransactionOutput(transactionOutputBeingSpent);
+            context.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
 
-            final Script lockingScript = transactionOutputBeingSpent.getLockingScript();
-            final Script unlockingScript = transactionInput.getUnlockingScript();
+            final LockingScript lockingScript = transactionOutputBeingSpent.getLockingScript();
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
 
             // Action
             final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);

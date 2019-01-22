@@ -9,7 +9,8 @@ import java.sql.SQLException;
 public class TransactionUtil {
     public static void startTransaction(final DatabaseConnection<Connection> databaseConnection) throws DatabaseException {
         try {
-            databaseConnection.getRawConnection().setAutoCommit(false);
+            final Connection rawConnection = databaseConnection.getRawConnection();
+            rawConnection.setAutoCommit(false);
         }
         catch (final SQLException exception) {
             throw new DatabaseException(exception);
@@ -18,7 +19,9 @@ public class TransactionUtil {
 
     public static void commitTransaction(final DatabaseConnection<Connection> databaseConnection) throws DatabaseException {
         try {
-            databaseConnection.getRawConnection().commit();
+            final Connection rawConnection = databaseConnection.getRawConnection();
+            rawConnection.commit();
+            rawConnection.setAutoCommit(true);
         }
         catch (final SQLException exception) {
             throw new DatabaseException(exception);
@@ -27,7 +30,9 @@ public class TransactionUtil {
 
     public static void rollbackTransaction(final DatabaseConnection<Connection> databaseConnection) throws DatabaseException {
         try {
-            databaseConnection.getRawConnection().rollback();
+            final Connection rawConnection = databaseConnection.getRawConnection();
+            rawConnection.rollback();
+            rawConnection.setAutoCommit(true);
         }
         catch (final SQLException exception) {
             throw new DatabaseException(exception);

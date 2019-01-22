@@ -10,6 +10,13 @@ rm -rf out 2>/dev/null
 mkdir -p out/conf
 cp -R conf/* out/conf/.
 
+# Create SSL Placeholder Directory
+mkdir -p out/ssl
+
+# Copy Static Web Data
+mkdir -p out/www
+cp -R www/* out/www/.
+
 # Create Database Directories
 mkdir -p out/data
 mkdir -p out/tmp

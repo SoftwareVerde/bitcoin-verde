@@ -1,0 +1,215 @@
+html {
+    background-color: #EEEEEE;
+}
+
+body {
+    background-color: #EEEEEE;
+    color: #303030;
+    font-family: sans-serif;
+    margin: 0px;
+}
+
+a {
+    color: inherit;
+    text-decoration: inherit;
+}
+
+.bold {
+    font-weight: bold;
+}
+
+#header {
+    background-color: #262626;
+    min-height: 100px;
+    overflow: auto;
+    padding-bottom: 0.5em;
+    box-shadow: 0 0 2px 2px #000000;
+    padding-top: 0.2em;
+}
+
+#header .navigation {
+    float: left;
+}
+
+#header .navigation {
+    float: left;
+}
+
+#header .navigation ul {
+    float: left;
+    display: block;
+    margin: 0px;
+}
+
+#header .navigation ul li {
+    list-style: none;
+    float: left;
+    line-height: 2em;
+    text-align: center;
+    color: #EEEEEE;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    overflow: hidden;
+}
+
+#header .navigation ul li a {
+    display: inline-block;
+    padding: 1em;
+}
+
+#header .navigation ul li i {
+    margin-right: 0.25em;
+}
+
+#header .navigation ul li:hover {
+    color: #FFFFFF;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+#header .brand .logo {
+    width: 20em;
+    max-width: 50%;
+    margin: 0.25em;
+    position: relative;
+    top: 0.35em;
+}
+
+#header .brand .title {
+    color: #EEEEEE;
+    font-size: 1.5em;
+    margin-top: 0.88em;
+    margin-left: 0.1em;
+    position: relative;
+    display: inline-block;
+    margin-top: 0.5em;
+}
+
+#header .brand .title:before {
+    content: 'Bitcoin Verde';
+    color: #1AB326;
+    font-weight: bold;
+    font-size: 0.75em;
+    font-family: 'Bree Serif', serif;
+    position: absolute;
+    left: 0;
+    top: -1.0em;
+}
+
+#header .search {
+    clear: left;
+    margin-top: 0.5em;
+    margin-left: 0.5em;
+}
+
+#header .search #search {
+    max-width: 42em;
+    width: calc(100% - 5em);
+    font-size: 1em;
+    font-weight: bold;
+    padding: 0.5em;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-bottom: solid 2px #F7931D;
+    color: #F7931D;
+    /* text-transform: uppercase; */
+}
+
+#header .search #search:focus {
+    outline: solid 2px #F7931D;
+}
+
+#header .search .loading {
+    height: 2em;
+    margin-left: 1em;
+    visibility: hidden;
+    vertical-align: middle;
+}
+
+#header input:-webkit-autofill,
+#header input:-webkit-autofill:hover, 
+#header input:-webkit-autofill:focus {
+    border: solid 1px #F7931D;
+    -webkit-text-fill-color: #F7931D;
+    -webkit-box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.15) inset;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+#templates {
+    display: none;
+}
+
+.fixed {
+    font-family: monospace;
+    overflow-x: auto;
+
+    -ms-overflow-style: none;
+    overflow: -moz-scrollbars-none;
+    white-space: nowrap;
+}
+
+.fixed::-webkit-scrollbar { 
+    display: none;
+}
+
+.clickable {
+    display: table !important; /* Treats item as an inline-block on a newline... */
+}
+.clickable:hover {
+    cursor: pointer;
+    color: #F7931D;
+}
+
+.copy {
+    display: inline-block !important;
+    height: 1em;
+    width: 1em;
+    background: transparent url('/img/copy.svg');
+    background-repeat: no-repeat;
+    background-size: 95% 95%;
+    cursor: pointer;
+    margin-left: 0.5em;
+    background-position-y: 100%;
+    vertical-align: text-bottom;
+}
+
+.clearfix::after {
+  content: "";
+  clear: both;
+  display: table;
+}
+
+@media only screen and (max-width: 700px) {
+    #header .navigation {
+        float: none;
+    }
+    #header .navigation ul {
+        float: none;
+        display: flex;
+    }
+    #header .navigation ul li {
+        font-size: 0.5em;
+        min-width: 5em;
+        display: inline;
+        display: inline-flex;
+        flex-direction: column;
+        flex-grow: 1;
+    }
+    #header .navigation ul li i {
+        margin-right: 0;
+        font-size: 2.5em;
+        display: block;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    #header .navigation ul {
+        padding-left: 0;
+    }
+}
+
+@media only screen and (max-width: 320px) {
+    * {
+        font-size: 95%;
+    }
+}

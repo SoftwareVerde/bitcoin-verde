@@ -1,26 +1,23 @@
 package com.softwareverde.bitcoin.server.message.type.query.block;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Constants;
-import com.softwareverde.bitcoin.server.message.ProtocolMessage;
-import com.softwareverde.bitcoin.type.hash.Hash;
-import com.softwareverde.bitcoin.type.hash.ImmutableHash;
-import com.softwareverde.bitcoin.type.hash.MutableHash;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
-import com.softwareverde.bitcoin.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.bitcoin.util.bytearray.Endian;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.Util;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
-import java.util.ArrayList;
-import java.util.List;
-
-public class QueryBlocksMessage extends ProtocolMessage {
-    public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 500;
+public class QueryBlocksMessage extends BitcoinProtocolMessage {
+    public static Integer MAX_BLOCK_HASH_COUNT = 500;
 
     protected Integer _version;
-    protected final List<Hash> _blockHeaderHashes = new ArrayList<Hash>();
-    protected Hash _desiredBlockHeaderHash = new MutableHash();
+    protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
+    protected Sha256Hash _stopBeforeBlockHash = Sha256Hash.EMPTY_HASH;
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
@@ -29,30 +26,38 @@ public class QueryBlocksMessage extends ProtocolMessage {
 
     public Integer getVersion() { return _version; }
 
-    public void addBlockHeaderHash(final Hash blockHeaderHash) {
-        if (_blockHeaderHashes.size() >= MAX_BLOCK_HEADER_HASH_COUNT) { return; }
-        _blockHeaderHashes.add(blockHeaderHash);
+    /**
+     * NOTE: Block Hashes should be added in descending order by block height (i.e. head Block first)...
+     */
+    public void addBlockHash(final Sha256Hash blockHeaderHash) {
+        if (_blockHeaderHashes.getSize() >= MAX_BLOCK_HASH_COUNT) { return; }
+        if (blockHeaderHash == null) { return; }
+
+        _blockHeaderHashes.add(blockHeaderHash.asConst());
     }
 
     public void clearBlockHeaderHashes() {
         _blockHeaderHashes.clear();
     }
 
-    public List<Hash> getBlockHeaderHashes() {
-        return Util.copyList(_blockHeaderHashes);
+    /**
+     * NOTE: Block Hashes are sorted in descending order by block height (i.e. head Block first)...
+     */
+    public List<Sha256Hash> getBlockHashes() {
+        return _blockHeaderHashes;
     }
 
-    public Hash getDesiredBlockHeaderHash() {
-        return new ImmutableHash(_desiredBlockHeaderHash);
+    public Sha256Hash getStopBeforeBlockHash() {
+        return _stopBeforeBlockHash;
     }
 
-    public void setDesiredBlockHeaderHash(final Hash blockHeaderHash) {
-        _desiredBlockHeaderHash = blockHeaderHash;
+    public void setStopBeforeBlockHash(final Sha256Hash blockHeaderHash) {
+        _stopBeforeBlockHash = (blockHeaderHash != null ? blockHeaderHash.asConst() : Sha256Hash.EMPTY_HASH);
     }
 
     @Override
     protected ByteArray _getPayload() {
-        final int blockHeaderCount = _blockHeaderHashes.size();
+        final int blockHeaderCount = _blockHeaderHashes.getSize();
         final int blockHeaderHashByteCount = 32;
 
         final byte[] versionBytes = ByteUtil.integerToBytes(_version);
@@ -60,7 +65,7 @@ public class QueryBlocksMessage extends ProtocolMessage {
         final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
 
         for (int i=0; i<blockHeaderCount; ++i) {
-            final Hash blockHeaderHash = _blockHeaderHashes.get(i);
+            final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getSize() - i - 1);
             final int startIndex = (blockHeaderHashByteCount * i);
             ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);
         }
@@ -69,7 +74,7 @@ public class QueryBlocksMessage extends ProtocolMessage {
         byteArrayBuilder.appendBytes(versionBytes, Endian.LITTLE);
         byteArrayBuilder.appendBytes(blockHeaderCountBytes, Endian.BIG);
         byteArrayBuilder.appendBytes(blockHeaderHashesBytes, Endian.LITTLE);
-        byteArrayBuilder.appendBytes(_desiredBlockHeaderHash.getBytes(), Endian.LITTLE);
+        byteArrayBuilder.appendBytes(_stopBeforeBlockHash.getBytes(), Endian.LITTLE);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

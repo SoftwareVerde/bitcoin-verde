@@ -1,0 +1,12 @@
+[Unit]
+Description=BitcoinVerdeExplorer
+
+[Service]
+Type=simple
+User=bitcoin-verde
+WorkingDirectory=/opt/bitcoin-verde/
+ExecStart=/opt/bitcoin-verde/out/run-explorer.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

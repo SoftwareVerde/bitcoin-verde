@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -23,13 +22,13 @@ public class ScriptBuilderTests {
         final TransactionOutput expectedTransactionOutput = expectedTransaction.getTransactionOutputs().get(0);
         final Script expectedLockingScript = expectedTransactionOutput.getLockingScript();
 
-        final List<Operation> expectedOperations = ScriptReader.getOperationList(expectedLockingScript);
+        final List<Operation> expectedOperations = expectedLockingScript.getOperations();
 
         // Action
         final Script lockingScript = ScriptBuilder.payToAddress(address);
 
         // Assert
-        final List<Operation> operations = ScriptReader.getOperationList(lockingScript);
+        final List<Operation> operations = lockingScript.getOperations();
 
         for (int i=0; i<operations.getSize(); ++i) {
             final Operation operation = operations.get(i);
@@ -37,6 +36,6 @@ public class ScriptBuilderTests {
             Assert.assertEquals(expectedOperation, operation);
         }
 
-        TestUtil.assertEqual(expectedLockingScript.getBytes(), lockingScript.getBytes());
+        TestUtil.assertEqual(expectedLockingScript.getBytes().getBytes(), lockingScript.getBytes().getBytes());
     }
 }

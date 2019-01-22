@@ -1,8 +1,11 @@
 package com.softwareverde.bitcoin.block.header.difficulty;
 
-import com.softwareverde.bitcoin.type.hash.Hash;
+import com.softwareverde.bitcoin.block.header.difficulty.work.BlockWork;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
@@ -11,12 +14,14 @@ import java.math.BigInteger;
 public class ImmutableDifficulty implements Difficulty, Const {
     public static final Long MAX_SIGNIFICAND_VALUE = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray("7FFFFF"));
 
+    protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
+
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
 
-    private byte[] _cachedBytes = null;
+    private ByteArray _cachedBytes = null;
 
-    protected static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
+    public static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
         final int significandByteCount = 3;
 
         final byte[] bytes = bigInteger.toByteArray();
@@ -55,8 +60,14 @@ public class ImmutableDifficulty implements Difficulty, Const {
         return new ImmutableDifficulty(ByteUtil.copyBytes(encodedBytes, 1, 3), (ByteUtil.byteToInteger(encodedBytes[0]) - 3));
     }
 
+    protected void _requireCachedBytes() {
+        if (_cachedBytes == null) {
+            _cachedBytes = _convertToBytes();
+        }
+    }
+
     protected BigInteger _toBigInteger() {
-        return new BigInteger(_convertToBytes());
+        return new BigInteger(_convertToBytes().unwrap());
     }
 
     protected BigDecimal _toBigDecimal() {
@@ -68,11 +79,11 @@ public class ImmutableDifficulty implements Difficulty, Const {
         return bigDecimal.setScale(4, BigDecimal.ROUND_UNNECESSARY); // setScale(4);
     }
 
-    protected byte[] _encode() {
+    protected ByteArray _encode() {
         final byte[] bytes = new byte[4];
         bytes[0] = (byte) (_exponent + 3);
         ByteUtil.setBytes(bytes, _significand, 1);
-        return bytes;
+        return MutableByteArray.wrap(bytes);
     }
 
     public ImmutableDifficulty(final byte[] significand, final Integer exponent) {
@@ -89,19 +100,19 @@ public class ImmutableDifficulty implements Difficulty, Const {
         ByteUtil.setBytes(_significand, difficulty.getSignificand());
     }
 
-    protected byte[] _convertToBytes() {
+    protected MutableByteArray _convertToBytes() {
         final byte[] bytes = new byte[32];
         ByteUtil.setBytes(bytes, _significand, (32 - _exponent - _significand.length));
-        return bytes;
+        return MutableByteArray.wrap(bytes);
     }
 
     @Override
-    public byte[] getBytes() {
+    public ByteArray getBytes() {
         return _convertToBytes();
     }
 
     @Override
-    public byte[] encode() {
+    public ByteArray encode() {
         return _encode();
     }
 
@@ -112,20 +123,37 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public byte[] getSignificand() { return ByteUtil.copyBytes(_significand); }
 
     @Override
-    public Boolean isSatisfiedBy(final Hash hash) {
-        if (_cachedBytes == null) {
-            _cachedBytes = _convertToBytes();
-        }
+    public Boolean isSatisfiedBy(final Sha256Hash hash) {
+        _requireCachedBytes();
 
-        for (int i=0; i<_cachedBytes.length; ++i) {
+        for (int i=0; i<_cachedBytes.getByteCount(); ++i) {
             // if (i > 2) Logger.log(HexUtil.toHexString(_cachedBytes) + " " + hash);
-            final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes[i]);
+            final int difficultyByte = ByteUtil.byteToInteger(_cachedBytes.getByte(i));
             final int sha256Byte = ByteUtil.byteToInteger(hash.getByte(i));
             if (sha256Byte == difficultyByte) { continue; }
             return (sha256Byte < difficultyByte);
         }
 
         return true;
+    }
+
+    @Override
+    public Boolean isLessDifficultThan(final Difficulty difficulty) {
+        _requireCachedBytes();
+
+        final ByteArray difficultyBytes0 = _cachedBytes;
+        final ByteArray difficultyBytes1 = difficulty.getBytes();
+
+        for (int i = 0; i < difficultyBytes0.getByteCount(); ++i) {
+            final int difficultyByteAsInteger0 = ByteUtil.byteToInteger(difficultyBytes0.getByte(i));
+            final int difficultyByteAsInteger1 = ByteUtil.byteToInteger(difficultyBytes1.getByte(i));
+            if (difficultyByteAsInteger0 == difficultyByteAsInteger1) { continue; }
+
+            // NOTE: Greater values represent less difficulty.
+            return (difficultyByteAsInteger0 > difficultyByteAsInteger1);
+        }
+
+        return false;
     }
 
     @Override
@@ -136,10 +164,25 @@ public class ImmutableDifficulty implements Difficulty, Const {
     }
 
     @Override
-    public Difficulty multiplyBy(final float difficultyAdjustment) {
+    public Difficulty multiplyBy(final double difficultyAdjustment) {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
         return fromBigInteger(bigDecimal.toBigInteger());
+    }
+
+    @Override
+    public BlockWork calculateWork() {
+        final BigInteger difficultyBigInteger = _toBigInteger();
+        final BigInteger proofOfWorkBigInteger = MAX_WORK.divide(difficultyBigInteger.add(BigInteger.ONE));
+        final byte[] workBytes = proofOfWorkBigInteger.toByteArray();
+
+        final MutableByteArray workByteArray = new MutableByteArray(32);
+        for (int i = 0; i < workBytes.length; ++i) {
+            final byte b = workBytes[workBytes.length - i - 1];
+            workByteArray.set(workByteArray.getByteCount() - i - 1, b);
+        }
+
+        return BlockWork.fromByteArray(workByteArray);
     }
 
     @Override
@@ -160,6 +203,6 @@ public class ImmutableDifficulty implements Difficulty, Const {
 
     @Override
     public String toString() {
-        return HexUtil.toHexString(_encode());
+        return _encode().toString();
     }
 }

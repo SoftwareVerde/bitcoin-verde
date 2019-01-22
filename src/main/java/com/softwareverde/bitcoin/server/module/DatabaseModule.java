@@ -1,8 +1,14 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.DatabaseInitializer;
+import com.softwareverde.database.mysql.MysqlDatabase;
+import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
 
@@ -13,10 +19,6 @@ public class DatabaseModule {
     protected final Configuration _configuration;
     protected final Environment _environment;
 
-    protected void _exitFailure() {
-        System.exit(1);
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
@@ -25,7 +27,7 @@ public class DatabaseModule {
         final File configurationFile =  new File(configurationFilename);
         if (! configurationFile.isFile()) {
             _printError("Invalid configuration file.");
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
 
         return new Configuration(configurationFile);
@@ -37,22 +39,14 @@ public class DatabaseModule {
         final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
         final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
 
-        Logger.log("[Starting Database]");
-        final EmbeddedMysqlDatabase database;
-        {
-            EmbeddedMysqlDatabase databaseInstance = null;
-            try {
-                databaseInstance = new EmbeddedMysqlDatabase(databaseProperties);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-                _exitFailure();
-            }
-            database = databaseInstance;
-            Logger.log("[Database Online]");
+        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        if (database == null) {
+            Logger.log("Error initializing database.");
+            BitcoinUtil.exitFailure();
         }
+        Logger.log("[Database Online]");
 
-        _environment = new Environment(database);
+        _environment = new Environment(database, null);
     }
 
     public void loop() {

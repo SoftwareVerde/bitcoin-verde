@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.server;
 
 import com.softwareverde.bitcoin.server.module.*;
+import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
+import com.softwareverde.bitcoin.server.module.node.NodeModule;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
 
 public class Main {
@@ -8,10 +11,6 @@ public class Main {
     public static void main(final String[] commandLineArguments) {
         final Main application = new Main(commandLineArguments);
         application.run();
-    }
-
-    protected void _exitFailure() {
-        System.exit(1);
     }
 
     protected void _printError(final String errorMessage) {
@@ -29,6 +28,37 @@ public class Main {
         _printError("\tDescription: Connects to a remote node and begins downloading and validating the block chain.");
         _printError("\tArgument Description: <Configuration File>");
         _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: EXPLORER");
+        _printError("\tArguments:");
+        _printError("\tDescription: Starts a web server that provides an interface to explore the block chain.");
+        _printError("\t\tThe explorer does not synchronize with the network, therefore NODE should be executed beforehand or in parallel.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: VALIDATE");
+        _printError("\tArguments: <Configuration File> [<Starting Block Hash>]");
+        _printError("\tDescription: Iterates through the entire block chain and identifies any invalid/corrupted blocks.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\tArgument Description: <Starting Block Hash>");
+        _printError("\t\tThe first block that should be validated; used to skip validation of early sections of the chain, or to resume.");
+        _printError("\t\tEx: 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F");
+        _printError("\t----------------");
+        _printError("");
+
+        _printError("\tModule: REPAIR");
+        _printError("\tArguments: <Configuration File> <Block Hash> [<Block Hash> [...]]");
+        _printError("\tDescription: Downloads the requested blocks and repairs the database with the blocks received from the configured trusted peer.");
+        _printError("\tArgument Description: <Configuration File>");
+        _printError("\t\tThe path and filename of the configuration file for running the node.  Ex: conf/server.conf");
+        _printError("\tArgument Description: <Block Hash>");
+        _printError("\t\tThe block that should be repaired. Multiple blocks may be specified, each separated by a space.");
+        _printError("\t\tEx: 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F 000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F");
         _printError("\t----------------");
         _printError("");
 
@@ -80,7 +110,7 @@ public class Main {
 
         if (arguments.length < 1) {
             _printUsage();
-            _exitFailure();
+            BitcoinUtil.exitFailure();
         }
     }
 
@@ -91,7 +121,7 @@ public class Main {
             case "NODE": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -99,10 +129,48 @@ public class Main {
                 NodeModule.execute(configurationFile);
             } break;
 
+            case "EXPLORER": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                ExplorerModule.execute(configurationFile);
+            } break;
+
+            case "VALIDATE": {
+                if (_arguments.length < 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                final String startingBlockHash = (_arguments.length > 2 ? _arguments[2] : "");
+                ChainValidationModule.execute(configurationFile, startingBlockHash);
+            } break;
+
+            case "REPAIR": {
+                if (_arguments.length < 3) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                final String[] blockHashes = new String[_arguments.length - 2];
+                for (int i = 0; i < blockHashes.length; ++i) {
+                    blockHashes[i] = _arguments[2 + i];
+                }
+                RepairModule.execute(configurationFile, blockHashes);
+            } break;
+
             case "STRATUM": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -113,7 +181,7 @@ public class Main {
             case "DATABASE": {
                 if (_arguments.length != 2) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -128,7 +196,7 @@ public class Main {
             case "MINER": {
                 if (_arguments.length != 5) {
                     _printUsage();
-                    _exitFailure();
+                    BitcoinUtil.exitFailure();
                     break;
                 }
 
@@ -141,7 +209,7 @@ public class Main {
 
             default: {
                 _printUsage();
-                _exitFailure();
+                BitcoinUtil.exitFailure();
             }
         }
     }

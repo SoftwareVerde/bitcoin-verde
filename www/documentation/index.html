@@ -1,0 +1,435 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/documentation.css" />
+        <link rel="stylesheet" href="/css/mobile-table.css" />
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
+        <script src="/js/core.js"></script>
+        <script src="/js/documentation.js"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Bree+Serif" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Cash Block Explorer</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Block Explorer</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/"><i class="fas fa-home"></i>Home</a></li>
+                    <li><a href="/blocks/"><i class="fas fa-th-large"></i>Blocks</a></li>
+                    <li><a href="/blockchain/"><i class="fas fa-code-branch"></i>Blockchain</a></li>
+                    <li><a href="/status/"><i class="fas fa-poll-h"></i>Status</a></li>
+                    <li><a href="/documentation/"><i class="fas fa-code"></i>Documentation</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="sidebar-underlay" class="sidebar">
+            <h1>Bitcoin Verde Documentation</h1>
+        </div>
+        <div id="main">
+            <div id="sidebar" class="sidebar">
+                <ol id="outline">
+                    <li><a href="#getting-started">Getting Started</a></li>
+                    <li><a href="#purpose">Purpose</a></li>
+                    <li><a href="#project-structure">Project Structure</a></li>
+                    <li><a href="#build">Build</a></li>
+                    <li><a href="#run">Run</a></li>
+                    <li><a href="#configuration">Configuration</a></li>
+                    <li><a href="#rpc">RPC</a></li>
+                    <li class="technical-notes"><a href="#technical-notes">Development/Technical Notes</a></li>
+                </ol>
+            </div>
+
+            <div id="content">
+                <a name="getting-started"></a>
+                <div class="section getting-started">
+                    <p>
+                        To get started running a Bitcoin Verde full node and block explorer on a private server, run the following commands:
+                    </p>
+                    <h2>Linux / Mac OS X</h2>
+                    <ol>
+                        <li><tt>git clone https://github.com/softwareverde/bitcoin-verde</tt></li>
+                        <li><tt>cd bitcoin-verde</tt></li>
+                        <li><tt>./scripts/make.sh</tt></li>
+                        <li><tt>./scripts/run-node.sh &gt; logs/node.log &amp;</tt></li>
+                        <li><tt>./scripts/run-explorer.sh &gt; logs/explorer.log &amp;</tt></li>
+                        <li>Visit <a href="http://localhost:8080/status/">http://localhost:8080/status/</a></li>
+                    </ol>
+                    <h2>Windows</h2>
+                    <div class="h2-content">
+                        <p>
+                            Bitcoin Verde has not been well tested on Windows; please report any issues to
+                            <a href="mailto:bitcoin-verde@softwareverde.com">bitcoin-verde@softwareverde.com</a>.  To run and install Bitcoin Verde on Windows,
+                            we recommend installing <a href="https://git-scm.com/downloads" target="_blank">git-bash</a> and following the Linux / Max OS X
+                            steps above within the git-bash terminal.
+                        </p>
+                    </div>
+                </div>
+                <a name="purpose"></a>
+                <div class="section purpose">
+                    <p>
+                        Bitcoin (Core) (BTC) is the sole group responsible for development on BTC's client.  In the past, lack of a diversified development team
+                        and node implementation, have caused bugs to become a part of the protocol.  BCH currently has roughly three full-node implementations
+                        (Bitcoin ABC, Bitcoin XT, Bitcoin Unlimited).  However, these implementations are forked versions of the same Bitcoin (Core) reference
+                        client, which means they may share the same (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the
+                        protocol will result in incompatible blocks, causing a temporary fork.  This situation is healthy for the network in the long term, as
+                        the temporary forks will resolve over time, with the intended implementation becoming the consensus.
+                    </p>
+                    <p>
+                        Bitcoin Verde is a ground-up implementation of the Bitcoin (Cash) protocol.  This primary function of this project is to be a unique
+                        java implementaion of a BCH full node to diversify the BCH network's implementation.
+                    </p>
+                    <p>
+                        Bitcoin Verde is also a blockchain explorer and library.  Incomplete (as of v1.0.0) ambitions include a wallet module and mining-pool
+                        module (via the Stratum protocol).
+                    </p>
+                    <p>
+                        Unlike the reference client, Bitcoin Verde stores the blockchain completely within a database and does not rely on <tt>dat</tt> files
+                        to serve past blocks--instead, they are inflated from the database.  In this way, the database <i>is</i> the blockchain.  The database
+                        allows for insightful queries to be run within the entire history of Bitcoin--for instance, via a query, Bitcoin Verde can report the
+                        ratio of P2PKH vs P2SH outputs, or easily report the number of transactions added to the network per a historic date.
+                    </p>
+                    <p>
+                        Bitcoin Verde tracks and syncs forks; it determines the <i>head</i> blockchain by respecting the chain with the most Proof of Work
+                        (with a compatible ruleset). Forked/Orphaned blockchains may be visualized within the explorer.
+                        Forked blocks are stored as BlockchainSegments.  These segments are stored as a Nested Set, allowing efficient queries to determine
+                        relationship among one another.
+                    </p>
+                    <p>
+                        Transactions are stored with referential integrity to their spent inputs and are inserted when they are received (assuming validity and
+                        its dependant outputs have been stored).  In this sense, Bitcoin Verde has an unlimited mempool size, since transactions are written
+                        to disk.  Transactions attempting to spend outputs that have not yet been received are stored in a separate table until their dependent
+                        transactions have been received; in theory, this is also of unlimited size but may need to be limited in order to prevent exhaustion attacks.
+                        Since transactions are stored as they are received, they are not stored a second time once they are included in a block.
+                        Stored transactions respect the first-seen principle and not inserted into the database unless provided within a mined block.
+                    </p>
+                    <p>
+                        TransactionOutput addresses are indexed as transactions are received.  This functionality is required for the Explorer to be able to
+                        query the balance of addresses.  With addresses indexed, it is possible to instantly sync SPV wallets in the future, once privacy concerns
+                        have been addressed and the protocol is expanded to support this functionality.
+                    </p>
+                    <p>
+                        Reorgs are handled slightly differently than the reference client.  Since all forked blocks are tracked and validated, and a full ledger is
+                        maintained (not just the UTXO set as in the reference client), switching to a new fork is a trivial process and does not require a reorg
+                        at all in order to validate new transactions.  However, when mining, the existing mempool must be cleaned up during a reorg.  This mempool
+                        reorg is handled by undoing the abandoned blocks and reapplying the blocks within the new head chain.
+                    </p>
+                    <p>
+                        Nodes are also tracked within the database.  In this way, Bitcoin Verde can report on the distribution of node versions and supported features.
+                    </p>
+                    <p>
+                        Transactions may be trimmed from Bitcoin Verde once they are spent.  This feature is experimental.  With trimming enabled, spent
+                        TransactionOutputs are deleted from the database once they are a certain number of blocks old (currently 144).  Currently, with this feature
+                        enabled, the Node no longer becomes a Full Node as it loses the ability to serve past blocks.  Additionally, the Explorer fails to
+                        display blocks that include a transaction that has been trimmed.  In the future, it possible that trimmed blocks may be stored on disk
+                        as dat files to still serve to peers; at first thought, this defeats the purpose of trimming, but still serves to reduce the disk-space
+                        footprint since these trimmed blocks will not be indexed in the database which incurs hefty space overhead due to row indexing.  Without
+                        trimming enabled, a fully synced node uses 600+ GB (as of Block #562933).
+                    </p>
+                    <p>
+                        Bitcoin Verde's initial sync is more complex than the reference client, which includes indexing TransactionOutput Addresses, maintaining
+                        referential constraints between transactions, and storing metadata on spent transactions.  Despite a lot of effort to optimize the performance
+                        of the the initial sync, the increased complexity causes Bitcoin Verde to take significantly longer to finish synchronization compared to
+                        the refence client--about 3 to 7 days depending on hardware.  Once synchronized, the Bitcoin Verde node can process upwards
+                        of 4,000 transactions per second.  At 4,000 tx/s, a 32 MB block would take about 30 seconds to validate; there is still quite a bit
+                        of optimization to that must be done before Bitcoin Verde is ready to be a competitive implementation for a mining node.
+                    </p>
+                    <p>
+                        Despite the storing and validating complexity drawbacks, all functionality, including networking, within Bitcoin Verde is multi-threaded.
+                        The multithreaded nature of Bitcoin Verde should allow the node process, validate, and relay more transactions per second than the
+                        reference client; furthermore, Bitcoin Verde's unlimited mempool size should help to mitigate some problems encountered during past
+                        stress-tests on the network.  These claims are currently lacking data to substantiate them, and will be tested during the next network
+                        stress-test.
+                    </p>
+                </div>
+
+                <a name="project-structure"></a>
+                <div class="section project-structure">
+                    <p>
+                        The project's scripts are located within <tt>scripts</tt>, its java source code is located within <tt>src</tt>, its html assets are
+                        located within <tt>www</tt>, its jni-libraries are located within <tt>jni</tt>, its default configuration is located within
+                        <tt>conf</tt>, and the built project is located within <tt>out</tt>.  The <tt>sql</tt> directory contains sometimes-useful sql scripts
+                        for development and debugging.  When deploying the application to a server, the <tt>out</tt> is intended to contain everything necessary
+                        for the application to run.
+                    </p>
+                    <p>
+                        In general, all scripts located within any <tt>scripts</tt> directory are expected to be ran from the project root-directory.  Scripts
+                        for sub-projects, such as utxo-cache, are expected to be ran from their respective sub-project root-directory.
+                    </p>
+                </div>
+
+                <a name="build"></a>
+                <div class="section build">
+                    <p>
+                        At a minimum, the build process consists of a single script: <tt>scripts/make.sh</tt> .  The make script
+                        creates an <tt>out</tt> directory, builds the application, copies dependencies, loads assets, creates a default configuration file,
+                        and creates scripts to run the application.
+                    </p>
+                    <p>
+                        NOTE: Currently, the <tt>scripts/make.sh</tt> deletes the <tt>out</tt> directory, so re-running <tt>make.sh</tt> after a sync has
+                        started will cause all synchronization progress and configuration changes to be lost.  It is instead recommended to run
+                        <tt>scripts/make-jar.sh</tt> when making incremental changes to the application jar.
+                    </p>
+                    <p>
+                        To update the Explorer HTML/CSS/JS, run <tt>scripts/copy-www-data.sh</tt>.  Changes made to the
+                        <tt>out/www</tt> directory can be made, but excluded from commits.  The Explorer may not always find new
+                        resources once the server has been started, so it is recommended to restart the Explorer in between modifications.
+                    </p>
+                    <h2>libsecp256k1 &amp; NativeUnspentTransactionOutputCache</h2>
+                    <div class="h2-content">
+                        <p>
+                            By default, <tt>libsecp256k1</tt> and <tt>NativeUnspentTransactionOutputCache</tt> prebuilt binaries are included in this project.
+                            The prebuilt libraries were built for 64-bit Linux, 64-bit OSX, and 64-bit Windows.
+                        </p>
+                        <h3>libsecp256k1</h3>
+                        <div class="h3-content">
+                            <p>
+                                libsecp256k1 is an open-source C library for validating secp256k1 signatures.  It is heavily optimized and provides a substantial
+                                speedup for transaction signature verification.  libsecp256k1 was written by Bitcoin Core developers, Pieter Wuille and Gregory
+                                Maxwell.
+                            </p>
+                            <p>
+                                If preferred, libsecp256k1 may be built from source (located at
+                                <a href="https://github.com/bitcoin-core/secp256k1" target="_blank">https://github.com/bitcoin-core/secp256k1</a>) and included
+                                in Bitcoin Verde by copying the new binaries to <tt>src/main/resources/lib/libsecp256k1.[so, dylib, dll]</tt>, then rebuilding the
+                                application jar.
+                            </p>
+                            <p>
+                                It is not necessary to use libsecp256k1, and if the binaries are removed before building, then the application
+                                will fallback to using <i>Bouncy Castle</i>'s implementation of secp256k1.
+                            </p>
+                        </div>
+                        <h3>NativeUnspentTransactionOutputCache</h3>
+                        <div class="h3-content">
+                            <p>
+                                NativeUnspentTransactionOutputCache is a C++ library written specifically for Bitcoin Verde.  It uses <tt>cpp-btree</tt>, a B-Tree template
+                                library, written by Josh MacDonald to store Utxos in-memory with little overhead.  The sourcecode for the
+                                NativeUnspentTransactionOutputCache is included in this project within <tt>jni/utxo-cache</tt>.  It may be built from source via the scripts
+                                located within the <tt>jni/utxo-cache</tt> directory.  The rebuilt library must be copied to <tt>src/main/resources/lib/utxocache.[so, dylib, dll]</tt>.
+                            </p>
+                            <p>
+                                The <tt>cpp-btree</tt> source code is included in this projected but may also be located at:
+                                <a href="http://code.google.com/p/cpp-btree/" target="_blank">http://code.google.com/p/cpp-btree/</a> .
+                            </p>
+                            <p>
+                                It is not necessary to use the NativeUnspentTransactionOutputCache, and if the binaries are removed before building, then the application
+                                will not use any in-memory utxo caching.
+                            </p>
+                        </div>
+                    </div>
+                    <h2>Enabling SSL/TLS</h2>
+                    <div class="h2-content">
+                        <p>
+                            Enabling SSL/TLS for the Block Explorer can be done by providing a certificate key and certificate to the explorer configuration.  To generate a
+                            key, consider using the <tt>scripts/ssl/generate-certificate.sh</tt> script, or use any normal SSL script generation/signature process.  In order
+                            for HttpServlet to read the certificate key, the keyfile must be in PKCS format.  To convert a PEM file to a PKCS format, use the
+                            <tt>scripts/ssl/pem2pkcs.sh</tt> script.  A typical location for the SSL certificates is <tt>out/ssl</tt>.
+                        </p>
+                    </div>
+                </div>
+                <a name="run"></a>
+                <div class="section run">
+                    <p>
+                        The Bitcoin Verde project has modules for varying purposes--ranging from the block-explorer module (allowing viewing and tracing transfers through the blockchain)
+                        to a simple command-line utility to generate an private-key/address.
+                    </p>
+                    <p>
+                        Below are the available modules to run within Bitcoin Verde.  Each module may be run either by executing their associated script or by invoking
+                        <tt>run.sh &lt;COMMAND&gt; &lt;PARAMETERS&gt;</tt> from the <tt>out</tt> directory.
+                    </p>
+                    <table class="configuration">
+                        <thead>
+                            <tr><th>Module</th><th>Command</th><th>Parameters</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td data-label="Module">Full Node</td>              <td data-label="Command">NODE</td>      <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Syncs with the Bitcoin network and validates blocks.  Once fully synchronized, the node will relay transactions and new blocks to its peers.</td></tr>
+                            <tr><td data-label="Module">Block Explorer</td>         <td data-label="Command">EXPLORER</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts a web-server to search blocks, transactions, and addresses.  The explorer also monitors synchronization progress, server load, and peers.  Additionally, the Block Explorer visualizes forks and orphaned blocks.  Currently, the Block Explorer also displays this documentation.</td></tr>
+                            <tr><td data-label="Module">Chain (Re)Validation</td>   <td data-label="Command">VALIDATE</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Iterates through the already-synced blockchain to check for any data corruption.  This tool is primarily a debug module, but can improve confidence in the history of the chain in case a bug is found in the future to determine if it's been exploited without having to re-download and store the whole chain.</td></tr>
+                            <tr><td data-label="Module">Repair Chain</td>           <td data-label="Command">REPAIR</td>    <td data-label="Parameters"><span class="parameter">Configuration File</span> <span class="parameter">Block Hash</span></td><td data-label="Description">(Re)Downloads the provided block from the first node within the configuration's seedNodes array, validates the block, and replaces the corrupted block with the new data.  This module can repair corrupted blocks without revalidating the whole chain.  This module can also be used to "undo" trimmed blocks.</td></tr>
+                            <tr><td data-label="Module">Database-Only</td>          <td data-label="Command">DATABASE</td>  <td data-label="Parameters"><span class="parameter">Configuration File</span></td>  <td data-label="Description">Starts the internal database; this module does not connect to any nodes nor does it start any of the blockchain services.  The DATABASE module is primarily a debug module, but can be used to run manual queries against the state of the blockchain via <tt>./scripts/connect-to-database.sh</tt>.</td></tr>
+                            <tr><td data-label="Module">Address Generator</td>      <td data-label="Command">ADDRESS</td>   <td data-label="Parameters"></td>                                                   <td data-label="Description">Generates a private key from secure-random and outputs the hex-encoded private key, its public key, and compressed and uncompressed addresses.</td></tr>
+                            <tr><td data-label="Module">Test-Block Miner</td>       <td data-label="Command">MINER</td>     <td data-label="Parameters"><span class="parameter">Previous Block Hash</span> <span class="parameter">Bitcoin Address</span> <span class="parameter">CPU Thread Count</span> <span class="parameter">GPU Thread Count</span></td><td data-label="Description">Creates a block based off the provided previous-block-hash, with a single coinbase transaction to the address provided.  The block created will satisfy the initial Bitcoin difficulty.  This mode is intended to be used to generate test-blocks.</td></tr>
+                        </tbody>
+                    </table>
+                    <h2>Hosting a Block Explorer</h2>
+                    <div class="h2-content">
+                        <p>
+                            By default, the Block Explorer runs on port 8080.  When hosting the Block Explorer for the public, either a reverse proxy routing port 80 to internal 8080 can be used, or the server can be configured to route 80 to 8080 via iptables.
+                            On linux, the <tt>forward-ports.sh</tt> script in the <tt>scripts</tt> directory can be run as root to configure iptables to handle this routing.  Changes made to iptables are not permanent and will be lost on restart, so it may be
+                            useful to configure this command to run on startup.
+                        </p>
+                        <h3>Security</h3>
+                        <div class="h3-content">
+                            <p>
+                                Security is always a vital consideration when hosting any application. Security is a cost-benefit scale between ease of use and risk. Risk is a combination of the consequence of compromise, the scale of the vulnerability, and the
+                                value incentive to an attacker.  The Bitcoin Verde node and explorer do not currently hold or manage private keys which reduces the consequence of an improperly configured server, however the value any server has to an attacked is
+                                never zero.  Exposing any server to the public internet always creates a target for attacks.  For this reason, Bitcoin Verde should never be run as root.  Never expose bitcoin private keys (or other sensitive information) to a
+                                publicly exposed server running the Bitcoin Verde Block Explorer.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <a name="configuration"></a>
+                <div class="section configuration">
+                    <p>
+                        The comitted node configuration is located at <tt>conf/server.conf</tt> and it copied to <tt>out/conf/server.conf</tt> at build-time.  Users are expected
+                        to modify the conf file located at <tt>out/conf/server.conf</tt>.
+                    </p>
+                    <p>
+                        Below is a table with each configuration property and its purpose.
+                    </p>
+                    <table class="configuration">
+                        <thead>
+                            <tr><th>Module</th><th>Property</th><th>Default Value</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td data-label="Module">database</td><td data-label="Property">rootPassword</td><td data-label="Default Value">d3d4a3d0533e3e83bc16db93414afd96</td><td data-label="Description">The root password configured for the database.  This field is not necessary to exist after the initial start of the node.</td></tr>
+
+                            <tr><td data-label="Module">database</td><td data-label="Property">hostname</td><td data-label="Default Value">localhost</td><td data-label="Description">The host used to connect to the database.  This value is ignored unless <tt>useEmbeddedDatabase</tt> is enabled.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">port</td><td data-label="Default Value">8336</td><td data-label="Description">The port used to connect to the database.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">dataDirectory</td><td data-label="Default Value">data</td><td data-label="Description">The name of the directory that contains the database data within the out directory.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">schema</td><td data-label="Default Value">bitcoin</td><td data-label="Description">The name of the database schema used to hold all tables.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">maxMemoryByteCount</td><td data-label="Default Value">2GB</td><td data-label="Description">The maximum byte count for the InnoDB buffer pool.  The buffer pool size is one of the most important configurations for performance as it configures the space used to store/cache table indexes.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">username</td><td data-label="Default Value">bitcoin</td><td data-label="Description">The username used when connecting to the database.  This value may only be changed before the initial start of the node.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">password</td><td data-label="Default Value">81b797117e8e0233ea8fd1d46923df54</td><td data-label="Description">The password used when connecting to the database.  This value may only be changed before the initial start of the node.</td></tr>
+                            <tr><td data-label="Module">database</td><td data-label="Property">useEmbeddedDatabase</td><td data-label="Default Value">1</td><td data-label="Description">When set to 1, the node will manage its own MariaDB instance.  Otherwise, the node will attempt to connect to the hostname/port and manage its database at that location.  In each scenario, the node will create and manage its own schema, including creating a maintenance account and user account.</td></tr>
+
+
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">port</td><td data-label="Default Value">8333</td><td data-label="Description">The port used to listen for incoming connections from other nodes on the network.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">rpcPort</td><td data-label="Default Value">8334</td><td data-label="Description">The port used to listen for RPC commands sent to this node.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">seedNodes</td><td data-label="Default Value">["btc.softwareverde.com", "bitcoinverde.org"]</td><td data-label="Description">The seed nodes which are initially connected to on start.  Currently at least one seed node is required since DNS seeding is not currently supported.  Should not exceed maxPeerCount.  May optionally contain a port (eg: "bitcoinverde.org:8333").</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxPeerCount</td><td data-label="Default Value">32</td><td data-label="Description">The maximum number of peers that the node will accept.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxThreadCount</td><td data-label="Default Value">4</td><td data-label="Description">The max number of threads used to validate a block.  Currently, the server will create max(maxPeerCount * 8, 256) threads for network communication; in the future this property will likely claim this label.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">trustedBlockHeight</td><td data-label="Default Value">391180</td><td data-label="Description">Blocks prior to this height will not have their transactions validated.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">skipNetworking</td><td data-label="Default Value">0</td><td data-label="Description">When set, this property disables networking with other nodes.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxUtxoCacheByteCount</td><td data-label="Default Value">536870912</td><td data-label="Description">The max memory used to store Unspent Transaction Outputs in memory.  This properties does nothing if the NativeUnspentTransactionOutputCache library is not loaded.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">useTransactionBloomFilter</td><td data-label="Default Value">1</td><td data-label="Description">When set, uses an internal bloom filter to maintain a filter of transactions that have already been seen, greatly reducing the time required to store a block.  When enabled, this setting requires about 1GB of memory.  This property is safe to be toggled on/off between restarts.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">trimBlocks</td><td data-label="Default Value">0</td><td data-label="Description">Experimental feature.  When enabled, spent TransactionOutputs that are older than 144 blocks will be deleted from the database.  Enabling this feature disables full-node functionality and will prevent the block explorer from functioning.</td></tr>
+                            <tr><td data-label="Module">bitcoin</td><td data-label="Property">maxMessagesPerSecondPerNode</td><td data-label="Default Value">250</td><td data-label="Description">May be used to prevent flooding the node; requests exceeding this throttle setting are queued.  250 msg/s supports a little over 32MB blocks.</td></tr>
+
+                            <tr><td data-label="Module">stratum</td><td data-label="Property">port</td><td data-label="Default Value">3333</td><td data-label="Description">The external stratum protocol port.</td></tr>
+
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">port</td><td data-label="Default Value">8080</td><td data-label="Description">The port the explorer will listen on for incoming HTTP requests.  Setting to a value lower than 1024 would require the application be run as root; this is highly discouraged.  Instead, consider running on a higher port and running the forward-ports script.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">rootDirectory</td><td data-label="Default Value">www</td><td data-label="Description">The directory where the explorer will serve its HTTP content from (eg. <tt>out/www</tt>).</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">bitcoinRpcUrl</td><td data-label="Default Value">localhost</td><td data-label="Description">The host the explorer will connect to the Bitvoin Verde node on.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">bitcoinRpcPort</td><td data-label="Default Value">8334</td><td data-label="Description">The port the explorer will connect to the Bitcoin Verde node on.</td></tr>
+
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsPort</td><td data-label="Default Value">4443</td><td data-label="Description">The port the explorer will listen on for incoming HTTPS requests.  Setting to a value lower than 1024 would require the application be run as root; this is highly discouraged.  Instead, consider running on a higher port and running the forward-ports script.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsKeyFile</td><td data-label="Default Value"></td><td data-label="Description">The SSL/TLS certificate private key filename.  A typical value would be something like "out/ssl/certificate.key".  The default value is empty; when empty, SSL/TLS is disabled on the explorer.  To generate a certificate, consider looking at <tt>scripts/ssl/generate-certificate.sh</tt>.  The private key file must be in PKCS format; to convert a PEM private key to a PKCS private key, use <tt>scripts/ssl/pem2pkcs.sh</tt>.</td></tr>
+                            <tr><td data-label="Module">explorer</td><td data-label="Property">tlsCertificateFile</td><td data-label="Default Value"></td><td data-label="Description">The SSL/TLS certificate filename.  A typical value would be something like "out/ssl/certificate.crt".  The default value is empty; when empty, SSL/TLS is disabled on the explorer.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <a name="rpc"></a>
+                <div class="section rpc">
+                    <p>
+                        Bitcoin Verde has an RPC protocol to control the node while its running.  The protocol listens on port 8334 by default and is configurable via the <tt>bitcoin.rpcPort</tt> configuration parameter.  The RPC protocol is JSON-based and
+                        loosely mimics HTTP methods, using both <tt>GET</tt> and <tt>POST</tt> to indicate mutating/write and immutable/read operations.
+                    </p>
+                    <p>
+                        An example RPC invocation to shutdown the node looks like:
+                    </p>
+<pre>{
+    "method": "POST",
+    "query":  "SHUTDOWN"
+}</pre>
+
+                    <p>
+                        An example RPC invocation to retrieve information about a transaction looks like:
+                    </p>
+<pre>{
+    "method": "GET",
+    "query":  "TRANSACTION",
+    "parameters": {
+        "hash": "917A95AADA7B17A10661CAA2EE379E05CD816E9AB9E5C7651A371909B7222812"
+    }
+}</pre>
+
+                    <p>
+                        The procedures Bitcoin Verde currently support are listed below:
+                    </p>
+                    <table class="rpc">
+                        <thead>
+                            <tr><th>Method</th><th>Query</th><th>Parameters</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEADERS</td><td data-label="Parameters"><span class="parameter optional">blockHeight</span> <span class="parameter optional">maxBlockCount=10</span></td><td data-label="Description">List block headers starting after <tt>blockHeight</tt>, or the head block if not provided.  Returns at most <tt>maxBlockCount</tt> headers.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEADER</td><td data-label="Parameters"><span class="parameter mandatory">blockHeight | hash</span></td><td data-label="Description">Returns the blockHeader of matching <tt>hash</tt> or at <tt>blockHeight</tt> of the head chain.  <tt>blockHeight</tt> is ignored if <tt>hash</tt> is provided.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK</td><td data-label="Parameters"><span class="parameter mandatory">blockHeight | hash</span> <span class="parameter optional">rawFormat=0</span></td><td data-label="Description">Returns the block of matching <tt>hash</tt> or at <tt>blockHeight</tt> of the head chain.  <tt>blockHeight</tt> is ignored if <tt>hash</tt> is provided.  When <tt>rawFormat</tt> is set to <tt>1</tt> the returned block will be as hex-encoded bytes; otherwise, it is a detailed breakdown of the block as JSON.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">TRANSACTION</td><td data-label="Parameters"><span class="parameter mandatory">hash</span> <span class="parameter optional">rawFormat=0</span></td><td data-label="Description">Returns the transaction by its <tt>hash</tt>.  When <tt>rawFormat</tt> is set to <tt>1</tt> the returned transaction will be as hex-encoded bytes; otherwise, it is a detailed breakdown of the transaction as JSON. </td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCK_HEIGHT</td><td data-label="Parameters"></td><td data-label="Description">Returns the current head block height and the block header height.  These values can be used to determine synchronization progress, assuming block headers have finished processing.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">STATUS</td><td data-label="Parameters"></td><td data-label="Description">Returns the node's status, including block/header height, services' statuses, memory usage, thread-pool utiliztion, and synchronization statistics.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">NODES</td><td data-label="Parameters"></td><td data-label="Description">Returns a list of connected peers.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BALANCE</td><td data-label="Parameters"><span class="parameter mandatory">address</span></td><td data-label="Description">Returns the current balance of the provided address.  Keep in mind that nodes that have not completed the initial block download may not have an up-to-date balance.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">ADDRESS</td><td data-label="Parameters"><span class="parameter mandatory">address</span></td><td data-label="Description">Returns transactions that have either sent-to or were sent-from the provided address.  Keep in mind that nodes that have not completed the initial block download may not have an up-to-date list.</td></tr>
+                            <tr><td data-label="Method">GET</td><td data-label="Query">BLOCKCHAIN</td><td data-label="Parameters"></td><td data-label="Description">Returns forked and orphaned blockchains that the node has witnessed.  Forks and orphans are fairly rare until after the initial block download has completed.</td></tr>
+
+                            <tr><td class="hr" colspan="4">&nbsp;</td></tr>
+
+                            <tr><td data-label="Method">POST</td><td data-label="Query">SHUTDOWN</td><td data-label="Parameters"></td><td data-label="Description">Gracefully shuts down the node.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">ADD_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span> <span class="parameter mandatory">port</span></td><td data-label="Description">Forces the node to connect to the specified peer.  Once <tt>maxPeerCount</tt> has been reached, adding a peer will eject a node from the currently connected set.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">BAN_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span></td><td data-label="Description">Disconnects from and bans all nodes connected at the provided ip.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">UNBAN_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span></td><td data-label="Description">Clears all nodes resolving to the provided ip of their banned status.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">ADD_HOOK</td><td data-label="Parameters"><span class="parameter mandatory">events</span></td><td data-label="Description">Upgrades the RPC connection to a HookConnection.  The HookConnection remains open until closed by the client.  The node will relay live-updates to the HookConnection based on the <tt>events</tt> it has subscribed to.  The mandatory <tt>events</tt> parameter is an array of HookEvents.  Currently supported HookEvent values are: <tt>NEW_BLOCK</tt>, <tt>NEW_TRANSACTION</tt>.</td></tr>
+                        </tbody>
+                    </table>
+
+                </div>
+                <a name="technical-notes"></a>
+                <div class="section technical-notes">
+                    <h2>Architecture</h2>
+                    <div class="h2-content">
+                    <p>
+                        Most of the node's operations are asychronous.  The primary asynchronous services are the <tt>BlockDownloader</tt>, <tt>BlockHeaderDownloader</tt>, <tt>BlockchainBuilder</tt>,
+                        <tt>AddressProcessor</tt>, <tt>TransactionDownloader</tt>, and <tt>TransactionProcessor</tt>.  These various services alongside the <tt>NodeManager</tt> and the
+                        <tt>JsonRpcSocketServerHandler</tt> comprise the majority of the node's functionality.  Events from one service often trigger other services to wake up; for instance,
+                        completing a block download from within the <tt>BlockDownloader</tt> triggers the <tt>BlockchainBuilder</tt> to check for available blocks to process.
+                    </p>
+                    <p>
+                        Three steps are taken when a block hash or header is received: the hash is queued for download within the <tt>pending_blocks</tt> table, the <tt>node_block_inventory</tt>
+                        table is updated to keep a record of which node(s) can be used to download the block, and the BlockDownloader is woken up.  The <tt>BlockDownloader</tt>
+                        queries <tt>pending_blocks</tt> for any blocks that have not been downloaded; when a match is found, the <tt>BlockDownloader</tt> checks the <tt>NodeManager</tt> for
+                        nodes that have the block inventory, and requests the block.  If there are blocks that can't be downloaded because there are no peers connected that have announced that block,
+                        then a <tt>BlockFinder</tt> message is broadcasted and the pending block hashes are deleted from <tt>pending_blocks</tt>.
+                    </p>
+                    <p>
+                        When a block is downloaded, the <tt>BlockchainDownloader</tt> is woken up.  If there is a block that has been downloaded that has its parent block processed, the
+                        <tt>BlockchainBuilder</tt> stores and validates the block.  The <tt>BlockchainBuilder</tt> continues to process blocks until it runs out of available blocks; once complete,
+                        a <tt>BlockFinder</tt> message is broadcast to all peers to ensure there are no new blocks available before the service goes back to sleep.
+                    </p>
+                    <p>
+                        The <tt>AddressProcessor</tt> is woken up when a new block has been stored and validated.  The <tt>AddressProcessor</tt> iterates through each TransactionOutput to index
+                        Addresses for the Block Explorer.  When blockTrimming is enabled, the <tt>AddressProcessor</tt> is disabled.
+                    </p>
+                    <p>
+                        Similarly to how blocks are queued for download, when a new transaction is announced its hash is queued into <tt>pending_transactions</tt>. The <tt>TransactionDownloader</tt>,
+                        <tt>TransactionProcessor</tt> share the same relationship and life-cycles as the <tt>BlockDownloader</tt> and <tt>BlockchainBuilder</tt>.
+                    </p>
+                    <p>
+                        Bitcoin Verde's database is a self contained MariaDB database.  The database is started when the node starts and is shut down when the node shuts down.  If the node crashes,
+                        the database is not always shut down with it and lives as a zombie process; in this state, the node will fail to restart until the database is killed manually (usually via
+                        a kill command).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

@@ -1,38 +1,36 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.transaction.script.reader.ScriptReader;
-import com.softwareverde.bitcoin.transaction.script.runner.Context;
+import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
+import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.util.bytearray.ByteArrayReader;
 
-public class DynamicValueOperation extends Operation {
+public class DynamicValueOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_DYNAMIC_VALUE;
 
-    protected static DynamicValueOperation fromScriptReader(final ScriptReader scriptReader) {
-        if (! scriptReader.hasNextByte()) { return null; }
+    protected static DynamicValueOperation fromBytes(final ByteArrayReader byteArrayReader) {
+        if (! byteArrayReader.hasBytes()) { return null; }
 
-        final byte opcodeByte = scriptReader.getNextByte();
+        final byte opcodeByte = byteArrayReader.readByte();
         final Type type = Type.getType(opcodeByte);
         if (type != TYPE) { return null; }
 
-        final SubType subType = TYPE.getSubtype(opcodeByte);
-        if (subType == null) { return null; }
+        final Opcode opcode = TYPE.getSubtype(opcodeByte);
+        if (opcode == null) { return null; }
 
-        return new DynamicValueOperation(opcodeByte, subType);
+        return new DynamicValueOperation(opcodeByte, opcode);
     }
 
-    protected final SubType _subType;
-
-    protected DynamicValueOperation(final byte value, final SubType subType) {
-        super(value, TYPE);
-        _subType = subType;
+    protected DynamicValueOperation(final byte value, final Opcode opcode) {
+        super(value, TYPE, opcode);
     }
 
     @Override
-    public Boolean applyTo(final Stack stack, final Context context) {
-        switch (_subType) {
+    public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
+        switch (_opcode) {
             case PUSH_STACK_SIZE: {
-                stack.push(Value.fromInteger(stack.getSize()));
+                stack.push(Value.fromInteger(stack.getSize().longValue()));
                 return true;
             }
 
@@ -50,26 +48,36 @@ public class DynamicValueOperation extends Operation {
             }
 
             case COPY_2ND: {
-                stack.push(stack.peak(1));
+                final Value value = stack.peak(1);
+                stack.push(value);
                 return (! stack.didOverflow());
             }
 
             case COPY_2ND_THEN_1ST: {
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_3RD_THEN_2ND_THEN_1ST: {
-                stack.push(stack.peak(2));
-                stack.push(stack.peak(1));
-                stack.push(stack.peak(0));
+                final Value value0 = stack.peak(0);
+                final Value value1 = stack.peak(1);
+                final Value value2 = stack.peak(2);
+
+                stack.push(value2);
+                stack.push(value1);
+                stack.push(value0);
                 return (! stack.didOverflow());
             }
 
             case COPY_4TH_THEN_3RD: {
-                stack.push(stack.peak(3));
-                stack.push(stack.peak(2));
+                final Value value2 = stack.peak(2);
+                final Value value3 = stack.peak(3);
+
+                stack.push(value3);
+                stack.push(value2);
                 return (! stack.didOverflow());
             }
 
@@ -86,16 +94,5 @@ public class DynamicValueOperation extends Operation {
 
             default: { return false; }
         }
-    }
-
-    @Override
-    public boolean equals(final Object object) {
-        if (! (object instanceof DynamicValueOperation)) { return false ;}
-        if (! super.equals(object)) { return false; }
-
-        final DynamicValueOperation operation = (DynamicValueOperation) object;
-        if (operation._subType != _subType) { return false; }
-
-        return true;
     }
 }
