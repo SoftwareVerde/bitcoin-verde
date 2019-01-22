@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.explorer.api;
+package com.softwareverde.bitcoin.server.module.api;
 
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;

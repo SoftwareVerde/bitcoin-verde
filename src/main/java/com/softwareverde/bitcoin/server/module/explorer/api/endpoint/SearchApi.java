@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
 import com.softwareverde.servlet.GetParameters;

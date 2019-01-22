@@ -57,6 +57,7 @@ import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.io.File;
 import java.net.InetAddress;
@@ -95,6 +96,9 @@ public class NodeModule {
 
     protected final MainThreadPool _mainThreadPool;
     protected final MainThreadPool _rpcThreadPool;
+
+    protected final MilliTimer _uptimeTimer = new MilliTimer();
+    protected final Thread _databaseMaintenanceThread;
 
     protected Boolean _isShuttingDown = false;
     protected final Object _shutdownPin = new Object();
@@ -184,6 +188,9 @@ public class NodeModule {
             }
         }
 
+        Logger.log("[Stopping Database Maintenance Thread]");
+        _databaseMaintenanceThread.interrupt();
+
         Logger.log("[Stopping Addresses Processor]");
         _addressProcessor.stop();
 
@@ -232,6 +239,8 @@ public class NodeModule {
         }
 
         _environment.getMasterDatabaseManagerCache().close();
+
+        try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
 
         Logger.shutdown();
 
@@ -649,7 +658,7 @@ public class NodeModule {
             final Long headBlockHeaderHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId));
             final Long headBlockHeight = Util.coalesce(blockHeaderDatabaseManager.getBlockHeight(headBlockId));
 
-            // TODO: Encountering an exception here (and perhaps other places within the constructor) causes the application to stall after _shutdown is called...
+            // TODO: If an exception is found here (and perhaps other places within the constructor) then the application stalls after _shutdown is called...
             if ( (headBlockHeaderHeight == 0L) || (headBlockHeaderHeight > headBlockHeight) ) {
                 synchronizationStatusHandler.setState(State.SYNCHRONIZING);
             }
@@ -659,6 +668,27 @@ public class NodeModule {
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
+        }
+
+        { // Initialize the DatabaseMaintenance Thread...
+            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(databaseConnectionFactory);
+            _databaseMaintenanceThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    final Thread thread = _databaseMaintenanceThread;
+                    // HH    MM    SS      MS
+                    final Long analyzeEveryMilliseconds = (24L * 60L * 60L * 1000L); // 24 Hours
+                    while (! thread.isInterrupted()) {
+                        try {
+                            Thread.sleep(analyzeEveryMilliseconds);
+                            databaseMaintainer.analyzeTables();
+                        }
+                        catch (final InterruptedException exception) { break; }
+                    }
+                }
+            });
+            _databaseMaintenanceThread.setName("Database Maintenance Thread");
+            _databaseMaintenanceThread.setDaemon(false);
         }
     }
 
@@ -741,6 +771,9 @@ public class NodeModule {
             Logger.log("[Connecting To Peers]");
             _connectToAdditionalNodes();
         }
+
+        _uptimeTimer.start();
+        _databaseMaintenanceThread.start();
 
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
             try { Thread.sleep(60000); } catch (final Exception exception) { break; }

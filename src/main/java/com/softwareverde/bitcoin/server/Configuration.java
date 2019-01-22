@@ -16,6 +16,12 @@ public class Configuration {
     public static final Integer BITCOIN_RPC_PORT = 8334;
     public static final Integer STRATUM_PORT = 3333;
 
+    public static final Integer EXPLORER_PORT = 8080;
+    public static final Integer EXPLORER_TLS_PORT = 4443;
+
+    public static final Integer WALLET_PORT = 8081;
+    public static final Integer WALLET_TLS_PORT = 4444;
+
     public static class DatabaseProperties extends MutableEmbeddedDatabaseProperties {
         protected Long _maxMemoryByteCount;
         protected Boolean _useEmbeddedDatabase;
@@ -87,10 +93,33 @@ public class Configuration {
         public String getTlsCertificateFile() { return _tlsCertificateFile; }
     }
 
+    public static class WalletProperties {
+        private Integer _port;
+        private String _rootDirectory;
+        private String _explorerUrl;
+        private Integer _explorerPort;
+        private Integer _explorerTlsPort;
+
+        private Integer _tlsPort;
+        private String _tlsKeyFile;
+        private String _tlsCertificateFile;
+
+        public Integer getPort() { return _port; }
+        public String getRootDirectory() { return _rootDirectory; }
+        public String getExplorerUrl() { return _explorerUrl; }
+        public Integer getExplorerPort() { return _explorerPort; }
+        public Integer getExplorerTlsPort() { return _explorerTlsPort; }
+
+        public Integer getTlsPort() { return _tlsPort; }
+        public String getTlsKeyFile() { return _tlsKeyFile; }
+        public String getTlsCertificateFile() { return _tlsCertificateFile; }
+    }
+
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
     private ExplorerProperties _explorerProperties;
+    private WalletProperties _walletProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -152,12 +181,12 @@ public class Configuration {
     }
 
     private void _loadExplorerProperties() {
-        final Integer port = Util.parseInt(_properties.getProperty("explorer.port", "8080"));
-        final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "www");
+        final Integer port = Util.parseInt(_properties.getProperty("explorer.port", EXPLORER_PORT.toString()));
+        final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "explorer/www");
         final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
         final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
 
-        final Integer tlsPort = Util.parseInt(_properties.getProperty("explorer.tlsPort", "4443"));
+        final Integer tlsPort = Util.parseInt(_properties.getProperty("explorer.tlsPort", EXPLORER_TLS_PORT.toString()));
         final String tlsKeyFile = _properties.getProperty("explorer.tlsKeyFile", "");
         final String tlsCertificateFile = _properties.getProperty("explorer.tlsCertificateFile", "");
 
@@ -172,6 +201,31 @@ public class Configuration {
         explorerProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
 
         _explorerProperties = explorerProperties;
+    }
+
+    private void _loadWalletProperties() {
+        final Integer port = Util.parseInt(_properties.getProperty("wallet.port", WALLET_PORT.toString()));
+        final String rootDirectory = _properties.getProperty("wallet.rootDirectory", "wallet/www");
+        final String explorerUrl = _properties.getProperty("wallet.explorerUrl", "");
+        final Integer explorerPort = Util.parseInt(_properties.getProperty("wallet.explorerPort", EXPLORER_PORT.toString()));
+        final Integer explorerTlsPort = Util.parseInt(_properties.getProperty("wallet.explorerTlsPort", EXPLORER_TLS_PORT.toString()));
+
+        final Integer tlsPort = Util.parseInt(_properties.getProperty("wallet.tlsPort", WALLET_TLS_PORT.toString()));
+        final String tlsKeyFile = _properties.getProperty("wallet.tlsKeyFile", "");
+        final String tlsCertificateFile = _properties.getProperty("wallet.tlsCertificateFile", "");
+
+        final WalletProperties walletProperties = new WalletProperties();
+        walletProperties._port = port;
+        walletProperties._rootDirectory = rootDirectory;
+        walletProperties._explorerUrl = explorerUrl;
+        walletProperties._explorerPort = explorerPort;
+        walletProperties._explorerTlsPort = explorerTlsPort;
+
+        walletProperties._tlsPort = tlsPort;
+        walletProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
+        walletProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+
+        _walletProperties = walletProperties;
     }
 
     public Configuration(final File configurationFile) {
@@ -189,10 +243,13 @@ public class Configuration {
         _loadServerProperties();
 
         _loadExplorerProperties();
+
+        _loadWalletProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
+    public WalletProperties getWalletProperties() { return _walletProperties; }
 
 }

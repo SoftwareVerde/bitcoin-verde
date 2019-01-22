@@ -83,6 +83,7 @@ a {
     position: relative;
     display: inline-block;
     margin-top: 0.5em;
+    min-width: 5em;
 }
 
 #header .brand .title:before {

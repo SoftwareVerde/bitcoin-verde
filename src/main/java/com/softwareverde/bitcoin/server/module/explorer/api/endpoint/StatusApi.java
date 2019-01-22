@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
