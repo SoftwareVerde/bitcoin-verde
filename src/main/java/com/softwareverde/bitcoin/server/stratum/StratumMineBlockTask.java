@@ -22,10 +22,10 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -40,7 +40,9 @@ public class StratumMineBlockTask {
         }
     }
 
-    final ByteArray _id;
+    protected final SystemTime _systemTime = new SystemTime();
+
+    protected ByteArray _id;
 
     protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
     protected List<String> _merkleTreeBranches; // Little-endian merkle tree (intermediary) branch hashes...
@@ -48,8 +50,8 @@ public class StratumMineBlockTask {
     protected String _coinbaseTransactionHead;
     protected String _coinbaseTransactionTail;
 
-    protected final ReentrantReadWriteLock.ReadLock _prototypeBlockReadLock;
-    protected final ReentrantReadWriteLock.WriteLock _prototypeBlockWriteLock;
+    public final ReentrantReadWriteLock.ReadLock prototypeBlockReadLock;
+    public final ReentrantReadWriteLock.WriteLock prototypeBlockWriteLock;
 
     protected static MerkleRoot _calculateMerkleRoot(final Transaction coinbaseTransaction, final List<String> merkleTreeBranches) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -133,11 +135,11 @@ public class StratumMineBlockTask {
         _merkleTreeBranches = listBuilder.build();
     }
 
-    protected RequestMessage _createRequest(final Long timestamp) {
+    protected RequestMessage _createRequest(final Long timestamp, final Boolean abandonOldJobs) {
         final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.NOTIFY.getValue());
 
         final Json parametersJson = new Json(true);
-        parametersJson.add(HexUtil.toHexString(_id.getBytes()));
+        parametersJson.add(_id);
         parametersJson.add(_swabBytes(BitcoinUtil.reverseEndianString(HexUtil.toHexString(_prototypeBlock.getPreviousBlockHash().getBytes()))));
         parametersJson.add(_coinbaseTransactionHead);
         parametersJson.add(_coinbaseTransactionTail);
@@ -154,7 +156,7 @@ public class StratumMineBlockTask {
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
         parametersJson.add(_prototypeBlock.getDifficulty().encode());
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(timestamp)));
-        parametersJson.add(true);
+        parametersJson.add(abandonOldJobs);
 
         mineBlockMessage.setParameters(parametersJson);
 
@@ -162,58 +164,58 @@ public class StratumMineBlockTask {
     }
 
     public StratumMineBlockTask() {
-        _id = MutableByteArray.wrap(ByteUtil.integerToBytes(getNextId()));
+        _id = MutableByteArray.wrap(ByteUtil.integerToBytes(StratumMineBlockTask.getNextId()));
         _prototypeBlock.addTransaction(new MutableTransaction());
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-        _prototypeBlockReadLock = readWriteLock.readLock();
-        _prototypeBlockWriteLock = readWriteLock.writeLock();
+        prototypeBlockReadLock = readWriteLock.readLock();
+        prototypeBlockWriteLock = readWriteLock.writeLock();
     }
 
     public void setBlockVersion(final String stratumBlockVersion) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
             _prototypeBlock.setVersion(blockVersion);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setBlockVersion(final Long blockVersion) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             _prototypeBlock.setVersion(blockVersion);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(_swabBytes(stratumPreviousBlockHash)));
             _prototypeBlock.setPreviousBlockHash(previousBlockHash);
 
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             _prototypeBlock.setPreviousBlockHash(previousBlockHash);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
@@ -227,79 +229,79 @@ public class StratumMineBlockTask {
 
     public void setDifficulty(final String stratumDifficulty) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(stratumDifficulty));
             _prototypeBlock.setDifficulty(difficulty);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setDifficulty(final Difficulty difficulty) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             _prototypeBlock.setDifficulty(difficulty);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     // ViaBTC provides the merkleTreeBranches as little-endian byte strings.
     public void setMerkleTreeBranches(final List<String> merkleTreeBranches) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             _merkleTreeBranches = merkleTreeBranches.asConst();
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void addTransaction(final Transaction transaction) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final Transaction constTransaction = transaction.asConst();
             _prototypeBlock.addTransaction(constTransaction);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void clearTransactions() {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
             _prototypeBlock.clearTransactions();
             _prototypeBlock.addTransaction(coinbaseTransaction);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setCoinbaseTransaction(final String stratumCoinbaseTransactionHead, final String stratumCoinbaseTransactionTail) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             _coinbaseTransactionHead = stratumCoinbaseTransactionHead;
             _coinbaseTransactionTail = stratumCoinbaseTransactionTail;
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public void setCoinbaseTransaction(final Transaction coinbaseTransaction, final Integer totalExtraNonceByteCount) {
         try {
-            _prototypeBlockWriteLock.lock();
+            prototypeBlockWriteLock.lock();
 
             final TransactionDeflater transactionDeflater = new TransactionDeflater();
             final FragmentedBytes coinbaseTransactionParts;
@@ -333,13 +335,13 @@ public class StratumMineBlockTask {
             _prototypeBlock.replaceTransaction(0, coinbaseTransaction);
         }
         finally {
-            _prototypeBlockWriteLock.unlock();
+            prototypeBlockWriteLock.unlock();
         }
     }
 
     public BlockHeader assembleBlockHeader(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
         try {
-            _prototypeBlockReadLock.lock();
+            prototypeBlockReadLock.lock();
 
             final MutableBlockHeader blockHeader = new MutableBlockHeader(_prototypeBlock);
 
@@ -373,13 +375,13 @@ public class StratumMineBlockTask {
             return blockHeader;
         }
         finally {
-            _prototypeBlockReadLock.unlock();
+            prototypeBlockReadLock.unlock();
         }
     }
 
     public Block assembleBlock(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
         try {
-            _prototypeBlockReadLock.lock();
+            prototypeBlockReadLock.lock();
 
             final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(stratumExtraNonce2);
 
@@ -395,34 +397,55 @@ public class StratumMineBlockTask {
             return new ImmutableBlock(blockHeader, transactions);
         }
         finally {
-            _prototypeBlockReadLock.unlock();
+            prototypeBlockReadLock.unlock();
         }
     }
 
     public RequestMessage createRequest() {
         try {
-            _prototypeBlockReadLock.lock();
+            prototypeBlockReadLock.lock();
 
-            final Long timestamp = (System.currentTimeMillis() / 1000L);
-            return _createRequest(timestamp);
+            return _createRequest(_systemTime.getCurrentTimeInSeconds(), true);
         }
         finally {
-            _prototypeBlockReadLock.unlock();
+            prototypeBlockReadLock.unlock();
         }
     }
 
-    public RequestMessage createRequest(final Long timestamp) {
+    public RequestMessage createRequest(final Boolean abandonOldJobs) {
         try {
-            _prototypeBlockReadLock.lock();
+            prototypeBlockReadLock.lock();
 
-            return _createRequest(timestamp);
+            return _createRequest(_systemTime.getCurrentTimeInSeconds(), abandonOldJobs);
         }
         finally {
-            _prototypeBlockReadLock.unlock();
+            prototypeBlockReadLock.unlock();
+        }
+    }
+
+    public RequestMessage createRequest(final Long timestampInSeconds) {
+        try {
+            prototypeBlockReadLock.lock();
+
+            return _createRequest(timestampInSeconds, true);
+        }
+        finally {
+            prototypeBlockReadLock.unlock();
         }
     }
 
     public String getExtraNonce() {
         return _extraNonce1;
+    }
+
+    public void incrementJobId() {
+        try {
+            prototypeBlockWriteLock.lock();
+
+            _id = MutableByteArray.wrap(ByteUtil.integerToBytes(StratumMineBlockTask.getNextId()));
+        }
+        finally {
+            prototypeBlockWriteLock.unlock();
+        }
     }
 }

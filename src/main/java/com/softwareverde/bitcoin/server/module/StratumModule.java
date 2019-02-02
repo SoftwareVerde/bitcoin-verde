@@ -212,7 +212,7 @@ public class StratumModule {
         final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
 
         final Json parametersJson = new Json(true);
-        parametersJson.add(Difficulty.BASE_DIFFICULTY.encode());
+        parametersJson.add(4096); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
         Logger.log("Sent: "+ mineBlockMessage.toString());
@@ -347,6 +347,37 @@ public class StratumModule {
                     }
                 });
 
+//                try {
+//                    final JsonSocket viaBtcSocket = new JsonSocket(new Socket("bch.viabtc.com", 3333), _threadPool);
+//
+//                    viaBtcSocket.setMessageReceivedCallback(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            final JsonProtocolMessage jsonProtocolMessage = viaBtcSocket.popMessage();
+//                            final Json message = jsonProtocolMessage.getMessage();
+//                            Logger.log("VIABTC SENT: " + message);
+//
+//                            socketConnection.write(jsonProtocolMessage);
+//                        }
+//                    });
+//
+//                    socketConnection.setMessageReceivedCallback(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
+//                            final Json message = jsonProtocolMessage.getMessage();
+//                            Logger.log("ASIC SENT: " + message);
+//
+//                            viaBtcSocket.write(jsonProtocolMessage);
+//                        }
+//                    });
+//
+//                    viaBtcSocket.beginListening();
+//                }
+//                catch (final Exception exception) {
+//                    Logger.log(exception);
+//                }
+
                 socketConnection.beginListening();
             }
 
@@ -383,7 +414,17 @@ public class StratumModule {
             @Override
             public void onNewTransaction(final Transaction transaction) {
                 Logger.log("Adding Transaction: " + transaction.getHash());
-                _stratumMineBlockTask.addTransaction(transaction);
+
+                try {
+                    _stratumMineBlockTask.prototypeBlockWriteLock.lock();
+
+                    _stratumMineBlockTask.addTransaction(transaction);
+                    _stratumMineBlockTask.incrementJobId();
+                }
+                finally {
+                    _stratumMineBlockTask.prototypeBlockWriteLock.unlock();
+                }
+
                 _broadcastNewTask();
             }
         });
