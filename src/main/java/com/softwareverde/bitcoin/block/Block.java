@@ -10,6 +10,7 @@ public interface Block extends BlockHeaderWithTransactionCount {
     List<Transaction> getTransactions();
     CoinbaseTransaction getCoinbaseTransaction();
     List<Sha256Hash> getPartialMerkleTree(int transactionIndex);
+    Boolean hasTransaction(Transaction transaction);
 
     @Override
     ImmutableBlock asConst();

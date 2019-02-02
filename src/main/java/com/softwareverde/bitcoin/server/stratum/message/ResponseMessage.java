@@ -2,10 +2,15 @@ package com.softwareverde.bitcoin.server.stratum.message;
 
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 
-public class ResponseMessage {
+public class ResponseMessage implements Jsonable {
     public static ResponseMessage parse(final String input) {
         final Json json = Json.parse(input);
+        return ResponseMessage.parse(json);
+    }
+
+    public static ResponseMessage parse(final Json json) {
         if (json.isArray()) { return null; }
         if (! json.hasKey("result")) { return null; }
 
@@ -62,7 +67,7 @@ public class ResponseMessage {
     }
 
     @Override
-    public String toString() {
+    public Json toJson() {
         final Json message = new Json(false);
         message.put("id", _id);
 
@@ -87,6 +92,12 @@ public class ResponseMessage {
             message.put("error", errors);
         }
 
-        return message.toString();
+        return message;
+    }
+
+    @Override
+    public String toString() {
+        final Json json = this.toJson();
+        return json.toString();
     }
 }

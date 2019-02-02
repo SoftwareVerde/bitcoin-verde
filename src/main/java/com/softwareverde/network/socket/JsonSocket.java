@@ -19,8 +19,8 @@ public class JsonSocket extends Socket {
                     final String string = _bufferedReader.readLine();
                     if (string == null) { break; }
 
-                    final Json json = Json.parse(string);
-                    if (json != null) {
+                    if (Json.isJson(string)) {
+                        final Json json = Json.parse(string);
                         final JsonProtocolMessage message = new JsonProtocolMessage(json);
                         if (_callback != null) {
                             _callback.onNewMessage(message);

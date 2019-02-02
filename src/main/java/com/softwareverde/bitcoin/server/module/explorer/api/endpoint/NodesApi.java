@@ -2,17 +2,16 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
 import com.softwareverde.servlet.response.Response;
-import com.softwareverde.socket.SocketConnection;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class NodesApi extends ExplorerApiEndpoint {
-    public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
-
     private static class NodesResult extends ApiResult {
         private Json _nodes = new Json(true);
 
@@ -28,8 +27,8 @@ public class NodesApi extends ExplorerApiEndpoint {
         }
     }
 
-    public NodesApi(final Configuration.ExplorerProperties explorerProperties) {
-        super(explorerProperties);
+    public NodesApi(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+        super(explorerProperties, threadPool);
     }
 
     @Override
@@ -40,8 +39,8 @@ public class NodesApi extends ExplorerApiEndpoint {
         {   // LIST NODES
             // Requires GET:
             // Requires POST:
-            try (final SocketConnection socketConnection = _newRpcConnection()) {
-                if (socketConnection == null) {
+            try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection()) {
+                if (nodeJsonRpcConnection == null) {
                     final NodesResult result = new NodesResult();
                     result.setWasSuccess(false);
                     return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
@@ -49,22 +48,13 @@ public class NodesApi extends ExplorerApiEndpoint {
 
                 final Json nodesJson;
                 {
-                    final Json rpcRequestJson = new Json();
-                    {
-                        rpcRequestJson.put("method", "GET");
-                        rpcRequestJson.put("query", "NODES");
-                    }
-
-                    socketConnection.write(rpcRequestJson.toString());
-
-                    final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                    if (rpcResponseString == null) {
+                    final Json rpcResponseJson = nodeJsonRpcConnection.getNodes();
+                    if (rpcResponseJson == null) {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
-                    final Json rpcResponseJson = Json.parse(rpcResponseString);
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
-                        final String errorMessage = rpcRequestJson.getString("errorMessage");
+                        final String errorMessage = rpcResponseJson.getString("errorMessage");
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 

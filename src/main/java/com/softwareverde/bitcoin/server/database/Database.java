@@ -14,6 +14,15 @@ import com.softwareverde.database.mysql.properties.Credentials;
 import com.softwareverde.io.Logger;
 
 public class Database {
+    public static MysqlDatabase newInstance(final Configuration configuration) {
+        return newInstance(configuration, new Runnable() {
+            @Override
+            public void run() {
+                // Nothing.
+            }
+        });
+    }
+
     public static MysqlDatabase newInstance(final Configuration configuration, final Runnable onShutdownCallback) {
         final Configuration.DatabaseProperties databaseProperties = configuration.getDatabaseProperties();
         final Configuration.ServerProperties serverProperties = configuration.getServerProperties();

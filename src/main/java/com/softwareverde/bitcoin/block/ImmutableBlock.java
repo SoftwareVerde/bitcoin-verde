@@ -13,6 +13,7 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const {
     protected final List<Transaction> _transactions;
@@ -60,6 +61,17 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
         final Transaction transaction = _transactions.get(0);
         return new ImmutableCoinbaseTransaction(transaction);
+    }
+
+    @Override
+    public Boolean hasTransaction(final Transaction transaction) {
+        for (final Transaction existingTransaction : _transactions) {
+            if (Util.areEqual(transaction, existingTransaction)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     @Override

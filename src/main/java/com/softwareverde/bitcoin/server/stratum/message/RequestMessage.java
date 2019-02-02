@@ -1,8 +1,9 @@
 package com.softwareverde.bitcoin.server.stratum.message;
 
 import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 
-public class RequestMessage {
+public class RequestMessage implements Jsonable {
     private static int _nextId = 1;
     private static final Object _mutex = new Object();
 
@@ -55,6 +56,10 @@ public class RequestMessage {
 
     public static RequestMessage parse(final String input) {
         final Json json = Json.parse(input);
+        return RequestMessage.parse(json);
+    }
+
+    public static RequestMessage parse(final Json json) {
         if (json.isArray()) { return null; }
         if (! json.hasKey("method")) { return null; }
 
@@ -62,10 +67,7 @@ public class RequestMessage {
         final String command = json.getString("method");
 
         final RequestMessage requestMessage = new RequestMessage(id, command);
-
-        {
-            requestMessage._parameters = json.get("params");
-        }
+        requestMessage._parameters = json.get("params");
 
         return requestMessage;
     }
@@ -112,13 +114,19 @@ public class RequestMessage {
         return serverCommand.getValue().equals(_command);
     }
 
+
     @Override
-    public String toString() {
+    public Json toJson() {
         final Json message = new Json();
         message.put("id", _id);
         message.put("method", _command);
         message.put("params", _parameters);
+        return message;
+    }
 
-        return message.toString();
+    @Override
+    public String toString() {
+        final Json json = this.toJson();
+        return json.toString();
     }
 }

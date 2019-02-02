@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
-import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.servlet.WebSocketServlet;
 import com.softwareverde.servlet.request.WebSocketRequest;
@@ -12,7 +12,6 @@ import com.softwareverde.servlet.response.WebSocketResponse;
 import com.softwareverde.servlet.socket.WebSocket;
 import com.softwareverde.util.RotatingQueue;
 
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -28,6 +27,18 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected final Object _socketConnectionMutex = new Object();
     protected Boolean _isShuttingDown = false;
     protected JsonSocket _socketConnection = null;
+
+    protected final NodeJsonRpcConnection.AnnouncementHookCallback _announcementHookCallback = new NodeJsonRpcConnection.AnnouncementHookCallback() {
+        @Override
+        public void onNewBlockHeader(final Json blockJson) {
+            _onNewBlock(blockJson);
+        }
+
+        @Override
+        public void onNewTransaction(final Json transactionJson) {
+            _onNewTransaction(transactionJson);
+        }
+    };
 
     protected Json _wrapObject(final String objectType, final Json object) {
         final Json json = new Json();
@@ -59,52 +70,10 @@ public class AnnouncementsApi implements WebSocketServlet {
             _socketConnection = null;
 
             try {
-                final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
-                if (socket.isConnected()) {
-                    final JsonSocket jsonSocket = new JsonSocket(socket, _threadPool);
-
-                    jsonSocket.setMessageReceivedCallback(new Runnable() {
-                        @Override
-                        public void run() {
-                            final JsonProtocolMessage message = jsonSocket.popMessage();
-                            final Json json = message.getMessage();
-
-                            final String objectType = json.getString("objectType");
-                            final Json object = json.get("object");
-                            switch (objectType) {
-                                case "BLOCK": {
-                                    _onNewBlock(object);
-                                } break;
-
-                                case "TRANSACTION": {
-                                    _onNewTransaction(object);
-                                } break;
-
-                                default: { } break;
-                            }
-                        }
-                    });
-
-                    final Json registerHookRpcJson = new Json();
-                    {
-                        registerHookRpcJson.put("method", "POST");
-                        registerHookRpcJson.put("query", "ADD_HOOK");
-
-                        final Json eventTypesJson = new Json(true);
-                        eventTypesJson.add("NEW_BLOCK");
-                        eventTypesJson.add("NEW_TRANSACTION");
-
-                        final Json parametersJson = new Json();
-                        parametersJson.put("events", eventTypesJson);
-
-                        registerHookRpcJson.put("parameters", parametersJson);
-                    }
-
-                    final JsonProtocolMessage jsonProtocolMessage = new JsonProtocolMessage(registerHookRpcJson);
-                    jsonSocket.write(jsonProtocolMessage);
-                    _socketConnection = jsonSocket;
-
-                    jsonSocket.beginListening();
+                final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(bitcoinRpcUrl, bitcoinRpcPort, _threadPool);
+                final Boolean wasSuccessful = nodeJsonRpcConnection.upgradeToAnnouncementHook(_announcementHookCallback);
+                if (wasSuccessful) {
+                    _socketConnection = nodeJsonRpcConnection.getJsonSocket();
                 }
             }
             catch (final Exception exception) {

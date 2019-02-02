@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -415,6 +416,10 @@ public class BlockValidatorTests extends IntegrationTest {
         final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
+
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
+        final Difficulty calculatedNextDifficulty = difficultyCalculator.calculateRequiredDifficulty();
+        Assert.assertEquals(expectedDifficulty, calculatedNextDifficulty);
 
         final BlockId blockId;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {

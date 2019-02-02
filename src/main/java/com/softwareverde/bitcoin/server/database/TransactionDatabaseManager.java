@@ -670,7 +670,7 @@ public class TransactionDatabaseManager {
         return true;
     }
 
-    public void addToUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+    public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         _insertIntoUnconfirmedTransactions(transactionId);
     }
 

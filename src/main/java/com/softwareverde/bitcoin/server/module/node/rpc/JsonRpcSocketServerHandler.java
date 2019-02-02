@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -70,6 +71,16 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<BlockchainMetadata> getBlockchainMetadata();
     }
 
+    public static class TransactionWithFee {
+        public final Transaction transaction;
+        public final Long transactionFee;
+
+        public TransactionWithFee(final Transaction transaction, final Long transactionFee) {
+            this.transaction = transaction.asConst();
+            this.transactionFee = transactionFee;
+        }
+    }
+
     public interface DataHandler {
         Long getBlockHeaderHeight();
         Long getBlockHeight();
@@ -86,6 +97,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<BlockHeader> getBlockHeaders(Long nullableBlockHeight, Integer maxBlockCount);
 
         Transaction getTransaction(Sha256Hash transactionHash);
+
+        Difficulty getDifficulty();
+        List<Transaction> getUnconfirmedTransactions();
+        List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
+
+        Long getBlockReward();
     }
 
     public interface MetadataHandler {
@@ -97,6 +114,20 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         public Container<Float> averageBlockHeadersPerSecond;
         public Container<Float> averageBlocksPerSecond;
         public Container<Float> averageTransactionsPerSecond;
+    }
+
+    protected static abstract class LazyProtocolMessage {
+        private ProtocolMessage _cachedProtocolMessage;
+
+        protected abstract ProtocolMessage _createProtocolMessage();
+
+        public ProtocolMessage getProtocolMessage() {
+            if (_cachedProtocolMessage == null) {
+                _cachedProtocolMessage = _createProtocolMessage();
+            }
+
+            return _cachedProtocolMessage;
+        }
     }
 
     protected final ThreadPool _threadPool;
@@ -120,7 +151,17 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
     }
 
-    protected final HashMap<HookEvent, MutableList<JsonSocket>> _eventHooks = new HashMap<HookEvent, MutableList<JsonSocket>>();
+    protected static class HookListener {
+        public final JsonSocket socket;
+        public final Boolean rawFormat;
+
+        public HookListener(final JsonSocket socket, final Boolean rawFormat) {
+            this.socket = socket;
+            this.rawFormat = rawFormat;
+        }
+    }
+
+    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<HookEvent, MutableList<HookListener>>();
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
     protected ShutdownHandler _shutdownHandler = null;
@@ -139,7 +180,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         _threadPool = threadPool;
     }
 
-    // Requires GET: [blockHeight], [maxBlockCount=10]
+    // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
     protected void _getBlockHeaders(final Json parameters, final Json response) {
 
         final Long startingBlockHeight;
@@ -162,6 +203,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             maxBlockCount = 10;
         }
 
+        final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
+
         final Json blockHeadersJson = new Json(true);
 
         final DataHandler dataHandler = _dataHandler;
@@ -174,15 +217,22 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             }
 
             for (final BlockHeader blockHeader : blockHeaders) {
-                final Json blockJson = blockHeader.toJson();
-
-                final MetadataHandler metadataHandler = _metadataHandler;
-                if (metadataHandler != null) {
-                    final Sha256Hash blockHash = blockHeader.getHash();
-                    metadataHandler.applyMetadataToBlockHeader(blockHash, blockJson);
+                if (shouldReturnRawBlockData) {
+                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                    final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
+                    blockHeadersJson.add(blockData);
                 }
+                else {
+                    final Json blockJson = blockHeader.toJson();
 
-                blockHeadersJson.add(blockJson);
+                    final MetadataHandler metadataHandler = _metadataHandler;
+                    if (metadataHandler != null) {
+                        final Sha256Hash blockHash = blockHeader.getHash();
+                        metadataHandler.applyMetadataToBlockHeader(blockHash, blockJson);
+                    }
+
+                    blockHeadersJson.add(blockJson);
+                }
             }
         }
 
@@ -385,6 +435,77 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         response.put("blockHeight", blockHeight);
         response.put("blockHeaderHeight", blockHeaderHeight);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET:
+    protected void _calculateNextDifficulty(final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Difficulty difficulty = dataHandler.getDifficulty();
+
+        response.put("difficulty", difficulty.encode());
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET:
+    protected void _calculateNextBlockReward(final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Long satoshis = dataHandler.getBlockReward();
+
+        response.put("blockReward", satoshis);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires GET: [rawFormat=0]
+    protected void _getUnconfirmedTransactions(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        final Boolean shouldReturnRawTransactionData = parameters.getBoolean("rawFormat");
+
+        final Json unconfirmedTransactionsJson = new Json(true);
+
+        if (shouldReturnRawTransactionData) {
+            final List<TransactionWithFee> transactions = dataHandler.getUnconfirmedTransactionsWithFees();
+            for (final TransactionWithFee unconfirmedTransaction : transactions) {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final ByteArray transactionData = transactionDeflater.toBytes(unconfirmedTransaction.transaction);
+
+                final Json unconfirmedTransactionJson = new Json();
+                unconfirmedTransactionJson.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
+                unconfirmedTransactionJson.put("transactionFee", unconfirmedTransaction.transactionFee);
+
+                unconfirmedTransactionsJson.add(unconfirmedTransactionJson);
+            }
+        }
+        else {
+            final List<Transaction> transactions = dataHandler.getUnconfirmedTransactions();
+            for (final Transaction transaction : transactions) {
+                final Json transactionJson = transaction.toJson();
+
+                final MetadataHandler metadataHandler = _metadataHandler;
+                if (metadataHandler != null) {
+                    metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+                }
+
+                unconfirmedTransactionsJson.add(transactionJson);
+            }
+        }
+
+        response.put("unconfirmedTransactions", unconfirmedTransactionsJson);
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
@@ -679,14 +800,16 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             return false;
         }
 
+        final Boolean shouldReturnRawData = parameters.getBoolean("rawFormat");
+
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
-                if (!_eventHooks.containsKey(hookEvent)) {
-                    _eventHooks.put(hookEvent, new MutableList<JsonSocket>());
+                if (! _eventHooks.containsKey(hookEvent)) {
+                    _eventHooks.put(hookEvent, new MutableList<HookListener>());
                 }
 
-                final MutableList<JsonSocket> nodeIpAddresses = _eventHooks.get(hookEvent);
-                nodeIpAddresses.add(connection);
+                final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
+                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData));
             }
         }
 
@@ -785,29 +908,53 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         // Ensure the provided block is only the header by copying it...
         final BlockHeader blockHeader = new ImmutableBlockHeader(block);
 
-        final Json blockJson = blockHeader.toJson();
-        final MetadataHandler metadataHandler = _metadataHandler;
-        if (metadataHandler != null) {
-            _metadataHandler.applyMetadataToBlockHeader(block.getHash(), blockJson);
-        }
+        final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                final Json blockJson = blockHeader.toJson();
+                final MetadataHandler metadataHandler = _metadataHandler;
+                if (metadataHandler != null) {
+                    _metadataHandler.applyMetadataToBlockHeader(block.getHash(), blockJson);
+                }
 
-        final Json json = new Json();
-        json.put("objectType", "BLOCK");
-        json.put("object", blockJson);
+                final Json json = new Json();
+                json.put("objectType", "BLOCK");
+                json.put("object", blockJson);
 
-        final ProtocolMessage protocolMessage = new JsonProtocolMessage(json);
+                return new JsonProtocolMessage(json);
+            }
+        };
+
+        final LazyProtocolMessage lazyRawDataProtocolMessage = new LazyProtocolMessage() {
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
+
+                final Json objectJson = new Json();
+                objectJson.put("data", blockData);
+
+                final Json json = new Json();
+                json.put("objectType", "BLOCK");
+                json.put("object", blockData);
+
+                return new JsonProtocolMessage(json);
+            }
+        };
 
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
                 synchronized (_eventHooks) {
-                    final MutableList<JsonSocket> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
+                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_BLOCK);
                     if (sockets == null) { return; }
 
-                    final Iterator<JsonSocket> iterator = sockets.mutableIterator();
+                    final Iterator<HookListener> iterator = sockets.mutableIterator();
                     while (iterator.hasNext()) {
-                        final JsonSocket jsonSocket = iterator.next();
+                        final HookListener hookListener = iterator.next();
+                        final JsonSocket jsonSocket = hookListener.socket;
 
+                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawDataProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
@@ -821,29 +968,50 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     }
 
     public void onNewTransaction(final Transaction transaction) {
-        final Json transactionJson = transaction.toJson();
-        final MetadataHandler metadataHandler = _metadataHandler;
-        if (metadataHandler != null) {
-            _metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
-        }
+        final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                final Json transactionJson = transaction.toJson();
+                final MetadataHandler metadataHandler = _metadataHandler;
+                if (metadataHandler != null) {
+                    _metadataHandler.applyMetadataToTransaction(transaction, transactionJson);
+                }
 
-        final Json json = new Json();
-        json.put("objectType", "TRANSACTION");
-        json.put("object", transactionJson);
+                final Json json = new Json();
+                json.put("objectType", "TRANSACTION");
+                json.put("object", transactionJson);
 
-        final ProtocolMessage protocolMessage = new JsonProtocolMessage(json);
+                return new JsonProtocolMessage(json);
+            }
+        };
+
+        final LazyProtocolMessage lazyRawProtocolMessage = new LazyProtocolMessage() {
+            @Override
+            protected ProtocolMessage _createProtocolMessage() {
+                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
+
+                final Json json = new Json();
+                json.put("objectType", "TRANSACTION");
+                json.put("object", transactionBytes);
+
+                return new JsonProtocolMessage(json);
+            }
+        };
 
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
                 synchronized (_eventHooks) {
-                    final MutableList<JsonSocket> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
+                    final MutableList<HookListener> sockets = _eventHooks.get(HookEvent.NEW_TRANSACTION);
                     if (sockets == null) { return; }
 
-                    final Iterator<JsonSocket> iterator = sockets.mutableIterator();
+                    final Iterator<HookListener> iterator = sockets.mutableIterator();
                     while (iterator.hasNext()) {
-                        final JsonSocket jsonSocket = iterator.next();
+                        final HookListener hookListener = iterator.next();
+                        final JsonSocket jsonSocket = hookListener.socket;
 
+                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
@@ -897,6 +1065,19 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                                 _queryBlockHeight(response);
                             } break;
 
+                            case "DIFFICULTY": {
+                                _calculateNextDifficulty(response);
+                            } break;
+
+                            case "BLOCK_REWARD": {
+                                _calculateNextBlockReward(response);
+                            } break;
+
+                            case "MEMPOOL":
+                            case "UNCONFIRMED_TRANSACTIONS": {
+                                _getUnconfirmedTransactions(parameters, response);
+                            } break;
+
                             case "STATUS": {
                                 _queryStatus(response);
                             } break;
@@ -918,7 +1099,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             default: {
-                                response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method + "/" + query);
+                                response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
                         }
                     } break;
@@ -947,13 +1128,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             } break;
 
                             default: {
-                                response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method + "/" + query);
+                                response.put(ERROR_MESSAGE_KEY, "Invalid " + method + " query: " + query);
                             } break;
                         }
                     } break;
 
                     default: {
-                        response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method.toUpperCase() + "/" + query.toUpperCase());
+                        response.put(ERROR_MESSAGE_KEY, "Invalid command: " + method.toUpperCase());
                     } break;
                 }
 

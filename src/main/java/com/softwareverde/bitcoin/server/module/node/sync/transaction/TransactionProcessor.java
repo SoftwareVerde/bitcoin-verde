@@ -143,7 +143,7 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
-                    transactionDatabaseManager.addToUnconfirmedTransaction(transactionId);
+                    transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
                     TransactionUtil.commitTransaction(databaseConnection);
 
                     final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);

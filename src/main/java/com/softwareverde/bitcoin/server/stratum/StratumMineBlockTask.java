@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.server.stratum;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.CanonicalMutableBlock;
 import com.softwareverde.bitcoin.block.ImmutableBlock;
-import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
 import com.softwareverde.bitcoin.bytearray.FragmentedBytes;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
@@ -28,6 +27,8 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
 public class StratumMineBlockTask {
     final static Object _mutex = new Object();
     private static Long _nextId = 1L;
@@ -41,11 +42,14 @@ public class StratumMineBlockTask {
 
     final ByteArray _id;
 
-    protected final MutableBlock _prototypeBlock = new MutableBlock();
+    protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
     protected List<String> _merkleTreeBranches; // Little-endian merkle tree (intermediary) branch hashes...
     protected String _extraNonce1;
     protected String _coinbaseTransactionHead;
     protected String _coinbaseTransactionTail;
+
+    protected final ReentrantReadWriteLock.ReadLock _prototypeBlockReadLock;
+    protected final ReentrantReadWriteLock.WriteLock _prototypeBlockWriteLock;
 
     protected static MerkleRoot _calculateMerkleRoot(final Transaction coinbaseTransaction, final List<String> merkleTreeBranches) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -69,21 +73,6 @@ public class StratumMineBlockTask {
 
     protected static String _createByteString(final char a, final char b) {
         return String.valueOf(a) + b;
-    }
-
-    protected static String _reverseEndian(final String input) {
-        if (input.length() % 2 != 0) {
-            Logger.log("reverseEndian: Invalid Hex String: "+ input);
-            return null;
-        }
-
-        final StringBuilder stringBuilder = new StringBuilder();
-        for (int i=0; i<input.length()/2; ++i) {
-            final int index = (input.length() - (i * 2) - 2);
-            final String byteString = _createByteString(input.charAt(index), input.charAt(index + 1));
-            stringBuilder.append(byteString);
-        }
-        return stringBuilder.toString();
     }
 
     protected static String _swabBytes(final String input) {
@@ -133,26 +122,33 @@ public class StratumMineBlockTask {
         return blockHeader;
     }
 
+    // Creates the partialMerkleTree Json as little-endian hashes...
+    protected void _rebuildMerkleTreeBranches() {
+        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+        final List<Sha256Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
+        for (final Sha256Hash hash : partialMerkleTree) {
+            final String hashString = hash.toString();
+            listBuilder.add(BitcoinUtil.reverseEndianString(hashString));
+        }
+        _merkleTreeBranches = listBuilder.build();
+    }
+
     protected RequestMessage _createRequest(final Long timestamp) {
         final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.NOTIFY.getValue());
 
         final Json parametersJson = new Json(true);
         parametersJson.add(HexUtil.toHexString(_id.getBytes()));
-        parametersJson.add(_swabBytes(_reverseEndian(HexUtil.toHexString(_prototypeBlock.getPreviousBlockHash().getBytes()))));
+        parametersJson.add(_swabBytes(BitcoinUtil.reverseEndianString(HexUtil.toHexString(_prototypeBlock.getPreviousBlockHash().getBytes()))));
         parametersJson.add(_coinbaseTransactionHead);
         parametersJson.add(_coinbaseTransactionTail);
 
         final Json partialMerkleTreeJson = new Json(true);
-        { // Create the partialMerkleTree Json as little-endian hashes...
-            final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
-            final List<Sha256Hash> partialMerkleTree = _prototypeBlock.getPartialMerkleTree(0);
-            for (final Sha256Hash hash : partialMerkleTree) {
-                final String hashString = hash.toString();
-                partialMerkleTreeJson.add(_reverseEndian(hashString));
-                listBuilder.add(_reverseEndian(hashString));
-            }
-            _merkleTreeBranches = listBuilder.build();
+
+        _rebuildMerkleTreeBranches();
+        for (final String hashString : _merkleTreeBranches) {
+            partialMerkleTreeJson.add(hashString);
         }
+
         parametersJson.add(partialMerkleTreeJson);
 
         parametersJson.add(HexUtil.toHexString(ByteUtil.integerToBytes(_prototypeBlock.getVersion())));
@@ -168,24 +164,57 @@ public class StratumMineBlockTask {
     public StratumMineBlockTask() {
         _id = MutableByteArray.wrap(ByteUtil.integerToBytes(getNextId()));
         _prototypeBlock.addTransaction(new MutableTransaction());
+
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        _prototypeBlockReadLock = readWriteLock.readLock();
+        _prototypeBlockWriteLock = readWriteLock.writeLock();
     }
 
     public void setBlockVersion(final String stratumBlockVersion) {
-        final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
-        _prototypeBlock.setVersion(blockVersion);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
+            _prototypeBlock.setVersion(blockVersion);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setBlockVersion(final Long blockVersion) {
-        _prototypeBlock.setVersion(blockVersion);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _prototypeBlock.setVersion(blockVersion);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
-        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_reverseEndian(_swabBytes(stratumPreviousBlockHash)));
-        _prototypeBlock.setPreviousBlockHash(previousBlockHash);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(_swabBytes(stratumPreviousBlockHash)));
+            _prototypeBlock.setPreviousBlockHash(previousBlockHash);
+
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
-        _prototypeBlock.setPreviousBlockHash(previousBlockHash);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _prototypeBlock.setPreviousBlockHash(previousBlockHash);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setExtraNonce(final String stratumExtraNonce) {
@@ -197,112 +226,203 @@ public class StratumMineBlockTask {
     }
 
     public void setDifficulty(final String stratumDifficulty) {
-        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(stratumDifficulty));
-        _prototypeBlock.setDifficulty(difficulty);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(stratumDifficulty));
+            _prototypeBlock.setDifficulty(difficulty);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setDifficulty(final Difficulty difficulty) {
-        _prototypeBlock.setDifficulty(difficulty);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _prototypeBlock.setDifficulty(difficulty);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     // ViaBTC provides the merkleTreeBranches as little-endian byte strings.
     public void setMerkleTreeBranches(final List<String> merkleTreeBranches) {
-        _merkleTreeBranches = merkleTreeBranches.asConst();
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _merkleTreeBranches = merkleTreeBranches.asConst();
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void addTransaction(final Transaction transaction) {
-        _prototypeBlock.addTransaction(transaction.asConst());
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            final Transaction constTransaction = transaction.asConst();
+            _prototypeBlock.addTransaction(constTransaction);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void clearTransactions() {
-        final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
-        _prototypeBlock.clearTransactions();
-        _prototypeBlock.addTransaction(coinbaseTransaction);
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            final Transaction coinbaseTransaction = _prototypeBlock.getCoinbaseTransaction();
+            _prototypeBlock.clearTransactions();
+            _prototypeBlock.addTransaction(coinbaseTransaction);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setCoinbaseTransaction(final String stratumCoinbaseTransactionHead, final String stratumCoinbaseTransactionTail) {
-        _coinbaseTransactionHead = stratumCoinbaseTransactionHead;
-        _coinbaseTransactionTail = stratumCoinbaseTransactionTail;
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _coinbaseTransactionHead = stratumCoinbaseTransactionHead;
+            _coinbaseTransactionTail = stratumCoinbaseTransactionTail;
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public void setCoinbaseTransaction(final Transaction coinbaseTransaction, final Integer totalExtraNonceByteCount) {
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final FragmentedBytes coinbaseTransactionParts;
-        coinbaseTransactionParts = transactionDeflater.fragmentTransaction(coinbaseTransaction);
+        try {
+            _prototypeBlockWriteLock.lock();
 
-        // NOTE: _coinbaseTransactionHead contains the unlocking script. This script contains two items:
-        //  1. The Coinbase Message (ex: "/Mined via Bitcoin-Verde v0.0.1/")
-        //  2. The extraNonce (which itself is composed of two components: extraNonce1 and extraNonce2...)
-        // extraNonce1 is usually defined by the Mining Pool, not the Miner. The Miner is sent (by the Pool) the number
-        // of bytes it should use when generating the extraNonce2 during the Pool's response to the Miner's SUBSCRIBE message.
-        // Despite extraNonce just being random data, it still needs to be pushed like regular data within the unlocking script.
-        //  Thus, the unlocking script is generated by pushing N bytes (0x00), where N is the byteCount of the extraNonce
-        //  (extraNonceByteCount = extraNonce1ByteCount + extraNonce2ByteCount). This results in appropriate operation code
-        //  being prepended to the script.  These 0x00 bytes are omitted when stored within _coinbaseTransactionHead,
-        //  otherwise, the Miner would appending the extraNonce after the 0x00 bytes instead of replacing them...
-        //
-        //  Therefore, assuming N is 8, the 2nd part of the unlocking script would originally look something like:
-        //
-        //      OPCODE  | EXTRA NONCE 1         | EXTRA NONCE 2
-        //      -----------------------------------------------------
-        //      0x08    | 0x00 0x00 0x00 0x00   | 0x00 0x00 0x00 0x00
-        //
-        //  Then, stored within _coinbaseTransactionHead (to be sent to the Miner) simply as:
-        //      0x08    |                       |
-        //
+            final TransactionDeflater transactionDeflater = new TransactionDeflater();
+            final FragmentedBytes coinbaseTransactionParts;
+            coinbaseTransactionParts = transactionDeflater.fragmentTransaction(coinbaseTransaction);
 
-        final Integer headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - totalExtraNonceByteCount);
-        _coinbaseTransactionHead = HexUtil.toHexString(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonces));
-        _coinbaseTransactionTail = HexUtil.toHexString(coinbaseTransactionParts.tailBytes);
+            // NOTE: _coinbaseTransactionHead contains the unlocking script. This script contains two items:
+            //  1. The Coinbase Message (ex: "/Mined via Bitcoin-Verde v0.0.1/")
+            //  2. The extraNonce (which itself is composed of two components: extraNonce1 and extraNonce2...)
+            // extraNonce1 is usually defined by the Mining Pool, not the Miner. The Miner is sent (by the Pool) the number
+            // of bytes it should use when generating the extraNonce2 during the Pool's response to the Miner's SUBSCRIBE message.
+            // Despite extraNonce just being random data, it still needs to be pushed like regular data within the unlocking script.
+            //  Thus, the unlocking script is generated by pushing N bytes (0x00), where N is the byteCount of the extraNonce
+            //  (extraNonceByteCount = extraNonce1ByteCount + extraNonce2ByteCount). This results in appropriate operation code
+            //  being prepended to the script.  These 0x00 bytes are omitted when stored within _coinbaseTransactionHead,
+            //  otherwise, the Miner would appending the extraNonce after the 0x00 bytes instead of replacing them...
+            //
+            //  Therefore, assuming N is 8, the 2nd part of the unlocking script would originally look something like:
+            //
+            //      OPCODE  | EXTRA NONCE 1         | EXTRA NONCE 2
+            //      -----------------------------------------------------
+            //      0x08    | 0x00 0x00 0x00 0x00   | 0x00 0x00 0x00 0x00
+            //
+            //  Then, stored within _coinbaseTransactionHead (to be sent to the Miner) simply as:
+            //      0x08    |                       |
+            //
 
-        _prototypeBlock.replaceTransaction(0, coinbaseTransaction);
+            final Integer headByteCountExcludingExtraNonces = (coinbaseTransactionParts.headBytes.length - totalExtraNonceByteCount);
+            _coinbaseTransactionHead = HexUtil.toHexString(ByteUtil.copyBytes(coinbaseTransactionParts.headBytes, 0, headByteCountExcludingExtraNonces));
+            _coinbaseTransactionTail = HexUtil.toHexString(coinbaseTransactionParts.tailBytes);
+
+            _prototypeBlock.replaceTransaction(0, coinbaseTransaction);
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
     }
 
     public BlockHeader assembleBlockHeader(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
-        final MutableBlockHeader blockHeader = new MutableBlockHeader(_prototypeBlock);
+        try {
+            _prototypeBlockReadLock.lock();
 
-        final TransactionInflater transactionInflater = new TransactionInflater();
+            final MutableBlockHeader blockHeader = new MutableBlockHeader(_prototypeBlock);
 
-        final MerkleRoot merkleRoot;
-        {
-            final Transaction coinbaseTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
-                _coinbaseTransactionHead +
-                _extraNonce1 +
-                stratumExtraNonce2 +
-                _coinbaseTransactionTail
-            ));
+            final TransactionInflater transactionInflater = new TransactionInflater();
 
-            merkleRoot = _calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
+            final MerkleRoot merkleRoot;
+            {
+                final Transaction coinbaseTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
+                    _coinbaseTransactionHead +
+                    _extraNonce1 +
+                    stratumExtraNonce2 +
+                    _coinbaseTransactionTail
+                ));
+
+                _rebuildMerkleTreeBranches();
+                merkleRoot = _calculateMerkleRoot(coinbaseTransaction, _merkleTreeBranches);
+            }
+            blockHeader.setMerkleRoot(merkleRoot);
+
+            blockHeader.setNonce(ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumNonce)));
+
+            final Long timestamp = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumTimestamp));
+            blockHeader.setTimestamp(timestamp);
+
+//            int i = 0;
+//            for (final Transaction transaction : _prototypeBlock.getTransactions()) {
+//                Logger.log(i + ": " + transaction.getHash());
+//                i += 1;
+//            }
+
+            return blockHeader;
         }
-        blockHeader.setMerkleRoot(merkleRoot);
-
-        blockHeader.setNonce(ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumNonce)));
-
-        final Long timestamp = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumTimestamp));
-        blockHeader.setTimestamp(timestamp);
-
-        return blockHeader;
+        finally {
+            _prototypeBlockReadLock.unlock();
+        }
     }
 
     public Block assembleBlock(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
-        final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(stratumExtraNonce2);
-        final BlockHeader blockHeader = _assembleBlockHeader(stratumNonce, coinbaseTransaction, stratumTimestamp);
-        final List<Transaction> transactions;
-        {
-            final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
-            final MutableList<Transaction> mutableList = new MutableList<Transaction>(prototypeBlockTransaction);
-            mutableList.set(0, coinbaseTransaction);
-            transactions = mutableList;
+        try {
+            _prototypeBlockReadLock.lock();
+
+            final Transaction coinbaseTransaction = _assembleCoinbaseTransaction(stratumExtraNonce2);
+
+            _rebuildMerkleTreeBranches();
+            final BlockHeader blockHeader = _assembleBlockHeader(stratumNonce, coinbaseTransaction, stratumTimestamp);
+            final List<Transaction> transactions;
+            {
+                final List<Transaction> prototypeBlockTransaction = _prototypeBlock.getTransactions();
+                final MutableList<Transaction> mutableList = new MutableList<Transaction>(prototypeBlockTransaction);
+                mutableList.set(0, coinbaseTransaction);
+                transactions = mutableList;
+            }
+            return new ImmutableBlock(blockHeader, transactions);
         }
-        return new ImmutableBlock(blockHeader, transactions);
+        finally {
+            _prototypeBlockReadLock.unlock();
+        }
     }
 
     public RequestMessage createRequest() {
-        final Long timestamp = (System.currentTimeMillis() / 1000L);
-        return _createRequest(timestamp);
+        try {
+            _prototypeBlockReadLock.lock();
+
+            final Long timestamp = (System.currentTimeMillis() / 1000L);
+            return _createRequest(timestamp);
+        }
+        finally {
+            _prototypeBlockReadLock.unlock();
+        }
     }
 
     public RequestMessage createRequest(final Long timestamp) {
-        return _createRequest(timestamp);
+        try {
+            _prototypeBlockReadLock.lock();
+
+            return _createRequest(timestamp);
+        }
+        finally {
+            _prototypeBlockReadLock.unlock();
+        }
+    }
+
+    public String getExtraNonce() {
+        return _extraNonce1;
     }
 }
