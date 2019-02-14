@@ -46,6 +46,8 @@ public class StratumModule {
         stratumModule.loop();
     }
 
+    protected static final boolean PROXY_VIABTC = false;
+
     protected final Configuration _configuration;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool = new MainThreadPool(256, 60000L);
@@ -212,7 +214,7 @@ public class StratumModule {
         final RequestMessage mineBlockMessage = new RequestMessage(RequestMessage.ServerCommand.SET_DIFFICULTY.getValue());
 
         final Json parametersJson = new Json(true);
-        parametersJson.add(4096); // Difficulty::getDifficultyRatio
+        parametersJson.add(2048); // Difficulty::getDifficultyRatio
         mineBlockMessage.setParameters(parametersJson);
 
         Logger.log("Sent: "+ mineBlockMessage.toString());
@@ -287,8 +289,11 @@ public class StratumModule {
             final Block block = _stratumMineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             Logger.log(blockDeflater.toBytes(block));
 
-            socketConnection.close();
-            _stratumServerSocket.stop();
+            final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
+            final Json submitBlockResponse = nodeRpcConnection.submitBlock(block);
+
+            _stratumMineBlockTask = _createNewMiningTask(_privateKey);
+            _broadcastNewTask();
         }
 
         Logger.log("Sent: "+ blockAcceptedMessage.toString());
@@ -314,69 +319,72 @@ public class StratumModule {
                 Logger.log("Node connected: " + socketConnection.getIp() + ":" + socketConnection.getPort());
                 _connections.add(socketConnection);
 
-                socketConnection.setMessageReceivedCallback(new Runnable() {
-                    @Override
-                    public void run() {
-                        final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
-                        final Json message = jsonProtocolMessage.getMessage();
+                if (PROXY_VIABTC) {
+                    try {
+                        final JsonSocket viaBtcSocket = new JsonSocket(new Socket("bch.viabtc.com", 3333), _threadPool);
 
-                        { // Handle Request Messages...
-                            final RequestMessage requestMessage = RequestMessage.parse(message);
-                            if (requestMessage != null) {
-                                Logger.log("Received: "+ requestMessage);
+                        viaBtcSocket.setMessageReceivedCallback(new Runnable() {
+                            @Override
+                            public void run() {
+                                final JsonProtocolMessage jsonProtocolMessage = viaBtcSocket.popMessage();
+                                final Json message = jsonProtocolMessage.getMessage();
+                                Logger.log("VIABTC SENT: " + message);
 
-                                if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBSCRIBE)) {
-                                    _handleSubscribeMessage(requestMessage, socketConnection);
-                                }
-                                else if (requestMessage.isCommand(RequestMessage.ClientCommand.AUTHORIZE)) {
-                                    _handleAuthorizeMessage(requestMessage, socketConnection);
-                                }
-                                else if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBMIT)) {
-                                    _handleSubmitMessage(requestMessage, socketConnection);
-                                }
-                                else {
-                                    Logger.log("Unrecognized Message: " + requestMessage.getCommand());
+                                socketConnection.write(jsonProtocolMessage);
+                            }
+                        });
+
+                        socketConnection.setMessageReceivedCallback(new Runnable() {
+                            @Override
+                            public void run() {
+                                final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
+                                final Json message = jsonProtocolMessage.getMessage();
+                                Logger.log("ASIC SENT: " + message);
+
+                                viaBtcSocket.write(jsonProtocolMessage);
+                            }
+                        });
+
+                        viaBtcSocket.beginListening();
+                    }
+                    catch (final Exception exception) {
+                        Logger.log(exception);
+                    }
+                }
+                else {
+                    socketConnection.setMessageReceivedCallback(new Runnable() {
+                        @Override
+                        public void run() {
+                            final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
+                            final Json message = jsonProtocolMessage.getMessage();
+
+                            { // Handle Request Messages...
+                                final RequestMessage requestMessage = RequestMessage.parse(message);
+                                if (requestMessage != null) {
+                                    Logger.log("Received: " + requestMessage);
+
+                                    if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBSCRIBE)) {
+                                        _handleSubscribeMessage(requestMessage, socketConnection);
+                                    }
+                                    else if (requestMessage.isCommand(RequestMessage.ClientCommand.AUTHORIZE)) {
+                                        _handleAuthorizeMessage(requestMessage, socketConnection);
+                                    }
+                                    else if (requestMessage.isCommand(RequestMessage.ClientCommand.SUBMIT)) {
+                                        _handleSubmitMessage(requestMessage, socketConnection);
+                                    }
+                                    else {
+                                        Logger.log("Unrecognized Message: " + requestMessage.getCommand());
+                                    }
                                 }
                             }
-                        }
 
-                        { // Handle Response Messages...
-                            final ResponseMessage responseMessage = ResponseMessage.parse(message);
-                            if (responseMessage != null) { System.out.println(responseMessage); }
+                            { // Handle Response Messages...
+                                final ResponseMessage responseMessage = ResponseMessage.parse(message);
+                                if (responseMessage != null) { System.out.println(responseMessage); }
+                            }
                         }
-                    }
-                });
-
-//                try {
-//                    final JsonSocket viaBtcSocket = new JsonSocket(new Socket("bch.viabtc.com", 3333), _threadPool);
-//
-//                    viaBtcSocket.setMessageReceivedCallback(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            final JsonProtocolMessage jsonProtocolMessage = viaBtcSocket.popMessage();
-//                            final Json message = jsonProtocolMessage.getMessage();
-//                            Logger.log("VIABTC SENT: " + message);
-//
-//                            socketConnection.write(jsonProtocolMessage);
-//                        }
-//                    });
-//
-//                    socketConnection.setMessageReceivedCallback(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            final JsonProtocolMessage jsonProtocolMessage = socketConnection.popMessage();
-//                            final Json message = jsonProtocolMessage.getMessage();
-//                            Logger.log("ASIC SENT: " + message);
-//
-//                            viaBtcSocket.write(jsonProtocolMessage);
-//                        }
-//                    });
-//
-//                    viaBtcSocket.beginListening();
-//                }
-//                catch (final Exception exception) {
-//                    Logger.log(exception);
-//                }
+                    });
+                }
 
                 socketConnection.beginListening();
             }

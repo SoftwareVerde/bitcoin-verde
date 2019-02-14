@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
@@ -15,8 +16,10 @@ import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMet
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -103,6 +106,9 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         List<TransactionWithFee> getUnconfirmedTransactionsWithFees();
 
         Long getBlockReward();
+
+        void submitTransaction(Transaction transaction);
+        void submitBlock(Block block);
     }
 
     public interface MetadataHandler {
@@ -817,6 +823,68 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         return true;
     }
 
+    // Requires POST: <transaction>
+    protected void _receiveTransaction(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("transactionData")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: transactionData");
+            return;
+        }
+
+        final String transactionHexString = parameters.getString("transactionData");
+        final ByteArray transactionBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(transactionHexString));
+        if (transactionBytes == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction bytes.");
+            return;
+        }
+
+        final TransactionInflater transactionInflater = new TransactionInflater();
+        final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
+        if (transaction == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Transaction");
+            return;
+        }
+
+        dataHandler.submitTransaction(transaction);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
+    // Requires POST: <block>
+    protected void _receiveBlock(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("blockData")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: blockData");
+            return;
+        }
+
+        final String blockHexString = parameters.getString("blockData");
+        final ByteArray blockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(blockHexString));
+        if (blockBytes == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block bytes.");
+            return;
+        }
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block block = blockInflater.fromBytes(blockBytes);
+        if (block == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block");
+            return;
+        }
+
+        dataHandler.submitBlock(block);
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
     protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1125,6 +1193,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                             case "ADD_HOOK": {
                                 final Boolean keepSocketOpen = _addHook(parameters, response, socketConnection);
                                 closeConnection = (! keepSocketOpen);
+                            } break;
+
+                            case "TRANSACTION": {
+                                _receiveTransaction(parameters, response);
+                            } break;
+
+                            case "BLOCK": {
+                                _receiveBlock(parameters, response);
                             } break;
 
                             default: {

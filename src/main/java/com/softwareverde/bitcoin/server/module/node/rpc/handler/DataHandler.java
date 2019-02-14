@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.*;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -27,6 +29,9 @@ import com.softwareverde.io.Logger;
 public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
+
+    protected final TransactionDownloader _transactionDownloader;
+    protected final BlockDownloader _blockDownloader;
 
     protected Long _calculateTransactionFee(final Transaction transaction, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) throws DatabaseException {
         Long totalTransactionInputAmount = 0L;
@@ -61,9 +66,11 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
         return (totalTransactionInputAmount - totalTransactionOutputAmount);
     }
 
-    public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
+        _transactionDownloader = transactionDownloader;
+        _blockDownloader = blockDownloader;
     }
 
     @Override
@@ -335,5 +342,15 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
             Logger.log(exception);
             return null;
         }
+    }
+
+    @Override
+    public void submitTransaction(final Transaction transaction) {
+        _transactionDownloader.submitTransaction(transaction);
+    }
+
+    @Override
+    public void submitBlock(final Block block) {
+        _blockDownloader.submitBlock(block);
     }
 }

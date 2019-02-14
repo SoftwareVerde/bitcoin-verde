@@ -305,4 +305,20 @@ public class BlockDownloader extends SleepyService {
         _newBlockAvailableCallback = runnable;
     }
 
+    public void submitBlock(final Block block) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            _onBlockDownloaded(block, databaseConnection);
+            Logger.log("Block submitted: " + block.getHash());
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            return;
+        }
+
+        final Runnable newBlockAvailableCallback = _newBlockAvailableCallback;
+        if (newBlockAvailableCallback != null) {
+            newBlockAvailableCallback.run();
+        }
+    }
+
 }

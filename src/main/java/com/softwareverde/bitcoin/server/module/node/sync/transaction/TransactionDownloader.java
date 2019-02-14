@@ -61,12 +61,43 @@ public class TransactionDownloader extends SleepyService {
         }
     }
 
+    // This function iterates through each Transaction in-flight, and checks for items that have exceeded the MAX_TIMEOUT.
+    //  Items exceeding the timeout have their onFailure method called.
+    //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
+    // TODO: Investigate why onFailure is not being invoked by the BitcoinNodeManager.
+    protected void _checkForStalledDownloads() {
+        final MutableList<Sha256Hash> stalledTransactionHashes = new MutableList<Sha256Hash>();
+        for (final Sha256Hash transactionHash : _currentTransactionDownloadSet.keySet()) {
+            final MilliTimer milliTimer = _currentTransactionDownloadSet.get(transactionHash);
+            if (milliTimer == null) {
+                stalledTransactionHashes.add(transactionHash);
+                continue;
+            }
+
+            milliTimer.stop();
+            final Long msElapsed = milliTimer.getMillisecondsElapsed();
+            if (msElapsed >= MAX_TIMEOUT) {
+                stalledTransactionHashes.add(transactionHash);
+            }
+        }
+
+        if (! stalledTransactionHashes.isEmpty()) {
+            for (final Sha256Hash stalledTransactionHash : stalledTransactionHashes) {
+                Logger.log("Stalled Transaction Detected: " + stalledTransactionHash);
+                _currentTransactionDownloadSet.remove(stalledTransactionHash);
+            }
+            _transactionDownloadedCallback.onFailure(stalledTransactionHashes);
+        }
+    }
+
     @Override
     protected void _onStart() { }
 
     @Override
     protected Boolean _run() {
         final Integer maximumConcurrentDownloadCount = Math.max(1, _bitcoinNodeManager.getActiveNodeCount());
+
+        _checkForStalledDownloads();
 
         { // Determine if routine should wait for a request to complete...
             Integer currentDownloadCount = _currentTransactionDownloadSet.size();
@@ -219,6 +250,22 @@ public class TransactionDownloader extends SleepyService {
 
     public void setNewTransactionAvailableCallback(final Runnable runnable) {
         _newTransactionAvailableCallback = runnable;
+    }
+
+    public void submitTransaction(final Transaction transaction) {
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            _onTransactionDownloaded(transaction, databaseConnection);
+            Logger.log("Transaction submitted: " + transaction.getHash());
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            return;
+        }
+
+        final Runnable newTransactionAvailableCallback = _newTransactionAvailableCallback;
+        if (newTransactionAvailableCallback != null) {
+            newTransactionAvailableCallback.run();
+        }
     }
 
 }

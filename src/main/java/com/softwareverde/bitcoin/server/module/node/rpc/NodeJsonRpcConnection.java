@@ -1,10 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
 import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
@@ -331,6 +334,34 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         _isUpgradedToHook = true;
 
         return true;
+    }
+
+    public Json submitTransaction(final Transaction transaction) {
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("transactionData", transactionDeflater.toBytes(transaction));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "TRANSACTION");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json submitBlock(final Block block) {
+        final BlockDeflater blockDeflater = new BlockDeflater();
+
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "POST");
+        rpcRequestJson.put("query", "BLOCK");
+        rpcRequestJson.put("parameters", rpcParametersJson);
+
+        return _executeJsonRequest(rpcRequestJson);
     }
 
     public JsonSocket getJsonSocket() {
