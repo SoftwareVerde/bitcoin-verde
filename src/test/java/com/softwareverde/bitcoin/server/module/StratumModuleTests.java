@@ -1,22 +1,32 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
-import com.softwareverde.bitcoin.server.stratum.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
+import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskFactory;
+import com.softwareverde.bitcoin.server.stratum.task.StratumUtil;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.ReflectionUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -35,7 +45,8 @@ public class StratumModuleTests {
         stratumModule.queueFakeJsonResponse(Json.parse("{\"unconfirmedTransactions\":[{\"transactionFee\":243,\"transaction\":\"0100000001D0ADDDF36837842BF09B8C699DABB01923D6CA5224975863880637E4BFA355ED010000006A47304402203AF85025DBC1EC2318C9C463041502F61115B7BB002373DD6A88A2E3D7ED2D01022001C6E527F76508CA9C76ACF7EDBF5B00049BA1A96CD77A20EEBAB41D35AC4CF1412102F7A672CD7516D4E76D34D68DB1492DD5DD7121DDBD6FAE6FAC49F431BF36E26AFFFFFFFF0289CE0200000000001976A9147A12CF7834A18154377FD50A38C78E7725C0486F88ACAA3B0300000000001976A9148B80501D56D20C1BF8AA94F25CE9EAFADE545E0E88AC00000000\"},{\"transactionFee\":390,\"transaction\":\"010000000226D4509F9709D74EE7CB4EEE608280CCAC94CB5B259B2DC9C8083A81A42189CD000000006A47304402207FBB1AA623F2F1DB9EE78666BF8150C74883494E5F60AA88E88162AED3D5AAD002204C4E933B791E1332A4518FA2B19B1FC941E6A7C761C97A0296BB013A72A0D314412102353C7984935825F70C60ECF0543892CEFED310B55629E1E5C9A4D23685DD7DE5FFFFFFFF6DEC6DB7021E83B5470D73263854F5B7A609AFB21EF05F2498A418C98F18226B010000006B483045022100DB11AF4F4731D8B453E87BCEED56A28DBFE35FBFE99666B2B8FE546BED32828802207F7A89655E24D60FA8189B4D9EE049590616C3AB8B5D0E588BB272C03D543D8C412103788A855A936EA41414713D0D4F83B20DE49B9D892D4BB3AB52AED8EA2A9E32A1FFFFFFFF021DB90900000000001976A9148B80506A2D60464710BD359AC82400C2BF23E5FE88AC260B0600000000001976A914DB77613B90CA4FFC8DF46422B0021854B9B4C9AE88AC00000000\"},{\"transactionFee\":280,\"transaction\":\"0100000001970E0DEF3A463DB2CD124FCE1CEC2B0A09129B4D7DC50F1C51A3BB9EB2B4A410000000006B483045022100883CBCBC0781CCF1F4DA8C40E7887B4E863661CC11A83C9C34C0F028AA2150E0022053B2F7DB5362D22BBC7857600B594834F6D8440081784481FE87993A4566772741210337433E3CD5B7B46006D7DF31261FB1EC8679E116072357FDDC05D491E05E7ADFFFFFFFFF020000000000000000216A040101010104343339301501DB673B6C83CF1BEB747A8F5C2AE7FBC50F6A0D001A290200000000001976A9149A43A4319077B6DB6B3F8EC27E756A75F41672CC88AC00000000\"}],\"method\":\"RESPONSE\",\"errorMessage\":null,\"wasSuccess\":1}"));
         stratumModule.queueFakeJsonResponse(Json.parse("{\"method\":\"RESPONSE\",\"errorMessage\":\"\",\"wasSuccess\":0}")); // Fail the ADD_HOOK upgrade since the socket is not real...
 
-        final StratumMineBlockTask stratumMineBlockTask = stratumModule.createStratumMineBlockTask();
+        final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = stratumModule.createStratumMineBlockTask();
+        final StratumMineBlockTask stratumMineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
 
         // Action
         final Block block = stratumMineBlockTask.assembleBlock("00000000", "00000000", "00000000");
@@ -62,6 +73,61 @@ public class StratumModuleTests {
         Assert.assertEquals(stratumMineBlockTask.getExtraNonce(), HexUtil.toHexString(((PushOperation) operations.get(2)).getValue().getBytes(0, 4))); // Enforce extraNonce...
         Assert.assertEquals("00000000", HexUtil.toHexString(((PushOperation) operations.get(2)).getValue().getBytes(4, 4))); // Enforce extraNonce2...
     }
+
+//    @Test
+//    public void should_reinflate_mined_share() {
+//        final StratumModulePartialMock stratumModule = new StratumModulePartialMock();
+//
+//        final String miningTaskMessage = "{\"method\":\"mining.notify\",\"id\":3351436,\"params\":[\"0000002C\",\"6C1EB2564E74701849B46B8FA6E9C2B504DB70B704C9EEDE0000000000000000\",\"010000000100000000000000000000000000000000000000000000000000000000000000000000000025036AB208172F706F6F6C2E626974636F696E76657264652E6F72672F08\",\"FFFFFFFF01A30A824A000000001976A91426CBB2966AC6AABC18135E101038D39FBAE3F2D688AC00000000\",[\"2FEDBE1A5D2D30D78DA7227B1538DAA84BDF39F52DAD30CD3B22F4A483A43A07\",\"D63AA3ECDFD93D43B4214FC5898C4A51A32A56B61B4B18A71E88895EAA87C1C5\",\"7597C5DA59EBC99644C2099045136C7DC7716602B136419A28D1DB2DCE03AAC4\",\"8A68336A9F7DA2FC26865123E6684F45C279AD074036E40A4C4EC42AC1EDC66A\",\"C1C731F64485BFC42761B53A1A48998870E07F4F3F4E708DE8FF5C2C3173FAA2\"],\"00000004\",\"18054EA4\",\"5C67A470\",true]}";
+//        final String miningSubmissionMessage = "{\"method\":\"mining.submit\",\"id\":3351435,\"params\":[\"makoinfused.worker0\",\"0000002C\",\"a9030000\",\"5C67A470\",\"d4fb12d7\"]}";
+//
+//        final Json miningTaskParameters = Json.parse(miningTaskMessage).get("params");
+//        final String taskId = miningTaskParameters.getString(0);
+//        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(StratumUtil.swabHexString(miningTaskParameters.getString(1))));
+//        final String coinbaseHead = miningTaskParameters.getString(2);
+//        final String coinbaseTail = miningTaskParameters.getString(3);
+//        final Json merkleBranchesJson = miningTaskParameters.get(4);
+//        final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(miningTaskParameters.getString(5)));
+//        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(miningTaskParameters.getString(6)));
+//        final Long timestampInSeconds = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(miningTaskParameters.getString(7)));
+//        final Boolean abandonOldJobs = miningTaskParameters.getBoolean(8);
+//
+//        final Json miningSubmissionParameters = Json.parse(miningSubmissionMessage).get("params");
+//        final String submissionWorkerName = miningSubmissionParameters.getString(0);
+//        final ByteArray submissionTaskId = MutableByteArray.wrap(HexUtil.hexStringToByteArray(miningSubmissionParameters.getString(1)));
+//        final String submissionExtraNonce2 = miningSubmissionParameters.getString(2);
+//        final String submissionTimestamp = miningSubmissionParameters.getString(3);
+//        final String submissionNonce = miningSubmissionParameters.getString(4);
+//
+//        final Transaction coinbaseTransaction;
+//        {
+//            final TransactionInflater transactionInflater = new TransactionInflater();
+//            final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
+//            byteArrayBuilder.appendBytes(HexUtil.hexStringToByteArray(coinbaseHead));
+//            byteArrayBuilder.appendBytes(HexUtil.hexStringToByteArray("42C93632"));
+//            byteArrayBuilder.appendBytes(HexUtil.hexStringToByteArray(submissionExtraNonce2));
+//            byteArrayBuilder.appendBytes(HexUtil.hexStringToByteArray(coinbaseTail));
+//            coinbaseTransaction = transactionInflater.fromBytes(byteArrayBuilder.build());
+//        }
+//
+//        final MutableList<String> merkleBranches = new MutableList<String>();
+//        {
+//            for (int i = 0; i < merkleBranchesJson.length(); ++i) {
+//                merkleBranches.add(merkleBranchesJson.getString(i));
+//            }
+//        }
+//
+//        final MerkleRoot merkleRoot = StratumMineBlockTask.calculateMerkleRoot(coinbaseTransaction, merkleBranches);
+//
+//        final MutableBlockHeader mutableBlockHeader = new MutableBlockHeader();
+//        mutableBlockHeader.setPreviousBlockHash(previousBlockHash);
+//        mutableBlockHeader.setMerkleRoot(merkleRoot);
+//        mutableBlockHeader.setNonce(ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(submissionNonce)));
+//        mutableBlockHeader.setTimestamp(ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(submissionTimestamp)));
+//        mutableBlockHeader.setDifficulty(difficulty);
+//        mutableBlockHeader.setVersion(blockVersion);
+//        System.out.println(mutableBlockHeader.getHash());
+//    }
 }
 
 class FakeStratumServerSocket extends StratumServerSocket {
@@ -114,7 +180,8 @@ class StratumModulePartialMock extends StratumModule {
         _fakeJsonResponses.add(json);
     }
 
-    public StratumMineBlockTask createStratumMineBlockTask() {
-        return _createNewMiningTask(_privateKey);
+    public StratumMineBlockTaskFactory createStratumMineBlockTask() {
+        _rebuildNewMiningTask();
+        return _stratumMineBlockTaskFactory;
     }
 }

@@ -129,6 +129,13 @@ public class ImmutableDifficulty implements Difficulty, Const {
     }
 
     @Override
+    public Difficulty divideBy(final double difficultyAdjustment) {
+        final BigDecimal currentValue = _toBigDecimal();
+        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), BigDecimal.ROUND_HALF_UP);
+        return Difficulty.fromBigInteger(bigDecimal.toBigInteger());
+    }
+
+    @Override
     public BlockWork calculateWork() {
         final BigInteger difficultyBigInteger = _toBigInteger();
         final BigInteger proofOfWorkBigInteger = MAX_WORK.divide(difficultyBigInteger.add(BigInteger.ONE));

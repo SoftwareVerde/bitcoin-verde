@@ -64,6 +64,7 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
     BigDecimal getDifficultyRatio();
 
     Difficulty multiplyBy(final double difficultyAdjustment);
+    Difficulty divideBy(final double difficultyAdjustment);
 
     BlockWork calculateWork();
 
