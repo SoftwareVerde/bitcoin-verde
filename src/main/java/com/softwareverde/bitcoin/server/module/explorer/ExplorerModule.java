@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.explorer;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.httpserver.DirectoryServlet;
 import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
@@ -21,6 +23,7 @@ public class ExplorerModule {
     }
 
     protected final HttpServer _apiServer = new HttpServer();
+    protected final ThreadPool _threadPool = new MainThreadPool(512, 1000L);
     protected final Configuration.ExplorerProperties _explorerProperties;
     protected final AnnouncementsApi _announcementsApi;
 
@@ -60,11 +63,11 @@ public class ExplorerModule {
         _announcementsApi = new AnnouncementsApi(_explorerProperties);
 
         { // Account Api
-            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));
-            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties));
-            _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties));
-            _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties));
-            _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties));
+            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));
         }
 
         { // WebSocket

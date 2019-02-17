@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableBlock implements Block {
     protected Long _version;
@@ -56,6 +57,17 @@ public class MutableBlock implements Block {
     public MutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         _initFromBlockHeader(blockHeader);
         _initTransactions(transactions);
+    }
+
+    @Override
+    public Boolean hasTransaction(final Transaction transaction) {
+        for (final Transaction existingTransaction : _transactions) {
+            if (Util.areEqual(transaction, existingTransaction)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public void addTransaction(final Transaction transaction) {

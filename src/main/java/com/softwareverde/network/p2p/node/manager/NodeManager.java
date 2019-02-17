@@ -37,7 +37,7 @@ public class NodeManager<NODE extends Node> {
     public interface NodeApiTransmission { }
 
     /**
-     * A NodeApi invocation that does not invoke a response.
+     * A NodeJsonRpcConnection invocation that does not invoke a response.
      */
     public interface NodeApiMessage<NODE> extends NodeApiTransmission {
         void run(NODE node);

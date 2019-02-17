@@ -3,6 +3,7 @@ package com.softwareverde.network.socket;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.json.Jsonable;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.util.StringUtil;
 
@@ -11,6 +12,10 @@ public class JsonProtocolMessage implements ProtocolMessage {
 
     public JsonProtocolMessage(final Json json) {
         _message = json;
+    }
+
+    public JsonProtocolMessage(final Jsonable jsonable) {
+        _message = jsonable.toJson();
     }
 
     public Json getMessage() {

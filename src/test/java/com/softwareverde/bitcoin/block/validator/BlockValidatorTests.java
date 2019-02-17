@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
@@ -28,8 +29,10 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
@@ -209,36 +212,41 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertTrue(blockIsValid);
     }
 
-    @Test
-    public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
-        // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
-
-        // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-
-        final BlockInflater blockInflater = new BlockInflater();
-        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        }
-
-        final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
-        final BlockId blockId;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockId = blockDatabaseManager.insertBlock(block);
-        }
-
-        // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
-
-        // Assert
-        Assert.assertTrue(blockIsValid);
-    }
+    // Test disabled on 2019-02-16.
+    //   The following Test is disabled because the test block (ForkChain4.BLOCK_1) was mined with an invalid coinbase TransactionInput (prevoutIndex is 0, not -1).
+    //   To re-enable this test, a block must be mined that spends its own coinbase.
+    //   Mining this custom block cannot be done via Stratum since Stratum mutates the coinbase transaction hash via extraNonce2.  Instead, the CPU miner
+    //   must be used.
+//    @Test
+//    public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
+//        // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
+//
+//        // Setup
+//        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+//
+//        final BlockInflater blockInflater = new BlockInflater();
+//        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+//        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+//        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+//        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+//
+//        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+//        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+//            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+//        }
+//
+//        final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
+//        final BlockId blockId;
+//        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+//            blockId = blockDatabaseManager.insertBlock(block);
+//        }
+//
+//        // Action
+//        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+//
+//        // Assert
+//        Assert.assertTrue(blockIsValid);
+//    }
 
     @Test
     public void block_should_be_invalid_if_its_input_only_exists_within_a_different_chain() throws Exception {
@@ -268,10 +276,10 @@ public class BlockValidatorTests extends IntegrationTest {
         final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1Prime.getPreviousBlockHash());
 
-        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000A0725312AADE7F12764C47F9A8B54C4924EE12940C697782AE31F52300000000A66A6AAC381ACE8514F527B6324F72F8ADFBC9B853350675E5309B18E2256E9BA165A45AFFFF001D580D16B802010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001976A914B8E012A1EC221C31F69AA2895129C02C90AAE2C588AC0000000001000000011D1E1A5147E3170CB7B8DF8B234794CC61B798144B532EEE9C3A62CF9F5A4EBF000000008B483045022100CD4556EFF98614498B736E7894446F82B92638B40512B95C3C64FA06682F68A702200C02B594C919046E6D1EC951745D51778575BDBDB46DCB9793AAC3D0714AAAD10141044B1F57CD308E8AE8AADA38AA8183A348E1F12C107898760A11324E1B0288C49DE1AB5E1DA16F649B7375046E165FD2CF143F08989F1092A7ED6FED183107B236FFFFFFFF0100F2052A010000001976A91476B5CB4E5D485BDD6B6DD7A2AAAEC6F01FFA7DD488AC00000000")); // Spends a transaction within block1DoublePrime...
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.INVALID_BLOCK_2)); // Spends a transaction within block1DoublePrime...
         Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
 
-        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain5.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
@@ -297,22 +305,26 @@ public class BlockValidatorTests extends IntegrationTest {
             Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime));
         }
 
-        // TransactionInput 0:BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D should exist within the database,
-        //  however, it should exist only within a separate chain...
+        // TransactionInput 0:4A23572C0048299E956AE25262B3C3E75D984A0CCE36B9C60E9A741E14E099F7 should exist within the database, however, it should exist only within a separate chain...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT transaction_outputs.id FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.transaction_id WHERE transactions.hash = ? AND transaction_outputs.`index` = ?")
-                .setParameter("BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D")
+                .setParameter("4A23572C0048299E956AE25262B3C3E75D984A0CCE36B9C60E9A741E14E099F7")
                 .setParameter("0")
         );
         Assert.assertTrue(rows.size() > 0);
 
-        final BlockId block2Id;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            block2Id = blockDatabaseManager.insertBlock(block2Prime);
-        }
-
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime);
+        Boolean block2PrimeIsValid;
+        try {
+            final BlockId block2Id;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                block2Id = blockDatabaseManager.insertBlock(block2Prime);
+            }
+            block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime);
+        }
+        catch (final DatabaseException exception) {
+            block2PrimeIsValid = false;
+        }
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -395,14 +407,14 @@ public class BlockValidatorTests extends IntegrationTest {
 
             mutableBlock.setPreviousBlockHash(previousBlockHash);
 
-            mutableBlock.setNonce(1978210639L);
+            mutableBlock.setNonce(4003753885L);
 
             { // Append extra nonce to coinbase transaction...
                 final CoinbaseTransaction coinbaseTransaction = mutableBlock.getCoinbaseTransaction();
                 final MutableCoinbaseTransaction modifiedCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
                 final MutableUnlockingScript mutableCoinbaseScript = new MutableUnlockingScript(modifiedCoinbaseTransaction.getCoinbaseScript());
                 final OperationInflater operationInflater = new OperationInflater();
-                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("053333313134")));
+                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("06323230393937")));
                 mutableCoinbaseScript.addOperation(operation);
                 modifiedCoinbaseTransaction.setCoinbaseScript(mutableCoinbaseScript);
                 mutableBlock.replaceTransaction(0, modifiedCoinbaseTransaction);
@@ -416,6 +428,10 @@ public class BlockValidatorTests extends IntegrationTest {
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
 
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
+        final Difficulty calculatedNextDifficulty = difficultyCalculator.calculateRequiredDifficulty();
+        Assert.assertEquals(expectedDifficulty, calculatedNextDifficulty);
+
         final BlockId blockId;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             blockId = blockDatabaseManager.insertBlock(firstBlockWithDifficultyIncrease);
@@ -427,20 +443,6 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertTrue(blockIsValid);
-    }
-
-    public static class BlockWithFakeMerkleRoot extends MutableBlock {
-        private final MerkleRoot _merkleRoot;
-
-        public BlockWithFakeMerkleRoot(final Block block, final MerkleRoot merkleRoot) {
-            super(block);
-            _merkleRoot = merkleRoot;
-        }
-
-        @Override
-        public MerkleRoot getMerkleRoot() {
-            return _merkleRoot;
-        }
     }
 
     @Test

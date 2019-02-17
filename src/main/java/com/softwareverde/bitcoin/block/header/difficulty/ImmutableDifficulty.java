@@ -6,59 +6,17 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.HexUtil;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
 public class ImmutableDifficulty implements Difficulty, Const {
-    public static final Long MAX_SIGNIFICAND_VALUE = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray("7FFFFF"));
-
     protected static BigInteger MAX_WORK = BigInteger.valueOf(2L).pow(256);
 
     private final Integer _exponent;
     private final byte[] _significand = new byte[3];
 
     private ByteArray _cachedBytes = null;
-
-    public static ImmutableDifficulty fromBigInteger(final BigInteger bigInteger) {
-        final int significandByteCount = 3;
-
-        final byte[] bytes = bigInteger.toByteArray();
-        final int exponent = (bytes.length - significandByteCount);
-        final byte[] significand = ByteUtil.copyBytes(bytes, 0, significandByteCount);
-        // Since significand is normally* interpreted as a signed value, its max value is 0x7FFFFF.
-        // If significand is greater than this value, then shift the significand right one, and increase the exponent.
-        //  * Why it's considered signed seems unjustified. So it goes.
-
-        // HexUtil.toHexString(Difficulty.BASE_DIFFICULTY._toBigDecimal().toBigInteger().toByteArray()) returns:
-        //           00FFFF0000000000000000000000000000000000000000000000000000
-
-        // HexUtil.toHexString(Difficulty.BASE_DIFFICULTY._convertToBytes()) returns:
-        //     00000000FFFF0000000000000000000000000000000000000000000000000000
-
-        // HexUtil.toHexString(Difficulty.BASE_DIFFICULTY._toBigInteger().toByteArray()) returns:
-        //           00FFFF0000000000000000000000000000000000000000000000000000
-
-        if (ByteUtil.bytesToLong(significand) >= MAX_SIGNIFICAND_VALUE) {
-            // Shifting the value will lose precision.
-            //  The value will go from:
-            //     00000000FFFF0000000000000000000000000000000000000000000000000000 (1D00FFFF)
-            //  To:
-            //     00000000FF000000000000000000000000000000000000000000000000000000 (1E0000FF)
-            final byte[] shiftedSignificand = new byte[] { 0x00, significand[0], significand[1] };
-            final int shiftedExponent = (exponent + 1);
-            return new ImmutableDifficulty(shiftedSignificand, shiftedExponent);
-        }
-
-        return new ImmutableDifficulty(significand, exponent);
-
-    }
-
-    public static ImmutableDifficulty decode(final byte[] encodedBytes) {
-        if (encodedBytes.length != 4) { return null; }
-        return new ImmutableDifficulty(ByteUtil.copyBytes(encodedBytes, 1, 3), (ByteUtil.byteToInteger(encodedBytes[0]) - 3));
-    }
 
     protected void _requireCachedBytes() {
         if (_cachedBytes == null) {
@@ -167,7 +125,14 @@ public class ImmutableDifficulty implements Difficulty, Const {
     public Difficulty multiplyBy(final double difficultyAdjustment) {
         final BigDecimal currentValue = _toBigDecimal();
         final BigDecimal bigDecimal = currentValue.multiply(BigDecimal.valueOf(difficultyAdjustment));
-        return fromBigInteger(bigDecimal.toBigInteger());
+        return Difficulty.fromBigInteger(bigDecimal.toBigInteger());
+    }
+
+    @Override
+    public Difficulty divideBy(final double difficultyAdjustment) {
+        final BigDecimal currentValue = _toBigDecimal();
+        final BigDecimal bigDecimal = currentValue.divide(BigDecimal.valueOf(difficultyAdjustment), BigDecimal.ROUND_HALF_UP);
+        return Difficulty.fromBigInteger(bigDecimal.toBigInteger());
     }
 
     @Override

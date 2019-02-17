@@ -143,7 +143,7 @@ public class BlockHeaderDatabaseManager {
 
         final MerkleRoot merkleRoot = MutableMerkleRoot.fromHexString(row.getString("merkle_root"));
         final Long timestamp = row.getLong("timestamp");
-        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
+        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(row.getString("difficulty")));
         final Long nonce = row.getLong("nonce");
 
         final MutableBlockHeader blockHeader = new MutableBlockHeader();

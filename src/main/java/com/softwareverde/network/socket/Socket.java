@@ -37,6 +37,7 @@ public abstract class Socket {
     protected Boolean _isClosed = false;
 
     protected Runnable _messageReceivedCallback;
+    protected Boolean _isListening = false;
     protected final ReadThread _readThread;
 
     protected final OutputStream _rawOutputStream;
@@ -153,7 +154,10 @@ public abstract class Socket {
         _threadPool = threadPool;
     }
 
-    public void beginListening() {
+    public synchronized void beginListening() {
+        if (_isListening) { return; }
+
+        _isListening = true;
         _readThread.start();
     }
 

@@ -315,7 +315,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18019902")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18019902")), difficulty);
     }
 
     @Test
@@ -347,7 +347,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18014735")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18014735")), difficulty);
     }
 
     @Test
@@ -380,7 +380,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
     }
 
     @Test
@@ -513,7 +513,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1805B42B")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805B42B")), difficulty);
     }
 
     @Test
@@ -653,7 +653,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1805C8DF")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805C8DF")), difficulty);
     }
 
     @Test
@@ -780,7 +780,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        Assert.assertEquals(ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
+        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
     }
 
     @Test
@@ -852,7 +852,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
 
         // Assert
-        final Difficulty expectedDifficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
+        final Difficulty expectedDifficulty = Difficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
         Assert.assertEquals(expectedDifficulty, difficulty);
     }
 }
