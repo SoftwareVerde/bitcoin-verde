@@ -103,6 +103,11 @@ public class BitcoinUtil {
         System.exit(1);
     }
 
+    public static void exitSuccess() {
+        Logger.shutdown();
+        System.exit(0);
+    }
+
     protected BitcoinUtil() { }
 
 }

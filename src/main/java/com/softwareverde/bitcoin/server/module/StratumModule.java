@@ -198,7 +198,7 @@ public class StratumModule {
             totalTransactionFees = transactionFees;
         }
 
-        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address,(blockReward + totalTransactionFees));
+        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, (blockReward + totalTransactionFees));
 
         stratumMineBlockTaskFactory.setBlockVersion(BlockHeader.VERSION);
         stratumMineBlockTaskFactory.setPreviousBlockHash(previousBlockHeader.getHash());

@@ -15,6 +15,9 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.test.fake.FakeBinarySocket;
+import com.softwareverde.bitcoin.test.fake.FakeNodeConnection;
+import com.softwareverde.bitcoin.test.fake.FakeSocket;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -35,75 +38,6 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 public class QueryBlockHeadersHandlerTests extends IntegrationTest {
-
-    public static class FakeSocket extends Socket {
-        public final ByteArrayInputStream inputStream;
-        public final ByteArrayOutputStream outputStream;
-
-        public FakeSocket() {
-            inputStream = new ByteArrayInputStream(new byte[0]);
-            outputStream = new ByteArrayOutputStream();
-        }
-
-        public FakeSocket(final byte[] inputBytes) {
-            inputStream = new ByteArrayInputStream(inputBytes);
-            outputStream = new ByteArrayOutputStream();
-        }
-
-        @Override
-        public InputStream getInputStream() {
-            return this.inputStream;
-        }
-
-        @Override
-        public OutputStream getOutputStream() {
-            return this.outputStream;
-        }
-    }
-
-    public static class FakeBinarySocket extends BinarySocket {
-        public final FakeSocket fakeSocket;
-
-        public FakeBinarySocket(final FakeSocket fakeSocket, final ThreadPool threadPool) {
-            super(fakeSocket, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
-            this.fakeSocket = fakeSocket;
-        }
-
-        @Override
-        public String getHost() {
-            return "";
-        }
-
-        @Override
-        public Integer getPort() {
-            return 0;
-        }
-    }
-
-    public static class FakeNodeConnection extends NodeConnection {
-        public final FakeBinarySocket fakeBinarySocket;
-
-        protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
-
-        public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket, final ThreadPool threadPool) {
-            super(fakeBinarySocket, threadPool);
-            this.fakeBinarySocket = fakeBinarySocket;
-        }
-
-        @Override
-        protected void _processOutboundMessageQueue() { }
-
-        @Override
-        protected void _writeOrQueueMessage(final ProtocolMessage message) {
-            _outboundMessageQueue.add(message);
-        }
-
-        public List<ProtocolMessage> getSentMessages() {
-            try { Thread.sleep(500L); } catch (final Exception e) { } // Required to wait for messageQueue...
-
-            return _outboundMessageQueue;
-        }
-    }
 
     /**
      * Creates the following scenario...
