@@ -29,8 +29,10 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
@@ -405,14 +407,14 @@ public class BlockValidatorTests extends IntegrationTest {
 
             mutableBlock.setPreviousBlockHash(previousBlockHash);
 
-            mutableBlock.setNonce(1978210639L);
+            mutableBlock.setNonce(4003753885L);
 
             { // Append extra nonce to coinbase transaction...
                 final CoinbaseTransaction coinbaseTransaction = mutableBlock.getCoinbaseTransaction();
                 final MutableCoinbaseTransaction modifiedCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
                 final MutableUnlockingScript mutableCoinbaseScript = new MutableUnlockingScript(modifiedCoinbaseTransaction.getCoinbaseScript());
                 final OperationInflater operationInflater = new OperationInflater();
-                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("053333313134")));
+                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("06323230393937")));
                 mutableCoinbaseScript.addOperation(operation);
                 modifiedCoinbaseTransaction.setCoinbaseScript(mutableCoinbaseScript);
                 mutableBlock.replaceTransaction(0, modifiedCoinbaseTransaction);
@@ -441,20 +443,6 @@ public class BlockValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertTrue(blockIsValid);
-    }
-
-    public static class BlockWithFakeMerkleRoot extends MutableBlock {
-        private final MerkleRoot _merkleRoot;
-
-        public BlockWithFakeMerkleRoot(final Block block, final MerkleRoot merkleRoot) {
-            super(block);
-            _merkleRoot = merkleRoot;
-        }
-
-        @Override
-        public MerkleRoot getMerkleRoot() {
-            return _merkleRoot;
-        }
     }
 
     @Test

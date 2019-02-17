@@ -4,7 +4,6 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
@@ -18,26 +17,12 @@ import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockR
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskFactory;
-import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
-import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
-import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
-import com.softwareverde.bitcoin.transaction.script.runner.ScriptRunner;
-import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
-import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
-import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
@@ -45,26 +30,107 @@ import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
-import org.junit.Assert;
-import org.junit.Test;
 
 import java.io.File;
 
+/**
+ * Generates TestBlock Data via Stratum.
+ *  NOTE: Stratum Mining always modifies the coinbase's ExtraNonce, which may be undesirable.
+ */
 public class TestBlockDataStratumMiner {
     // @Test
     public void run() {
-        final StratumMiner stratumMiner = new StratumMiner();
+        final String coinbaseMessage = Constants.COINBASE_MESSAGE;
+
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
+        Logger.log("Private Key: " + coinbasePrivateKey);
+        Logger.log("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
+
+        final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey);
+
+        final Long blockHeight = 1L; // ???
+        final Sha256Hash previousBlockHash = BlockHeader.GENESIS_BLOCK_HASH; // ???
+
+        final Difficulty difficulty = Difficulty.BASE_DIFFICULTY;
+
+        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
+
+        final MutableList<Transaction> transactions = new MutableList<Transaction>();
+
+//        {
+//            final PrivateKey prevoutPrivateKey = ???;
+//
+//            final MutableTransaction transaction = new MutableTransaction();
+//            transaction.setVersion(Transaction.VERSION);
+//            transaction.setLockTime(LockTime.MIN_TIMESTAMP);
+//            final TransactionOutput outputBeingSpent;
+//            {
+//                final Transaction transactionToSpend = ???;
+//                outputBeingSpent = ???;
+//
+//                final MutableTransactionInput transactionInput = new MutableTransactionInput();
+//                transactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
+//                transactionInput.setPreviousOutputIndex(0);
+//                transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
+//                transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
+//                transaction.addTransactionInput(transactionInput);
+//            }
+//
+//            final MutableTransactionOutput newTransactionOutput;
+//            {
+//                final PrivateKey newTransactionOutputPrivateKey = PrivateKey.createNewKey();
+//                final Address payToAddress = addressInflater.fromPrivateKey(newTransactionOutputPrivateKey);
+//                System.out.println("Tx Private Key: " + newTransactionOutputPrivateKey);
+//                newTransactionOutput = new MutableTransactionOutput();
+//                newTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
+//                newTransactionOutput.setIndex(0);
+//                newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress(payToAddress));
+//            }
+//            transaction.addTransactionOutput(newTransactionOutput);
+//
+//            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
+//            signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
+//            final TransactionSigner transactionSigner = new TransactionSigner();
+//            final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, prevoutPrivateKey);
+//
+//            final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
+//            final MutableContext context = new MutableContext();
+//            context.setCurrentScript(null);
+//            context.setTransactionInputIndex(0);
+//            context.setTransactionInput(transactionInput);
+//            context.setTransaction(signedTransaction);
+//            context.setBlockHeight(blockHeight);
+//            context.setTransactionOutputBeingSpent(outputBeingSpent);
+//            context.setCurrentScriptLastCodeSeparatorIndex(0);
+//            final ScriptRunner scriptRunner = new ScriptRunner();
+//            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
+//            Assert.assertTrue(outputIsUnlocked);
+//
+//            transactions.add(signedTransaction);
+//        }
+
+        final StratumMiner.BlockConfiguration blockConfiguration = new StratumMiner.BlockConfiguration();
+        blockConfiguration.blockVersion = BlockHeader.VERSION;
+        blockConfiguration.coinbaseTransaction = coinbaseTransaction;
+        blockConfiguration.difficulty = difficulty;
+        blockConfiguration.previousBlockHash = previousBlockHash;
+        blockConfiguration.transactions = transactions;
+
+        final StratumMiner stratumMiner = new StratumMiner(blockConfiguration);
         stratumMiner.loop();
     }
 }
 
 class StratumMiner {
+    public static final Integer extraNonceByteCount = 4;
+    public static final Integer extraNonce2ByteCount = 4;
+    public static final Integer totalExtraNonceByteCount = (extraNonceByteCount + extraNonce2ByteCount);
+
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool = new MainThreadPool(256, 60000L);
 
-    protected final Integer _extraNonceByteCount = 4;
-    protected final Integer _extraNonce2ByteCount = 4;
-    protected final Integer _totalExtraNonceByteCount = (_extraNonceByteCount + _extraNonce2ByteCount);
     protected final ByteArray _extraNonce;
 
     protected StratumMineBlockTaskFactory _stratumMineBlockTaskFactory;
@@ -72,9 +138,18 @@ class StratumMiner {
 
     protected Integer _shareDifficulty = 1;
 
-    protected void _printError(final String errorMessage) {
-        System.err.println(errorMessage);
+    protected Thread _mainThread;
+
+
+    public static class BlockConfiguration {
+        Long blockVersion;
+        Sha256Hash previousBlockHash;
+        Difficulty difficulty;
+        Transaction coinbaseTransaction;
+        List<Transaction> transactions;
     }
+
+    protected final BlockConfiguration _blockConfiguration;
 
     protected ByteArray _createRandomBytes(final int byteCount) {
         int i = 0;
@@ -93,86 +168,13 @@ class StratumMiner {
     protected void _buildMiningTask() {
         final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory();
 
-        final String coinbaseMessage = Constants.COINBASE_MESSAGE;
-
-        final AddressInflater addressInflater = new AddressInflater();
-
-        final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
-        Logger.log("Private Key: " + coinbasePrivateKey);
-        Logger.log("Address:     " + addressInflater.fromPrivateKey(coinbasePrivateKey).toBase58CheckEncoded());
-
-        final Address address = addressInflater.fromPrivateKey(coinbasePrivateKey);
-
-        final Long blockHeight = 2L;
-        final Sha256Hash previousBlockHash = Sha256Hash.fromHexString("0000000001BE52D653305F7D80ED373837E61CC26AE586AFD343A3C2E64E64A2");
-        final Difficulty difficulty = Difficulty.BASE_DIFFICULTY;
-
-        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
-
-        final MutableList<Transaction> transactions = new MutableList<Transaction>();
-
-        {
-            final PrivateKey prevoutPrivateKey = PrivateKey.fromHexString("BD28A99DD044F142B8DC78101999671A9C5C15F617347EFC046F64CCF67AF67F");
-
-            final MutableTransaction transaction = new MutableTransaction();
-            transaction.setVersion(Transaction.VERSION);
-            transaction.setLockTime(LockTime.MIN_TIMESTAMP);
-            final TransactionOutput outputBeingSpent;
-            {
-                final Transaction transactionToSpend = coinbaseTransaction;
-                // outputBeingSpent = transactionToSpend.getTransactionOutputs().get(0);
-                final BlockInflater blockInflater = new BlockInflater();
-                final Block previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain5.BLOCK_1));
-                outputBeingSpent = previousBlock.getTransactions().get(0).getTransactionOutputs().get(0);
-
-                final MutableTransactionInput transactionInput = new MutableTransactionInput();
-                transactionInput.setPreviousOutputTransactionHash(transactionToSpend.getHash());
-                transactionInput.setPreviousOutputIndex(0);
-                transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-                transactionInput.setUnlockingScript(UnlockingScript.EMPTY_SCRIPT);
-                transaction.addTransactionInput(transactionInput);
-            }
-
-            final MutableTransactionOutput newTransactionOutput;
-            {
-                final PrivateKey privateKey2 = PrivateKey.createNewKey();
-                final Address payToAddress = addressInflater.fromPrivateKey(privateKey2);
-                System.out.println("Private Key 2: " + privateKey2);
-                newTransactionOutput = new MutableTransactionOutput();
-                newTransactionOutput.setAmount(50L * Transaction.SATOSHIS_PER_BITCOIN);
-                newTransactionOutput.setIndex(0);
-                newTransactionOutput.setLockingScript(ScriptBuilder.payToAddress(payToAddress));
-            }
-            transaction.addTransactionOutput(newTransactionOutput);
-
-            final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, false), Long.MAX_VALUE);
-            signatureContext.setShouldSignInputScript(0, true, outputBeingSpent);
-            final TransactionSigner transactionSigner = new TransactionSigner();
-            final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, prevoutPrivateKey);
-
-            final TransactionInput transactionInput = signedTransaction.getTransactionInputs().get(0);
-            final MutableContext context = new MutableContext();
-            context.setCurrentScript(null);
-            context.setTransactionInputIndex(0);
-            context.setTransactionInput(transactionInput);
-            context.setTransaction(signedTransaction);
-            context.setBlockHeight(blockHeight);
-            context.setTransactionOutputBeingSpent(outputBeingSpent);
-            context.setCurrentScriptLastCodeSeparatorIndex(0);
-            final ScriptRunner scriptRunner = new ScriptRunner();
-            final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
-            Assert.assertTrue(outputIsUnlocked);
-
-            transactions.add(signedTransaction);
-        }
-
-        stratumMineBlockTaskFactory.setBlockVersion(BlockHeader.VERSION);
-        stratumMineBlockTaskFactory.setPreviousBlockHash(previousBlockHash);
-        stratumMineBlockTaskFactory.setDifficulty(difficulty);
-        stratumMineBlockTaskFactory.setCoinbaseTransaction(coinbaseTransaction, _totalExtraNonceByteCount);
+        stratumMineBlockTaskFactory.setBlockVersion(_blockConfiguration.blockVersion);
+        stratumMineBlockTaskFactory.setPreviousBlockHash(_blockConfiguration.previousBlockHash);
+        stratumMineBlockTaskFactory.setDifficulty(_blockConfiguration.difficulty);
+        stratumMineBlockTaskFactory.setCoinbaseTransaction(_blockConfiguration.coinbaseTransaction, totalExtraNonceByteCount);
         stratumMineBlockTaskFactory.setExtraNonce(_extraNonce);
 
-        for (final Transaction transaction : transactions) {
+        for (final Transaction transaction : _blockConfiguration.transactions) {
             stratumMineBlockTaskFactory.addTransaction(transaction);
         }
 
@@ -221,7 +223,7 @@ class StratumMiner {
 
             resultJson.add(subscriptions);
             resultJson.add(_currentMineBlockTask.getExtraNonce());
-            resultJson.add(_extraNonce2ByteCount);
+            resultJson.add(extraNonce2ByteCount);
         }
 
         final ResponseMessage responseMessage = new ResponseMessage(requestMessage.getId());
@@ -261,6 +263,8 @@ class StratumMiner {
             submissionWasAccepted = false;
         }
 
+        Boolean shouldExit = false;
+
         if (mineBlockTask != null) {
             final Difficulty shareDifficulty = Difficulty.BASE_DIFFICULTY.divideBy(_shareDifficulty);
 
@@ -285,6 +289,8 @@ class StratumMiner {
                 final BlockDeflater blockDeflater = new BlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
                 Logger.log(blockDeflater.toBytes(block));
+
+                shouldExit = true;
                 BitcoinUtil.exitSuccess();
             }
         }
@@ -293,10 +299,16 @@ class StratumMiner {
 
         Logger.log("Sent: "+ blockAcceptedMessage.toString());
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
+
+        if (shouldExit) {
+            socketConnection.close();
+            _mainThread.interrupt();
+        }
     }
 
-    public StratumMiner() {
-        _extraNonce = _createRandomBytes(_extraNonceByteCount);
+    public StratumMiner(final BlockConfiguration blockConfiguration) {
+        _extraNonce = _createRandomBytes(extraNonceByteCount);
+        _blockConfiguration = blockConfiguration;
 
         File TEMP_FILE = null;
         try {
@@ -361,6 +373,8 @@ class StratumMiner {
     }
 
     public void loop() {
+        _mainThread = Thread.currentThread();
+
         _buildMiningTask();
 
         _stratumServerSocket.start();
@@ -370,5 +384,7 @@ class StratumMiner {
         while (true) {
             try { Thread.sleep(60000); } catch (final Exception exception) { break; }
         }
+
+        _stratumServerSocket.stop();
     }
 }
