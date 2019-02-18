@@ -38,7 +38,7 @@ public class BlockchainApi extends ExplorerApiEndpoint {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        {   // GET BLOCKCHAIN TREE
+        {   // GET BLOCKCHAIN METADATA
             // Requires GET:
             // Requires POST:
             try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection()) {
@@ -61,7 +61,7 @@ public class BlockchainApi extends ExplorerApiEndpoint {
                         return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
-                    blockchainJson = nodeJsonRpcConnection.getBlockchainMetadata();
+                    blockchainJson = rpcResponseJson.get("blockchainMetadata");
                 }
 
                 final BlockchainResult blockchainResult = new BlockchainResult();
