@@ -306,13 +306,19 @@ public class TransactionSigner {
         return BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
     }
 
-    public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
-        final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
-        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
-    }
-
-    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+    protected Transaction _signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey, final Boolean useCompressedPublicKey) {
         // NOTE: ensure signatureContext has its lastCodeSeparatorIndex set.
+
+        final PublicKey publicKey;
+        {
+            final PublicKey uncompressedPublicKey = privateKey.getPublicKey();
+            if (useCompressedPublicKey) {
+                publicKey = uncompressedPublicKey.compress();
+            }
+            else {
+                publicKey = uncompressedPublicKey.decompress();
+            }
+        }
 
         final MutableTransaction mutableTransaction = new MutableTransaction(signatureContext.getTransaction());
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
@@ -325,11 +331,24 @@ public class TransactionSigner {
 
             if (signatureContext.shouldInputScriptBeSigned(i)) {
                 final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(transactionInput);
-                mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, privateKey.getPublicKey()));
+                mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, publicKey));
                 mutableTransaction.setTransactionInput(i, mutableTransactionInput);
             }
         }
 
         return mutableTransaction;
+    }
+
+    public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
+        final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
+        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
+    }
+
+    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+        return _signTransaction(signatureContext, privateKey, false);
+    }
+
+    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey, final Boolean useCompressedPublicKey) {
+        return _signTransaction(signatureContext, privateKey, useCompressedPublicKey);
     }
 }

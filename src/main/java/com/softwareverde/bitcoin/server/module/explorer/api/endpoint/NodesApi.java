@@ -43,6 +43,7 @@ public class NodesApi extends ExplorerApiEndpoint {
                 if (nodeJsonRpcConnection == null) {
                     final NodesResult result = new NodesResult();
                     result.setWasSuccess(false);
+                    result.setErrorMessage("Unable to connect to node.");
                     return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
                 }
 

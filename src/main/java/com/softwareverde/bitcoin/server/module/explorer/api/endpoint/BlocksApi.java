@@ -46,6 +46,7 @@ public class BlocksApi extends ExplorerApiEndpoint {
                 if (nodeJsonRpcConnection == null) {
                     final RecentBlocksResult result = new RecentBlocksResult();
                     result.setWasSuccess(false);
+                    result.setErrorMessage("Unable to connect to node.");
                     return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
                 }
 

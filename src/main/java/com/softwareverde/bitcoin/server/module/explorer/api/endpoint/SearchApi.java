@@ -61,6 +61,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                 if (nodeJsonRpcConnection == null) {
                     final SearchResult result = new SearchResult();
                     result.setWasSuccess(false);
+                    result.setErrorMessage("Unable to connect to node.");
                     return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
                 }
 

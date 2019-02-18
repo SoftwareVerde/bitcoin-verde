@@ -65,6 +65,7 @@ public class ExplorerModule {
         { // Account Api
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/transactions", new TransactionsApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));

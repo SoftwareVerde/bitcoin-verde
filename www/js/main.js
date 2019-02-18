@@ -122,5 +122,16 @@ $(document).ready(function() {
     webSocket.onclose = function() {
         console.log("WebSocket closed...");
     };
+
+    const postTransactionInput = $("#post-transaction-input");
+    const postTransactionButton = $("#post-transaction-button");
+    postTransactionButton.on("click", function() {
+        const transactionData = postTransactionInput.val();
+        Api.postTransaction({ transactionData: transactionData }, function(result) {
+            if (result.wasSuccess) {
+                postTransactionInput.val("");
+            }
+        });
+    });
 });
 

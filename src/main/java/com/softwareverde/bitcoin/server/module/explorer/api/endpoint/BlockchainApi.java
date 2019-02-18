@@ -45,6 +45,7 @@ public class BlockchainApi extends ExplorerApiEndpoint {
                 if (nodeJsonRpcConnection == null) {
                     final BlockchainResult result = new BlockchainResult();
                     result.setWasSuccess(false);
+                    result.setErrorMessage("Unable to connect to node.");
                     return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
                 }
 
