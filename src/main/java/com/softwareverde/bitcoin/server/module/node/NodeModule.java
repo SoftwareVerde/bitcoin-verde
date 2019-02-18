@@ -565,6 +565,8 @@ public class NodeModule {
                     if (jsonRpcSocketServerHandler != null) {
                         jsonRpcSocketServerHandler.onNewTransaction(transaction);
                     }
+
+                    _addressProcessor.wakeUp();
                 }
             });
         }

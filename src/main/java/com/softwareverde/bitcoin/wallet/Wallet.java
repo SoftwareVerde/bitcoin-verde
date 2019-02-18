@@ -233,8 +233,8 @@ public class Wallet {
         }
 
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        System.out.println(signedTransaction.getHash());
-        System.out.println(transactionDeflater.toBytes(signedTransaction));
+        Logger.log(signedTransaction.getHash());
+        Logger.log(transactionDeflater.toBytes(signedTransaction));
 
         final ScriptRunner scriptRunner = new ScriptRunner();
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
@@ -255,6 +255,9 @@ public class Wallet {
                 return null;
             }
         }
+
+        final Integer transactionByteCount = transactionDeflater.getByteCount(signedTransaction);
+        Logger.log("Transaction Bytes Count: " + transactionByteCount + " (" + (calculatedFees / transactionByteCount.floatValue()) + " sats/byte)");
 
         return signedTransaction;
     }
