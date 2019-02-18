@@ -89,11 +89,11 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
                 final MutableList<Long> timestamps = new MutableList<Long>(transactionTimestamps.keySet());
                 timestamps.sort(SortUtil.longComparator.reversed());
 
+                transactions.addAll(pendingTransactions); // Display unconfirmed transactions first...
+
                 for (final Long timestamp : timestamps) {
                     transactions.addAll(transactionTimestamps.get(timestamp));
                 }
-
-                transactions.addAll(pendingTransactions);
             }
 
             return transactions.build();
