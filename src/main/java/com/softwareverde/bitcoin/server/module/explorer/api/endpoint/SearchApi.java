@@ -117,7 +117,7 @@ public class SearchApi extends ExplorerApiEndpoint {
 
                     if ( (objectType == null) && (queryParam.length() == hashCharacterLength) ) {
                         final Sha256Hash blockHash = Sha256Hash.fromHexString(queryParam);
-                        final Json queryTransactionResponseJson = nodeJsonRpcConnection.getBlock(blockHash);
+                        final Json queryTransactionResponseJson = nodeJsonRpcConnection.getTransaction(blockHash);
 
                         if (queryTransactionResponseJson == null) {
                             return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
