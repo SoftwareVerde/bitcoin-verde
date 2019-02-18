@@ -6,9 +6,25 @@ import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Json;
 
 public class MutableContext implements Context, Const {
+    public static MutableContext getContextForVerification(final Transaction signedTransaction, final Integer transactionInputIndex, final TransactionOutput transactionOutputBeingSpent) {
+        final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
+        final TransactionInput signedTransactionInput = signedTransactionInputs.get(transactionInputIndex);
+
+        final MutableContext mutableContext = new MutableContext();
+        mutableContext.setCurrentScript(null);
+        mutableContext.setTransactionInputIndex(transactionInputIndex);
+        mutableContext.setTransactionInput(signedTransactionInput);
+        mutableContext.setTransaction(signedTransaction);
+        mutableContext.setBlockHeight(Long.MAX_VALUE);
+        mutableContext.setTransactionOutputBeingSpent(transactionOutputBeingSpent);
+        mutableContext.setCurrentScriptLastCodeSeparatorIndex(0);
+        return mutableContext;
+    }
+
     protected Long _blockHeight;
     protected Transaction _transaction;
 

@@ -62,7 +62,6 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
             final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
-            final MutableList<Long> timestamps = new MutableList<Long>(transactionIds.getSize());
             final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getSize());
 
             for (final TransactionId transactionId : transactionIds) {
@@ -79,7 +78,6 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
                     }
 
                     transactions.add(transaction);
-                    timestamps.add(transactionTimestamp);
                 }
                 else {
                     pendingTransactions.add(transaction);
@@ -87,8 +85,9 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
             }
 
             final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
-            { // Add the Transactions in ascending order by timestamp...
-                timestamps.sort(SortUtil.longComparator);
+            { // Add the Transactions in descending order by timestamp...
+                final MutableList<Long> timestamps = new MutableList<Long>(transactionTimestamps.keySet());
+                timestamps.sort(SortUtil.longComparator.reversed());
 
                 for (final Long timestamp : timestamps) {
                     transactions.addAll(transactionTimestamps.get(timestamp));
