@@ -707,10 +707,48 @@ public class TransactionDatabaseManager {
         return listBuilder.build();
     }
 
+    // "Select transactions that are unconfirmed that spend an output spent by any of these transactionIds..."
+    public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query(
+                "SELECT " +
+                    "unconfirmed_transactions.transaction_id " +
+                "FROM " +
+                    "transaction_inputs " +
+                    "INNER JOIN unconfirmed_transactions " +
+                        "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
+                "WHERE " +
+                    "transaction_inputs.previous_transaction_output_id IN (" +
+                        "SELECT previous_transaction_output_id FROM transaction_inputs WHERE transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ")" +
+                    ")" +
+                "GROUP BY unconfirmed_transactions.transaction_id"
+            )
+        );
+
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        for (final Row row : rows) {
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            listBuilder.add(transactionId);
+        }
+        return listBuilder.build();
+    }
+
+    // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
-            new Query("SELECT unconfirmed_transactions.transaction_id FROM transaction_outputs INNER JOIN transaction_inputs ON transaction_outputs.id = transaction_inputs.previous_transaction_output_id INNER JOIN unconfirmed_transactions ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id WHERE transaction_outputs.transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") GROUP BY unconfirmed_transactions.transaction_id")
+            new Query(
+                "SELECT " +
+                    "unconfirmed_transactions.transaction_id " +
+                "FROM " +
+                    "transaction_outputs " +
+                    "INNER JOIN transaction_inputs " +
+                        "ON transaction_outputs.id = transaction_inputs.previous_transaction_output_id " +
+                    "INNER JOIN unconfirmed_transactions " +
+                        "ON transaction_inputs.transaction_id = unconfirmed_transactions.transaction_id " +
+                "WHERE " +
+                        "transaction_outputs.transaction_id IN (" + DatabaseUtil.createInClause(transactionIds) + ") " +
+                "GROUP BY unconfirmed_transactions.transaction_id"
+            )
         );
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());

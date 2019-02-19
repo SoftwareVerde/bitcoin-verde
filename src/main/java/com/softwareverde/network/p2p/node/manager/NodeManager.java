@@ -26,7 +26,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class NodeManager<NODE extends Node> {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     protected static ThreadPool _threadPool;
 

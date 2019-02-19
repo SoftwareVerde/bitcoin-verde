@@ -252,6 +252,15 @@ public class BlockProcessor {
                     final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(blockId));
                     transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
                     transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
+
+                    // Remove any transactions in the memory pool that are now considered double-spends...
+                    final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(transactionIds));
+                    while (! transactionsToRemove.isEmpty()) {
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
+                        final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
+                        transactionsToRemove.clear();
+                        transactionsToRemove.addAll(chainedInvalidTransactions);
+                    }
                 }
             }
 

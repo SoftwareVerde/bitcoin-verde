@@ -32,6 +32,9 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.wallet.PaymentAmount;
+import com.softwareverde.bitcoin.wallet.Wallet;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
@@ -410,5 +413,66 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(isValid);
+    }
+
+    @Test
+    public void should_not_accept_transaction_that_double_spends_output_into_mempool() throws Exception {
+        // Setup
+        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.ForkChain2.BLOCK_1 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+
+        final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
+
+        final Wallet wallet = new Wallet();
+        wallet.addPrivateKey(privateKey);
+        wallet.setSatoshisPerByteFee(0D);
+        wallet.addTransaction(lastBlock.getCoinbaseTransaction());
+
+        final Transaction signedTransaction;
+        {
+            final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
+            paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("1HPPterRZy2Thr8kEtd4SAennyaFFEAngV"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+            signedTransaction = wallet.createTransaction(paymentAmounts);
+        }
+
+        final Transaction doubleSpendingSignedTransaction;
+        {
+            final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
+            paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+            doubleSpendingSignedTransaction = wallet.createTransaction(paymentAmounts);
+        }
+
+        final TransactionId signedTransactionId = transactionDatabaseManager.storeTransaction(signedTransaction);
+
+        final Boolean firstTransactionIsValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), Long.MAX_VALUE, signedTransaction, true);
+        Assert.assertTrue(firstTransactionIsValid);
+
+        transactionDatabaseManager.addToUnconfirmedTransactions(signedTransactionId);
+
+        final TransactionId doubleSpendingTransactionId = transactionDatabaseManager.storeTransaction(doubleSpendingSignedTransaction);
+
+        // Action
+        final Boolean doubleSpendIsValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), Long.MAX_VALUE, doubleSpendingSignedTransaction, true);
+
+        // Assert
+        Assert.assertFalse(doubleSpendIsValid);
     }
 }

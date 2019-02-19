@@ -423,12 +423,21 @@ public class TransactionValidator {
             final Long totalTransactionOutputValue;
             {
                 long totalOutputValue = 0L;
+                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                if (transactionOutputs.isEmpty()) {
+                    Logger.log("Transaction contains no outputs: " + transaction.getHash());
+                    return false;
+                }
+
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-                    totalOutputValue += transactionOutput.getAmount();
+                    final Long transactionOutputAmount = transactionOutput.getAmount();
+                    if (transactionOutputAmount < 0L) {
+                        Logger.log("TransactionOutput has negative amount: " + transaction.getHash());
+                        return false;
+                    }
+                    totalOutputValue += transactionOutputAmount;
 
                     // TODO: Validate that the output indices are sequential and start at 0... (Must check reference client if it does the same.)
-                    // TODO: Validate the output count is not zero...
-                    // TODO: Validate the output value isn't negative... (Unknown if zero is allowed.)
                 }
                 totalTransactionOutputValue = totalOutputValue;
             }

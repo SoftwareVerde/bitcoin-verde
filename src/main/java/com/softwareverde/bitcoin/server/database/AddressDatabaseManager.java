@@ -36,6 +36,7 @@ public class AddressDatabaseManager {
         protected TransactionOutputId _transactionOutputId;
         protected Long _amount;
         protected TransactionInputId _spentByTransactionInputId;
+        protected Boolean _isUnconfirmed;
 
         public BlockId getBlockId() { return _blockId; }
         public TransactionId getTransactionId() { return _transactionId; }
@@ -45,6 +46,8 @@ public class AddressDatabaseManager {
 
         public Boolean wasSpent() { return (_spentByTransactionInputId != null); }
         public Boolean isMined() { return (_blockId != null); }
+        public Boolean isUnconfirmed() { return _isUnconfirmed; }
+
     }
 
     protected List<TransactionId> _getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
@@ -129,11 +132,15 @@ public class AddressDatabaseManager {
                 spendableTransactionOutput._transactionId = transactionId;
                 spendableTransactionOutput._transactionOutputId = transactionOutputId;
                 spendableTransactionOutput._amount = amount;
+                spendableTransactionOutput._isUnconfirmed = transactionDatabaseManager.isUnconfirmedTransaction(transactionId);
             }
 
             if (spendableTransactionOutput.isMined()) {
                 final Boolean transactionWasMinedOnChain = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
                 if (! transactionWasMinedOnChain) { continue; }
+            }
+            else if (! spendableTransactionOutput.isUnconfirmed()) {
+                continue; // Do not include transactions that are neither mined nor in the mempool...
             }
 
             {
