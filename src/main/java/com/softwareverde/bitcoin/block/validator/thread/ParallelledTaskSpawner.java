@@ -85,9 +85,7 @@ public class ParallelledTaskSpawner<T, S> {
         for (int i = 0; i < _validationTasks.getSize(); ++i) {
             final ValidationTask<T, S> validationTask = _validationTasks.get(i);
             final S result = validationTask.getResult();
-            if (result == null) {
-                return null;
-            }
+            if (result == null) { return null; }
 
             listBuilder.add(result);
         }

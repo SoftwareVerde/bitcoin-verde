@@ -611,7 +611,7 @@ public class NodeModule {
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
-                final DataHandler dataHandler = new DataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, _transactionDownloader, _blockDownloader);
+                final DataHandler dataHandler = new DataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 

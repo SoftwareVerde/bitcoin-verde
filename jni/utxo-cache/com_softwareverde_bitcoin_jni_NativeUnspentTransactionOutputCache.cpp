@@ -208,6 +208,8 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
 }
 
 JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1destroy(JNIEnv* environment, jclass _class) {
+    if (CACHES == 0) { return; }
+
     for (int i=0; i<256; ++i) {
         if (CACHES[i] != 0) {
             delete CACHES[i];
@@ -215,6 +217,7 @@ JNIEXPORT void JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransacti
         }
     }
     delete[] CACHES;
+    CACHES = 0;
 }
 
 JNIEXPORT jint JNICALL Java_com_softwareverde_bitcoin_jni_NativeUnspentTransactionOutputCache__1createCache(JNIEnv* environment, jclass _class) {

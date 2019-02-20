@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -119,9 +120,9 @@ public class BlockProcessor {
                         }
 
                         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                        final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
-                        if (! blockHeaderIsValid) {
-                            Logger.log("Invalid BlockHeader: " + blockHash);
+                        final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
+                        if (! blockHeaderValidationResponse.isValid) {
+                            Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
@@ -158,7 +159,11 @@ public class BlockProcessor {
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
 
                     blockValidationTimer.start();
-                    blockIsValid = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                    final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                    if (! blockValidationResult.isValid) {
+                        Logger.log(blockValidationResult.errorMessage);
+                    }
+                    blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
 
                     // localDatabaseManagerCache.log();

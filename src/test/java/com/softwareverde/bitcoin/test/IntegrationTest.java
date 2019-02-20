@@ -12,19 +12,14 @@ import com.softwareverde.test.database.MysqlTestDatabase;
 
 public class IntegrationTest {
     protected static final MysqlTestDatabase _database = new MysqlTestDatabase();
+    protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+    protected static Boolean _nativeCacheWasInitialized = false;
+
     protected DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
     protected MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
     static {
         _resetDatabase();
-
-        final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-        if (nativeCacheIsEnabled) {
-            NativeUnspentTransactionOutputCache.init();
-        }
-        else {
-            Logger.log("NOTICE: NativeUtxoCache not enabled.");
-        }
     }
 
     protected static void _resetDatabase() {
@@ -37,6 +32,17 @@ public class IntegrationTest {
             final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
             try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                 databaseInitializer.initializeDatabase(databaseConnection);
+            }
+
+            if (_nativeCacheIsEnabled) {
+                if (_nativeCacheWasInitialized) {
+                    NativeUnspentTransactionOutputCache.destroy();
+                }
+                NativeUnspentTransactionOutputCache.init();
+                _nativeCacheWasInitialized = true;
+            }
+            else {
+                Logger.log("NOTICE: NativeUtxoCache not enabled.");
             }
         }
         catch (final Exception exception) {

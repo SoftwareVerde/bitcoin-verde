@@ -127,9 +127,9 @@ public class BlockHeaderDownloader extends SleepyService {
                 return false;
             }
 
-            final Boolean blockHeaderIsValid = blockValidator.validateBlockHeader(blockHeader);
-            if (! blockHeaderIsValid) {
-                Logger.log("Invalid BlockHeader: " + blockHash);
+            final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeader(blockHeader);
+            if (! blockHeaderValidationResponse.isValid) {
+                Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }

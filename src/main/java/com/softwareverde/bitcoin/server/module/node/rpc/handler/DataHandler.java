@@ -4,12 +4,15 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
+import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.*;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
@@ -24,11 +27,17 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.time.NetworkTime;
 
 public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final ReadOnlyLocalDatabaseManagerCache _databaseManagerCache;
+
+    protected final NetworkTime _networkTime;
+    protected final MedianBlockTimeWithBlocks _medianBlockTime;
 
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
@@ -66,11 +75,14 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
         return (totalTransactionInputAmount - totalTransactionOutputAmount);
     }
 
-    public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader) {
+    public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final ReadOnlyLocalDatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
+
+        _networkTime = networkTime;
+        _medianBlockTime = medianBlockTime;
     }
 
     @Override
@@ -341,6 +353,32 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
         catch (final DatabaseException exception) {
             Logger.log(exception);
             return null;
+        }
+    }
+
+    @Override
+    public BlockValidationResult validatePrototypeBlock(final Block block) {
+        Logger.log("Validating Prototype Block: " + block.getHash());
+
+        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            try {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    TransactionUtil.startTransaction(databaseConnection);
+
+                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                    final BlockId blockId = blockDatabaseManager.storeBlock(block);
+
+                    final BlockValidator blockValidator = new BlockValidator(new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory), _databaseManagerCache, _networkTime, _medianBlockTime);
+                    return blockValidator.validatePrototypeBlock(blockId, block);
+                }
+            }
+            finally {
+                TransactionUtil.rollbackTransaction(databaseConnection); // Never keep the validated block...
+            }
+        }
+        catch (final Exception exception) {
+            Logger.log(exception);
+            return BlockValidationResult.invalid("An internal error occurred.");
         }
     }
 

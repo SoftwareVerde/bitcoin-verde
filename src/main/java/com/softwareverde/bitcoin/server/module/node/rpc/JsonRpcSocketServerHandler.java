@@ -9,6 +9,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -107,6 +108,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
         Long getBlockReward();
 
+        BlockValidationResult validatePrototypeBlock(final Block block);
         void submitTransaction(Transaction transaction);
         void submitBlock(Block block);
     }
@@ -885,6 +887,39 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
+    // Requires POST: <block>
+    protected void _validatePrototypeBlock(final Json parameters, final Json response) {
+        final DataHandler dataHandler = _dataHandler;
+        if (dataHandler == null) {
+            response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
+            return;
+        }
+
+        if (! parameters.hasKey("blockData")) {
+            response.put(ERROR_MESSAGE_KEY, "Missing parameters. Required: blockData");
+            return;
+        }
+
+        final String blockHexString = parameters.getString("blockData");
+        final ByteArray blockBytes = MutableByteArray.wrap(HexUtil.hexStringToByteArray(blockHexString));
+        if (blockBytes == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block bytes.");
+            return;
+        }
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final Block block = blockInflater.fromBytes(blockBytes);
+        if (block == null) {
+            response.put(ERROR_MESSAGE_KEY, "Invalid Block");
+            return;
+        }
+
+        final BlockValidationResult blockValidationResult = dataHandler.validatePrototypeBlock(block);
+        response.put("blockValidation", blockValidationResult);
+
+        response.put(WAS_SUCCESS_KEY, 1);
+    }
+
     // Requires GET:
     protected void _listNodes(final Json response) {
         final NodeHandler nodeHandler = _nodeHandler;
@@ -1103,7 +1138,6 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 final String query = message.getString("query");
 
                 final Json response = new Json();
-                response.put("method", "RESPONSE");
                 response.put(WAS_SUCCESS_KEY, 0);
                 response.put(ERROR_MESSAGE_KEY, null);
 
@@ -1201,6 +1235,10 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
                             case "BLOCK": {
                                 _receiveBlock(parameters, response);
+                            } break;
+
+                            case "VALIDATE_PROTOTYPE_BLOCK": {
+                                _validatePrototypeBlock(parameters, response);
                             } break;
 
                             default: {

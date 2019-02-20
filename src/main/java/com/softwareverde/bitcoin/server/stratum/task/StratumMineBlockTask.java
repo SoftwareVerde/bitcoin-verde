@@ -144,6 +144,10 @@ public class StratumMineBlockTask {
         return _prototypeBlock.getDifficulty();
     }
 
+    public Long getTimestamp() {
+        return _timestampInSeconds;
+    }
+
     public BlockHeader assembleBlockHeader(final String stratumNonce, final String stratumExtraNonce2, final String stratumTimestamp) {
         final MutableBlockHeader blockHeader = new MutableBlockHeader(_prototypeBlock);
 

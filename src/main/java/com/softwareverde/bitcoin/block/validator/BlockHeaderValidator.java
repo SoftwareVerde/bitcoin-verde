@@ -17,6 +17,24 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class BlockHeaderValidator {
+    public static class BlockHeaderValidationResponse {
+        public static BlockHeaderValidationResponse valid() {
+            return new BlockHeaderValidationResponse(true, null);
+        }
+
+        public static BlockHeaderValidationResponse invalid(final String errorMessage) {
+            return new BlockHeaderValidationResponse(false, errorMessage);
+        }
+
+        public final Boolean isValid;
+        public final String errorMessage;
+
+        public BlockHeaderValidationResponse(final Boolean isValid, final String errorMessage) {
+            this.isValid = isValid;
+            this.errorMessage = errorMessage;
+        }
+    }
+
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final MysqlDatabaseConnection _databaseConnection;
@@ -42,10 +60,9 @@ public class BlockHeaderValidator {
         }
     }
 
-    protected Boolean _validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
+    protected BlockHeaderValidationResponse _validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
         if (! blockHeader.isValid()) {
-            Logger.log("Block header is invalid.");
-            return false;
+            return BlockHeaderValidationResponse.invalid("Block header is invalid.");
         }
 
         final NanoTimer validateBlockTimer = new NanoTimer();
@@ -72,13 +89,11 @@ public class BlockHeaderValidator {
                     Logger.log("INFO: Allowing header with timestamp from alternate chain.");
                 }
                 else {
-                    Logger.log("Invalid block. Header invalid. BlockTime < MedianBlockTime. BlockTime: " + blockTime + " Minimum: " + minimumTimeInSeconds);
-                    return false;
+                    return BlockHeaderValidationResponse.invalid("Invalid block. Header invalid. BlockTime < MedianBlockTime. BlockTime: " + blockTime + " Minimum: " + minimumTimeInSeconds);
                 }
             }
             if (blockTime > maximumNetworkTime) {
-                Logger.log("Invalid block. Header invalid. BlockTime > NetworkTime. BlockTime: " + blockTime + " Maximum: " + maximumNetworkTime);
-                return false;
+                return BlockHeaderValidationResponse.invalid("Invalid block. Header invalid. BlockTime > NetworkTime. BlockTime: " + blockTime + " Maximum: " + maximumNetworkTime);
             }
         }
 
@@ -86,21 +101,19 @@ public class BlockHeaderValidator {
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseConnection, _databaseManagerCache);
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
             if (calculatedRequiredDifficulty == null) {
-                Logger.log("Unable to calculate required difficulty for block: " + blockHeader.getHash());
-                return false;
+                return BlockHeaderValidationResponse.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());
             }
 
             final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
             if (! difficultyIsCorrect) {
-                Logger.log("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
-                return false;
+                return BlockHeaderValidationResponse.invalid("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
             }
         }
 
         validateBlockTimer.stop();
         // Logger.log("Validated Block Header in "+ (validateBlockTimer.getMillisecondsElapsed()) + "ms.");
 
-        return true;
+        return BlockHeaderValidationResponse.valid();
     }
 
     public BlockHeaderValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
@@ -110,7 +123,7 @@ public class BlockHeaderValidator {
         _medianBlockTime = medianBlockTime;
     }
 
-    public Boolean validateBlockHeader(final BlockHeader blockHeader) {
+    public BlockHeaderValidationResponse validateBlockHeader(final BlockHeader blockHeader) {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final BlockId blockId;
@@ -121,13 +134,13 @@ public class BlockHeaderValidator {
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
-            return false;
+            return BlockHeaderValidationResponse.invalid("An internal error occurred.");
         }
 
         return _validateBlockHeader(blockHeader, blockHeight);
     }
 
-    public Boolean validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
+    public BlockHeaderValidationResponse validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
         return _validateBlockHeader(blockHeader, blockHeight);
     }
 }

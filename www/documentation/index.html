@@ -389,10 +389,26 @@
                             <tr><td data-label="Method">POST</td><td data-label="Query">BAN_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span></td><td data-label="Description">Disconnects from and bans all nodes connected at the provided ip.</td></tr>
                             <tr><td data-label="Method">POST</td><td data-label="Query">UNBAN_NODE</td><td data-label="Parameters"><span class="parameter mandatory">host</span></td><td data-label="Description">Clears all nodes resolving to the provided ip of their banned status.</td></tr>
                             <tr><td data-label="Method">POST</td><td data-label="Query">ADD_HOOK</td><td data-label="Parameters"><span class="parameter mandatory">events</span></td><td data-label="Description">Upgrades the RPC connection to a HookConnection.  The HookConnection remains open until closed by the client.  The node will relay live-updates to the HookConnection based on the <tt>events</tt> it has subscribed to.  The mandatory <tt>events</tt> parameter is an array of HookEvents.  Currently supported HookEvent values are: <tt>NEW_BLOCK</tt>, <tt>NEW_TRANSACTION</tt>.</td></tr>
+                            <tr><td data-label="Method">POST</td><td data-label="Query">VALIDATE_PROTOTYPE_BLOCK</td><td data-label="Parameters"><span class="parameter mandatory">blockData</span></td><td data-label="Description">Validates the Block as a prototype block for mining.  The prototype block is validated against the current head blockchain in its entirety except for its hash.  A <tt>blockValidation</tt> object is returned in the response; the <tt>blockValidation</tt> object contains the validation error and a list of invalid transactions, if any.  The invalid transactions set may only be a subset of the invalid transactions.</td></tr>
                             <tr><td data-label="Method">POST</td><td data-label="Query">TRANSACTION</td><td data-label="Parameters"><span class="parameter mandatory">transactionData</span></td><td data-label="Description">Queues the Transaction for processing into the mempool.  Transactions submitted via RPC are not treated differently than transactions received from peer nodes and will be validated and accepted in the order they are received.  <tt>transactionData</tt> should be the deflated bytes of the Transaction in its entirety, hex-encoded.</td></tr>
                             <tr><td data-label="Method">POST</td><td data-label="Query">BLOCK</td><td data-label="Parameters"><span class="parameter mandatory">blockData</span></td><td data-label="Description">Queues the Block for processing.  Blocks submitted via RPC are not treated differently than transactions received from peer nodes and will be validated and accepted in the order they are received.  <tt>transactionData</tt> should be the deflated bytes of the Block in its entirety, hex-encoded.</td></tr>
                         </tbody>
                     </table>
+
+                    <p>
+                        An example <tt>VALIDATE_PROTOTYPE_BLOCK</tt> response looks like:
+                    </p>
+<pre>{  
+    "wasSuccess":       1,
+    "errorMessage":     null,
+    "blockValidation": {  
+        "isValid":              false,
+        "errorMessage":         "Block coinbase does not contain block height.",
+        "invalidTransactions":  [
+            "7E7337FDEA7B55BD2105AE611EAC478889AA5D321B18B5E9389666CFB85619B6"
+        ]
+    }
+}</pre>
 
                 </div>
                 <a name="technical-notes"></a>

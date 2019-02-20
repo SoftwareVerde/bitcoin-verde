@@ -17,7 +17,6 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
@@ -29,10 +28,8 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
@@ -194,7 +191,7 @@ public class BlockValidatorTests extends IntegrationTest {
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
             }
-            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlockId, prerequisiteBlock);
+            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlockId, prerequisiteBlock).isValid;
             Assert.assertFalse(prerequisiteBlockIsValid); // Should fail because its dependent transactions are not inserted.  Asserting for clarity and sanity.
         }
 
@@ -206,7 +203,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block).isValid;
 
         // Assert
         Assert.assertTrue(blockIsValid);
@@ -297,12 +294,12 @@ public class BlockValidatorTests extends IntegrationTest {
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-            Assert.assertTrue(blockValidator.validateBlock(block1PrimeId, block1Prime));
+            Assert.assertTrue(blockValidator.validateBlock(block1PrimeId, block1Prime).isValid);
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime));
+            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime).isValid);
         }
 
         // TransactionInput 0:4A23572C0048299E956AE25262B3C3E75D984A0CCE36B9C60E9A741E14E099F7 should exist within the database, however, it should exist only within a separate chain...
@@ -320,7 +317,7 @@ public class BlockValidatorTests extends IntegrationTest {
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 block2Id = blockDatabaseManager.insertBlock(block2Prime);
             }
-            block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime);
+            block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime).isValid;
         }
         catch (final DatabaseException exception) {
             block2PrimeIsValid = false;
@@ -439,7 +436,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, firstBlockWithDifficultyIncrease);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, firstBlockWithDifficultyIncrease).isValid;
 
         // Assert
         Assert.assertTrue(blockIsValid);
@@ -480,7 +477,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(blockId, invalidBlock6);
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(blockId, invalidBlock6).isValid;
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -580,7 +577,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
 
         // Assert
         Assert.assertFalse(blockIsValid);
@@ -666,7 +663,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block3
                 lastBlockHash = blockWithDuplicateTxId.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -711,7 +708,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -722,7 +719,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block5
                 lastBlockHash = blockWithDuplicateTxId.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -751,7 +748,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block6
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -776,7 +773,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block7
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertFalse(blockIsValid);
             }
         }
@@ -837,7 +834,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
                 lastBlockHash = blockWithSpendableCoinbase.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -882,7 +879,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -907,7 +904,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4Prime
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }

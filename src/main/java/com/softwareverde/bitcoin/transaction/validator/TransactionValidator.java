@@ -39,7 +39,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidator {
-    public static final Long COINBASE_MATURITY = 100L;
+    public static final Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent.
 
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
 

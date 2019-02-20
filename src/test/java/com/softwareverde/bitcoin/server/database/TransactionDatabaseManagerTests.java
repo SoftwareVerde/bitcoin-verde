@@ -94,7 +94,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
                 lastBlockHash = blockWithSpendableCoinbase.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }

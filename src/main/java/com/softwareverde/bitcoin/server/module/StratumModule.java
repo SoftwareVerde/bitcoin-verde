@@ -51,6 +51,7 @@ public class StratumModule {
     }
 
     protected static final boolean PROXY_VIABTC = false;
+    protected static final boolean VALIDATE_PROTOTYPE_BLOCK_BEFORE_MINING = true;
 
     protected final Configuration _configuration;
     protected final StratumServerSocket _stratumServerSocket;
@@ -116,6 +117,7 @@ public class StratumModule {
         return mutableByteArray;
     }
 
+    // TODO: Handle connection failures...
     protected NodeJsonRpcConnection _getNodeJsonRpcConnection() {
         final Configuration.ExplorerProperties explorerProperties = _configuration.getExplorerProperties();
         final String bitcoinRpcUrl = explorerProperties.getBitcoinRpcUrl();
@@ -208,6 +210,30 @@ public class StratumModule {
 
         for (final Transaction transaction : transactions) {
             stratumMineBlockTaskFactory.addTransaction(transaction);
+        }
+
+        if (VALIDATE_PROTOTYPE_BLOCK_BEFORE_MINING) {
+            final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
+            final String zeroes = Sha256Hash.EMPTY_HASH.toString();
+            final String stratumNonce = zeroes.substring(0, (4 * 2));
+            final String stratumExtraNonce2 = zeroes.substring(0, (_extraNonce2ByteCount * 2));
+            final String stratumTimestamp = HexUtil.toHexString(ByteUtil.longToBytes(mineBlockTask.getTimestamp()));
+            final Block prototypeBlock = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
+            final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection();
+            final Json validatePrototypeBlockResponse = nodeJsonRpcConnection.validatePrototypeBlock(prototypeBlock);
+            final Boolean requestWasSuccessful = validatePrototypeBlockResponse.getBoolean("wasSuccess");
+            if (! requestWasSuccessful) {
+                Logger.log("NOTICE: Error validating prototype block: " + validatePrototypeBlockResponse.getString("errorMessage"));
+            }
+            else {
+                final Json validationResult = validatePrototypeBlockResponse.get("blockValidation");
+                final Boolean blockIsValid = validationResult.getBoolean("isValid");
+                if (! blockIsValid) {
+                    final String errorMessage = validationResult.getString("errorMessage");
+                    Logger.log("Attempted to mine invalid block: " + errorMessage);
+                    BitcoinUtil.exitFailure();
+                }
+            }
         }
 
         try {

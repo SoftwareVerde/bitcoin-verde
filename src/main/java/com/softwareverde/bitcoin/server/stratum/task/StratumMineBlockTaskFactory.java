@@ -12,7 +12,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
 

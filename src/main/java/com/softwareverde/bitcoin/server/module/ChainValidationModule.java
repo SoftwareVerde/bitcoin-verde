@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -137,10 +138,10 @@ public class ChainValidationModule {
                 final Block block = blockDatabaseManager.getBlock(blockId, true);
 
                 validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
 
-                if (! blockIsValid) {
-                    Logger.error("Invalid block found: " + blockHash);
+                if (! blockValidationResult.isValid) {
+                    Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");
                     break;
                 }
 
