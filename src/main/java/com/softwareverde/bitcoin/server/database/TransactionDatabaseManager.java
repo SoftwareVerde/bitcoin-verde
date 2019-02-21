@@ -797,6 +797,41 @@ public class TransactionDatabaseManager {
         return _getBlockIds(transactionId);
     }
 
+    public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(_databaseConnection, _databaseManagerCache);
+
+        Long totalTransactionInputAmount = 0L;
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final TransactionOutputId previousTransactionOutputId;
+            {
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                if (previousOutputTransactionHash != null) {
+                    final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+                    previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
+                }
+                else {
+                    previousTransactionOutputId = null;
+                }
+            }
+
+            if (previousTransactionOutputId == null) { return null; }
+
+            final TransactionOutput previousTransactionOutput = transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId);
+            final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
+
+            if (previousTransactionOutputAmount == null) { return null; }
+
+            totalTransactionInputAmount += previousTransactionOutputAmount;
+        }
+
+        Long totalTransactionOutputAmount = 0L;
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+            totalTransactionOutputAmount += transactionOutput.getAmount();
+        }
+
+        return (totalTransactionInputAmount - totalTransactionOutputAmount);
+    }
+
     public void updateTransaction(final Transaction transaction) throws DatabaseException {
         _databaseManagerCache.invalidateTransactionIdCache();
         _databaseManagerCache.invalidateTransactionCache();

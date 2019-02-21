@@ -1,13 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.concurrent.service.SleepyService;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ServiceInquisitor implements JsonRpcSocketServerHandler.ServiceInquisitor {
+public class ServiceInquisitor implements NodeRpcHandler.ServiceInquisitor {
     protected final ConcurrentHashMap<String, SleepyService.StatusMonitor> _services = new ConcurrentHashMap<String, SleepyService.StatusMonitor>();
 
     public void addService(final String serviceName, final SleepyService.StatusMonitor statusMonitor) {

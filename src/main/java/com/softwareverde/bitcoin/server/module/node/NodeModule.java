@@ -28,7 +28,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHan
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
@@ -36,6 +36,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.Transaction
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -76,7 +77,7 @@ public class NodeModule {
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final BinarySocketServer _socketServer;
-    protected final JsonRpcSocketServerHandler _jsonRpcSocketServerHandler;
+    protected final NodeRpcHandler _nodeRpcHandler;
     protected final JsonSocketServer _jsonRpcSocketServer;
     protected final BlockHeaderDownloader _blockHeaderDownloader;
     protected final BlockDownloader _blockDownloader;
@@ -495,9 +496,9 @@ public class NodeModule {
                                 }
                             }
 
-                            final JsonRpcSocketServerHandler jsonRpcSocketServerHandler = _jsonRpcSocketServerHandler;
-                            if (jsonRpcSocketServerHandler != null) {
-                                jsonRpcSocketServerHandler.onNewBlock(block);
+                            final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                            if (nodeRpcHandler != null) {
+                                nodeRpcHandler.onNewBlock(block);
                             }
                         }
                     }
@@ -561,9 +562,15 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.NewTransactionProcessedCallback() {
                 @Override
                 public void onNewTransaction(final Transaction transaction) {
-                    final JsonRpcSocketServerHandler jsonRpcSocketServerHandler = _jsonRpcSocketServerHandler;
-                    if (jsonRpcSocketServerHandler != null) {
-                        jsonRpcSocketServerHandler.onNewTransaction(transaction);
+                    final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
+                    if (nodeRpcHandler != null) {
+                        try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
+                            nodeRpcHandler.onNewTransaction(new TransactionWithFee(transaction, transactionDatabaseManager.calculateTransactionFee(transaction)));
+                        }
+                        catch (final DatabaseException exception) {
+                            Logger.log(exception);
+                        }
                     }
 
                     _addressProcessor.wakeUp();
@@ -598,14 +605,14 @@ public class NodeModule {
 
         final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
-            final JsonRpcSocketServerHandler.StatisticsContainer statisticsContainer = new JsonRpcSocketServerHandler.StatisticsContainer();
+            final NodeRpcHandler.StatisticsContainer statisticsContainer = new NodeRpcHandler.StatisticsContainer();
             { // Initialize statistics container...
                 statisticsContainer.averageBlockHeadersPerSecond = _blockHeaderDownloader.getAverageBlockHeadersPerSecondContainer();
                 statisticsContainer.averageBlocksPerSecond = blockProcessor.getAverageBlocksPerSecondContainer();
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final JsonRpcSocketServerHandler rpcSocketServerHandler = new JsonRpcSocketServerHandler(statisticsContainer, _rpcThreadPool);
+            final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool);
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
@@ -633,11 +640,11 @@ public class NodeModule {
 
             final JsonSocketServer jsonRpcSocketServer = new JsonSocketServer(rpcPort, _rpcThreadPool);
             jsonRpcSocketServer.setSocketConnectedCallback(rpcSocketServerHandler);
-            _jsonRpcSocketServerHandler = rpcSocketServerHandler;
+            _nodeRpcHandler = rpcSocketServerHandler;
             _jsonRpcSocketServer = jsonRpcSocketServer;
         }
         else {
-            _jsonRpcSocketServerHandler = null;
+            _nodeRpcHandler = null;
             _jsonRpcSocketServer = null;
         }
 

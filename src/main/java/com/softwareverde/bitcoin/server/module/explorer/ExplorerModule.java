@@ -69,6 +69,7 @@ public class ExplorerModule {
             _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/pool", new PoolApi(_explorerProperties, _threadPool));
         }
 
         { // WebSocket

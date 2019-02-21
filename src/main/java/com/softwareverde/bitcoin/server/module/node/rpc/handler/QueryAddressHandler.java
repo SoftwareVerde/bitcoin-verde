@@ -9,7 +9,7 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -22,7 +22,7 @@ import com.softwareverde.util.SortUtil;
 
 import java.util.HashMap;
 
-public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddressHandler {
+public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected DatabaseManagerCache _databaseManagerCache;
 

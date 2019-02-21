@@ -15,6 +15,7 @@ public class Configuration {
     public static final Integer BITCOIN_PORT = 8333;
     public static final Integer BITCOIN_RPC_PORT = 8334;
     public static final Integer STRATUM_PORT = 3333;
+    public static final Integer STRATUM_RPC_PORT = 3334;
 
     public static class DatabaseProperties extends MutableEmbeddedDatabaseProperties {
         protected Long _maxMemoryByteCount;
@@ -41,7 +42,6 @@ public class Configuration {
 
     public static class ServerProperties {
         private Integer _bitcoinPort;
-        private Integer _stratumPort;
         private Integer _bitcoinRpcPort;
         private SeedNodeProperties[] _seedNodeProperties;
         private Integer _maxPeerCount;
@@ -55,7 +55,6 @@ public class Configuration {
 
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
-        public Integer getStratumPort() { return _stratumPort; }
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
         public Integer getMaxPeerCount() { return _maxPeerCount; }
         public Integer getMaxThreadCount() { return _maxThreadCount; }
@@ -70,8 +69,12 @@ public class Configuration {
     public static class ExplorerProperties {
         private Integer _port;
         private String _rootDirectory;
+
         private String _bitcoinRpcUrl;
         private Integer _bitcoinRpcPort;
+
+        private String _stratumRpcUrl;
+        private Integer _stratumRpcPort;
 
         private Integer _tlsPort;
         private String _tlsKeyFile;
@@ -79,18 +82,35 @@ public class Configuration {
 
         public Integer getPort() { return _port; }
         public String getRootDirectory() { return _rootDirectory; }
+
         public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+
+        public String getStratumRpcUrl() { return _stratumRpcUrl; }
+        public Integer getStratumRpcPort() { return _stratumRpcPort; }
 
         public Integer getTlsPort() { return _tlsPort; }
         public String getTlsKeyFile() { return _tlsKeyFile; }
         public String getTlsCertificateFile() { return _tlsCertificateFile; }
     }
 
+    public static class StratumProperties {
+        private Integer _port;
+        private Integer _rpcPort;
+        private String _bitcoinRpcUrl;
+        private Integer _bitcoinRpcPort;
+
+        public Integer getPort() { return _port; }
+        public Integer getRpcPort() { return _rpcPort; }
+        public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
+        public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+    }
+
     private final Properties _properties;
     private DatabaseProperties _databaseProperties;
     private ServerProperties _serverProperties;
     private ExplorerProperties _explorerProperties;
+    private StratumProperties _stratumProperties;
 
     private void _loadDatabaseProperties() {
         final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
@@ -120,7 +140,6 @@ public class Configuration {
         _serverProperties = new ServerProperties();
         _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BITCOIN_PORT.toString()));
         _serverProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BITCOIN_RPC_PORT.toString()));
-        _serverProperties._stratumPort = Util.parseInt(_properties.getProperty("stratum.port", STRATUM_PORT.toString()));
 
         final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]"));
         _serverProperties._seedNodeProperties = new SeedNodeProperties[seedNodesJson.length()];
@@ -154,8 +173,12 @@ public class Configuration {
     private void _loadExplorerProperties() {
         final Integer port = Util.parseInt(_properties.getProperty("explorer.port", "8080"));
         final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "www");
+
         final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
         final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("explorer.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+
+        final String stratumRpcUrl = _properties.getProperty("explorer.stratumRpcUrl", "");
+        final Integer stratumRpcPort = Util.parseInt(_properties.getProperty("explorer.stratumRpcPort", STRATUM_RPC_PORT.toString()));
 
         final Integer tlsPort = Util.parseInt(_properties.getProperty("explorer.tlsPort", "4443"));
         final String tlsKeyFile = _properties.getProperty("explorer.tlsKeyFile", "");
@@ -164,14 +187,32 @@ public class Configuration {
         final ExplorerProperties explorerProperties = new ExplorerProperties();
         explorerProperties._port = port;
         explorerProperties._rootDirectory = rootDirectory;
+
         explorerProperties._bitcoinRpcUrl = bitcoinRpcUrl;
         explorerProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        explorerProperties._stratumRpcUrl = stratumRpcUrl;
+        explorerProperties._stratumRpcPort = stratumRpcPort;
 
         explorerProperties._tlsPort = tlsPort;
         explorerProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
         explorerProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
 
         _explorerProperties = explorerProperties;
+    }
+
+    private void _loadStratumProperties() {
+        final Integer port = Util.parseInt(_properties.getProperty("stratum.port", STRATUM_PORT.toString()));
+        final Integer rpcPort = Util.parseInt(_properties.getProperty("stratum.rpcPort", STRATUM_RPC_PORT.toString()));
+        final String bitcoinRpcUrl = _properties.getProperty("stratum.bitcoinRpcUrl", "");
+        final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("stratum.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+
+        final StratumProperties stratumProperties = new StratumProperties();
+        stratumProperties._port = port;
+        stratumProperties._rpcPort = rpcPort;
+        stratumProperties._bitcoinRpcUrl = bitcoinRpcUrl;
+        stratumProperties._bitcoinRpcPort = bitcoinRpcPort;
+        _stratumProperties = stratumProperties;
     }
 
     public Configuration(final File configurationFile) {
@@ -185,14 +226,14 @@ public class Configuration {
         }
 
         _loadDatabaseProperties();
-
         _loadServerProperties();
-
+        _loadStratumProperties();
         _loadExplorerProperties();
     }
 
     public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     public ServerProperties getServerProperties() { return _serverProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
+    public StratumProperties getStratumProperties() { return _stratumProperties; }
 
 }

@@ -11,17 +11,17 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -32,7 +32,7 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
-public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
+public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final ReadOnlyLocalDatabaseManagerCache _databaseManagerCache;
 
@@ -41,39 +41,6 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
 
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
-
-    protected Long _calculateTransactionFee(final Transaction transaction, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) throws DatabaseException {
-        Long totalTransactionInputAmount = 0L;
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            final TransactionOutputId previousTransactionOutputId;
-            {
-                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                if (previousOutputTransactionHash != null) {
-                    final TransactionOutputIdentifier previousTransactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-                    previousTransactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(previousTransactionOutputIdentifier);
-                }
-                else {
-                    previousTransactionOutputId = null;
-                }
-            }
-
-            if (previousTransactionOutputId == null) { return null; }
-
-            final TransactionOutput previousTransactionOutput = transactionOutputDatabaseManager.getTransactionOutput(previousTransactionOutputId);
-            final Long previousTransactionOutputAmount = ( previousTransactionOutput != null ? previousTransactionOutput.getAmount() : null );
-
-            if (previousTransactionOutputAmount == null) { return null; }
-
-            totalTransactionInputAmount += previousTransactionOutputAmount;
-        }
-
-        Long totalTransactionOutputAmount = 0L;
-        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            totalTransactionOutputAmount += transactionOutput.getAmount();
-        }
-
-        return (totalTransactionInputAmount - totalTransactionOutputAmount);
-    }
 
     public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final ReadOnlyLocalDatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
@@ -309,23 +276,22 @@ public class DataHandler implements JsonRpcSocketServerHandler.DataHandler {
     }
 
     @Override
-    public List<JsonRpcSocketServerHandler.TransactionWithFee> getUnconfirmedTransactionsWithFees() {
+    public List<TransactionWithFee> getUnconfirmedTransactionsWithFees() {
         try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<JsonRpcSocketServerHandler.TransactionWithFee> listBuilder = new ImmutableListBuilder<JsonRpcSocketServerHandler.TransactionWithFee>(unconfirmedTransactionIds.getSize());
+            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getSize());
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 if (transaction == null) {
                     Logger.log("NOTICE: Unable to load Unconfirmed Transaction: " + transactionId);
                     continue;
                 }
-                final Long transactionFee = _calculateTransactionFee(transaction, transactionOutputDatabaseManager);
+                final Long transactionFee = transactionDatabaseManager.calculateTransactionFee(transaction);
 
-                final JsonRpcSocketServerHandler.TransactionWithFee transactionWithFee = new JsonRpcSocketServerHandler.TransactionWithFee(transaction, transactionFee);
+                final TransactionWithFee transactionWithFee = new TransactionWithFee(transaction, transactionFee);
                 listBuilder.add(transactionWithFee);
             }
 

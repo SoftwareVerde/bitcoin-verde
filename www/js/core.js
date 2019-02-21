@@ -130,6 +130,13 @@ class Api {
 
         Http.post(Api.PREFIX + "transactions", apiParameters, callback);
     }
+
+    static getPrototypeBlock(parameters, callback) {
+        const defaultParameters = { };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.post(Api.PREFIX + "pool", apiParameters, callback);
+    }
 }
 Api.PREFIX = "/api/v1/";
 
@@ -359,9 +366,9 @@ class Ui {
         $(".block-header .merkle-root .value", blockUi).text(block.merkleRoot);
         $(".block-header .timestamp .value", blockUi).text(DateUtil.formatDateIso(block.timestamp.value));
         $(".block-header .nonce .value", blockUi).text(block.nonce.toLocaleString());
-        $(".block-header .reward .value", blockUi).text((block.reward / Constants.SATOSHIS_PER_BITCOIN).toLocaleString());
+        $(".block-header .reward .value", blockUi).text((block.reward ? (block.reward / Constants.SATOSHIS_PER_BITCOIN) : "-").toLocaleString());
         $(".block-header .byte-count .value", blockUi).text((block.byteCount || "-").toLocaleString());
-        $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || "-").toLocaleString());
+        $(".block-header .transaction-count .value", blockUi).text((block.transactionCount || (block.transactions ? block.transactions.length : null ) || "-").toLocaleString());
 
         const loadingElement = Ui._getLoadingElement();
         const appendTransaction = function(i, transactions) {

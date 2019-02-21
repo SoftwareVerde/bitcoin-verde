@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
+import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.Util;
 

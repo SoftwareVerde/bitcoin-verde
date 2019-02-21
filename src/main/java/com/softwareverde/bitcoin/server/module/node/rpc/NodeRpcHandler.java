@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -41,7 +42,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 
-public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnectedCallback {
+public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback {
     protected static final String ERROR_MESSAGE_KEY = "errorMessage";
     protected static final String WAS_SUCCESS_KEY = "wasSuccess";
 
@@ -73,16 +74,6 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
 
     public interface QueryBlockchainHandler {
         List<BlockchainMetadata> getBlockchainMetadata();
-    }
-
-    public static class TransactionWithFee {
-        public final Transaction transaction;
-        public final Long transactionFee;
-
-        public TransactionWithFee(final Transaction transaction, final Long transactionFee) {
-            this.transaction = transaction.asConst();
-            this.transactionFee = transactionFee;
-        }
     }
 
     public interface DataHandler {
@@ -162,10 +153,12 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected static class HookListener {
         public final JsonSocket socket;
         public final Boolean rawFormat;
+        public final Boolean includeTransactionFees;
 
-        public HookListener(final JsonSocket socket, final Boolean rawFormat) {
+        public HookListener(final JsonSocket socket, final Boolean rawFormat, final Boolean includeTransactionFees) {
             this.socket = socket;
             this.rawFormat = rawFormat;
+            this.includeTransactionFees = includeTransactionFees;
         }
     }
 
@@ -181,7 +174,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
     protected MetadataHandler _metadataHandler = null;
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
 
-    public JsonRpcSocketServerHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
+    public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
@@ -493,7 +486,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 final ByteArray transactionData = transactionDeflater.toBytes(unconfirmedTransaction.transaction);
 
                 final Json unconfirmedTransactionJson = new Json();
-                unconfirmedTransactionJson.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
+                unconfirmedTransactionJson.put("transactionData", transactionData);
                 unconfirmedTransactionJson.put("transactionFee", unconfirmedTransaction.transactionFee);
 
                 unconfirmedTransactionsJson.add(unconfirmedTransactionJson);
@@ -809,6 +802,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         }
 
         final Boolean shouldReturnRawData = parameters.getBoolean("rawFormat");
+        final Boolean shouldIncludeTransactionFees = parameters.getBoolean("includeTransactionFees");
 
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
@@ -817,7 +811,7 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);
-                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData));
+                nodeIpAddresses.add(new HookListener(connection, shouldReturnRawData, shouldIncludeTransactionFees));
             }
         }
 
@@ -1070,7 +1064,14 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         });
     }
 
-    public void onNewTransaction(final Transaction transaction) {
+    /**
+     * Broadcasts the Transaction to all hook listeners subscribed to the TRANSACTION event.
+     *  If the TransactionWithFee.transactionFee is null then the hook will receive a TRANSACTION object even if TRANSACTION_WITH_FEE is requested.
+     */
+    public void onNewTransaction(final TransactionWithFee transactionWithFee) {
+        final Transaction transaction = transactionWithFee.transaction;
+        final Long transactionFee = transactionWithFee.transactionFee;
+
         final LazyProtocolMessage lazyMetadataProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
@@ -1102,6 +1103,30 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
             }
         };
 
+        final LazyProtocolMessage lazyRawProtocolMessageWithFee;
+        if (transactionFee != null) {
+            lazyRawProtocolMessageWithFee = new LazyProtocolMessage() {
+                @Override
+                protected ProtocolMessage _createProtocolMessage() {
+                    final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                    final ByteArray transactionData = transactionDeflater.toBytes(transaction);
+
+                    final Json transactionJson = new Json();
+                    transactionJson.put("transactionData", transactionData);
+                    transactionJson.put("transactionFee", transactionFee);
+
+                    final Json json = new Json();
+                    json.put("objectType", "TRANSACTION_WITH_FEE");
+                    json.put("object", transactionJson);
+
+                    return new JsonProtocolMessage(json);
+                }
+            };
+        }
+        else {
+            lazyRawProtocolMessageWithFee = lazyRawProtocolMessage;
+        }
+
         _threadPool.execute(new Runnable() {
             @Override
             public void run() {
@@ -1114,7 +1139,13 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
                         final HookListener hookListener = iterator.next();
                         final JsonSocket jsonSocket = hookListener.socket;
 
-                        final ProtocolMessage protocolMessage = (hookListener.rawFormat ? lazyRawProtocolMessage.getProtocolMessage() : lazyMetadataProtocolMessage.getProtocolMessage());
+                        final ProtocolMessage protocolMessage;
+                        if (hookListener.rawFormat) {
+                            protocolMessage = (hookListener.includeTransactionFees ? lazyRawProtocolMessageWithFee.getProtocolMessage() : lazyRawProtocolMessage.getProtocolMessage());
+                        }
+                        else {
+                            protocolMessage = lazyMetadataProtocolMessage.getProtocolMessage();
+                        }
                         jsonSocket.write(protocolMessage);
 
                         if (! jsonSocket.isConnected()) {
@@ -1132,7 +1163,8 @@ public class JsonRpcSocketServerHandler implements JsonSocketServer.SocketConnec
         socketConnection.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
-                final Json message = socketConnection.popMessage().getMessage();
+                final JsonProtocolMessage protocolMessage = socketConnection.popMessage();
+                final Json message = protocolMessage.getMessage();
 
                 final String method = message.getString("method");
                 final String query = message.getString("query");

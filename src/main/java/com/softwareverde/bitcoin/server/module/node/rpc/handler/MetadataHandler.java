@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -27,7 +27,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
-public class MetadataHandler implements JsonRpcSocketServerHandler.MetadataHandler {
+public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;

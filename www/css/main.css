@@ -49,6 +49,7 @@
     clear: both;
     width: calc(100% - 0.5em);
     position: relative;
+    padding-bottom: 0.5em;
 }
 
 .transaction .io .transaction-inputs,
