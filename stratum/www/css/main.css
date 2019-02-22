@@ -76,8 +76,13 @@
     display: none !important;
 }
 
+.block .transaction {
+    overflow: hidden;
+}
+
 h1 {
     padding-left: 1em;
+    text-align: center;
 }
 
 #pool-hash-rate::after {
@@ -94,3 +99,18 @@ h1 {
 #pool-hash-rate.tera::after { content: 'TH/s'; }
 #pool-hash-rate.peta::after { content: 'PH/s'; }
 #pool-hash-rate.exa::after { content: 'EH/s'; }
+
+
+@media only screen and (max-width: 500px) {
+    h1 {
+        position: relative;
+        text-align: center;
+        padding-left: 1.33em;
+    }
+    h1 > i {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 0.5em;
+    }
+}

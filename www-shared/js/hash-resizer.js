@@ -16,7 +16,7 @@
         const TEXT_NODE_TYPE = 3;
         container = (container || document);
 
-        $(".hash, .transaction-hash, .block-hashes, .previous-block-hash", container).each(function() {
+        $(".hash, .transaction-hash, .block-hashes, .previous-block-hash, .difficulty .mask, .merkle-root", container).each(function() {
             const element = $(this);
             if (element.is(".no-resize")) { return; }
 
@@ -31,10 +31,18 @@
                 valueElement.data("hash-value", originalValue);
                 textNode.nodeValue = originalValue;
 
-                const isOverflowing = ( (element[0].offsetHeight < element[0].scrollHeight) || (element[0].offsetWidth < element[0].scrollWidth) );
-                if (isOverflowing) {
-                    textNode.nodeValue = originalValue.substr(0, 10) + "..." + originalValue.substr(54);
-                }
+                let isOverflowing = null;
+                let truncatedValue = originalValue;
+                do {
+                    isOverflowing = ( (element[0].offsetHeight < element[0].scrollHeight) || (element[0].offsetWidth < element[0].scrollWidth) );
+                    if (isOverflowing) {
+                        const length = truncatedValue.length;
+                        if (length < 4) { break; }
+
+                        truncatedValue = truncatedValue.substr(0, ((length / 2) - 2)) + "..." + truncatedValue.substr((length / 2) + 2);
+                        textNode.nodeValue = truncatedValue;
+                    }
+                } while (isOverflowing);
             }, 0);
         });
     };

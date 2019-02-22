@@ -15,7 +15,7 @@
     padding-bottom: 2em;
 }
 
-#main > .block .block-header div {
+#main > .block .block-header > div {
     transition: all 500ms ease;
     box-sizing: border-box;
     height: 3.5em;
