@@ -110,11 +110,13 @@ public class StratumModule {
     public void loop() {
         _stratumRpcServer.start();
         _stratumServer.start();
+        _apiServer.start();
 
         while (true) {
             try { Thread.sleep(60000L); } catch (final Exception exception) { break; }
         }
 
+        _apiServer.stop();
         _stratumServer.stop();
         _stratumRpcServer.stop();
     }

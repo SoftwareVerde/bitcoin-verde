@@ -51,6 +51,7 @@ public abstract class Node {
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
+    protected Boolean _hasBeenDisconnected = false;
 
     protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
 
@@ -79,6 +80,9 @@ public abstract class Node {
     }
 
     protected void _disconnect() {
+        if (_hasBeenDisconnected) { return; }
+        _hasBeenDisconnected = true;
+
         final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
         _nodeAddressesReceivedCallback = null;

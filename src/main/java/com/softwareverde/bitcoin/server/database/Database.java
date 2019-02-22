@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.DatabaseInitializer;

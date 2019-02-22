@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.stratum.api.endpoint;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.GetParameters;

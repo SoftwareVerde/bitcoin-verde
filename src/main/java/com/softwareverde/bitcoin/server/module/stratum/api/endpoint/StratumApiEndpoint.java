@@ -1,16 +1,13 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
-import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Servlet;
 import com.softwareverde.servlet.request.Request;
 import com.softwareverde.servlet.response.JsonResponse;
 import com.softwareverde.servlet.response.Response;
-
-import java.net.Socket;
 
 public abstract class StratumApiEndpoint implements Servlet {
     protected final Configuration.StratumProperties _stratumProperties;

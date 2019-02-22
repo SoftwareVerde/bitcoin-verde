@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.server.module.explorer;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.PoolApi;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
