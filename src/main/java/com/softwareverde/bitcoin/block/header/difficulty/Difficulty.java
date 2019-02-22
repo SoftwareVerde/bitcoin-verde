@@ -48,7 +48,10 @@ public interface Difficulty extends Constable<ImmutableDifficulty> {
         }
 
         return new ImmutableDifficulty(significand, exponent);
+    }
 
+    static BigDecimal calculateHashesPerSecond(final Difficulty difficulty) {
+        return difficulty.getDifficultyRatio().multiply(BigDecimal.valueOf(1L << 32).divide(BigDecimal.valueOf(600L), BigDecimal.ROUND_HALF_UP));
     }
 
     static ImmutableDifficulty decode(final byte[] encodedBytes) {

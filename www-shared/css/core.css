@@ -147,6 +147,7 @@ a {
     -ms-overflow-style: none;
     overflow: -moz-scrollbars-none;
     white-space: nowrap;
+    line-height: 1.5em;
 }
 
 .fixed::-webkit-scrollbar { 

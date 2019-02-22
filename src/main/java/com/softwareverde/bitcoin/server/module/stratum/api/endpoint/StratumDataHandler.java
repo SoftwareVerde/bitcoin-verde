@@ -4,4 +4,6 @@ import com.softwareverde.bitcoin.block.Block;
 
 public interface StratumDataHandler {
     Block getPrototypeBlock();
+    Long getPrototypeBlockHeight();
+    Long getHashesPerSecond();
 }

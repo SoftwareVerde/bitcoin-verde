@@ -135,7 +135,14 @@ class Api {
         const defaultParameters = { };
         const apiParameters = $.extend({ }, defaultParameters, parameters);
 
-        Http.post(Api.PREFIX + "pool", apiParameters, callback);
+        Http.get(Api.PREFIX + "pool/prototype-block", apiParameters, callback);
+    }
+
+    static getPoolHashRate(parameters, callback) {
+        const defaultParameters = { };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "pool/hash-rate", apiParameters, callback);
     }
 }
 Api.PREFIX = "/api/v1/";

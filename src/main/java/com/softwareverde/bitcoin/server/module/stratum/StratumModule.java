@@ -3,9 +3,10 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.PoolApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.WorkerApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -15,6 +16,7 @@ import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Endpoint;
 import com.softwareverde.servlet.Servlet;
+import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 
@@ -27,6 +29,8 @@ public class StratumModule {
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
+
+    protected final SystemTime _systemTime = new SystemTime();
 
     protected final Configuration _configuration;
     protected final StratumServer _stratumServer;
@@ -85,11 +89,30 @@ public class StratumModule {
             public Block getPrototypeBlock() {
                 return _stratumServer.getPrototypeBlock();
             }
+
+            @Override
+            public Long getPrototypeBlockHeight() {
+                return _stratumServer.getBlockHeight();
+            }
+
+            @Override
+            public Long getHashesPerSecond() {
+                final Long hashesPerSecondMultiplier = (1L << 32);
+                final Integer shareDifficulty = _stratumServer.getShareDifficulty();
+                final Long startTimeInSeconds = _stratumServer.getStartTimeInSeconds();
+                final Long shareCount = _stratumServer.getShareCount();
+
+                final Long now = _systemTime.getCurrentTimeInSeconds();
+                final Long duration = (now - startTimeInSeconds);
+
+                return (long) (shareDifficulty * hashesPerSecondMultiplier * (shareCount / duration.doubleValue()));
+            }
         };
 
         { // Api Endpoints
             _assignEndpoint("/api/v1/worker", new WorkerApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
-            _assignEndpoint("/api/v1/pool", new PoolApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
+            _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
+            _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
         }
 
         { // Static Content

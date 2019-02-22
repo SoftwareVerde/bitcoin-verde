@@ -43,6 +43,7 @@ public class StratumMineBlockTaskFactory {
     protected String _extraNonce1;
     protected String _coinbaseTransactionHead;
     protected String _coinbaseTransactionTail;
+    protected Long _blockHeight;
 
     protected final ReentrantReadWriteLock.ReadLock _prototypeBlockReadLock;
     protected final ReentrantReadWriteLock.WriteLock _prototypeBlockWriteLock;
@@ -278,6 +279,28 @@ public class StratumMineBlockTaskFactory {
 
             final ByteArray id = MutableByteArray.wrap(ByteUtil.integerToBytes(StratumMineBlockTaskFactory.getNextId()));
             return new StratumMineBlockTask(id, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1);
+        }
+        finally {
+            _prototypeBlockReadLock.unlock();
+        }
+    }
+
+    public void setBlockHeight(final Long blockHeight) {
+        try {
+            _prototypeBlockWriteLock.lock();
+
+            _blockHeight = blockHeight;
+        }
+        finally {
+            _prototypeBlockWriteLock.unlock();
+        }
+    }
+
+    public Long getBlockHeight() {
+        try {
+            _prototypeBlockReadLock.lock();
+
+            return _blockHeight;
         }
         finally {
             _prototypeBlockReadLock.unlock();

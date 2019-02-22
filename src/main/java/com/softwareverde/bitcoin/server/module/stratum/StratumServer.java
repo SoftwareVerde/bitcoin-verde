@@ -42,6 +42,7 @@ import java.net.Socket;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class StratumServer {
@@ -74,6 +75,9 @@ public class StratumServer {
     protected Boolean _validatePrototypeBlockBeforeMining = true;
 
     protected Thread _rebuildTaskThread;
+
+    protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
+    protected AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
 
@@ -197,6 +201,7 @@ public class StratumServer {
         stratumMineBlockTaskFactory.setDifficulty(difficulty);
         stratumMineBlockTaskFactory.setCoinbaseTransaction(coinbaseTransaction);
         stratumMineBlockTaskFactory.setExtraNonce(_extraNonce);
+        stratumMineBlockTaskFactory.setBlockHeight(blockHeight);
 
         for (final TransactionWithFee transaction : transactions) {
             stratumMineBlockTaskFactory.addTransaction(transaction);
@@ -426,6 +431,10 @@ public class StratumServer {
             }
         }
 
+        if (submissionWasAccepted) {
+            _shareCount.incrementAndGet();
+        }
+
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
 
         Logger.log("Sent: "+ blockAcceptedMessage.toString());
@@ -613,5 +622,21 @@ public class StratumServer {
 
     public Block getPrototypeBlock() {
         return _assemblePrototypeBlock(_stratumMineBlockTaskFactory);
+    }
+
+    public Long getBlockHeight() {
+        return _stratumMineBlockTaskFactory.getBlockHeight();
+    }
+
+    public Integer getShareDifficulty() {
+        return _shareDifficulty;
+    }
+
+    public Long getShareCount() {
+        return _shareCount.get();
+    }
+
+    public Long getStartTimeInSeconds() {
+        return _startTime;
     }
 }

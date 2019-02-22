@@ -15,6 +15,26 @@
     padding-bottom: 2em;
 }
 
+#main > .block .block-header div {
+    transition: all 500ms ease;
+    box-sizing: border-box;
+    height: 3.5em;
+}
+
+#main > .block .block-header > div.difficulty,
+#main > .block .block-header > div.double {
+    height: calc(7em + 0.5em);
+}
+
+.transaction > div {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.transaction > div > div {
+    flex-grow: 1;
+}
+
 .transaction .io .transaction-inputs::before,
 .transaction .io .transaction-outputs::before,
 .transaction::before,
@@ -249,10 +269,6 @@
 .transaction .io .unlocking-script > div > .value,
 .transaction .io .locking-script > div > .value {
     margin-left: 0.5em;
-}
-
-.block .block-header div {
-    transition: all 500ms ease;
 }
 
 .is-disabled span.value,

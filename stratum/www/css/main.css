@@ -62,3 +62,35 @@
     display: block;
     width: calc(100% - 0.5em);
 }
+
+.block-header .hash,
+.block-header .nonce,
+.block-header .byte-count,
+.block-header .reward {
+    display: none;
+}
+
+.transaction .byte-count,
+.transaction .fee,
+.transaction .block-hashes {
+    display: none !important;
+}
+
+h1 {
+    padding-left: 1em;
+}
+
+#pool-hash-rate::after {
+    content: 'h/s';
+    padding-left: 0.5em;
+    color: rgba(0, 0, 0, 0.33);
+    font-size: 0.5em;
+    vertical-align: text-top;
+}
+
+#pool-hash-rate.kilo::after { content: 'kH/s'; }
+#pool-hash-rate.mega::after { content: 'MH/s'; }
+#pool-hash-rate.giga::after { content: 'GH/s'; }
+#pool-hash-rate.tera::after { content: 'TH/s'; }
+#pool-hash-rate.peta::after { content: 'PH/s'; }
+#pool-hash-rate.exa::after { content: 'EH/s'; }
