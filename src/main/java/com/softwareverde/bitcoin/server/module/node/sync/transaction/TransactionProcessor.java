@@ -143,7 +143,10 @@ public class TransactionProcessor extends SleepyService {
                         continue;
                     }
 
-                    transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                    final Boolean isUnconfirmedTransaction = (transactionDatabaseManager.getBlockId(blockchainSegmentId, transactionId) == null);
+                    if (isUnconfirmedTransaction) {
+                        transactionDatabaseManager.addToUnconfirmedTransactions(transactionId);
+                    }
                     TransactionUtil.commitTransaction(databaseConnection);
 
                     final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
