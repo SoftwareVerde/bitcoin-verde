@@ -14,7 +14,7 @@ dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
     compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
-    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.2'
+    compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
     compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.2.7'
     compile     group: 'com.github.softwareverde',  name: 'java-tls',               version: 'v0.2.0'
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'

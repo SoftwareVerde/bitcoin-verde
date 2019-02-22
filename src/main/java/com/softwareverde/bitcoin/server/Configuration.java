@@ -40,7 +40,7 @@ public class Configuration {
         public Integer getPort() { return _port; }
     }
 
-    public static class ServerProperties {
+    public static class BitcoinProperties {
         private Integer _bitcoinPort;
         private Integer _bitcoinRpcPort;
         private SeedNodeProperties[] _seedNodeProperties;
@@ -53,6 +53,8 @@ public class Configuration {
         private Boolean _shouldTrimBlocks;
         private Integer _maxMessagesPerSecond;
 
+        private DatabaseProperties _databaseProperties;
+
         public Integer getBitcoinPort() { return _bitcoinPort; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
         public SeedNodeProperties[] getSeedNodeProperties() { return Util.copyArray(_seedNodeProperties); }
@@ -64,6 +66,8 @@ public class Configuration {
         public Boolean shouldUseTransactionBloomFilter() { return _useTransactionBloomFilter; }
         public Boolean shouldTrimBlocks() { return _shouldTrimBlocks; }
         public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
+
+        public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     }
 
     public static class ExplorerProperties {
@@ -99,29 +103,43 @@ public class Configuration {
         private Integer _rpcPort;
         private String _bitcoinRpcUrl;
         private Integer _bitcoinRpcPort;
+        private DatabaseProperties _databaseProperties;
+
+        private Integer _httpPort;
+        private String _rootDirectory;
+        private Integer _tlsPort;
+        private String _tlsKeyFile;
+        private String _tlsCertificateFile;
 
         public Integer getPort() { return _port; }
         public Integer getRpcPort() { return _rpcPort; }
         public String getBitcoinRpcUrl() { return _bitcoinRpcUrl; }
         public Integer getBitcoinRpcPort() { return _bitcoinRpcPort; }
+        public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
+
+        public Integer getHttpPort() { return _httpPort; }
+        public String getRootDirectory() { return _rootDirectory; }
+        public Integer getTlsPort() { return _tlsPort; }
+        public String getTlsKeyFile() { return _tlsKeyFile; }
+        public String getTlsCertificateFile() { return _tlsCertificateFile; }
     }
 
     private final Properties _properties;
-    private DatabaseProperties _databaseProperties;
-    private ServerProperties _serverProperties;
+    private BitcoinProperties _bitcoinProperties;
     private ExplorerProperties _explorerProperties;
     private StratumProperties _stratumProperties;
 
-    private void _loadDatabaseProperties() {
-        final String rootPassword = _properties.getProperty("database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
-        final String hostname = _properties.getProperty("database.hostname", "");
-        final String username = _properties.getProperty("database.username", "root");
-        final String password = _properties.getProperty("database.password", "");
-        final String schema = (_properties.getProperty("database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
-        final Integer port = Util.parseInt(_properties.getProperty("database.port", "8336"));
-        final String dataDirectory = _properties.getProperty("database.dataDirectory", "data");
-        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty("database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
-        final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty("database.useEmbeddedDatabase", "1"));
+    private DatabaseProperties _loadDatabaseProperties(final String prefix) {
+        final String propertyPrefix = (prefix == null ? "" : (prefix + "."));
+        final String rootPassword = _properties.getProperty(propertyPrefix + "database.rootPassword", "d3d4a3d0533e3e83bc16db93414afd96");
+        final String hostname = _properties.getProperty(propertyPrefix + "database.hostname", "");
+        final String username = _properties.getProperty(propertyPrefix + "database.username", "root");
+        final String password = _properties.getProperty(propertyPrefix + "database.password", "");
+        final String schema = (_properties.getProperty(propertyPrefix + "database.schema", "bitcoin")).replaceAll("[^A-Za-z0-9_]", "");
+        final Integer port = Util.parseInt(_properties.getProperty(propertyPrefix + "database.port", "8336"));
+        final String dataDirectory = _properties.getProperty(propertyPrefix + "database.dataDirectory", "data");
+        final Long maxMemoryByteCount = Util.parseLong(_properties.getProperty(propertyPrefix + "database.maxMemoryByteCount", String.valueOf(2L * ByteUtil.Unit.GIGABYTES)));
+        final Boolean useEmbeddedDatabase = Util.parseBool(_properties.getProperty(propertyPrefix + "database.useEmbeddedDatabase", "1"));
 
         final DatabaseProperties databaseProperties = new DatabaseProperties();
         databaseProperties.setRootPassword(rootPassword);
@@ -133,16 +151,16 @@ public class Configuration {
         databaseProperties.setDataDirectory(dataDirectory);
         databaseProperties._maxMemoryByteCount = maxMemoryByteCount;
         databaseProperties._useEmbeddedDatabase = useEmbeddedDatabase;
-        _databaseProperties = databaseProperties;
+        return databaseProperties;
     }
 
-    private void _loadServerProperties() {
-        _serverProperties = new ServerProperties();
-        _serverProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BITCOIN_PORT.toString()));
-        _serverProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BITCOIN_RPC_PORT.toString()));
+    private void _loadBitcoinProperties() {
+        _bitcoinProperties = new BitcoinProperties();
+        _bitcoinProperties._bitcoinPort = Util.parseInt(_properties.getProperty("bitcoin.port", BITCOIN_PORT.toString()));
+        _bitcoinProperties._bitcoinRpcPort = Util.parseInt(_properties.getProperty("bitcoin.rpcPort", BITCOIN_RPC_PORT.toString()));
 
         final Json seedNodesJson = Json.parse(_properties.getProperty("bitcoin.seedNodes", "[\"btc.softwareverde.com\"]"));
-        _serverProperties._seedNodeProperties = new SeedNodeProperties[seedNodesJson.length()];
+        _bitcoinProperties._seedNodeProperties = new SeedNodeProperties[seedNodesJson.length()];
         for (int i = 0; i < seedNodesJson.length(); ++i) {
             final String propertiesString = seedNodesJson.getString(i);
 
@@ -157,17 +175,19 @@ public class Configuration {
                 seedNodeProperties = new SeedNodeProperties(address, port);
             }
 
-            _serverProperties._seedNodeProperties[i] = seedNodeProperties;
+            _bitcoinProperties._seedNodeProperties[i] = seedNodeProperties;
         }
 
-        _serverProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
-        _serverProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
-        _serverProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
-        _serverProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
-        _serverProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
-        _serverProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
-        _serverProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
-        _serverProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
+        _bitcoinProperties._maxPeerCount = Util.parseInt(_properties.getProperty("bitcoin.maxPeerCount", "24"));
+        _bitcoinProperties._maxThreadCount = Util.parseInt(_properties.getProperty("bitcoin.maxThreadCount", "4"));
+        _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
+        _bitcoinProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
+        _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
+        _bitcoinProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
+        _bitcoinProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
+        _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
+
+        _bitcoinProperties._databaseProperties = _loadDatabaseProperties("bitcoin");
     }
 
     private void _loadExplorerProperties() {
@@ -206,12 +226,26 @@ public class Configuration {
         final Integer rpcPort = Util.parseInt(_properties.getProperty("stratum.rpcPort", STRATUM_RPC_PORT.toString()));
         final String bitcoinRpcUrl = _properties.getProperty("stratum.bitcoinRpcUrl", "");
         final Integer bitcoinRpcPort = Util.parseInt(_properties.getProperty("stratum.bitcoinRpcPort", BITCOIN_RPC_PORT.toString()));
+        final Integer httpPort = Util.parseInt(_properties.getProperty("stratum.tlsPort", "8081"));
+        final Integer tlsPort = Util.parseInt(_properties.getProperty("stratum.tlsPort", "4444"));
+        final String rootDirectory = _properties.getProperty("stratum.rootDirectory", "www");
+        final String tlsKeyFile = _properties.getProperty("stratum.tlsKeyFile", "");
+        final String tlsCertificateFile = _properties.getProperty("stratum.tlsCertificateFile", "");
 
         final StratumProperties stratumProperties = new StratumProperties();
         stratumProperties._port = port;
         stratumProperties._rpcPort = rpcPort;
         stratumProperties._bitcoinRpcUrl = bitcoinRpcUrl;
         stratumProperties._bitcoinRpcPort = bitcoinRpcPort;
+
+        stratumProperties._databaseProperties = _loadDatabaseProperties("stratum");
+
+        stratumProperties._rootDirectory = rootDirectory;
+        stratumProperties._httpPort = httpPort;
+        stratumProperties._tlsPort = tlsPort;
+        stratumProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
+        stratumProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+
         _stratumProperties = stratumProperties;
     }
 
@@ -225,14 +259,12 @@ public class Configuration {
             Logger.log("NOTICE: Unable to load properties.");
         }
 
-        _loadDatabaseProperties();
-        _loadServerProperties();
+        _loadBitcoinProperties();
         _loadStratumProperties();
         _loadExplorerProperties();
     }
 
-    public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
-    public ServerProperties getServerProperties() { return _serverProperties; }
+    public BitcoinProperties getBitcoinProperties() { return _bitcoinProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
     public StratumProperties getStratumProperties() { return _stratumProperties; }
 

@@ -19,6 +19,7 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.CacheWarmer;
+import com.softwareverde.bitcoin.server.module.node.database.*;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.MemoryPoolEnquirerHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
@@ -126,8 +127,8 @@ public class NodeModule {
     }
 
     protected void _connectToAdditionalNodes() {
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.SeedNodeProperties[] seedNodes = serverProperties.getSeedNodeProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.SeedNodeProperties[] seedNodes = bitcoinProperties.getSeedNodeProperties();
         final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
         for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
             final String host = seedNodeProperties.getAddress();
@@ -137,7 +138,7 @@ public class NodeModule {
         }
 
         final MysqlDatabase database = _environment.getDatabase();
-        final Integer maxPeerCount = serverProperties.getMaxPeerCount();
+        final Integer maxPeerCount = bitcoinProperties.getMaxPeerCount();
         if (maxPeerCount < 1) { return; }
 
         final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
@@ -210,8 +211,8 @@ public class NodeModule {
         Logger.log("[Stopping Socket Server]");
         _socketServer.stop();
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        if (serverProperties.shouldUseTransactionBloomFilter()) {
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        if (bitcoinProperties.shouldUseTransactionBloomFilter()) {
             Logger.log("[Saving Tx Bloom Filter]");
             TransactionDatabaseManager.saveBloomFilter(_transactionBloomFilterFilename);
         }
@@ -246,10 +247,10 @@ public class NodeModule {
 
         _configuration = _loadConfigurationFile(configurationFilename);
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final Integer maxPeerCount = (serverProperties.skipNetworking() ? 0 : serverProperties.getMaxPeerCount());
+        final Integer maxPeerCount = (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
         _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
         _rpcThreadPool = new MainThreadPool(32, 15000L);
 
@@ -273,7 +274,7 @@ public class NodeModule {
             }
         });
 
-        final MysqlDatabase database = Database.newInstance(_configuration, new Runnable() {
+        final MysqlDatabase database = Database.newInstance(Database.BITCOIN, databaseProperties, bitcoinProperties.getMaxPeerCount(), new Runnable() {
             @Override
             public void run() {
                 _shutdown();
@@ -295,7 +296,7 @@ public class NodeModule {
             }
         }
 
-        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
         final ReadOnlyLocalDatabaseManagerCache readOnlyDatabaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
@@ -338,7 +339,7 @@ public class NodeModule {
         final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
-                return new ThreadPoolThrottle(serverProperties.getMaxMessagesPerSecond(), _mainThreadPool);
+                return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _mainThreadPool);
             }
         };
 
@@ -347,7 +348,7 @@ public class NodeModule {
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                if (! serverProperties.shouldTrimBlocks()) {
+                if (! bitcoinProperties.shouldTrimBlocks()) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 }
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
@@ -396,8 +397,8 @@ public class NodeModule {
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
             blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
-            blockProcessor.setMaxThreadCount(serverProperties.getMaxThreadCount());
-            blockProcessor.setTrustedBlockHeight(serverProperties.getTrustedBlockHeight());
+            blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
+            blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
         { // Initialize the BlockDownloader...
@@ -414,7 +415,7 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        if (serverProperties.shouldTrimBlocks()) {
+        if (bitcoinProperties.shouldTrimBlocks()) {
             _addressProcessor = new DisabledAddressProcessor();
         }
         else {
@@ -432,7 +433,7 @@ public class NodeModule {
 
                     _addressProcessor.wakeUp();
 
-                    if (serverProperties.shouldTrimBlocks()) {
+                    if (bitcoinProperties.shouldTrimBlocks()) {
                         final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
                         if (blockHeight > keepBlockCount) {
                             try {
@@ -578,7 +579,7 @@ public class NodeModule {
             });
         }
 
-        _socketServer = new BinarySocketServer(serverProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _mainThreadPool);
+        _socketServer = new BinarySocketServer(bitcoinProperties.getBitcoinPort(), BitcoinProtocolMessage.BINARY_PACKET_FORMAT, _mainThreadPool);
         _socketServer.setSocketConnectedCallback(new BinarySocketServer.SocketConnectedCallback() {
             @Override
             public void run(final BinarySocket binarySocket) {
@@ -603,7 +604,7 @@ public class NodeModule {
             }
         });
 
-        final Integer rpcPort = _configuration.getServerProperties().getBitcoinRpcPort();
+        final Integer rpcPort = _configuration.getBitcoinProperties().getBitcoinRpcPort();
         if (rpcPort > 0) {
             final NodeRpcHandler.StatisticsContainer statisticsContainer = new NodeRpcHandler.StatisticsContainer();
             { // Initialize statistics container...
@@ -678,9 +679,9 @@ public class NodeModule {
             _warmUpCache();
         }
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
 
-        if (serverProperties.shouldUseTransactionBloomFilter()) {
+        if (bitcoinProperties.shouldUseTransactionBloomFilter()) {
             Logger.log("[Loading Tx Bloom Filter]");
             final MysqlDatabase database = _environment.getDatabase();
             try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
@@ -691,11 +692,11 @@ public class NodeModule {
             }
         }
 
-        if (! serverProperties.skipNetworking()) {
+        if (! bitcoinProperties.skipNetworking()) {
             Logger.log("[Starting Node Manager]");
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
-            final Configuration.SeedNodeProperties[] seedNodes = serverProperties.getSeedNodeProperties();
+            final Configuration.SeedNodeProperties[] seedNodes = bitcoinProperties.getSeedNodeProperties();
             for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
@@ -726,7 +727,7 @@ public class NodeModule {
         Logger.log("[Starting Socket Server]");
         _socketServer.start();
 
-        if (! serverProperties.skipNetworking()) {
+        if (! bitcoinProperties.skipNetworking()) {
             Logger.log("[Starting Header Downloader]");
             _blockHeaderDownloader.start();
 
@@ -746,7 +747,7 @@ public class NodeModule {
         Logger.log("[Started Address Processor]");
         _addressProcessor.start();
 
-        if (! serverProperties.skipNetworking()) {
+        if (! bitcoinProperties.skipNetworking()) {
             Logger.log("[Connecting To Peers]");
             _connectToAdditionalNodes();
         }

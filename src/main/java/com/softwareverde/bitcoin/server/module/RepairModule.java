@@ -6,8 +6,8 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
@@ -75,17 +75,17 @@ public class RepairModule {
         }
         _blockHashes = blockHashesBuilder.build();
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        final MysqlDatabase database = Database.newInstance(Database.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
         }
         Logger.log("[Database Online]");
 
-        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
         _environment = new Environment(database, masterDatabaseManagerCache);
 
@@ -118,7 +118,7 @@ public class RepairModule {
             final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
                 @Override
                 public ThreadPool newThreadPool() {
-                    return new ThreadPoolThrottle(serverProperties.getMaxMessagesPerSecond(), _threadPool);
+                    return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
                 }
             };
 
@@ -134,9 +134,9 @@ public class RepairModule {
 
         final List<BitcoinNode> bitcoinNodes;
         {
-            final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+            final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
             final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<BitcoinNode>();
-            for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
+            for (final Configuration.SeedNodeProperties seedNodeProperties : bitcoinProperties.getSeedNodeProperties()) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
 

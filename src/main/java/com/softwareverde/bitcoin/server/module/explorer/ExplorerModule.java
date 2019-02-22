@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.explorer;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.PoolApi;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -62,14 +63,13 @@ public class ExplorerModule {
 
         _announcementsApi = new AnnouncementsApi(_explorerProperties);
 
-        { // Account Api
+        { // Api Endpoints
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/transactions", new TransactionsApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));
-            _assignEndpoint("/api/v1/pool", new PoolApi(_explorerProperties, _threadPool));
         }
 
         { // WebSocket

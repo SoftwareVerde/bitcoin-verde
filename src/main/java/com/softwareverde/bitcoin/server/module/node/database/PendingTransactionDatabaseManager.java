@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.database;
+package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransaction;

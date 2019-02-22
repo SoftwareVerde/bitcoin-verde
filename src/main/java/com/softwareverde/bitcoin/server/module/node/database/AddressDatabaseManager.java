@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.database;
+package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;

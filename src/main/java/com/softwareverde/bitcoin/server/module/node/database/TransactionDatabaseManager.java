@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.database;
+package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;

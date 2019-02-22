@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.explorer;
+package com.softwareverde.bitcoin.server.module.stratum.api;
 
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Row;

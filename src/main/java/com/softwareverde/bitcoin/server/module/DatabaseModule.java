@@ -1,15 +1,10 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
-import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.io.Logger;
 
 import java.io.File;
@@ -36,10 +31,10 @@ public class DatabaseModule {
     public DatabaseModule(final String configurationFilename) {
         _configuration = _loadConfigurationFile(configurationFilename);
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        final MysqlDatabase database = Database.newInstance(Database.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
