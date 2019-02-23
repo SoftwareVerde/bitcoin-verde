@@ -451,7 +451,7 @@ public class StratumServer {
 
         _privateKey = PrivateKey.createNewKey();
         Logger.log("Private Key: " + _privateKey);
-        Logger.log("Address:     " + addressInflater.fromPrivateKey(_privateKey).toBase58CheckEncoded());
+        Logger.log("Address:     " + addressInflater.compressedFromPrivateKey(_privateKey).toBase58CheckEncoded());
 
         _extraNonce = _createRandomBytes(_extraNonceByteCount);
 

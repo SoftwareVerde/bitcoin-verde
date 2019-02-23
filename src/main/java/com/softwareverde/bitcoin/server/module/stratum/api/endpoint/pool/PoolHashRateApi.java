@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.servlet.GetParameters;
@@ -14,8 +14,11 @@ import com.softwareverde.servlet.response.Response;
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class PoolHashRateApi extends StratumApiEndpoint {
+    protected final StratumDataHandler _stratumDataHandler;
+
     public PoolHashRateApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
-        super(stratumProperties, stratumDataHandler, threadPool);
+        super(stratumProperties, threadPool);
+        _stratumDataHandler = stratumDataHandler;
     }
 
     @Override
@@ -24,7 +27,7 @@ public class PoolHashRateApi extends StratumApiEndpoint {
         final PostParameters postParameters = request.getPostParameters();
 
         if (request.getMethod() != Request.HttpMethod.GET) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new ApiResult(false, "Invalid method."));
+            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // GET POOL HASH RATE
@@ -32,10 +35,10 @@ public class PoolHashRateApi extends StratumApiEndpoint {
             // Requires POST:
             final Long hashesPerSecond = _stratumDataHandler.getHashesPerSecond();
 
-            final PoolApiResult poolApiResult = new PoolApiResult();
-            poolApiResult.setWasSuccess(true);
-            poolApiResult.setJson("hashesPerSecond", hashesPerSecond);
-            return new JsonResponse(ResponseCodes.OK, poolApiResult);
+            final StratumApiResult apiResult = new StratumApiResult();
+            apiResult.setWasSuccess(true);
+            apiResult.put("hashesPerSecond", hashesPerSecond);
+            return new JsonResponse(ResponseCodes.OK, apiResult);
         }
     }
 }

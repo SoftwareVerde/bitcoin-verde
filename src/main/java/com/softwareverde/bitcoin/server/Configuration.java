@@ -119,6 +119,7 @@ public class Configuration {
         private Integer _tlsPort;
         private String _tlsKeyFile;
         private String _tlsCertificateFile;
+        private String _cookiesDirectory;
 
         public Integer getPort() { return _port; }
         public Integer getRpcPort() { return _rpcPort; }
@@ -131,6 +132,7 @@ public class Configuration {
         public Integer getTlsPort() { return _tlsPort; }
         public String getTlsKeyFile() { return _tlsKeyFile; }
         public String getTlsCertificateFile() { return _tlsCertificateFile; }
+        public String getCookiesDirectory() { return _cookiesDirectory; }
     }
 
     public static class WalletProperties {
@@ -257,6 +259,7 @@ public class Configuration {
         final String rootDirectory = _properties.getProperty("stratum.rootDirectory", "stratum/www");
         final String tlsKeyFile = _properties.getProperty("stratum.tlsKeyFile", "");
         final String tlsCertificateFile = _properties.getProperty("stratum.tlsCertificateFile", "");
+        final String cookiesDirectory = _properties.getProperty("stratum.cookiesDirectory", "tmp");
 
         final StratumProperties stratumProperties = new StratumProperties();
         stratumProperties._port = port;
@@ -271,6 +274,7 @@ public class Configuration {
         stratumProperties._tlsPort = tlsPort;
         stratumProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
         stratumProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+        stratumProperties._cookiesDirectory = cookiesDirectory;
 
         _stratumProperties = stratumProperties;
     }

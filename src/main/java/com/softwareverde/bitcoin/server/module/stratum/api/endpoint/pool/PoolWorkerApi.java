@@ -1,8 +1,10 @@
-package com.softwareverde.bitcoin.server.module.stratum.api.endpoint;
+package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.GetParameters;
@@ -13,24 +15,12 @@ import com.softwareverde.servlet.response.Response;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
-public class WorkerApi extends StratumApiEndpoint {
-    private static class PrototypeBlockResult extends ApiResult {
-        private Json _blockJson = new Json();
+public class PoolWorkerApi extends StratumApiEndpoint {
+    protected final StratumDataHandler _stratumDataHandler;
 
-        public void setBlockJson(final Json blockJson) {
-            _blockJson = blockJson;
-        }
-
-        @Override
-        public Json toJson() {
-            final Json json = super.toJson();
-            json.put("block", _blockJson);
-            return json;
-        }
-    }
-
-    public WorkerApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
-        super(stratumProperties, stratumDataHandler, threadPool);
+    public PoolWorkerApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
+        super(stratumProperties, threadPool);
+        _stratumDataHandler = stratumDataHandler;
     }
 
     @Override
@@ -45,9 +35,9 @@ public class WorkerApi extends StratumApiEndpoint {
             final Block prototypeBlock = _stratumDataHandler.getPrototypeBlock();
             final Json prototypeBlockJson = prototypeBlock.toJson();
 
-            final PrototypeBlockResult prototypeBlockResult = new PrototypeBlockResult();
+            final StratumApiResult prototypeBlockResult = new StratumApiResult();
             prototypeBlockResult.setWasSuccess(true);
-            prototypeBlockResult.setBlockJson(prototypeBlockJson);
+            prototypeBlockResult.put("block", prototypeBlockJson);
             return new JsonResponse(ResponseCodes.OK, prototypeBlockResult);
         }
     }

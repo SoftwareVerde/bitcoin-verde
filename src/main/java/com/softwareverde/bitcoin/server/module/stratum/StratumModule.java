@@ -3,14 +3,17 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.WorkerApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.AuthenticateApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.CreateAccountApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.database.mysql.MysqlDatabase;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.httpserver.DirectoryServlet;
 import com.softwareverde.httpserver.HttpServer;
 import com.softwareverde.io.Logger;
@@ -79,7 +82,7 @@ public class StratumModule {
             _apiServer.setTlsPort(stratumProperties.getTlsPort());
             _apiServer.setCertificate(stratumProperties.getTlsCertificateFile(), stratumProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true); // Disabled due to a bug in HttpServer...
         }
 
         _apiServer.setPort(stratumProperties.getHttpPort());
@@ -109,10 +112,14 @@ public class StratumModule {
             }
         };
 
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+
         { // Api Endpoints
-            _assignEndpoint("/api/v1/worker", new WorkerApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
+            _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
             _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
             _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
+            _assignEndpoint("/api/v1/account/create", new CreateAccountApi(stratumProperties, _apiServerThreadPool, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/authenticate", new AuthenticateApi(stratumProperties, _apiServerThreadPool, databaseConnectionFactory));
         }
 
         { // Static Content

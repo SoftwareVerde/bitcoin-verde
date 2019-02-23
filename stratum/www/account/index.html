@@ -1,0 +1,67 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/blocks.css" />
+        <link rel="stylesheet" href="/css/account.css" />
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
+        <script src="/js/core.js"></script>
+        <script src="/js/account.js"></script>
+
+        <link href="https://fonts.googleapis.com/css?family=Bree+Serif" rel="stylesheet">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Verde Mining Pool</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Mining Pool</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/"><i class="fas fa-flask"></i>Status</a></li>
+                    <li><a href="/account/"><i class="fas fa-user"></i>Account</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="main">
+            <div class="navigation">
+                <ul>
+                    <li id="authenticate-nav-button"><i class="fas fa-sign-in-alt"></i>Sign In</li>
+                    <li id="create-account-nav-button"><i class="fas fa-user-plus"></i>Create Account</li>
+                </ul>
+            </div>
+
+            <div id="controller">
+                <div id="authenticate-container" class="container active">
+                    <div class="title">Sign In <i class="fas fa-sign-in-alt"></i></div>
+                    <p id="authenticate-results" class="results"></p>
+                    <input id="authenticate-email" type="email" placeholder="email"/>
+                    <input id="authenticate-password" type="password" placeholder="password" />
+                    <div id="authenticate-button" class="button">Submit</div>
+                </div>
+                <div id="create-account-container" class="container">
+                    <div class="title">Create Account <i class="fas fa-user-plus"></i></div>
+                    <p id="create-account-results" class="results"></p>
+                    <input id="create-account-email" type="email" placeholder="email"/>
+                    <input id="create-account-password" type="password" placeholder="password" />
+                    <div id="create-account-button" class="button">Submit</div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

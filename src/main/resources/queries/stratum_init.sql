@@ -1,8 +1,19 @@
+CREATE TABLE accounts (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    salt VARCHAR(255) NOT NULL,
+    iterations INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY accounts_uq (email)
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
 CREATE TABLE workers (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     username VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     salt VARCHAR(255) NOT NULL,
+    iterations INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY workers_uq (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

@@ -11,12 +11,10 @@ import com.softwareverde.servlet.response.Response;
 
 public abstract class StratumApiEndpoint implements Servlet {
     protected final Configuration.StratumProperties _stratumProperties;
-    protected final StratumDataHandler _stratumDataHandler;
     protected final ThreadPool _threadPool;
 
-    public StratumApiEndpoint(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
+    public StratumApiEndpoint(final Configuration.StratumProperties stratumProperties, final ThreadPool threadPool) {
         _stratumProperties = stratumProperties;
-        _stratumDataHandler = stratumDataHandler;
         _threadPool = threadPool;
     }
 
