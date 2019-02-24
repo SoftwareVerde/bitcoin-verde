@@ -16,8 +16,8 @@ import static com.softwareverde.servlet.response.Response.ResponseCodes;
 public class PoolHashRateApi extends StratumApiEndpoint {
     protected final StratumDataHandler _stratumDataHandler;
 
-    public PoolHashRateApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
-        super(stratumProperties, threadPool);
+    public PoolHashRateApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler) {
+        super(stratumProperties);
         _stratumDataHandler = stratumDataHandler;
     }
 

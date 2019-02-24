@@ -1,12 +1,16 @@
 package com.softwareverde.bitcoin.server.module.stratum.database;
 
+import com.softwareverde.bitcoin.address.Address;
+import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.io.Logger;
 import com.softwareverde.security.pbkdf2.Pbkdf2Key;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 public class AccountDatabaseManager {
@@ -61,5 +65,26 @@ public class AccountDatabaseManager {
         if (! Util.areEqual(passwordKey, providedKey)) { return null; }
 
         return AccountId.wrap(accountId);
+    }
+
+    public Address getPayoutAddress(final AccountId accountId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, payout_address FROM accounts WHERE id = ?")
+                .setParameter(accountId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final String addressString = row.getString("payout_address");
+        final AddressInflater addressInflater = new AddressInflater();
+        return addressInflater.fromBase58Check(addressString);
+    }
+
+    public void setPayoutAddress(final AccountId accountId, final Address address) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("UPDATE accounts SET payout_address = ? WHERE id = ?")
+                .setParameter((address != null ? address.toBase58CheckEncoded() : null))
+                .setParameter(accountId)
+        );
     }
 }

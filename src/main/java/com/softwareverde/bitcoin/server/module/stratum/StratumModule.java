@@ -4,8 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.AuthenticateApi;
-import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.CreateAccountApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.*;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
@@ -40,7 +39,6 @@ public class StratumModule {
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
 
-    protected final MainThreadPool _apiServerThreadPool = new MainThreadPool(256, 60000L);
     protected final MainThreadPool _stratumThreadPool = new MainThreadPool(256, 60000L);
     protected final MainThreadPool _rpcThreadPool = new MainThreadPool(256, 60000L);
 
@@ -115,11 +113,14 @@ public class StratumModule {
         final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
         { // Api Endpoints
-            _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
-            _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
-            _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler, _apiServerThreadPool));
-            _assignEndpoint("/api/v1/account/create", new CreateAccountApi(stratumProperties, _apiServerThreadPool, databaseConnectionFactory));
-            _assignEndpoint("/api/v1/account/authenticate", new AuthenticateApi(stratumProperties, _apiServerThreadPool, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler));
+            _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler));
+            _assignEndpoint("/api/v1/pool/hash-rate", new PoolHashRateApi(stratumProperties, stratumDataHandler));
+            _assignEndpoint("/api/v1/account/create", new CreateAccountApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/authenticate", new AuthenticateApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/validate", new ValidateAuthenticationApi(stratumProperties));
+            _assignEndpoint("/api/v1/account/unauthenticate", new UnauthenticateApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/address", new PayoutAddressApi(stratumProperties, databaseConnectionFactory));
         }
 
         { // Static Content

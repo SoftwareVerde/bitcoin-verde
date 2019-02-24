@@ -40,27 +40,41 @@
         </div>
         <div id="main">
             <div class="navigation">
-                <ul>
-                    <li id="authenticate-nav-button"><i class="fas fa-sign-in-alt"></i>Sign In</li>
-                    <li id="create-account-nav-button"><i class="fas fa-user-plus"></i>Create Account</li>
-                </ul>
+                <ul></ul>
             </div>
 
-            <div id="controller">
-                <div id="authenticate-container" class="container active">
-                    <div class="title">Sign In <i class="fas fa-sign-in-alt"></i></div>
-                    <p id="authenticate-results" class="results"></p>
-                    <input id="authenticate-email" type="email" placeholder="email"/>
-                    <input id="authenticate-password" type="password" placeholder="password" />
-                    <div id="authenticate-button" class="button">Submit</div>
-                </div>
-                <div id="create-account-container" class="container">
-                    <div class="title">Create Account <i class="fas fa-user-plus"></i></div>
-                    <p id="create-account-results" class="results"></p>
-                    <input id="create-account-email" type="email" placeholder="email"/>
-                    <input id="create-account-password" type="password" placeholder="password" />
-                    <div id="create-account-button" class="button">Submit</div>
-                </div>
+            <div id="view-container"></div>
+        </div>
+
+        <div id="templates">
+            <ul class="unauthenticated-navigation navigation">
+                <li class="authenticate-nav-button"><i class="fas fa-sign-in-alt"></i>Sign In</li>
+                <li class="create-account-nav-button"><i class="fas fa-user-plus"></i>Create Account</li>
+            </ul>
+            <ul class="authenticated-navigation navigation">
+                <li class="manage-account-nav-button"><i class="fas fa-gears"></i>Manage Account</li>
+                <li class="unauthenticate-nav-button"><i class="fas fa-sign-out-alt"></i>Sign Out</li>
+            </ul>
+
+            <div class="authenticate-container container">
+                <div class="title">Sign In <i class="fas fa-sign-in-alt"></i></div>
+                <p class="authenticate-results results"></p>
+                <input class="authenticate-email" type="email" placeholder="email"/>
+                <input class="authenticate-password" type="password" placeholder="password" />
+                <div class="authenticate-button button">Submit</div>
+            </div>
+            <div class="create-account-container container">
+                <div class="title">Create Account <i class="fas fa-user-plus"></i></div>
+                <p class="create-account-results results"></p>
+                <input class="create-account-email" type="email" placeholder="email"/>
+                <input class="create-account-password" type="password" placeholder="password" />
+                <div class="create-account-button button">Submit</div>
+            </div>
+            <div class="set-address-container container">
+                <div class="title">Set Address<i class="fas fa-sign-in-alt"></i></div>
+                <p class="set-address-results results"></p>
+                <input class="address" type="text" placeholder="address"/>
+                <div class="set-address-button button">Submit</div>
             </div>
         </div>
     </body>

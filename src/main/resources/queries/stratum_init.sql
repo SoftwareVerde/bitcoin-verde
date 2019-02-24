@@ -4,6 +4,7 @@ CREATE TABLE accounts (
     password VARCHAR(255) NOT NULL,
     salt VARCHAR(255) NOT NULL,
     iterations INT UNSIGNED NOT NULL,
+    payout_address VARCHAR(255) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY accounts_uq (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;

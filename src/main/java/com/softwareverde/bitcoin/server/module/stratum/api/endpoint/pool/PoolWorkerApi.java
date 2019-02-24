@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
-import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.GetParameters;
 import com.softwareverde.servlet.PostParameters;
@@ -18,8 +17,8 @@ import static com.softwareverde.servlet.response.Response.ResponseCodes;
 public class PoolWorkerApi extends StratumApiEndpoint {
     protected final StratumDataHandler _stratumDataHandler;
 
-    public PoolWorkerApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final ThreadPool threadPool) {
-        super(stratumProperties, threadPool);
+    public PoolWorkerApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler) {
+        super(stratumProperties);
         _stratumDataHandler = stratumDataHandler;
     }
 
