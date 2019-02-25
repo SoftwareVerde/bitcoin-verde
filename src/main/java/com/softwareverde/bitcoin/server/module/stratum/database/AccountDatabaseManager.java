@@ -3,18 +3,41 @@ package com.softwareverde.bitcoin.server.module.stratum.database;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
+import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.io.Logger;
 import com.softwareverde.security.pbkdf2.Pbkdf2Key;
-import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class AccountDatabaseManager {
+    protected static final Integer WORKER_PASSWORD_ITERATIONS = 8; // Authenticating workers happens much more frequently than account authentications...
+
     protected final MysqlDatabaseConnection _databaseConnection;
+
+    protected Boolean _authenticateAccount(final AccountId accountId, final String password) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, password, salt, iterations FROM accounts WHERE id = ?")
+                .setParameter(accountId)
+        );
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        final ByteArray passwordKey = ByteArray.fromHexString(row.getString("password"));
+        final ByteArray salt = ByteArray.fromHexString(row.getString("salt"));
+        final Integer iterations = row.getInteger("iterations");
+        final Integer keyBitCount = (passwordKey.getByteCount() * 8);
+
+        final Pbkdf2Key providedPbkdf2Key = new Pbkdf2Key(password, iterations, salt, keyBitCount);
+        final ByteArray providedKey = providedPbkdf2Key.getKey();
+
+        if (! Util.areEqual(passwordKey, providedKey)) { return false; }
+
+        return true;
+    }
 
     public AccountDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
@@ -34,7 +57,7 @@ public class AccountDatabaseManager {
     public AccountId createAccount(final String email, final String password) throws DatabaseException {
         final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password);
 
-        final Long workerId = _databaseConnection.executeSql(
+        final Long accountId = _databaseConnection.executeSql(
             new Query("INSERT INTO accounts (email, password, salt, iterations) VALUES (?, ?, ?, ?)")
                 .setParameter(email)
                 .setParameter(pbkdf2Key.getKey())
@@ -42,29 +65,37 @@ public class AccountDatabaseManager {
                 .setParameter(pbkdf2Key.getIterations())
         );
 
-        return AccountId.wrap(workerId);
+        return AccountId.wrap(accountId);
     }
 
-    public AccountId authenticateAccount(final String username, final String password) throws DatabaseException {
+    public void setAccountPassword(final AccountId accountId, final String password) throws DatabaseException {
+        final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password);
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE accounts SET password = ?, salt = ?, iterations = ? WHERE id = ?")
+                .setParameter(pbkdf2Key.getKey())
+                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(pbkdf2Key.getIterations())
+                .setParameter(accountId)
+        );
+    }
+
+    public Boolean authenticateAccount(final AccountId accountId, final String password) throws DatabaseException {
+        return _authenticateAccount(accountId, password);
+    }
+
+    public AccountId authenticateAccount(final String email, final String password) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id, password, salt, iterations FROM accounts WHERE email = ?")
-                .setParameter(username)
+            new Query("SELECT id FROM accounts WHERE email = ?")
+                .setParameter(email)
         );
         if (rows.isEmpty()) { return null; }
 
         final Row row = rows.get(0);
-        final Long accountId = row.getLong("id");
-        final ByteArray passwordKey = ByteArray.fromHexString(row.getString("password"));
-        final ByteArray salt = ByteArray.fromHexString(row.getString("salt"));
-        final Integer iterations = row.getInteger("iterations");
-        final Integer keyBitCount = (passwordKey.getByteCount() * 8);
+        final AccountId accountId = AccountId.wrap(row.getLong("id"));
 
-        final Pbkdf2Key providedPbkdf2Key = new Pbkdf2Key(password, iterations, salt, keyBitCount);
-        final ByteArray providedKey = providedPbkdf2Key.getKey();
-
-        if (! Util.areEqual(passwordKey, providedKey)) { return null; }
-
-        return AccountId.wrap(accountId);
+        final Boolean isAuthenticated = (_authenticateAccount(accountId, password));
+        return (isAuthenticated ? accountId : null);
     }
 
     public Address getPayoutAddress(final AccountId accountId) throws DatabaseException {
@@ -85,6 +116,66 @@ public class AccountDatabaseManager {
             new Query("UPDATE accounts SET payout_address = ? WHERE id = ?")
                 .setParameter((address != null ? address.toBase58CheckEncoded() : null))
                 .setParameter(accountId)
+        );
+    }
+
+    public WorkerId createWorker(final AccountId accountId, final String username, final String password) throws DatabaseException {
+        final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password, WORKER_PASSWORD_ITERATIONS, Pbkdf2Key.generateRandomSalt(), Pbkdf2Key.DEFAULT_KEY_BIT_COUNT);
+
+        final Long workerId = _databaseConnection.executeSql(
+            new Query("INSERT INTO workers (account_id, username, password, salt, iterations) VALUES (?, ?, ?, ?, ?)")
+                .setParameter(accountId)
+                .setParameter(username)
+                .setParameter(pbkdf2Key.getKey())
+                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(pbkdf2Key.getIterations())
+        );
+
+        return WorkerId.wrap(workerId);
+    }
+
+    public WorkerId getWorkerId(final String username) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM workers WHERE username = ?")
+                .setParameter(username)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long workerId = row.getLong("id");
+        return WorkerId.wrap(workerId);
+    }
+
+    public WorkerId authenticateWorker(final String username, final String password) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, password, salt, iterations FROM workers WHERE username = ?")
+                .setParameter(username)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long workerId = row.getLong("id");
+        final ByteArray passwordKey = ByteArray.fromHexString(row.getString("password"));
+        final ByteArray salt = ByteArray.fromHexString(row.getString("salt"));
+        final Integer iterations = row.getInteger("iterations");
+        final Integer keyBitCount = (passwordKey.getByteCount() * 8);
+
+        final Pbkdf2Key providedPbkdf2Key = new Pbkdf2Key(password, iterations, salt, keyBitCount);
+        final ByteArray providedKey = providedPbkdf2Key.getKey();
+
+        if (! Util.areEqual(passwordKey, providedKey)) { return null; }
+
+        return WorkerId.wrap(workerId);
+    }
+
+    public void addWorkerShare(final WorkerId workerId, final Integer difficulty) throws DatabaseException {
+        final SystemTime systemTime = new SystemTime();
+
+        _databaseConnection.executeSql(
+            new Query("INSERT INTO worker_shares (worker_id, difficulty, timestamp) VALUES (?, ?, ?)")
+                .setParameter(workerId)
+                .setParameter(difficulty)
+                .setParameter(systemTime.getCurrentTimeInSeconds())
         );
     }
 }

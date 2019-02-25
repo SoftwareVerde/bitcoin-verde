@@ -11,12 +11,14 @@ CREATE TABLE accounts (
 
 CREATE TABLE workers (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    account_id INT UNSIGNED NOT NULL,
     username VARCHAR(255) NOT NULL,
     password VARCHAR(255) NOT NULL,
     salt VARCHAR(255) NOT NULL,
     iterations INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY workers_uq (username)
+    UNIQUE KEY workers_uq (username),
+    FOREIGN KEY workers_accounts_fk (account_id) REFERENCES accounts (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE worker_shares (

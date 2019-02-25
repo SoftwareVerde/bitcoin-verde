@@ -62,7 +62,6 @@ public class StratumModule {
 
     public StratumModule(final String configurationFilename) {
         _configuration = _loadConfigurationFile(configurationFilename);
-        _stratumServer = new StratumServer(_configuration.getStratumProperties(), _stratumThreadPool);
 
         final Configuration.StratumProperties stratumProperties = _configuration.getStratumProperties();
         final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
@@ -73,6 +72,10 @@ public class StratumModule {
             BitcoinUtil.exitFailure();
         }
         Logger.log("[Database Online]");
+
+        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+
+        _stratumServer = new StratumServer(_configuration.getStratumProperties(), _stratumThreadPool, databaseConnectionFactory);
 
         final String tlsKeyFile = stratumProperties.getTlsKeyFile();
         final String tlsCertificateFile = stratumProperties.getTlsCertificateFile();
@@ -110,8 +113,6 @@ public class StratumModule {
             }
         };
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
-
         { // Api Endpoints
             _assignEndpoint("/api/v1/worker", new PoolWorkerApi(stratumProperties, stratumDataHandler));
             _assignEndpoint("/api/v1/pool/prototype-block", new PoolPrototypeBlockApi(stratumProperties, stratumDataHandler));
@@ -121,6 +122,7 @@ public class StratumModule {
             _assignEndpoint("/api/v1/account/validate", new ValidateAuthenticationApi(stratumProperties));
             _assignEndpoint("/api/v1/account/unauthenticate", new UnauthenticateApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/address", new PayoutAddressApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/password", new PasswordApi(stratumProperties, databaseConnectionFactory));
         }
 
         { // Static Content

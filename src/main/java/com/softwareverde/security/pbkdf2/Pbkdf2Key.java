@@ -35,7 +35,7 @@ public class Pbkdf2Key implements Const {
         return salt;
     }
 
-    public static final Integer DEFAULT_ITERATIONS = 1048576;
+    public static final Integer DEFAULT_ITERATIONS = (1 << 16);
     public static final Integer DEFAULT_SALT_BYTE_COUNT = 32;
     public static final Integer DEFAULT_KEY_BIT_COUNT = 256;
 

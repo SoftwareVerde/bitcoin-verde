@@ -30,7 +30,7 @@ $(document).ready(function() {
     };
 
     Api.Account.unauthenticate = function(parameters, callback) {
-        const defaultParameters = { email: null, password: null };
+        const defaultParameters = { };
         const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         Http.post(Api.PREFIX + "account/unauthenticate", apiParameters, callback);
@@ -48,6 +48,16 @@ $(document).ready(function() {
         const apiParameters = $.extend({ }, defaultParameters, parameters);
 
         Http.post(Api.PREFIX + "account/address", apiParameters, callback);
+    };
+
+    Api.Account.updatePassword = function(parameters, callback) {
+        const defaultParameters = {
+            password: null,
+            newPassword: null
+        };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.post(Api.PREFIX + "account/password", apiParameters, callback);
     };
 })();
 
@@ -91,16 +101,16 @@ $(document).ready(function() {
 
         const view = $(".authenticate-container", templates).clone();
 
-        onEnterSubmit($("input", view), $(".authenticate-button", view));
+        const button = $(".submit-button", view);
 
-        $(".authenticate-button", view).on("click", function() {
+        button.on("click", function() {
             Api.Account.authenticate(
                 {
                     email:      $(".authenticate-email", view).val(),
                     password:   $(".authenticate-password", view).val()
                 },
                 function(data) {
-                    $(".authenticate-results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
+                    $(".results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
 
                     if (data.wasSuccess) {
                         $(".authenticate-email", view).val("");
@@ -112,6 +122,8 @@ $(document).ready(function() {
             );
         });
 
+        onEnterSubmit($("input", view), button);
+
         viewContainer.empty();
         viewContainer.append(view);
     };
@@ -122,16 +134,16 @@ $(document).ready(function() {
 
         const view = $(".create-account-container", templates).clone();
 
-        onEnterSubmit($("input", view), $(".create-account-button", view));
+        const button = $(".submit-button", view);
 
-        $(".create-account-button", view).on("click", function() {
+        button.on("click", function() {
             Api.Account.createAccount(
                 {
                     email:      $(".create-account-email", view).val(),
                     password:   $(".create-account-password", view).val()
                 },
                 function(data) {
-                    $(".create-account-results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
+                    $(".results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
 
                     if (data.wasSuccess) {
                         $(".create-account-email", view).val("");
@@ -142,6 +154,8 @@ $(document).ready(function() {
                 }
             );
         });
+
+        onEnterSubmit($("input", view), button);
 
         viewContainer.empty();
         viewContainer.append(view);
@@ -154,6 +168,14 @@ $(document).ready(function() {
         const view = $("ul.authenticated-navigation", templates).clone();
         const navItems = view.children();
 
+        $(".set-payout-address-nav-button", view).on("click", function() {
+            Ui.Account.showSetAddressView();
+        });
+
+        $(".update-password-nav-button", view).on("click", function() {
+            Ui.Account.showUpdatePasswordView();
+        });
+
         $(".unauthenticate-nav-button", view).on("click", function() {
             Api.Account.unauthenticate({ }, function(response) {
                 Ui.Account.showUnauthenticatedNavigation();
@@ -165,6 +187,58 @@ $(document).ready(function() {
         navigationContainer.append(navItems);
     };
 
+    Ui.Account.showUpdatePasswordView = function() {
+        const templates = $("#templates");
+        const viewContainer = $("#main #view-container");
+
+        const view = $(".update-password-container", templates).clone();
+
+        const timeoutContainer = this;
+
+        const button = $(".submit-button", view);
+
+        button.on("click", function() {
+            const resultsView = $(".results", view);
+            window.clearTimeout(timeoutContainer.timeout);
+
+            if ($(".new-password", view).val() != $(".confirm-new-password", view).val()) {
+                resultsView.text("Passwords do not match.");
+                timeoutContainer.timeout = window.setTimeout(function() {
+                    resultsView.text("");
+                }, 3000);
+
+                return;
+            }
+
+            Api.Account.updatePassword(
+                {
+                    password: $(".password", view).val(),
+                    newPassword: $(".new-password", view).val()
+                },
+                function(response) {
+                    let message = "Password updated.";
+                    if (! response.wasSuccess) {
+                        message = response.errorMessage;
+                    }
+
+                    resultsView.text(message);
+                    timeoutContainer.timeout = window.setTimeout(function() {
+                        resultsView.text("");
+                    }, 3000);
+                }
+            );
+        });
+
+        onEnterSubmit($("input", view), button);
+
+        viewContainer.empty();
+        viewContainer.append(view);
+
+        Api.Account.getPayoutAddress({ }, function(response) {
+            $(".address", view).val(response.address);
+        });
+    };
+
     Ui.Account.showSetAddressView = function() {
         const templates = $("#templates");
         const viewContainer = $("#main #view-container");
@@ -173,8 +247,10 @@ $(document).ready(function() {
 
         const timeoutContainer = this;
 
-        $(".set-address-button", view).on("click", function() {
-            const resultsView = $(".set-address-results", view);
+        const button = $(".submit-button", view);
+
+        button.on("click", function() {
+            const resultsView = $(".results", view);
             window.clearTimeout(timeoutContainer.timeout);
             Api.Account.setPayoutAddress(
                 {
@@ -194,7 +270,7 @@ $(document).ready(function() {
             );
         });
 
-        onEnterSubmit($("input", view), $(".create-account-button", view));
+        onEnterSubmit($("input", view), button);
 
         viewContainer.empty();
         viewContainer.append(view);

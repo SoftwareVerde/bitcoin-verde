@@ -9,10 +9,13 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -28,6 +31,9 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -51,6 +57,7 @@ public class StratumServer {
     protected final Configuration.StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
+    protected final MysqlDatabaseConnectionPool _databaseConnectionPool;
 
     protected final PrivateKey _privateKey;
 
@@ -376,7 +383,7 @@ public class StratumServer {
         // mining.submit("username", "job id", "ExtraNonce2", "nTime", "nOnce")
 
         final Json messageParameters = requestMessage.getParameters();
-        final String workerName = messageParameters.getString(0);
+        final String workerUsername = messageParameters.getString(0);
         final ByteArray taskId = MutableByteArray.wrap(HexUtil.hexStringToByteArray(messageParameters.getString(1)));
         final String stratumNonce = messageParameters.getString(4);
         final String stratumExtraNonce2 = messageParameters.getString(2);
@@ -433,6 +440,21 @@ public class StratumServer {
 
         if (submissionWasAccepted) {
             _shareCount.incrementAndGet();
+
+            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
+                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
+                final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
+                if (workerId == null) {
+                    Logger.log("NOTICE: Unknown worker: " + workerUsername);
+                }
+                else {
+                    accountDatabaseManager.addWorkerShare(workerId, _shareDifficulty);
+                    Logger.log("Added worker share: " + workerUsername + " " + _shareDifficulty);
+                }
+            }
+            catch (final DatabaseException databaseException) {
+                Logger.log("NOTICE: Unable to add worker share.");
+            }
         }
 
         final ResponseMessage blockAcceptedMessage = new MinerSubmitBlockResult(requestMessage.getId(), submissionWasAccepted);
@@ -441,13 +463,12 @@ public class StratumServer {
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public StratumServer(final Configuration.StratumProperties stratumProperties, final MainThreadPool mainThreadPool) {
+    public StratumServer(final Configuration.StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
+        _databaseConnectionPool = new MysqlDatabaseConnectionPool(databaseConnectionFactory, 128);
 
         final AddressInflater addressInflater = new AddressInflater();
-
-        final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
 
         _privateKey = PrivateKey.createNewKey();
         Logger.log("Private Key: " + _privateKey);
