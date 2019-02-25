@@ -34,6 +34,7 @@ public class PoolPrototypeBlockApi extends StratumApiEndpoint {
         {   // GET PROTOTYPE BLOCK
             // Requires GET:
             // Requires POST:
+
             final Block prototypeBlock = _stratumDataHandler.getPrototypeBlock();
             final Json prototypeBlockJson = prototypeBlock.toJson();
             prototypeBlockJson.put("height", _stratumDataHandler.getPrototypeBlockHeight());

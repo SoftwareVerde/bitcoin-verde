@@ -23,6 +23,11 @@ public class ValidateAuthenticationApi extends AuthenticatedServlet {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        return new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+        {   // VALIDATE AUTHENTICATION TOKEN
+            // Requires GET:
+            // Requires POST:
+
+            return new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+        }
     }
 }

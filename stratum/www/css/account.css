@@ -1,6 +1,6 @@
 #main .navigation {
-    background-color: #DCDCDC;
-    border: solid 2px #868686;
+    background-color: #F99400;
+    border: solid 2px #313131;
     box-sizing: border-box;
 }
 
@@ -84,4 +84,23 @@
     padding: 0.75em;
     margin: 3em;
     line-height: 1.5em;
+}
+
+#view-container .manage-workers-container table.workers {
+    width: 100%;
+    border: 0;
+    border-collapse: collapse;
+}
+
+#view-container .manage-workers-container table.workers th,
+#view-container .manage-workers-container table.workers td {
+    border-bottom: solid 1px #EEEEEE;
+}
+
+#view-container .manage-workers-container table.workers tr:nth-child(even) td {
+    background-color: #FAFAFA;
+}
+
+#view-container .manage-workers-container table.workers td.delete {
+    cursor: pointer;
 }

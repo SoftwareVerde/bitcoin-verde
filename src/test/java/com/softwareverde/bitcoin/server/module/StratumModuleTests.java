@@ -25,6 +25,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
+import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.ReflectionUtil;
@@ -38,7 +39,7 @@ public class StratumModuleTests {
     @Test
     public void should_mine_valid_prototype_block() {
         // Setup
-        final StratumServerPartialMock stratumServer = new StratumServerPartialMock();
+        final StratumServerPartialMock stratumServer = new StratumServerPartialMock(null);
         stratumServer.setValidatePrototypeBlockBeforeMining(false);
 
         stratumServer.queueFakeJsonResponse(Json.parse("{\"blockHeaders\":[\"00000020491C708BADFD38F0B38A6EDD6FDD949C9A4D109C037EAB010000000000000000093CC8AEF901A2BF304DC6949439AAC6942F75BE376E14E7C38EEA8F0D2B696360C6555C3C9B051848B94556\"],\"errorMessage\":null,\"wasSuccess\":1}"));
@@ -79,8 +80,6 @@ public class StratumModuleTests {
 
     @Test
     public void should_reinflate_mined_share() {
-        final StratumServerPartialMock stratumModule = new StratumServerPartialMock();
-
         final String miningTaskMessage = "{\"method\":\"mining.notify\",\"id\":3351436,\"params\":[\"0000002C\",\"6C1EB2564E74701849B46B8FA6E9C2B504DB70B704C9EEDE0000000000000000\",\"010000000100000000000000000000000000000000000000000000000000000000000000000000000025036AB208172F706F6F6C2E626974636F696E76657264652E6F72672F08\",\"FFFFFFFF01A30A824A000000001976A91426CBB2966AC6AABC18135E101038D39FBAE3F2D688AC00000000\",[\"2FEDBE1A5D2D30D78DA7227B1538DAA84BDF39F52DAD30CD3B22F4A483A43A07\",\"D63AA3ECDFD93D43B4214FC5898C4A51A32A56B61B4B18A71E88895EAA87C1C5\",\"7597C5DA59EBC99644C2099045136C7DC7716602B136419A28D1DB2DCE03AAC4\",\"8A68336A9F7DA2FC26865123E6684F45C279AD074036E40A4C4EC42AC1EDC66A\",\"C1C731F64485BFC42761B53A1A48998870E07F4F3F4E708DE8FF5C2C3173FAA2\"],\"00000004\",\"18054EA4\",\"5C67A470\",true]}";
         final String miningSubmissionMessage = "{\"method\":\"mining.submit\",\"id\":3351435,\"params\":[\"makoinfused.worker0\",\"0000002C\",\"a9030000\",\"5C67A470\",\"d4fb12d7\"]}";
 
@@ -161,8 +160,8 @@ class StratumServerPartialMock extends StratumServer {
 
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
 
-    public StratumServerPartialMock() {
-        super(configuration.getStratumProperties(), new MainThreadPool(1, 1L));
+    public StratumServerPartialMock(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+        super(configuration.getStratumProperties(), new MainThreadPool(1, 1L), databaseConnectionFactory);
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());
     }

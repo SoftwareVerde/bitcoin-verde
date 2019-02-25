@@ -42,7 +42,8 @@ public class CreateAccountApi extends StratumApiEndpoint {
         {   // CREATE ACCOUNT
             // Requires GET:
             // Requires POST: email, password
-            final String email = postParameters.get("email");
+
+            final String email = postParameters.get("email").trim();
             if (email.isEmpty()) {
                 return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid email address."));
             }

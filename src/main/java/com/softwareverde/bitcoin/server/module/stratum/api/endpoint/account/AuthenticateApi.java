@@ -40,6 +40,7 @@ public class AuthenticateApi extends StratumApiEndpoint {
         {   // AUTHENTICATE
             // Requires GET:
             // Requires POST: email, password
+
             final String email = postParameters.get("email");
             if (email.isEmpty()) {
                 return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid email address."));

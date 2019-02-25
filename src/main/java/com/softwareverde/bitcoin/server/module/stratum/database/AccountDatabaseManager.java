@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
@@ -146,6 +148,51 @@ public class AccountDatabaseManager {
         return WorkerId.wrap(workerId);
     }
 
+    public AccountId getWorkerAccountId(final WorkerId workerId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, account_id FROM workers WHERE id = ?")
+                .setParameter(workerId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long accountId = row.getLong("account_id");
+        return AccountId.wrap(accountId);
+    }
+
+    public void deleteWorker(final WorkerId workerId) throws DatabaseException {
+        _databaseConnection.executeSql(
+            new Query("DELETE FROM workers WHERE id = ?")
+                .setParameter(workerId)
+        );
+    }
+
+    public List<WorkerId> getWorkerIds(final AccountId accountId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM workers WHERE account_id = ?")
+                .setParameter(accountId)
+        );
+
+        final ImmutableListBuilder<WorkerId> workerIds = new ImmutableListBuilder<WorkerId>(rows.size());
+        for (final Row row : rows) {
+            final WorkerId workerId = WorkerId.wrap(row.getLong("id"));
+            if (workerId == null) { continue; }
+            workerIds.add(workerId);
+        }
+        return workerIds.build();
+    }
+
+    public String getWorkerUsername(final WorkerId workerId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id, username FROM workers WHERE id = ?")
+                .setParameter(workerId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getString("username");
+    }
+
     public WorkerId authenticateWorker(final String username, final String password) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, password, salt, iterations FROM workers WHERE username = ?")
@@ -177,5 +224,16 @@ public class AccountDatabaseManager {
                 .setParameter(difficulty)
                 .setParameter(systemTime.getCurrentTimeInSeconds())
         );
+    }
+
+    public Long getWorkerSharesCount(final WorkerId workerId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS shares_count FROM worker_shares WHERE worker_id = ?")
+                .setParameter(workerId)
+        );
+        if (rows.isEmpty()) { return 0L; }
+
+        final Row row = rows.get(0);
+        return row.getLong("shares_count");
     }
 }

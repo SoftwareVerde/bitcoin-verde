@@ -33,6 +33,7 @@ public class PoolHashRateApi extends StratumApiEndpoint {
         {   // GET POOL HASH RATE
             // Requires GET:
             // Requires POST:
+
             final Long hashesPerSecond = _stratumDataHandler.getHashesPerSecond();
 
             final StratumApiResult apiResult = new StratumApiResult();

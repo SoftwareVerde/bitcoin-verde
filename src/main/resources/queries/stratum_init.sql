@@ -18,7 +18,7 @@ CREATE TABLE workers (
     iterations INT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY workers_uq (username),
-    FOREIGN KEY workers_accounts_fk (account_id) REFERENCES accounts (id)
+    FOREIGN KEY workers_accounts_fk (account_id) REFERENCES accounts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE worker_shares (
@@ -27,7 +27,7 @@ CREATE TABLE worker_shares (
     difficulty INT UNSIGNED NOT NULL,
     timestamp BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (id),
-    FOREIGN KEY worker_shares_worker_id_fk (worker_id) REFERENCES workers (id)
+    FOREIGN KEY worker_shares_worker_id_fk (worker_id) REFERENCES workers (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 INSERT INTO metadata (version, timestamp) VALUES (1, UNIX_TIMESTAMP());

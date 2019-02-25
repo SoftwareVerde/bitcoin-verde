@@ -59,6 +59,27 @@ $(document).ready(function() {
 
         Http.post(Api.PREFIX + "account/password", apiParameters, callback);
     };
+
+    Api.Account.createWorker = function(parameters, callback) {
+        const defaultParameters = { username: null, password: null };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.post(Api.PREFIX + "account/workers/create", apiParameters, callback);
+    };
+
+    Api.Account.deleteWorker = function(parameters, callback) {
+        const defaultParameters = { workerId: null };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.post(Api.PREFIX + "account/workers/delete", apiParameters, callback);
+    };
+
+    Api.Account.getWorkers = function(parameters, callback) {
+        const defaultParameters = { };
+        const apiParameters = $.extend({ }, defaultParameters, parameters);
+
+        Http.get(Api.PREFIX + "account/workers", apiParameters, callback);
+    };
 })();
 
 (function() {
@@ -106,8 +127,8 @@ $(document).ready(function() {
         button.on("click", function() {
             Api.Account.authenticate(
                 {
-                    email:      $(".authenticate-email", view).val(),
-                    password:   $(".authenticate-password", view).val()
+                    email:      $("input.authenticate-email", view).val(),
+                    password:   $("input.authenticate-password", view).val()
                 },
                 function(data) {
                     $(".results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
@@ -139,8 +160,8 @@ $(document).ready(function() {
         button.on("click", function() {
             Api.Account.createAccount(
                 {
-                    email:      $(".create-account-email", view).val(),
-                    password:   $(".create-account-password", view).val()
+                    email:      $("input.create-account-email", view).val(),
+                    password:   $("input.create-account-password", view).val()
                 },
                 function(data) {
                     $(".results", view).text(data.wasSuccess ? "Authenticated." : data.errorMessage);
@@ -174,6 +195,10 @@ $(document).ready(function() {
 
         $(".update-password-nav-button", view).on("click", function() {
             Ui.Account.showUpdatePasswordView();
+        });
+
+        $(".manage-workers-nav-button", view).on("click", function() {
+            Ui.Account.showManageWorkersView();
         });
 
         $(".unauthenticate-nav-button", view).on("click", function() {
@@ -212,8 +237,8 @@ $(document).ready(function() {
 
             Api.Account.updatePassword(
                 {
-                    password: $(".password", view).val(),
-                    newPassword: $(".new-password", view).val()
+                    password: $("input.password", view).val(),
+                    newPassword: $("input.new-password", view).val()
                 },
                 function(response) {
                     let message = "Password updated.";
@@ -235,7 +260,7 @@ $(document).ready(function() {
         viewContainer.append(view);
 
         Api.Account.getPayoutAddress({ }, function(response) {
-            $(".address", view).val(response.address);
+            $("input.address", view).val(response.address);
         });
     };
 
@@ -254,7 +279,7 @@ $(document).ready(function() {
             window.clearTimeout(timeoutContainer.timeout);
             Api.Account.setPayoutAddress(
                 {
-                    address: $(".address", view).val()
+                    address: $("input.address", view).val()
                 },
                 function(response) {
                     let message = "Address updated.";
@@ -276,7 +301,93 @@ $(document).ready(function() {
         viewContainer.append(view);
 
         Api.Account.getPayoutAddress({ }, function(response) {
-            $(".address", view).val(response.address);
+            $("input.address", view).val(response.address);
+        });
+    };
+
+    Ui.Account.updateWorkers = function(viewContainer) {
+        const templates = $("#templates");
+
+        const headerView = $(".worker-header", templates).clone();
+        const template = $(".worker", templates);
+        const workersTable = $(".workers", viewContainer);
+
+        Api.Account.getWorkers({ }, function(response) {
+            workersTable.empty();
+            if (! response.workers) { return; }
+
+            if (response.workers.length) {
+                workersTable.append(headerView);
+            }
+
+            for (let i in response.workers) {
+                const workerData = response.workers[i];
+                const view = template.clone();
+                $(".id", view).text(workerData.id);
+                $(".username", view).text(workerData.username);
+                $(".shares-count", view).text(workerData.sharesCount);
+                $(".delete", view).on("click", function() {
+                    Dialog.create(
+                        "Delete Worker",
+                        "Do you want to delete Worker \"" + workerData.username + "\"?",
+                        function() {
+                            Api.Account.deleteWorker(
+                                { workerId: workerData.id },
+                                function() { Ui.Account.updateWorkers(viewContainer); }
+                            );
+                        },
+                        function() { }
+                    );
+                });
+                workersTable.append(view);
+            }
+        });
+    };
+
+    Ui.Account.showManageWorkersView = function() {
+        const templates = $("#templates");
+        const viewContainer = $("#main #view-container");
+
+        const view = $(".manage-workers-container", templates).clone();
+
+        const timeoutContainer = this;
+
+        const button = $(".submit-button", view);
+
+        button.on("click", function() {
+            const resultsView = $(".results", view);
+            window.clearTimeout(timeoutContainer.timeout);
+
+            Api.Account.createWorker(
+                {
+                    username: $("input.username", view).val(),
+                    password: $("input.password", view).val()
+                },
+                function(response) {
+                    let message = "Worker created.";
+                    if (! response.wasSuccess) {
+                        message = response.errorMessage;
+                    }
+
+                    resultsView.text(message);
+                    timeoutContainer.timeout = window.setTimeout(function() {
+                        resultsView.text("");
+                    }, 3000);
+
+                    Ui.Account.updateWorkers(viewContainer);
+                }
+            );
+        });
+
+        onEnterSubmit($("input", view), button);
+
+        viewContainer.empty();
+        viewContainer.append(view);
+
+        Ui.Account.updateWorkers(view);
+
+        Api.Account.getPayoutAddress({ }, function(response) {
+            $("input.address", view).val(response.address);
         });
     };
 

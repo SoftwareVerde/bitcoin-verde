@@ -1,8 +1,7 @@
-package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account;
+package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker;
 
-import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
+import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
@@ -19,10 +18,10 @@ import com.softwareverde.servlet.response.Response;
 
 import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
-public class PasswordApi extends AuthenticatedServlet {
+public class CreateWorkerApi extends AuthenticatedServlet {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
 
-    public PasswordApi(final Configuration.StratumProperties stratumProperties, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public CreateWorkerApi(final Configuration.StratumProperties stratumProperties, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
         super(stratumProperties);
         _databaseConnectionFactory = databaseConnectionFactory;
     }
@@ -36,28 +35,32 @@ public class PasswordApi extends AuthenticatedServlet {
             return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
-        {   // CREATE ACCOUNT
+        {   // CREATE WORKER
             // Requires GET:
-            // Requires POST: password, new_password
+            // Requires POST: username, password
 
-            final String currentPassword = postParameters.get("password");
-            final String newPassword = postParameters.get("newPassword");
+            final String username = postParameters.get("username").trim();
+            final String password = postParameters.get("password");
 
-            if (newPassword.length() < CreateAccountApi.MIN_PASSWORD_LENGTH) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid password length."));
+            if (username.isEmpty()) {
+                return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker username."));
             }
 
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-
-                final Boolean passwordIsCorrect = accountDatabaseManager.authenticateAccount(accountId, currentPassword);
-                if (! passwordIsCorrect) {
-                    return new JsonResponse(ResponseCodes.OK, new StratumApiResult(false, "Invalid credentials."));
+                final WorkerId existingWorkerId = accountDatabaseManager.getWorkerId(username);
+                if (existingWorkerId != null) {
+                    return new JsonResponse(ResponseCodes.OK, new StratumApiResult(false, "A worker with that username already exists."));
                 }
 
-                accountDatabaseManager.setAccountPassword(accountId, newPassword);
+                final WorkerId workerId = accountDatabaseManager.createWorker(accountId, username, password);
+                if (workerId == null) {
+                    return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "Unable to create worker."));
+                }
 
-                return new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+                final StratumApiResult result = new StratumApiResult(true, null);
+                result.put("workerId", workerId);
+                return new JsonResponse(ResponseCodes.OK, result);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);

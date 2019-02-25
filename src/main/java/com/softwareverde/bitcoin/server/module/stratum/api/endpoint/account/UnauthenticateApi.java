@@ -34,6 +34,7 @@ public class UnauthenticateApi extends AuthenticatedServlet {
         {   // AUTHENTICATE
             // Requires GET:
             // Requires POST:
+
             final Response response = new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
             _sessionManager.destroySession(request, response);
             return response;

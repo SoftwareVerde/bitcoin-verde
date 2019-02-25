@@ -5,6 +5,9 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.*;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.CreateWorkerApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.DeleteWorkerApi;
+import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.GetWorkersApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
@@ -123,6 +126,9 @@ public class StratumModule {
             _assignEndpoint("/api/v1/account/unauthenticate", new UnauthenticateApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/address", new PayoutAddressApi(stratumProperties, databaseConnectionFactory));
             _assignEndpoint("/api/v1/account/password", new PasswordApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/workers/create", new CreateWorkerApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/workers/delete", new DeleteWorkerApi(stratumProperties, databaseConnectionFactory));
+            _assignEndpoint("/api/v1/account/workers", new GetWorkersApi(stratumProperties, databaseConnectionFactory));
         }
 
         { // Static Content

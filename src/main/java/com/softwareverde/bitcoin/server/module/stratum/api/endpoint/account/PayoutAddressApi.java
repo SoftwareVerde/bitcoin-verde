@@ -33,12 +33,16 @@ public class PayoutAddressApi extends AuthenticatedServlet {
         final PostParameters postParameters = request.getPostParameters();
 
         if (request.getMethod() == Request.HttpMethod.GET) {
+            // GET PAYOUT ADDRESS
+            // Requires GET:
+            // Requires POST:
+
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
                 final Address address = accountDatabaseManager.getPayoutAddress(accountId);
 
                 final StratumApiResult apiResult = new StratumApiResult(true, null);
-                apiResult.put("address", address.toBase58CheckEncoded());
+                apiResult.put("address", (address != null ? address.toBase58CheckEncoded() : null));
                 return new JsonResponse(ResponseCodes.OK, apiResult);
             }
             catch (final DatabaseException exception) {
@@ -47,6 +51,10 @@ public class PayoutAddressApi extends AuthenticatedServlet {
             }
         }
         else if (request.getMethod() == Request.HttpMethod.POST) {
+            // SET PAYOUT ADDRESS
+            // Requires GET:
+            // Requires POST: address
+
             final AddressInflater addressInflater = new AddressInflater();
 
             final String addressString = postParameters.get("address");
