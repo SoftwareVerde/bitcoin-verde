@@ -140,12 +140,14 @@ public class Configuration {
 
     public static class ProxyProperties {
         private Integer _httpPort;
+        private Integer _externalTlsPort;
         private Integer _tlsPort;
         private String _tlsKeyFile;
         private String _tlsCertificateFile;
 
         public Integer getHttpPort() { return _httpPort; }
         public Integer getTlsPort() { return _tlsPort; }
+        public Integer getExternalTlsPort() { return _externalTlsPort; }
         public String getTlsKeyFile() { return _tlsKeyFile; }
         public String getTlsCertificateFile() { return _tlsCertificateFile; }
     }
@@ -317,12 +319,14 @@ public class Configuration {
     private void _loadProxyProperties() {
         final Integer httpPort = Util.parseInt(_properties.getProperty("proxy.httpPort", PROXY_HTTP_PORT.toString()));
         final Integer tlsPort = Util.parseInt(_properties.getProperty("proxy.tlsPort", PROXY_TLS_PORT.toString()));
+        final Integer externalTlsPort = Util.parseInt(_properties.getProperty("proxy.externalTlsPort", tlsPort.toString()));
         final String tlsKeyFile = _properties.getProperty("proxy.tlsKeyFile", "");
         final String tlsCertificateFile = _properties.getProperty("proxy.tlsCertificateFile", "");
 
         final ProxyProperties proxyProperties = new ProxyProperties();
         proxyProperties._httpPort = httpPort;
         proxyProperties._tlsPort = tlsPort;
+        proxyProperties._externalTlsPort = externalTlsPort;
         proxyProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
         proxyProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
 

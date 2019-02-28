@@ -81,7 +81,7 @@ public class ProxyModule {
             _apiServer.setTlsPort(proxyProperties.getTlsPort());
             _apiServer.setCertificate(proxyProperties.getTlsCertificateFile(), proxyProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(true);
+            _apiServer.redirectToTls(true, proxyProperties.getExternalTlsPort());
         }
 
         _apiServer.setPort(proxyProperties.getHttpPort());
