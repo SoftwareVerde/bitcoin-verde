@@ -45,6 +45,34 @@ public class HttpRequest {
         }
     }
 
+    protected static final HostnameVerifier NAIVE_HOSTNAME_VERIFIER = new HostnameVerifier() {
+        @Override
+        public boolean verify(final String hostname, final SSLSession sslSession) { return true; }
+    };
+
+    protected static final X509TrustManager NAIVE_TRUST_MANAGER = new X509ExtendedTrustManager() {
+        @Override
+        public void checkClientTrusted(final X509Certificate[] x509Certificates, final String authType, final Socket socket) throws CertificateException { }
+
+        @Override
+        public void checkServerTrusted(final X509Certificate[] x509Certificates, final String authType, final Socket socket) throws CertificateException { }
+
+        @Override
+        public void checkClientTrusted(final X509Certificate[] x509Certificates, final String authType, final SSLEngine sslEngine) throws CertificateException { }
+
+        @Override
+        public void checkServerTrusted(final X509Certificate[] x509Certificates, final String authType, final SSLEngine sslEngine) throws CertificateException { }
+
+        @Override
+        public void checkClientTrusted(final X509Certificate[] x509Certificates, final String authType) throws CertificateException { }
+
+        @Override
+        public void checkServerTrusted(final X509Certificate[] x509Certificates, final String authType) throws CertificateException { }
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+    };
+
     public static boolean containsHeaderValue(final String key, final String value, final Map<String, List<String>> headers) {
         for (final String headerKey : headers.keySet()) {
             if (Util.areEqual(Util.coalesce(key).toLowerCase(), Util.coalesce(headerKey).toLowerCase())) {
@@ -90,6 +118,7 @@ public class HttpRequest {
     protected boolean _followsRedirects = false;
     protected int _redirectCount = 0;
     protected int _maxRedirectCount = 10;
+    protected boolean _validateSslCertificates = true;
 
     protected boolean _allowWebSocketUpgrade = false;
     protected WebSocket _webSocket = null;
@@ -231,6 +260,22 @@ public class HttpRequest {
         return (_webSocket != null);
     }
 
+    public void setMaxRedirectCount(final int maxRedirectCount) {
+        _maxRedirectCount = maxRedirectCount;
+    }
+
+    public int getMaxRedirectCount() {
+        return _maxRedirectCount;
+    }
+
+    public void setValidateSslCertificates(final boolean validateSslCertificates) {
+        _validateSslCertificates = validateSslCertificates;
+    }
+
+    public boolean validatesSslCertificates() {
+        return _validateSslCertificates;
+    }
+
     public void execute(boolean nonblocking) {
         this.execute(nonblocking, null);
     }
@@ -278,33 +323,16 @@ class HttpRequestExecutionThread extends Thread {
 
             final HttpURLConnection connection = (HttpURLConnection) (url.openConnection());
 
-//            if (connection instanceof HttpsURLConnection) {
-//                final HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
-//                httpsConnection.setHostnameVerifier(new HostnameVerifier() {
-//                    @Override
-//                    public boolean verify(final String hostname, final SSLSession sslSession) {
-//                        return true; // HttpsURLConnection.getDefaultHostnameVerifier().verify(hostname, sslSession);
-//                    }
-//                });
-//
-//                final X509TrustManager trustManager = new X509TrustManager() {
-//                    @Override
-//                    public void checkClientTrusted(final X509Certificate[] x509Certificates, final String s) throws CertificateException { }
-//
-//                    @Override
-//                    public void checkServerTrusted(final X509Certificate[] x509Certificates, final String s) throws CertificateException { }
-//
-//                    @Override
-//                    public X509Certificate[] getAcceptedIssuers() {
-//                        return new X509Certificate[0];
-//                    }
-//                };
-//
-//                final SSLContext sslContext = SSLContext.getInstance("TLS");
-//                sslContext.init(null, new X509TrustManager[]{ trustManager }, new SecureRandom());
-//                final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
-//                httpsConnection.setSSLSocketFactory(sslSocketFactory);
-//            }
+            if ( (! _httpRequest.validatesSslCertificates()) && (connection instanceof HttpsURLConnection) ) {
+                final HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
+
+                httpsConnection.setHostnameVerifier(HttpRequest.NAIVE_HOSTNAME_VERIFIER);
+
+                final SSLContext sslContext = SSLContext.getInstance("TLS");
+                sslContext.init(null, new X509TrustManager[]{ HttpRequest.NAIVE_TRUST_MANAGER }, new SecureRandom());
+                final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+                httpsConnection.setSSLSocketFactory(sslSocketFactory);
+            }
 
             connection.setInstanceFollowRedirects(_httpRequest._followsRedirects);
             connection.setDoInput(true);
@@ -381,13 +409,14 @@ class HttpRequestExecutionThread extends Thread {
             }
             else {
                 try {
-                    final Object httpClient = ReflectionUtil.getValue(connection, "http");
+                    final Object httpConnectionHolder = ((connection instanceof HttpsURLConnection) ? ReflectionUtil.getValue(connection, "delegate") : connection);
+                    final Object httpClient = ReflectionUtil.getValue(httpConnectionHolder, "http");
                     final Socket socket = ReflectionUtil.getValue(httpClient, "serverSocket");
-
                     _httpRequest._webSocket = _httpRequest._webSocketFactory.newWebSocket(socket);
                 }
                 catch (final Exception exception) {
                     Logger.log("Unable to get underlying socket for WebSocket within HttpRequest.");
+                    Logger.log(exception);
                     connection.disconnect();
                 }
             }

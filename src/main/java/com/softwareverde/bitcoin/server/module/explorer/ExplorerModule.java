@@ -55,7 +55,7 @@ public class ExplorerModule {
             _apiServer.setTlsPort(_explorerProperties.getTlsPort());
             _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true);
         }
 
         _apiServer.setPort(_explorerProperties.getPort());

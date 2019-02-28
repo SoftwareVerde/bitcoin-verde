@@ -81,7 +81,7 @@ public class ProxyModule {
             _apiServer.setTlsPort(proxyProperties.getTlsPort());
             _apiServer.setCertificate(proxyProperties.getTlsCertificateFile(), proxyProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true);
         }
 
         _apiServer.setPort(proxyProperties.getHttpPort());
@@ -120,6 +120,7 @@ public class ProxyModule {
 
                 httpRequest.setMethod(request.getMethod());
                 httpRequest.setFollowsRedirects(true);
+                httpRequest.setValidateSslCertificates(false);
 
                 Boolean isWebSocketRequest = false;
                 final Headers headers = request.getHeaders();
