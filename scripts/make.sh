@@ -13,9 +13,7 @@ cp -R conf/* out/conf/.
 # Create SSL Placeholder Directory
 mkdir -p out/ssl
 
-# Copy Static Web Data
-mkdir -p out/www
-cp -R www/* out/www/.
+./scripts/copy-www-data.sh
 
 # Create Database Directories
 mkdir -p out/data

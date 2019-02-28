@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.io.Logger;
 
@@ -32,5 +34,25 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
 
         final TransactionInput transactionInput = _transactionInputs.get(0);
         return transactionInput.getUnlockingScript();
+    }
+
+    public void setBlockReward(final Long satoshis) {
+        if (_transactionOutputs.getSize() < 1) {
+            Logger.log("Attempted to set block reward on invalid coinbase transaction.");
+            return;
+        }
+
+        final TransactionOutput transactionOutput = _transactionOutputs.get(0);
+        final MutableTransactionOutput mutableTransactionOutput = new MutableTransactionOutput(transactionOutput);
+        mutableTransactionOutput.setAmount(satoshis);
+        _transactionOutputs.set(0, mutableTransactionOutput);
+    }
+
+    @Override
+    public Long getBlockReward() {
+        if (_transactionOutputs.getSize() < 1) { return null; }
+
+        final TransactionOutput transactionOutput = _transactionOutputs.get(0);
+        return transactionOutput.getAmount();
     }
 }

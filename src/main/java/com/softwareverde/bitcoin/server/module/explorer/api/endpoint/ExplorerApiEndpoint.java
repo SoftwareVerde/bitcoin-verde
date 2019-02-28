@@ -1,8 +1,9 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.Servlet;
@@ -31,6 +32,23 @@ public abstract class ExplorerApiEndpoint implements Servlet {
             final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
             if (socket.isConnected()) {
                 return new NodeJsonRpcConnection(socket, _threadPool);
+            }
+        }
+        catch (final Exception exception) {
+            Logger.log(exception);
+        }
+
+        return null;
+    }
+
+    protected StratumJsonRpcConnection _getStratumJsonRpcConnection() {
+        final String stratumRpcUrl = _explorerProperties.getStratumRpcUrl();
+        final Integer stratumRpcPort = _explorerProperties.getStratumRpcPort();
+
+        try {
+            final Socket socket = new Socket(stratumRpcUrl, stratumRpcPort);
+            if (socket.isConnected()) {
+                return new StratumJsonRpcConnection(socket, _threadPool);
             }
         }
         catch (final Exception exception) {

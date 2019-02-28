@@ -1,18 +1,10 @@
 package com.softwareverde.bitcoin.test.fake;
 
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.node.NodeConnection;
-import com.softwareverde.network.socket.BinarySocket;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
 
 public class FakeNodeConnection extends NodeConnection {
     public final FakeBinarySocket fakeBinarySocket;

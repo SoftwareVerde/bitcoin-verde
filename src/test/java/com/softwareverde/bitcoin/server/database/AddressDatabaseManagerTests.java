@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;

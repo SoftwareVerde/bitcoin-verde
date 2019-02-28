@@ -1,0 +1,116 @@
+.block .transactions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.block .transaction.collapsed {
+    margin: auto;
+    padding: 0;
+    flex-grow: 1;
+}
+
+.transaction.collapsed .hash span.value::before {
+    display: none;
+}
+
+.block .transaction.collapsed .io {
+    display: none;
+}
+
+.block .transaction.collapsed > div > div {
+    padding: 0.25em;
+    margin: 0.25em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.025);
+    box-sizing: border-box;
+}
+
+.transaction.collapsed .hash .value {
+    margin: auto;
+}
+
+.transaction:first-child {
+    flex-basis: 100%;
+    margin-top: 0.5em;
+}
+
+.transaction:not(.collapsed):first-child {
+    background-color: rgba(255, 255, 255, 0.33);
+    border: solid 1px #C1C1C1;
+}
+
+.transaction.collapsed:first-child .hash {
+    background-color: rgba(255, 255, 255, 0.33);
+    border: solid 1px #C1C1C1;
+}
+
+
+.transaction:first-child::before {
+    content: 'Coinbase Transaction:';
+}
+
+.transaction:not(.collapsed) {
+    display: block;
+    flex-basis: 100%;
+}
+.block .transactions .transaction.collapsed:hover {
+    box-shadow: none;
+}
+
+.block .block-header div.transaction-count {
+    display: block;
+    width: calc(100% - 0.5em);
+}
+
+.block-header .hash,
+.block-header .nonce,
+.block-header .byte-count,
+.block-header .reward {
+    display: none;
+}
+
+.transaction .byte-count,
+.transaction .fee,
+.transaction .block-hashes {
+    display: none !important;
+}
+
+.block .transaction {
+    overflow: hidden;
+}
+
+h1 {
+    padding-left: 1em;
+    text-align: center;
+}
+
+#pool-hash-rate::after {
+    content: 'h/s';
+    padding-left: 0.5em;
+    color: rgba(0, 0, 0, 0.33);
+    font-size: 0.5em;
+    vertical-align: text-top;
+}
+
+#pool-hash-rate.kilo::after { content: 'kH/s'; }
+#pool-hash-rate.mega::after { content: 'MH/s'; }
+#pool-hash-rate.giga::after { content: 'GH/s'; }
+#pool-hash-rate.tera::after { content: 'TH/s'; }
+#pool-hash-rate.peta::after { content: 'PH/s'; }
+#pool-hash-rate.exa::after { content: 'EH/s'; }
+
+
+@media only screen and (max-width: 500px) {
+    h1 {
+        position: relative;
+        text-align: center;
+        padding-left: 1.33em;
+    }
+    h1 > i {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 0.5em;
+    }
+}

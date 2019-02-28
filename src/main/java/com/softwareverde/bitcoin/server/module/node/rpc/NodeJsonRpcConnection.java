@@ -24,7 +24,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
     public interface RawAnnouncementHookCallback {
         void onNewBlockHeader(BlockHeader blockHeader);
-        void onNewTransaction(Transaction transaction);
+        void onNewTransaction(Transaction transaction, Long fee);
     }
 
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
@@ -65,7 +65,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return (jsonProtocolMessage != null ? jsonProtocolMessage.getMessage() : null);
     }
 
-    protected Json _createRegisterHookRpcJson(final Boolean returnRawData) {
+    protected Json _createRegisterHookRpcJson(final Boolean returnRawData, final Boolean includeTransactionFees) {
         final Json eventTypesJson = new Json(true);
         eventTypesJson.add("NEW_BLOCK");
         eventTypesJson.add("NEW_TRANSACTION");
@@ -73,6 +73,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json parametersJson = new Json();
         parametersJson.put("events", eventTypesJson);
         parametersJson.put("rawFormat", (returnRawData ? 1 : 0));
+        parametersJson.put("includeTransactionFees", (includeTransactionFees ? 1 : 0));
 
         final Json registerHookRpcJson = new Json();
         registerHookRpcJson.put("method", "POST");
@@ -253,7 +254,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public Boolean upgradeToAnnouncementHook(final AnnouncementHookCallback announcementHookCallback) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(false);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(false, true);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
@@ -288,7 +289,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     public Boolean upgradeToAnnouncementHook(final RawAnnouncementHookCallback announcementHookCallback) {
         if (announcementHookCallback == null) { throw new NullPointerException("Null AnnouncementHookCallback found."); }
 
-        final Json registerHookRpcJson = _createRegisterHookRpcJson(true);
+        final Json registerHookRpcJson = _createRegisterHookRpcJson(true, true);
 
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
@@ -303,10 +304,10 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                 final Json json = message.getMessage();
 
                 final String objectType = json.getString("objectType");
-                final String objectData = json.getString("object");
 
                 switch (objectType) {
                     case "BLOCK": {
+                        final String objectData = json.getString("object");
                         final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (blockHeader == null) {
                             Logger.log("Error inflating block: " + objectData);
@@ -317,13 +318,27 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                     } break;
 
                     case "TRANSACTION": {
+                        final String objectData = json.getString("object");
                         final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (transaction == null) {
                             Logger.log("Error inflating transaction: " + objectData);
                             return;
                         }
 
-                        announcementHookCallback.onNewTransaction(transaction);
+                        announcementHookCallback.onNewTransaction(transaction, null);
+                    } break;
+
+                    case "TRANSACTION_WITH_FEE": {
+                        final Json object = json.get("object");
+                        final String transactionData = object.getString("transactionData");
+                        final Long fee = object.getLong("transactionFee");
+                        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
+                        if (transaction == null) {
+                            Logger.log("Error inflating transaction: " + transactionData);
+                            return;
+                        }
+
+                        announcementHookCallback.onNewTransaction(transaction, fee);
                     } break;
 
                     default: { } break;

@@ -22,7 +22,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<Json>(10);
     protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<Json>(32);
 
-    protected final AtomicLong _nextSocketId = new AtomicLong(1L);
+    protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
+
     protected final Configuration.ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected Boolean _isShuttingDown = false;

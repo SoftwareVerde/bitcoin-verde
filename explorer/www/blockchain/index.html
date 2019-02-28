@@ -1,0 +1,56 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/bree-serif.css" />
+        <link rel="stylesheet" href="/css/blockchain.css" />
+        <link rel="stylesheet" href="/css/vis.min.css" />
+        <link rel="stylesheet" href="/css/font-awesome.css" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/vis.min.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
+        <script src="/js/core.js"></script>
+        <script src="/js/blockchain.js"></script>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Cash Block Explorer</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Block Explorer</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/"><i class="fas fa-home"></i>Home</a></li>
+                    <li><a href="/blocks/"><i class="fas fa-th-large"></i>Blocks</a></li>
+                    <li><a href="/blockchain/"><i class="fas fa-code-branch"></i>Blockchain</a></li>
+                    <li><a href="/status/"><i class="fas fa-poll-h"></i>Status</a></li>
+                    <li><a href="/documentation/"><i class="fas fa-code"></i>Documentation</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="main">
+            <h1>Forks &amp; Orphaned Blocks</h1>
+            <div id="blockchain-metadata-details">
+                <div class="blockchain-segment-id empty"></div>
+                <div class="blockchain-segment-block-count empty"></div>
+                <div class="blockchain-segment-min-height empty"></div>
+                <div class="blockchain-segment-max-height empty"></div>
+            </div>
+            <div id="blockchain-metadata"></div>
+        </div>
+    </body>
+</html>

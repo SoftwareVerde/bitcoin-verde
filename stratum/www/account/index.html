@@ -1,0 +1,106 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <link rel="stylesheet" href="/css/core.css" />
+        <link rel="stylesheet" href="/css/bree-serif.css" />
+        <link rel="stylesheet" href="/css/blocks.css" />
+        <link rel="stylesheet" href="/css/account.css" />
+        <link rel="stylesheet" href="/css/dialog.css" />
+        <link rel="stylesheet" href="/css/font-awesome.css" />
+
+        <link rel="icon" href="/img/favicon.png">
+
+        <script src="/js/constants.js"></script>
+        <script src="/js/jquery-3.1.0.js"></script>
+        <script src="/js/clipboard.js"></script>
+        <script src="/js/qr-code.js"></script>
+        <script src="/js/hash-resizer.js"></script>
+        <script src="/js/dialog.js"></script>
+        <script src="/js/core.js"></script>
+        <script src="/js/account.js"></script>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <title>Bitcoin Verde Mining Pool</title>
+    </head>
+    <body>
+        <div id="header">
+            <div class="brand">
+                <img class="logo" src="/img/bitcoin-cash-logo.png">
+                <span class="title bold">Mining Pool</span>
+            </div>
+            <div class="navigation">
+                <ul>
+                    <li><a href="/"><i class="fas fa-flask"></i>Status</a></li>
+                    <li><a href="/account/"><i class="fas fa-user"></i>Account</a></li>
+                </ul>
+            </div>
+            <div class="search">
+                <input id="search" />
+                <img id="search-loading-image" class="loading" src="/img/loading.gif" />
+            </div>
+        </div>
+        <div id="main">
+            <div class="navigation">
+                <ul></ul>
+            </div>
+
+            <div id="view-container"></div>
+        </div>
+
+        <div id="templates">
+            <ul class="unauthenticated-navigation navigation">
+                <li class="authenticate-nav-button"><i class="fas fa-sign-in-alt"></i>Sign In</li>
+                <li class="create-account-nav-button"><i class="fas fa-user-plus"></i>Create Account</li>
+            </ul>
+            <ul class="authenticated-navigation navigation">
+                <li class="set-payout-address-nav-button"><i class="fas fa-credit-card"></i>Set Payout Address</li>
+                <li class="manage-workers-nav-button"><i class="fas fa-network-wired"></i>Manage Workers</li>
+                <li class="update-password-nav-button"><i class="fas fa-gears"></i>Update Password</li>
+                <li class="unauthenticate-nav-button"><i class="fas fa-sign-out-alt"></i>Sign Out</li>
+            </ul>
+
+            <div class="authenticate-container container">
+                <div class="title">Sign In <i class="fas fa-sign-in-alt"></i></div>
+                <p class="results"></p>
+                <input class="authenticate-email" type="email" placeholder="email"/>
+                <input class="authenticate-password" type="password" placeholder="password" />
+                <div class="submit-button button">Submit</div>
+            </div>
+            <div class="create-account-container container">
+                <div class="title">Create Account <i class="fas fa-user-plus"></i></div>
+                <p class="results"></p>
+                <input class="create-account-email" type="email" placeholder="email"/>
+                <input class="create-account-password" type="password" placeholder="password" />
+                <div class="submit-button button">Submit</div>
+            </div>
+            <div class="update-password-container container">
+                <div class="title">Update Password <i class="fas fa-gears"></i></div>
+                <p class="results"></p>
+                <input class="password" type="password" placeholder="current password" />
+                <input class="new-password" type="password" placeholder="new password" />
+                <input class="confirm-new-password" type="password" placeholder="confirm new password" />
+                <div class="submit-button button">Submit</div>
+            </div>
+            <div class="set-address-container container">
+                <div class="title">Set Address <i class="fas fa-sign-in-alt"></i></div>
+                <p class="results"></p>
+                <input class="address" type="text" placeholder="address"/>
+                <div class="submit-button button">Submit</div>
+            </div>
+            <div class="manage-workers-container container">
+                <div class="title">Workers <i class="fas fa-network-wired"></i></div>
+                <table class="workers"></table>
+                <div class="title">Add Worker <i class="fas fa-plus-square"></i></div>
+                <p class="results"></p>
+                <input class="username" type="text" placeholder="worker username"/>
+                <input class="password" type="password" placeholder="worker password" />
+                <div class="submit-button button">Submit</div>
+            </div>
+            <table class="workers-table">
+                <tr class="worker-header"><th>ID</th><th>Username</th><th>Shares</th><th>Delete</th></tr>
+                <tr class="worker"><td class="id"></td><td class="username"></td><td class="shares-count"></td><td class="delete"><i class="fas fa-minus-squre"></i></td></tr>
+            </table>
+        </div>
+    </body>
+</html>

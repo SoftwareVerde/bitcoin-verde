@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -166,16 +167,16 @@ class StratumMiner {
     }
 
     protected void _buildMiningTask() {
-        final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory();
+        final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory(totalExtraNonceByteCount);
 
         stratumMineBlockTaskFactory.setBlockVersion(_blockConfiguration.blockVersion);
         stratumMineBlockTaskFactory.setPreviousBlockHash(_blockConfiguration.previousBlockHash);
         stratumMineBlockTaskFactory.setDifficulty(_blockConfiguration.difficulty);
-        stratumMineBlockTaskFactory.setCoinbaseTransaction(_blockConfiguration.coinbaseTransaction, totalExtraNonceByteCount);
+        stratumMineBlockTaskFactory.setCoinbaseTransaction(_blockConfiguration.coinbaseTransaction);
         stratumMineBlockTaskFactory.setExtraNonce(_extraNonce);
 
         for (final Transaction transaction : _blockConfiguration.transactions) {
-            stratumMineBlockTaskFactory.addTransaction(transaction);
+            stratumMineBlockTaskFactory.addTransaction(new TransactionWithFee(transaction, 0L));
         }
 
         _stratumMineBlockTaskFactory = stratumMineBlockTaskFactory;
@@ -320,9 +321,9 @@ class StratumMiner {
         }
 
         final Configuration configuration = new Configuration(TEMP_FILE);
-        final Configuration.ServerProperties serverProperties = configuration.getServerProperties();
+        final Configuration.StratumProperties stratumProperties = configuration.getStratumProperties();
 
-        _stratumServerSocket = new StratumServerSocket(serverProperties.getStratumPort(), _threadPool);
+        _stratumServerSocket = new StratumServerSocket(stratumProperties.getPort(), _threadPool);
 
         _stratumServerSocket.setSocketEventCallback(new StratumServerSocket.SocketEventCallback() {
             @Override

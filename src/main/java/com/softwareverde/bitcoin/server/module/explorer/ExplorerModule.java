@@ -55,14 +55,14 @@ public class ExplorerModule {
             _apiServer.setTlsPort(_explorerProperties.getTlsPort());
             _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true);
         }
 
         _apiServer.setPort(_explorerProperties.getPort());
 
         _announcementsApi = new AnnouncementsApi(_explorerProperties);
 
-        { // Account Api
+        { // Api Endpoints
             _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
             _assignEndpoint("/api/v1/transactions", new TransactionsApi(_explorerProperties, _threadPool));

@@ -84,6 +84,21 @@ public class MutableBlock implements Block {
         _cachedHashCode = null;
     }
 
+    public void removeTransaction(final Sha256Hash transactionHashToRemove) {
+        _merkleTree.clear();
+        _cachedHashCode = null;
+
+        final MutableList<Transaction> oldTransactions = _transactions;
+        _transactions = new MutableList<Transaction>(_transactions.getSize());
+        for (final Transaction transaction : oldTransactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
+                _transactions.add(transaction);
+                _merkleTree.addItem(transaction);
+            }
+        }
+    }
+
     public void clearTransactions() {
         _transactions.clear();
         _merkleTree.clear();

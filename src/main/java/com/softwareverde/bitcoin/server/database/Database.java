@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.DatabaseInitializer;
@@ -14,8 +13,21 @@ import com.softwareverde.database.mysql.properties.Credentials;
 import com.softwareverde.io.Logger;
 
 public class Database {
-    public static MysqlDatabase newInstance(final Configuration configuration) {
-        return newInstance(configuration, new Runnable() {
+    public static class InitFile {
+        public final String sqlInitFile;
+        public final Integer databaseVersion;
+
+        public InitFile(final String sqlInitFile, final Integer databaseVersion) {
+            this.sqlInitFile = sqlInitFile;
+            this.databaseVersion = databaseVersion;
+        }
+    }
+
+    public static final InitFile BITCOIN = new InitFile("/queries/bitcoin_init.sql", 1);
+    public static final InitFile STRATUM = new InitFile("/queries/stratum_init.sql", 1);
+
+    public static MysqlDatabase newInstance(final InitFile initFile, final Configuration.DatabaseProperties databaseProperties) {
+        return newInstance(initFile, databaseProperties, 512, new Runnable() {
             @Override
             public void run() {
                 // Nothing.
@@ -23,11 +35,8 @@ public class Database {
         });
     }
 
-    public static MysqlDatabase newInstance(final Configuration configuration, final Runnable onShutdownCallback) {
-        final Configuration.DatabaseProperties databaseProperties = configuration.getDatabaseProperties();
-        final Configuration.ServerProperties serverProperties = configuration.getServerProperties();
-
-        final DatabaseInitializer databaseInitializer = new DatabaseInitializer("/queries/init.sql", Constants.DATABASE_VERSION, new DatabaseInitializer.DatabaseUpgradeHandler() {
+    public static MysqlDatabase newInstance(final InitFile sqlInitFile, final Configuration.DatabaseProperties databaseProperties, final Integer maxPeerCount, final Runnable onShutdownCallback) {
+        final DatabaseInitializer databaseInitializer = new DatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, new DatabaseInitializer.DatabaseUpgradeHandler() {
             @Override
             public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
         });
@@ -36,7 +45,8 @@ public class Database {
             if (databaseProperties.useEmbeddedDatabase()) {
                 // Initialize the embedded database...
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, serverProperties, databaseProperties);
+                final Integer maxDatabaseThreadCount = Math.max(512, (maxPeerCount * 8));
+                DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
 
                 Logger.log("[Initializing Database]");
                 final EmbeddedMysqlDatabase embeddedMysqlDatabase = new EmbeddedMysqlDatabase(databaseProperties, databaseInitializer, commandLineArguments);

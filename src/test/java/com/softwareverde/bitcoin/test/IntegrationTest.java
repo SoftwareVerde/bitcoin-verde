@@ -23,7 +23,7 @@ public class IntegrationTest {
     }
 
     protected static void _resetDatabase() {
-        final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler() {
+        final DatabaseInitializer databaseInitializer = new DatabaseInitializer("queries/bitcoin_init.sql", 1, new DatabaseInitializer.DatabaseUpgradeHandler() {
             @Override
             public Boolean onUpgrade(final int i, final int i1) { return false; }
         });
