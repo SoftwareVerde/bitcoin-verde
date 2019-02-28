@@ -49,7 +49,7 @@ public class WalletModule {
             _apiServer.setTlsPort(_walletProperties.getTlsPort());
             _apiServer.setCertificate(_walletProperties.getTlsCertificateFile(), _walletProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true);
         }
 
         _apiServer.setPort(_walletProperties.getPort());

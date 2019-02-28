@@ -86,7 +86,7 @@ public class StratumModule {
             _apiServer.setTlsPort(stratumProperties.getTlsPort());
             _apiServer.setCertificate(stratumProperties.getTlsCertificateFile(), stratumProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(true); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(true);
         }
 
         _apiServer.setPort(stratumProperties.getHttpPort());

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
+import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -198,6 +199,17 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 StratumModule.execute(configurationFile);
+            } break;
+
+            case "PROXY": {
+                if (_arguments.length != 2) {
+                    _printUsage();
+                    BitcoinUtil.exitFailure();
+                    break;
+                }
+
+                final String configurationFile = _arguments[1];
+                ProxyModule.execute(configurationFile);
             } break;
 
             case "DATABASE": {

@@ -15,13 +15,16 @@ public class Configuration {
     public static final Integer BITCOIN_PORT = 8333;
     public static final Integer BITCOIN_RPC_PORT = 8334;
 
-    public static final Integer EXPLORER_PORT = 8080;
-    public static final Integer EXPLORER_TLS_PORT = 4443;
+    public static final Integer PROXY_HTTP_PORT = 8080;
+    public static final Integer PROXY_TLS_PORT = 4480;
+
+    public static final Integer EXPLORER_HTTP_PORT = 8081;
+    public static final Integer EXPLORER_TLS_PORT = 4481;
 
     public static final Integer STRATUM_PORT = 3333;
     public static final Integer STRATUM_RPC_PORT = 3334;
-    public static final Integer STRATUM_HTTP_PORT = 8081;
-    public static final Integer STRATUM_TLS_PORT = 3443;
+    public static final Integer STRATUM_HTTP_PORT = 8082;
+    public static final Integer STRATUM_TLS_PORT = 4482;
 
     public static final Integer WALLET_PORT = 8888;
     public static final Integer WALLET_TLS_PORT = 4444;
@@ -135,6 +138,18 @@ public class Configuration {
         public String getCookiesDirectory() { return _cookiesDirectory; }
     }
 
+    public static class ProxyProperties {
+        private Integer _httpPort;
+        private Integer _tlsPort;
+        private String _tlsKeyFile;
+        private String _tlsCertificateFile;
+
+        public Integer getHttpPort() { return _httpPort; }
+        public Integer getTlsPort() { return _tlsPort; }
+        public String getTlsKeyFile() { return _tlsKeyFile; }
+        public String getTlsCertificateFile() { return _tlsCertificateFile; }
+    }
+
     public static class WalletProperties {
         private Integer _port;
         private String _rootDirectory;
@@ -156,6 +171,7 @@ public class Configuration {
     private ExplorerProperties _explorerProperties;
     private StratumProperties _stratumProperties;
     private WalletProperties _walletProperties;
+    private ProxyProperties _proxyProperties;
 
     private DatabaseProperties _loadDatabaseProperties(final String prefix) {
         final String propertyPrefix = (prefix == null ? "" : (prefix + "."));
@@ -219,7 +235,7 @@ public class Configuration {
     }
 
     private void _loadExplorerProperties() {
-        final Integer port = Util.parseInt(_properties.getProperty("explorer.port", EXPLORER_PORT.toString()));
+        final Integer port = Util.parseInt(_properties.getProperty("explorer.httpPort", EXPLORER_HTTP_PORT.toString()));
         final String rootDirectory = _properties.getProperty("explorer.rootDirectory", "explorer/www");
 
         final String bitcoinRpcUrl = _properties.getProperty("explorer.bitcoinRpcUrl", "");
@@ -298,6 +314,21 @@ public class Configuration {
         _walletProperties = walletProperties;
     }
 
+    private void _loadProxyProperties() {
+        final Integer httpPort = Util.parseInt(_properties.getProperty("proxy.httpPort", PROXY_HTTP_PORT.toString()));
+        final Integer tlsPort = Util.parseInt(_properties.getProperty("proxy.tlsPort", PROXY_TLS_PORT.toString()));
+        final String tlsKeyFile = _properties.getProperty("proxy.tlsKeyFile", "");
+        final String tlsCertificateFile = _properties.getProperty("proxy.tlsCertificateFile", "");
+
+        final ProxyProperties proxyProperties = new ProxyProperties();
+        proxyProperties._httpPort = httpPort;
+        proxyProperties._tlsPort = tlsPort;
+        proxyProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
+        proxyProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+
+        _proxyProperties = proxyProperties;
+    }
+
     public Configuration(final File configurationFile) {
         _properties = new Properties();
 
@@ -311,13 +342,14 @@ public class Configuration {
         _loadBitcoinProperties();
         _loadStratumProperties();
         _loadExplorerProperties();
-
         _loadWalletProperties();
+        _loadProxyProperties();
     }
 
     public BitcoinProperties getBitcoinProperties() { return _bitcoinProperties; }
     public ExplorerProperties getExplorerProperties() { return _explorerProperties; }
     public StratumProperties getStratumProperties() { return _stratumProperties; }
     public WalletProperties getWalletProperties() { return _walletProperties; }
+    public ProxyProperties getProxyProperties() { return _proxyProperties; }
 
 }
