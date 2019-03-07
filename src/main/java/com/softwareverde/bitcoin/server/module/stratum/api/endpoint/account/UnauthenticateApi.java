@@ -4,14 +4,13 @@ import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.http.HttpMethod;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.servlet.AuthenticatedServlet;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class UnauthenticateApi extends AuthenticatedServlet {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -27,15 +26,15 @@ public class UnauthenticateApi extends AuthenticatedServlet {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        if (request.getMethod() != Request.HttpMethod.POST) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
+        if (request.getMethod() != HttpMethod.POST) {
+            return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // AUTHENTICATE
             // Requires GET:
             // Requires POST:
 
-            final Response response = new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+            final Response response = new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
             _sessionManager.destroySession(request, response);
             return response;
         }

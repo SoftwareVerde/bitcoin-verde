@@ -466,19 +466,19 @@ class Ui {
             $(".block-hashes .values", transactionUi).append(blockLink);
         }
 
-        const lockTime = transaction.lockTime;
+        const lockTime = (transaction.lockTime || { type:"", value: "", bytes: "" });
         $(".lock-time .type .value", transactionUi).text(lockTime.type);
         $(".lock-time .type-value .value", transactionUi).text(lockTime.date || lockTime.value);
         $(".lock-time .type-value .bytes", transactionUi).text(lockTime.bytes);
 
-        const transactionInputs = transaction.inputs;
+        const transactionInputs = (transaction.inputs || [ ]);
         for (let i = 0; i < transactionInputs.length; i += 1) {
             const transactionInput = transactionInputs[i];
             const transactionInputUi = Ui.inflateTransactionInput(transactionInput);
             $(".io .transaction-inputs", transactionUi).append(transactionInputUi);
         }
 
-        const transactionOutputs = transaction.outputs;
+        const transactionOutputs = (transaction.outputs || [ ]);
         for (let i = 0; i < transactionOutputs.length; i += 1) {
             const transactionOutput = transactionOutputs[i];
             const transactionOutputUi = Ui.inflateTransactionOutput(transactionOutput);

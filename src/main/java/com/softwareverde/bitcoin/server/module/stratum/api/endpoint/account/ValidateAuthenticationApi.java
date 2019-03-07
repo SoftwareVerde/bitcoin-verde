@@ -3,14 +3,12 @@ package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.servlet.AuthenticatedServlet;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class ValidateAuthenticationApi extends AuthenticatedServlet {
 
@@ -27,7 +25,7 @@ public class ValidateAuthenticationApi extends AuthenticatedServlet {
             // Requires GET:
             // Requires POST:
 
-            return new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+            return new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
         }
     }
 }

@@ -8,15 +8,13 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 import com.softwareverde.util.HexUtil;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class TransactionsApi extends ExplorerApiEndpoint {
     private static class SubmitTransactionResult extends ApiResult { }
@@ -38,7 +36,7 @@ public class TransactionsApi extends ExplorerApiEndpoint {
                     final SubmitTransactionResult result = new SubmitTransactionResult();
                     result.setWasSuccess(false);
                     result.setErrorMessage("Unable to connect to node.");
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 {
@@ -47,7 +45,7 @@ public class TransactionsApi extends ExplorerApiEndpoint {
                         final SubmitTransactionResult result = new SubmitTransactionResult();
                         result.setWasSuccess(false);
                         result.setErrorMessage("Invalid transaction data.");
-                        return new JsonResponse(ResponseCodes.BAD_REQUEST, result);
+                        return new JsonResponse(Response.Codes.BAD_REQUEST, result);
                     }
 
                     final TransactionInflater transactionInflater = new TransactionInflater();
@@ -56,23 +54,23 @@ public class TransactionsApi extends ExplorerApiEndpoint {
                         final SubmitTransactionResult result = new SubmitTransactionResult();
                         result.setWasSuccess(false);
                         result.setErrorMessage("Invalid transaction.");
-                        return new JsonResponse(ResponseCodes.BAD_REQUEST, result);
+                        return new JsonResponse(Response.Codes.BAD_REQUEST, result);
                     }
 
                     final Json rpcResponseJson = nodeJsonRpcConnection.submitTransaction(transaction);
                     if (rpcResponseJson == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
                         final String errorMessage = rpcResponseJson.getString("errorMessage");
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
                 }
 
                 final SubmitTransactionResult submitTransactionResult = new SubmitTransactionResult();
                 submitTransactionResult.setWasSuccess(true);
-                return new JsonResponse(ResponseCodes.OK, submitTransactionResult);
+                return new JsonResponse(Response.Codes.OK, submitTransactionResult);
             }
         }
     }

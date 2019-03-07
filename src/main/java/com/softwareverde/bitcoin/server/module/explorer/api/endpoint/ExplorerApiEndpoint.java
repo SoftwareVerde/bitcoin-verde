@@ -5,11 +5,11 @@ import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.server.servlet.Servlet;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.io.Logger;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 
 import java.net.Socket;
 
@@ -67,6 +67,6 @@ public abstract class ExplorerApiEndpoint implements Servlet {
             Logger.log(exception);
         }
 
-        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "An internal error occurred."));
+        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "An internal error occurred."));
     }
 }

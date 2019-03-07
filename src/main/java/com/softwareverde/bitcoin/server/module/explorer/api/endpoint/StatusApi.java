@@ -4,12 +4,10 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class StatusApi extends ExplorerApiEndpoint {
     private static class StatusResult extends ApiResult {
@@ -59,7 +57,7 @@ public class StatusApi extends ExplorerApiEndpoint {
                     final StatusResult result = new StatusResult();
                     result.setWasSuccess(false);
                     result.setErrorMessage("Unable to connect to node.");
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 final String status;
@@ -69,12 +67,12 @@ public class StatusApi extends ExplorerApiEndpoint {
                 {
                     final Json rpcResponseJson = nodeJsonRpcConnection.getStatus();
                     if (rpcResponseJson == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
                         final String errorMessage = rpcResponseJson.getString("errorMessage");
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
                     statisticsJson = rpcResponseJson.get("statistics");
@@ -89,7 +87,7 @@ public class StatusApi extends ExplorerApiEndpoint {
                 statusResult.setStatistics(statisticsJson);
                 statusResult.setServerLoad(serverLoadJson);
                 statusResult.setServiceStatuses(serviceStatusesJson);
-                return new JsonResponse(ResponseCodes.OK, statusResult);
+                return new JsonResponse(Response.Codes.OK, statusResult);
             }
         }
     }

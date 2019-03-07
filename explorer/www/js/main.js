@@ -88,7 +88,7 @@ $(document).ready(function() {
 
         let container = null;
         let element  = null;
-        if (objectType == "TRANSACTION") {
+        if ( (objectType == "TRANSACTION") || (objectType == "TRANSACTION_HASH") ) {
             const transaction = message.object;
 
             container = $("#main .recent-transactions");

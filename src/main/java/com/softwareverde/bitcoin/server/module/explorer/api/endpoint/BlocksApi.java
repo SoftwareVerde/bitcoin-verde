@@ -4,15 +4,13 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 import com.softwareverde.util.Util;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class BlocksApi extends ExplorerApiEndpoint {
     private static class RecentBlocksResult extends ApiResult {
@@ -47,7 +45,7 @@ public class BlocksApi extends ExplorerApiEndpoint {
                     final RecentBlocksResult result = new RecentBlocksResult();
                     result.setWasSuccess(false);
                     result.setErrorMessage("Unable to connect to node.");
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 final Json blockHeadersJson;
@@ -57,12 +55,12 @@ public class BlocksApi extends ExplorerApiEndpoint {
 
                     final Json rpcResponseJson = nodeJsonRpcConnection.getBlockHeaders(blockHeight, maxBlockCount, false);
                     if (rpcResponseJson == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
                         final String errorMessage = rpcResponseJson.getString("errorMessage");
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
                     blockHeadersJson = rpcResponseJson.get("blockHeaders");
@@ -71,7 +69,7 @@ public class BlocksApi extends ExplorerApiEndpoint {
                 final RecentBlocksResult recentBlocksResult = new RecentBlocksResult();
                 recentBlocksResult.setWasSuccess(true);
                 recentBlocksResult.setBlockHeadersJson(blockHeadersJson);
-                return new JsonResponse(ResponseCodes.OK, recentBlocksResult);
+                return new JsonResponse(Response.Codes.OK, recentBlocksResult);
             }
         }
     }

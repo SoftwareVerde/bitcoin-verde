@@ -4,11 +4,14 @@ import com.softwareverde.database.mysql.embedded.properties.MutableEmbeddedDatab
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.ByteUtil;
+import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class Configuration {
@@ -142,14 +145,14 @@ public class Configuration {
         private Integer _httpPort;
         private Integer _externalTlsPort;
         private Integer _tlsPort;
-        private String _tlsKeyFile;
-        private String _tlsCertificateFile;
+        private String[] _tlsKeyFiles;
+        private String[] _tlsCertificateFiles;
 
         public Integer getHttpPort() { return _httpPort; }
         public Integer getTlsPort() { return _tlsPort; }
         public Integer getExternalTlsPort() { return _externalTlsPort; }
-        public String getTlsKeyFile() { return _tlsKeyFile; }
-        public String getTlsCertificateFile() { return _tlsCertificateFile; }
+        public String[] getTlsKeyFiles() { return _tlsKeyFiles; }
+        public String[] getTlsCertificateFiles() { return _tlsCertificateFiles; }
     }
 
     public static class WalletProperties {
@@ -316,19 +319,54 @@ public class Configuration {
         _walletProperties = walletProperties;
     }
 
+    protected String[] _getArrayStringProperty(final String propertyName) {
+        final String arrayString = _properties.getProperty(propertyName, "[]").trim();
+        final List<String> matches = new ArrayList<String>();
+
+        final int startingIndex;
+        final int length;
+        if (arrayString.startsWith("[") && arrayString.endsWith("]")) {
+            startingIndex = 1;
+            length = (arrayString.length() - 1);
+        }
+        else {
+            startingIndex = 0;
+            length = arrayString.length();
+        }
+
+        final StringBuilder stringBuilder = new StringBuilder();
+        for (int i = startingIndex; i < length; ++i) {
+            final char c = arrayString.charAt(i);
+
+            if (c == ',') {
+                matches.add(stringBuilder.toString().trim());
+                stringBuilder.setLength(0);
+                continue;
+            }
+
+            stringBuilder.append(c);
+        }
+        if (stringBuilder.length() > 0) {
+            matches.add(stringBuilder.toString().trim());
+        }
+
+        return matches.toArray(new String[0]);
+    }
+
     private void _loadProxyProperties() {
         final Integer httpPort = Util.parseInt(_properties.getProperty("proxy.httpPort", PROXY_HTTP_PORT.toString()));
         final Integer tlsPort = Util.parseInt(_properties.getProperty("proxy.tlsPort", PROXY_TLS_PORT.toString()));
         final Integer externalTlsPort = Util.parseInt(_properties.getProperty("proxy.externalTlsPort", tlsPort.toString()));
-        final String tlsKeyFile = _properties.getProperty("proxy.tlsKeyFile", "");
-        final String tlsCertificateFile = _properties.getProperty("proxy.tlsCertificateFile", "");
+
+        final String[] tlsKeyFiles = _getArrayStringProperty("proxy.tlsKeyFiles");
+        final String[] tlsCertificateFiles = _getArrayStringProperty("proxy.tlsCertificateFiles");
 
         final ProxyProperties proxyProperties = new ProxyProperties();
         proxyProperties._httpPort = httpPort;
         proxyProperties._tlsPort = tlsPort;
         proxyProperties._externalTlsPort = externalTlsPort;
-        proxyProperties._tlsKeyFile = (tlsKeyFile.isEmpty() ? null : tlsKeyFile);
-        proxyProperties._tlsCertificateFile = (tlsCertificateFile.isEmpty() ? null : tlsCertificateFile);
+        proxyProperties._tlsKeyFiles = tlsKeyFiles;
+        proxyProperties._tlsCertificateFiles = tlsCertificateFiles;
 
         _proxyProperties = proxyProperties;
     }

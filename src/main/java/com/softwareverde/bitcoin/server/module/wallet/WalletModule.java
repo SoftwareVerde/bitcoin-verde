@@ -2,11 +2,11 @@ package com.softwareverde.bitcoin.server.module.wallet;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.httpserver.DirectoryServlet;
-import com.softwareverde.httpserver.HttpServer;
+import com.softwareverde.http.server.HttpServer;
+import com.softwareverde.http.server.endpoint.Endpoint;
+import com.softwareverde.http.server.servlet.DirectoryServlet;
+import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.io.Logger;
-import com.softwareverde.servlet.Endpoint;
-import com.softwareverde.servlet.Servlet;
 
 import java.io.File;
 

@@ -7,17 +7,15 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class SearchApi extends ExplorerApiEndpoint {
     private static class SearchResult extends ApiResult {
@@ -54,7 +52,7 @@ public class SearchApi extends ExplorerApiEndpoint {
             // Requires POST:
             final String queryParam = getParameters.get("query").trim();
             if (queryParam.isEmpty()) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
+                return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Missing Parameter: query")));
             }
 
             try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection()) {
@@ -62,7 +60,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     final SearchResult result = new SearchResult();
                     result.setWasSuccess(false);
                     result.setErrorMessage("Unable to connect to node.");
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 SearchResult.ObjectType objectType = null;
@@ -76,7 +74,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                     if (address != null) {
                         final Json responseJson = nodeJsonRpcConnection.getAddressTransactions(address);
                         if (responseJson == null) {
-                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                            return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                         }
 
                         if (responseJson.getBoolean("wasSuccess")) {
@@ -95,14 +93,14 @@ public class SearchApi extends ExplorerApiEndpoint {
                         else {
                             final Boolean queryParamContainsNonNumeric = (! StringUtil.pregMatch("([^0-9,. ])", queryParam).isEmpty());
                             if ( (! Util.isLong(queryParam)) || (queryParamContainsNonNumeric) ) {
-                                return new JsonResponse(ResponseCodes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
+                                return new JsonResponse(Response.Codes.BAD_REQUEST, (new ApiResult(false, "Invalid Parameter Value: " + queryParam)));
                             }
                             final Long blockHeight = Util.parseLong(queryParam);
                             queryBlockResponseJson = nodeJsonRpcConnection.getBlock(blockHeight);
                         }
 
                         if (queryBlockResponseJson == null) {
-                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                            return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                         }
 
                         if (queryBlockResponseJson.getBoolean("wasSuccess")) {
@@ -120,7 +118,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                         final Json queryTransactionResponseJson = nodeJsonRpcConnection.getTransaction(blockHash);
 
                         if (queryTransactionResponseJson == null) {
-                            return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                            return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                         }
 
                         if (queryTransactionResponseJson.getBoolean("wasSuccess")) {
@@ -136,7 +134,7 @@ public class SearchApi extends ExplorerApiEndpoint {
                 searchResult.setWasSuccess(wasSuccess);
                 searchResult.setObjectType(objectType);
                 searchResult.setObject(object);
-                return new JsonResponse(ResponseCodes.OK, searchResult);
+                return new JsonResponse(Response.Codes.OK, searchResult);
             }
         }
 

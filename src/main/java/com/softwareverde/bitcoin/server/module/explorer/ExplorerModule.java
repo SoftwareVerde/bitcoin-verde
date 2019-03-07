@@ -5,12 +5,12 @@ import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.httpserver.DirectoryServlet;
-import com.softwareverde.httpserver.HttpServer;
+import com.softwareverde.http.server.HttpServer;
+import com.softwareverde.http.server.endpoint.Endpoint;
+import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
+import com.softwareverde.http.server.servlet.DirectoryServlet;
+import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.io.Logger;
-import com.softwareverde.servlet.Endpoint;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.WebSocketEndpoint;
 
 import java.io.File;
 
@@ -55,7 +55,7 @@ public class ExplorerModule {
             _apiServer.setTlsPort(_explorerProperties.getTlsPort());
             _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(true);
+            _apiServer.redirectToTls(false);
         }
 
         _apiServer.setPort(_explorerProperties.getPort());

@@ -4,12 +4,10 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class NodesApi extends ExplorerApiEndpoint {
     private static class NodesResult extends ApiResult {
@@ -44,19 +42,19 @@ public class NodesApi extends ExplorerApiEndpoint {
                     final NodesResult result = new NodesResult();
                     result.setWasSuccess(false);
                     result.setErrorMessage("Unable to connect to node.");
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 final Json nodesJson;
                 {
                     final Json rpcResponseJson = nodeJsonRpcConnection.getNodes();
                     if (rpcResponseJson == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
                         final String errorMessage = rpcResponseJson.getString("errorMessage");
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
                     nodesJson = rpcResponseJson.get("nodes");
@@ -65,7 +63,7 @@ public class NodesApi extends ExplorerApiEndpoint {
                 final NodesResult nodesResult = new NodesResult();
                 nodesResult.setWasSuccess(true);
                 nodesResult.setNodes(nodesJson);
-                return new JsonResponse(ResponseCodes.OK, nodesResult);
+                return new JsonResponse(Response.Codes.OK, nodesResult);
             }
         }
     }

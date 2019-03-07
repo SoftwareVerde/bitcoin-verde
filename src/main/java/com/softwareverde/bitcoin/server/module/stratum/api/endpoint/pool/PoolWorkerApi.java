@@ -5,14 +5,12 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class PoolWorkerApi extends StratumApiEndpoint {
     protected final StratumDataHandler _stratumDataHandler;
@@ -37,7 +35,7 @@ public class PoolWorkerApi extends StratumApiEndpoint {
             final StratumApiResult prototypeBlockResult = new StratumApiResult();
             prototypeBlockResult.setWasSuccess(true);
             prototypeBlockResult.put("block", prototypeBlockJson);
-            return new JsonResponse(ResponseCodes.OK, prototypeBlockResult);
+            return new JsonResponse(Response.Codes.OK, prototypeBlockResult);
         }
     }
 }

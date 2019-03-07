@@ -12,7 +12,7 @@ public class StratumApiResult extends ApiResult {
         _values.put(key, object);
     }
 
-    public StratumApiResult() {}
+    public StratumApiResult() { }
 
     public StratumApiResult(final Boolean wasSuccess, final String errorMessage) {
         super(wasSuccess, errorMessage);

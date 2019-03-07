@@ -3,13 +3,13 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.http.server.servlet.WebSocketServlet;
+import com.softwareverde.http.server.servlet.request.WebSocketRequest;
+import com.softwareverde.http.server.servlet.response.WebSocketResponse;
+import com.softwareverde.http.websocket.WebSocket;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.servlet.WebSocketServlet;
-import com.softwareverde.servlet.request.WebSocketRequest;
-import com.softwareverde.servlet.response.WebSocketResponse;
-import com.softwareverde.servlet.socket.WebSocket;
 import com.softwareverde.util.RotatingQueue;
 
 import java.util.HashMap;
@@ -46,6 +46,13 @@ public class AnnouncementsApi implements WebSocketServlet {
         json.put("objectType", objectType);
         json.put("object", object);
         return json;
+    }
+
+    // NOTE: A light JSON message is sent instead of the whole Transaction Json in order to keep WebSocket._maxPacketByteCount small...
+    protected Json _transactionJsonToTransactionHashJson(final Json transactionJson) {
+        final Json transactionHashJson = new Json(false);
+        transactionHashJson.put("hash", transactionJson.getString("hash"));
+        return transactionHashJson;
     }
 
     protected void _checkRpcConnection() {
@@ -106,7 +113,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected void _broadcastNewTransaction(final Json transactionJson) {
         final String message;
         {
-            final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+            // final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+            final Json messageJson = _wrapObject("TRANSACTION_HASH", _transactionJsonToTransactionHashJson(transactionJson));
             message = messageJson.toString();
         }
 
@@ -185,7 +193,8 @@ public class AnnouncementsApi implements WebSocketServlet {
             }
 
             for (final Json transactionJson : TRANSACTIONS) {
-                final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+                // final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+                final Json messageJson = _wrapObject("TRANSACTION_HASH", _transactionJsonToTransactionHashJson(transactionJson));
                 final String message = messageJson.toString();
                 webSocket.sendMessage(message);
             }

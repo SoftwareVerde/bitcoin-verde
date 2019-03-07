@@ -8,15 +8,14 @@ import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseM
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.http.HttpMethod;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class CreateWorkerApi extends AuthenticatedServlet {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -31,8 +30,8 @@ public class CreateWorkerApi extends AuthenticatedServlet {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        if (request.getMethod() != Request.HttpMethod.POST) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
+        if (request.getMethod() != HttpMethod.POST) {
+            return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // CREATE WORKER
@@ -43,28 +42,28 @@ public class CreateWorkerApi extends AuthenticatedServlet {
             final String password = postParameters.get("password");
 
             if (username.isEmpty()) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker username."));
+                return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker username."));
             }
 
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
                 final WorkerId existingWorkerId = accountDatabaseManager.getWorkerId(username);
                 if (existingWorkerId != null) {
-                    return new JsonResponse(ResponseCodes.OK, new StratumApiResult(false, "A worker with that username already exists."));
+                    return new JsonResponse(Response.Codes.OK, new StratumApiResult(false, "A worker with that username already exists."));
                 }
 
                 final WorkerId workerId = accountDatabaseManager.createWorker(accountId, username, password);
                 if (workerId == null) {
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "Unable to create worker."));
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "Unable to create worker."));
                 }
 
                 final StratumApiResult result = new StratumApiResult(true, null);
                 result.put("workerId", workerId);
-                return new JsonResponse(ResponseCodes.OK, result);
+                return new JsonResponse(Response.Codes.OK, result);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
+                return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }
     }

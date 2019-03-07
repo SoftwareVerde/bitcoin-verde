@@ -9,16 +9,15 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.http.HttpMethod;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.servlet.AuthenticatedServlet;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class GetWorkersApi extends AuthenticatedServlet {
     protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
@@ -33,8 +32,8 @@ public class GetWorkersApi extends AuthenticatedServlet {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        if (request.getMethod() != Request.HttpMethod.GET) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
+        if (request.getMethod() != HttpMethod.GET) {
+            return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // GET WORKERS
@@ -60,11 +59,11 @@ public class GetWorkersApi extends AuthenticatedServlet {
 
                 final StratumApiResult result = new StratumApiResult(true, null);
                 result.put("workers", workersJson);
-                return new JsonResponse(ResponseCodes.OK, result);
+                return new JsonResponse(Response.Codes.OK, result);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
+                return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }
     }

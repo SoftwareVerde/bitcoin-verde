@@ -4,14 +4,12 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
-import com.softwareverde.concurrent.pool.ThreadPool;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
+import com.softwareverde.http.HttpMethod;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 
 public class PoolHashRateApi extends StratumApiEndpoint {
     protected final StratumDataHandler _stratumDataHandler;
@@ -26,8 +24,8 @@ public class PoolHashRateApi extends StratumApiEndpoint {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        if (request.getMethod() != Request.HttpMethod.GET) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
+        if (request.getMethod() != HttpMethod.GET) {
+            return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // GET POOL HASH RATE
@@ -39,7 +37,7 @@ public class PoolHashRateApi extends StratumApiEndpoint {
             final StratumApiResult apiResult = new StratumApiResult();
             apiResult.setWasSuccess(true);
             apiResult.put("hashesPerSecond", hashesPerSecond);
-            return new JsonResponse(ResponseCodes.OK, apiResult);
+            return new JsonResponse(Response.Codes.OK, apiResult);
         }
     }
 }

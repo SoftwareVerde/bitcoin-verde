@@ -8,16 +8,15 @@ import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseM
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
+import com.softwareverde.http.HttpMethod;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
 import com.softwareverde.servlet.session.Session;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class CreateAccountApi extends StratumApiEndpoint {
     public static final Integer MIN_PASSWORD_LENGTH = 8;
@@ -35,8 +34,8 @@ public class CreateAccountApi extends StratumApiEndpoint {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        if (request.getMethod() != Request.HttpMethod.POST) {
-            return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
+        if (request.getMethod() != HttpMethod.POST) {
+            return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid method."));
         }
 
         {   // CREATE ACCOUNT
@@ -45,12 +44,12 @@ public class CreateAccountApi extends StratumApiEndpoint {
 
             final String email = postParameters.get("email").trim();
             if (email.isEmpty()) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid email address."));
+                return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid email address."));
             }
 
             final String password = postParameters.get("password");
             if (password.length() < MIN_PASSWORD_LENGTH) {
-                return new JsonResponse(ResponseCodes.BAD_REQUEST, new StratumApiResult(false, "Invalid password length."));
+                return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid password length."));
             }
 
             try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
@@ -59,16 +58,16 @@ public class CreateAccountApi extends StratumApiEndpoint {
                 { // Check for existing account...
                     final AccountId accountId = accountDatabaseManager.getAccountId(email);
                     if (accountId != null) {
-                        return new JsonResponse(ResponseCodes.OK, new StratumApiResult(false, "An account with that email address already exists."));
+                        return new JsonResponse(Response.Codes.OK, new StratumApiResult(false, "An account with that email address already exists."));
                     }
                 }
 
                 final AccountId accountId = accountDatabaseManager.createAccount(email, password);
                 if (accountId == null) {
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "Unable to create account."));
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "Unable to create account."));
                 }
 
-                final Response response = new JsonResponse(ResponseCodes.OK, new StratumApiResult(true, null));
+                final Response response = new JsonResponse(Response.Codes.OK, new StratumApiResult(true, null));
 
                 final Session session = _sessionManager.createSession(request, response);
                 final Json sessionData = session.getMutableData();
@@ -79,7 +78,7 @@ public class CreateAccountApi extends StratumApiEndpoint {
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
-                return new JsonResponse(ResponseCodes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
+                return new JsonResponse(Response.Codes.SERVER_ERROR, new StratumApiResult(false, "An internal error occurred."));
             }
         }
     }
