@@ -410,10 +410,7 @@ public class StratumServer {
 
             final BlockHeader blockHeader = mineBlockTask.assembleBlockHeader(stratumNonce, stratumExtraNonce2, stratumTimestamp);
             final Sha256Hash hash = blockHeader.getHash();
-            Logger.log(mineBlockTask.getDifficulty().getBytes());
-            Logger.log(hash);
-            Logger.log(shareDifficulty.getBytes());
-
+            Logger.log(workerUsername + ": " + hash);
             if (! shareDifficulty.isSatisfiedBy(hash)) {
                 submissionWasAccepted = false;
                 Logger.log("NOTICE: Share Difficulty not satisfied.");
