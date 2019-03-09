@@ -14,10 +14,19 @@ import com.softwareverde.util.RotatingQueue;
 
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class AnnouncementsApi implements WebSocketServlet {
     protected static final Object MUTEX = new Object();
     protected static final HashMap<Long, WebSocket> WEB_SOCKETS = new HashMap<Long, WebSocket>();
+
+    protected static final ReentrantReadWriteLock.ReadLock QUEUE_READ_LOCK;
+    protected static final ReentrantReadWriteLock.WriteLock QUEUE_WRITE_LOCK;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        QUEUE_READ_LOCK = readWriteLock.readLock();
+        QUEUE_WRITE_LOCK = readWriteLock.writeLock();
+    }
 
     protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<Json>(10);
     protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<Json>(32);
@@ -113,8 +122,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected void _broadcastNewTransaction(final Json transactionJson) {
         final String message;
         {
-            // final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
-            final Json messageJson = _wrapObject("TRANSACTION_HASH", _transactionJsonToTransactionHashJson(transactionJson));
+            final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
+            final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
             message = messageJson.toString();
         }
 
@@ -126,16 +135,26 @@ public class AnnouncementsApi implements WebSocketServlet {
     }
 
     protected void _onNewBlock(final Json blockJson) {
-        synchronized (MUTEX) {
+        try {
+            QUEUE_WRITE_LOCK.lock();
+
             BLOCK_HEADERS.add(blockJson);
+        }
+        finally {
+            QUEUE_WRITE_LOCK.unlock();
         }
 
         _broadcastNewBlockHeader(blockJson);
     }
 
     protected void _onNewTransaction(final Json transactionJson) {
-        synchronized (MUTEX) {
+        try {
+            QUEUE_WRITE_LOCK.lock();
+
             TRANSACTIONS.add(transactionJson);
+        }
+        finally {
+            QUEUE_WRITE_LOCK.unlock();
         }
 
         _broadcastNewTransaction(transactionJson);
@@ -176,7 +195,6 @@ public class AnnouncementsApi implements WebSocketServlet {
         webSocket.setConnectionClosedCallback(new WebSocket.ConnectionClosedCallback() {
             @Override
             public void onClose(final int code, final String message) {
-                Logger.log("WebSocket Closed: " + code + " " + message + " " + webSocket.toString());
                 synchronized (MUTEX) {
                     WEB_SOCKETS.remove(webSocketId);
                 }
@@ -185,19 +203,24 @@ public class AnnouncementsApi implements WebSocketServlet {
 
         // webSocket.startListening();
 
-        synchronized (MUTEX) {
-            for (final Json transactionJson : BLOCK_HEADERS) {
-                final Json messageJson = _wrapObject("BLOCK", transactionJson);
+        try {
+            QUEUE_READ_LOCK.lock();
+
+            for (final Json blockHeaderJson : BLOCK_HEADERS) {
+                final Json messageJson = _wrapObject("BLOCK", blockHeaderJson);
                 final String message = messageJson.toString();
                 webSocket.sendMessage(message);
             }
 
             for (final Json transactionJson : TRANSACTIONS) {
-                // final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
-                final Json messageJson = _wrapObject("TRANSACTION_HASH", _transactionJsonToTransactionHashJson(transactionJson));
+                final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
+                final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
                 final String message = messageJson.toString();
                 webSocket.sendMessage(message);
             }
+        }
+        finally {
+            QUEUE_READ_LOCK.unlock();
         }
     }
 
