@@ -11,6 +11,18 @@ public class NodeInitializer {
         BitcoinNode.TransactionInventoryMessageCallback createTransactionsAnnouncementCallback(BitcoinNode bitcoinNode);
     }
 
+    public static class Properties {
+        public SynchronizationStatus synchronizationStatus;
+        public BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler;
+        public TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory;
+        public BitcoinNode.QueryBlocksCallback queryBlocksCallback;
+        public BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback;
+        public BitcoinNode.RequestDataCallback requestDataCallback;
+        public ThreadPoolFactory threadPoolFactory;
+        public LocalNodeFeatures localNodeFeatures;
+        public BitcoinNode.RequestPeersHandler requestPeersHandler;
+    }
+
     protected final SynchronizationStatus _synchronizationStatus;
     protected final BitcoinNode.BlockInventoryMessageCallback _blockInventoryMessageHandler;
     protected final TransactionsAnnouncementCallbackFactory _transactionsAnnouncementCallbackFactory;
@@ -30,13 +42,23 @@ public class NodeInitializer {
 
         bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryMessageHandler);
 
-        final BitcoinNode.TransactionInventoryMessageCallback transactionsAnnouncementCallback = _transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);
-        bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
+        final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory = _transactionsAnnouncementCallbackFactory;
+        if (transactionsAnnouncementCallbackFactory != null) {
+            final BitcoinNode.TransactionInventoryMessageCallback transactionsAnnouncementCallback = transactionsAnnouncementCallbackFactory.createTransactionsAnnouncementCallback(bitcoinNode);
+            bitcoinNode.setTransactionsAnnouncementCallback(transactionsAnnouncementCallback);
+        }
 
         bitcoinNode.setRequestPeersHandler(_requestPeersHandler);
     }
 
-    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, BitcoinNode.RequestPeersHandler requestPeersHandler) {
+    public NodeInitializer(final Properties properties) {
+        this(properties.synchronizationStatus, properties.blockInventoryMessageHandler, properties.transactionsAnnouncementCallbackFactory,
+            properties.queryBlocksCallback, properties.queryBlockHeadersCallback, properties.requestDataCallback,
+            properties.threadPoolFactory, properties.localNodeFeatures, properties.requestPeersHandler
+        );
+    }
+
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, final BitcoinNode.RequestPeersHandler requestPeersHandler) {
         _synchronizationStatus = synchronizationStatus;
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
