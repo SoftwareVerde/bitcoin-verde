@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.database.impl.DatabaseImpl;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
 
@@ -34,7 +34,7 @@ public class DatabaseModule {
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
         final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final Database database = DatabaseImpl.newInstance(DatabaseImpl.BITCOIN, databaseProperties);
+        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();

@@ -1,9 +1,8 @@
-package com.softwareverde.bitcoin.server.database.impl;
+package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.database.Database;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.DatabaseInitializer;
@@ -15,7 +14,7 @@ import com.softwareverde.database.mysql.embedded.EmbeddedMysqlDatabase;
 import com.softwareverde.database.mysql.properties.Credentials;
 import com.softwareverde.io.Logger;
 
-public class DatabaseImpl extends Database {
+public class BitcoinVerdeDatabase extends Database {
     public static class InitFile {
         public final String sqlInitFile;
         public final Integer databaseVersion;
@@ -58,7 +57,7 @@ public class DatabaseImpl extends Database {
                     embeddedMysqlDatabase.setPreShutdownHook(onShutdownCallback);
                 }
 
-                return new DatabaseImpl(embeddedMysqlDatabase);
+                return new BitcoinVerdeDatabase(embeddedMysqlDatabase);
             }
             else {
                 // Connect to the remote database...
@@ -88,7 +87,7 @@ public class DatabaseImpl extends Database {
                     databaseInitializer.initializeDatabase(maintenanceDatabaseConnection);
                 }
 
-                return new DatabaseImpl(new MysqlDatabase(databaseProperties, credentials));
+                return new BitcoinVerdeDatabase(new MysqlDatabase(databaseProperties, credentials));
             }
         }
         catch (final DatabaseException exception) {
@@ -98,17 +97,17 @@ public class DatabaseImpl extends Database {
         return null;
     }
 
-    protected DatabaseImpl(final MysqlDatabase core) {
+    protected BitcoinVerdeDatabase(final MysqlDatabase core) {
         super(core);
     }
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        return new DatabaseConnectionImpl(((MysqlDatabase) _core).newConnection());
+        return new DatabaseConnectionWrapper(((MysqlDatabase) _core).newConnection());
     }
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
-        return new DatabaseConnectionFactoryImpl(((MysqlDatabase) _core).newConnectionFactory());
+        return new DatabaseConnectionFactoryWrapper(((MysqlDatabase) _core).newConnectionFactory());
     }
 }

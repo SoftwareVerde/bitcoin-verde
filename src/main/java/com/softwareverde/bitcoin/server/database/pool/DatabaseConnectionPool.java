@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database.pool;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.impl.DatabaseConnectionImpl;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
@@ -86,7 +86,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
         { // Check if there is an available cached connection...
             final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
             if (cachedDatabaseConnection != null) {
-                return new DatabaseConnectionImpl(cachedDatabaseConnection);
+                return new DatabaseConnectionWrapper(cachedDatabaseConnection);
             }
         }
 
@@ -112,7 +112,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
         { // Check again if there is now an available cached connection made available by close...
             final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
             if (cachedDatabaseConnection != null) {
-                return new DatabaseConnectionImpl(cachedDatabaseConnection);
+                return new DatabaseConnectionWrapper(cachedDatabaseConnection);
             }
         }
 
@@ -121,7 +121,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
             _connectionCount += 1;
         }
 
-        return new DatabaseConnectionImpl(new CachedDatabaseConnection(mysqlDatabaseConnection.getRawConnection()));
+        return new DatabaseConnectionWrapper(new CachedDatabaseConnection(mysqlDatabaseConnection.getRawConnection()));
     }
 
     @Override

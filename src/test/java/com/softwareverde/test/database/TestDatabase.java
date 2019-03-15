@@ -3,8 +3,8 @@ package com.softwareverde.test.database;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.impl.DatabaseConnectionFactoryImpl;
-import com.softwareverde.bitcoin.server.database.impl.DatabaseConnectionImpl;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
@@ -17,12 +17,12 @@ public class TestDatabase extends Database {
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        return new DatabaseConnectionImpl(((MysqlTestDatabase) _core).newConnection());
+        return new DatabaseConnectionWrapper(((MysqlTestDatabase) _core).newConnection());
     }
 
     @Override
     public DatabaseConnectionFactory newConnectionFactory() {
-        return new DatabaseConnectionFactoryImpl(((MysqlTestDatabase) _core).newConnectionFactory());
+        return new DatabaseConnectionFactoryWrapper(((MysqlTestDatabase) _core).newConnectionFactory());
     }
 
     public void reset() throws DatabaseException {
@@ -38,7 +38,7 @@ public class TestDatabase extends Database {
     }
 
     public DatabaseConnectionFactory getDatabaseConnectionFactory() {
-        return new DatabaseConnectionFactoryImpl(((MysqlTestDatabase) _core).getDatabaseConnectionFactory());
+        return new DatabaseConnectionFactoryWrapper(((MysqlTestDatabase) _core).getDatabaseConnectionFactory());
     }
 
     public MysqlDatabaseConnectionFactory getMysqlDatabaseConnectionFactory() {
