@@ -4,17 +4,17 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.Util;
 
 public class BlockchainDatabaseManager {
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
@@ -202,7 +202,7 @@ public class BlockchainDatabaseManager {
         return row.getBoolean("are_connected");
     }
 
-    public BlockchainDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public BlockchainDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

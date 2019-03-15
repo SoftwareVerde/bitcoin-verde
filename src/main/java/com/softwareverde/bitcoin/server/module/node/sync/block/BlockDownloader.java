@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
@@ -17,8 +19,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -40,7 +40,7 @@ public class BlockDownloader extends SleepyService {
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
@@ -50,14 +50,14 @@ public class BlockDownloader extends SleepyService {
     protected Boolean _hasGenesisBlock = false;
     protected Long _lastGenesisDownloadTimestamp = null;
 
-    protected void _onBlockDownloaded(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected void _onBlockDownloaded(final Block block, final DatabaseConnection databaseConnection) throws DatabaseException {
         final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
         pendingBlockDatabaseManager.storeBlock(block);
     }
 
     protected void _markPendingBlockIdsAsFailed(final Set<Sha256Hash> pendingBlockHashes) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             for (final Sha256Hash pendingBlockHash : pendingBlockHashes) {
                 final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(pendingBlockHash);
@@ -133,7 +133,7 @@ public class BlockDownloader extends SleepyService {
             }
         }
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             if (! _hasGenesisBlock) { // Since nodes do not advertise inventory of the genesis block, specifically add it if it is required...
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
                 final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
@@ -226,7 +226,7 @@ public class BlockDownloader extends SleepyService {
             _bitcoinNodeManager.findNodeInventory();
 
             Logger.log("Searching for Unlocatable Pending Blocks...");
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
                 pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
             }
@@ -236,7 +236,7 @@ public class BlockDownloader extends SleepyService {
         }
     }
 
-    public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
+    public BlockDownloader(final BitcoinNodeManager bitcoinNodeManager, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
@@ -253,7 +253,7 @@ public class BlockDownloader extends SleepyService {
 
                 Logger.log("Downloaded Block: " + blockHash + " (" + (timer != null ? timer.getMillisecondsElapsed() : "??") + "ms)");
 
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     _onBlockDownloaded(block, databaseConnection);
                 }
                 catch (final DatabaseException exception) {
@@ -274,7 +274,7 @@ public class BlockDownloader extends SleepyService {
 
             @Override
             public void onFailure(final Sha256Hash blockHash) {
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
 
                     final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.getPendingBlockId(blockHash);
@@ -306,7 +306,7 @@ public class BlockDownloader extends SleepyService {
     }
 
     public void submitBlock(final Block block) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             _onBlockDownloaded(block, databaseConnection);
             Logger.log("Block submitted: " + block.getHash());
         }

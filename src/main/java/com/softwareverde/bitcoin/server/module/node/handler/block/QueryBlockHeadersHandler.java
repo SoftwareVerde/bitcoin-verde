@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
@@ -14,8 +16,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeConnection;
 
@@ -25,13 +25,13 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
         public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) { }
     };
 
-    public QueryBlockHeadersHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryBlockHeadersHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         super(databaseConnectionFactory, databaseManagerCache);
     }
 
     @Override
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 

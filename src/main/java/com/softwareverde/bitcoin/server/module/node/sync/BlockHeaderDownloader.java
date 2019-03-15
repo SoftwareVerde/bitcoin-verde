@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
@@ -14,8 +16,6 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
@@ -25,7 +25,7 @@ import com.softwareverde.util.timer.MilliTimer;
 public class BlockHeaderDownloader extends SleepyService {
     public static final Long MAX_TIMEOUT_MS = 60000L;
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final BitcoinNodeManager _nodeManager;
     protected final MutableMedianBlockTime _medianBlockTime;
@@ -46,7 +46,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Runnable _newBlockHeaderAvailableCallback = null;
 
     protected Boolean _checkForGenesisBlockHeader() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final Sha256Hash lastKnownHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
 
@@ -79,7 +79,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 Logger.log("GENESIS RECEIVED: " + blockHash);
                 if (_checkForGenesisBlockHeader()) { return; } // NOTE: This can happen if the BlockDownloader received the GenesisBlock first...
 
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final Boolean genesisBlockWasStored = _validateAndStoreBlockHeader(block, databaseConnection);
                     if (! genesisBlockWasStored) {
                         _threadPool.execute(retry);
@@ -106,7 +106,7 @@ public class BlockHeaderDownloader extends SleepyService {
         });
     }
 
-    protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected Boolean _validateAndStoreBlockHeader(final BlockHeader blockHeader, final DatabaseConnection databaseConnection) throws DatabaseException {
         final Sha256Hash blockHash = blockHeader.getHash();
 
         if (! blockHeader.isValid()) {
@@ -150,7 +150,7 @@ public class BlockHeaderDownloader extends SleepyService {
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
         Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
 
@@ -163,7 +163,9 @@ public class BlockHeaderDownloader extends SleepyService {
                     _threadPool.execute(new Runnable() {
                         @Override
                         public void run() {
-                            _blockDownloadRequester.requestBlock(blockHeader);
+                            if (_blockDownloadRequester != null) {
+                                _blockDownloadRequester.requestBlock(blockHeader);
+                            }
                         }
                     });
 
@@ -186,7 +188,7 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+    public BlockHeaderDownloader(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _nodeManager = nodeManager;
@@ -222,7 +224,7 @@ public class BlockHeaderDownloader extends SleepyService {
         _timer.start();
         _blockHeaderCount = 0L;
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();

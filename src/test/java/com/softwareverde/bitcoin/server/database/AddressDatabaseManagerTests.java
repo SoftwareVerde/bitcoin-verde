@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -22,7 +21,7 @@ public class AddressDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_store_script_addresses() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();

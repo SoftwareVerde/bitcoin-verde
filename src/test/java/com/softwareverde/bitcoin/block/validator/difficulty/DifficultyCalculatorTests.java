@@ -8,20 +8,20 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
-    protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
@@ -114,7 +114,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         return returnedBlockHeaders;
     }
 
-    protected BlockHeader[] _initBlocks2(final Long stopBeforeBlockHeight, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected BlockHeader[] _initBlocks2(final Long stopBeforeBlockHeight, final DatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -247,7 +247,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_return_default_difficulty_for_block_0() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
 
@@ -271,7 +271,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_return_bitcoin_cash_adjusted_difficulty() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
@@ -320,7 +320,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_difficulty_for_block_000000000000000000A818C2894CBBECF77DA16CA526E3D59929CE5AFD8F0644() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
@@ -352,7 +352,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_difficulty_for_block_000000000000000002CF5C8BE76F5EF40196B8D1A63E0FF138F9FB1DF907E315() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
@@ -385,7 +385,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_00000000000000000343E9875012F2062554C8752929892C82A0C0743AC7DCFD() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -518,7 +518,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_000000000000000002173D0AC7B3A30F2AAC302449778D72386C785D2C370429() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -658,7 +658,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_0000000000000000044B32C9A65C643A5B7EA4C38C5A34E6E1203998D3B38392() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -785,7 +785,7 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_calculate_difficulty_for_block_000000000000000001D49711B252E3C8DDAEFEC6A668B3104E4C4EE63908A587() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();

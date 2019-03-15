@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -26,7 +27,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
@@ -76,7 +76,7 @@ public class TransactionDatabaseManager {
         catch (final Exception exception) { return null; }
     }
 
-    public static void initializeBloomFilter(final String filename, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void initializeBloomFilter(final String filename, final DatabaseConnection databaseConnection) throws DatabaseException {
         try {
             final Json json = Json.parse(StringUtil.bytesToString(Util.coalesce(IoUtil.getFileContents(filename + ".json"), new byte[0])));
             final Integer transactionBloomFilterVersion = json.getInteger("version");
@@ -163,7 +163,7 @@ public class TransactionDatabaseManager {
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected static final SystemTime _systemTime = new SystemTime();
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
 
     protected void _insertTransactionInputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(_databaseConnection, _databaseManagerCache);
@@ -437,7 +437,7 @@ public class TransactionDatabaseManager {
         return transaction;
     }
 
-    public TransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public TransactionDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

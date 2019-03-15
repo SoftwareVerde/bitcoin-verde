@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 import java.util.concurrent.ExecutorService;
@@ -14,7 +14,7 @@ import java.util.concurrent.Executors;
 public class ParallelledTaskSpawner<T, S> {
     protected static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool();
 
-    protected static void _closeConnection(final MysqlDatabaseConnection databaseConnection) {
+    protected static void _closeConnection(final DatabaseConnection databaseConnection) {
         try {
             if (databaseConnection != null) {
                 databaseConnection.close();
@@ -23,13 +23,13 @@ public class ParallelledTaskSpawner<T, S> {
         catch (DatabaseException exception) { }
     }
 
-    protected static void _closeConnections(final MysqlDatabaseConnection[] databaseConnections) {
-        for (final MysqlDatabaseConnection databaseConnection : databaseConnections) {
+    protected static void _closeConnections(final DatabaseConnection[] databaseConnections) {
+        for (final DatabaseConnection databaseConnection : databaseConnections) {
             _closeConnection(databaseConnection);
         }
     }
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
@@ -38,7 +38,7 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public ParallelledTaskSpawner(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
 
@@ -49,7 +49,7 @@ public class ParallelledTaskSpawner<T, S> {
         final int threadCount = Math.min(maxThreadCount, Math.max(1, (totalItemCount / maxThreadCount)));
         final int itemsPerThread = (totalItemCount / threadCount);
 
-        final MysqlDatabaseConnection[] mysqlDatabaseConnections = new MysqlDatabaseConnection[threadCount];
+        final DatabaseConnection[] mysqlDatabaseConnections = new DatabaseConnection[threadCount];
         for (int i=0; i<threadCount; ++i) {
             try {
                 mysqlDatabaseConnections[i] = _databaseConnectionFactory.newConnection();
@@ -68,7 +68,7 @@ public class ParallelledTaskSpawner<T, S> {
             final int remainingItems = (items.getSize() - startIndex);
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
 
-            final MysqlDatabaseConnection databaseConnection = mysqlDatabaseConnections[i];
+            final DatabaseConnection databaseConnection = mysqlDatabaseConnections[i];
             final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(databaseConnection, _databaseManagerCache, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);

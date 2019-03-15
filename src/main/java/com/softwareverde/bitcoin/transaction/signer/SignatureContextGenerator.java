@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
@@ -12,13 +13,12 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 public class SignatureContextGenerator {
     // Reference: https://en.bitcoin.it/wiki/OP_CHECKSIG
     private final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
 
-    public SignatureContextGenerator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public SignatureContextGenerator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
     }
 

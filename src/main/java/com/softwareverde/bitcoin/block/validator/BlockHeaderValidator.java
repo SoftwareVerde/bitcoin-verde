@@ -7,10 +7,10 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
@@ -37,7 +37,7 @@ public class BlockHeaderValidator {
 
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected Boolean _validateBlockTimeForAlternateChain(final BlockHeader blockHeader) {
@@ -116,7 +116,7 @@ public class BlockHeaderValidator {
         return BlockHeaderValidationResponse.valid();
     }
 
-    public BlockHeaderValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public BlockHeaderValidator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
         _networkTime = networkTime;

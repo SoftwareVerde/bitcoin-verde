@@ -9,6 +9,8 @@ import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -28,8 +30,6 @@ import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -59,7 +59,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public static class Properties {
         public Integer maxNodeCount;
-        public MysqlDatabaseConnectionFactory databaseConnectionFactory;
+        public DatabaseConnectionFactory databaseConnectionFactory;
         public DatabaseManagerCache databaseManagerCache;
         public MutableNetworkTime networkTime;
         public NodeInitializer nodeInitializer;
@@ -71,7 +71,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         public LocalNodeFeatures localNodeFeatures;
     }
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
@@ -93,7 +93,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected void _onAllNodesDisconnected() {
         Logger.log("All nodes disconnected.");
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
             final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
@@ -120,7 +120,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _onNodeConnected(final BitcoinNode node) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseManagerCache);
             final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
 
@@ -188,7 +188,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
             if (isBanned) {
@@ -226,7 +226,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _onNodeHandshakeComplete(final BitcoinNode node) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             nodeDatabaseManager.updateLastHandshake(node);
             nodeDatabaseManager.updateNodeFeatures(node);
@@ -245,7 +245,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         );
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
+    public BitcoinNodeManager(final Integer maxNodeCount, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
         super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures), networkTime, threadPool);
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
@@ -318,7 +318,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
         final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final List<Tuple<Sha256Hash, Sha256Hash>> inventoryPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(connectedNodes);
 
@@ -585,7 +585,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 bitcoinNode.transmitBlockHeader(cachedBlockHeader);
             }
             else {
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
                     final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -638,7 +638,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void banNode(final Ip ip) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
             // Ban any nodes from that ip...
@@ -667,7 +667,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void unbanNode(final Ip ip) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
             // Unban any nodes from that ip...

@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -11,8 +13,6 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 public class TransactionInventoryMessageHandler implements BitcoinNode.TransactionInventoryMessageCallback {
@@ -22,11 +22,11 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
     };
 
     protected final BitcoinNode _bitcoinNode;
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
         _bitcoinNode = bitcoinNode;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
@@ -35,7 +35,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
 
     @Override
     public void onResult(final List<Sha256Hash> transactionHashes) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final List<Sha256Hash> unseenTransactionHashes;
@@ -57,9 +57,8 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
                 final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
                 nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, pendingTransactionIds);
 
-                final Runnable newInventoryCallback = _newInventoryCallback;
-                if (newInventoryCallback != null) {
-                    newInventoryCallback.run();
+                if (_newInventoryCallback != null) {
+                    _newInventoryCallback.run();
                 }
             }
         }

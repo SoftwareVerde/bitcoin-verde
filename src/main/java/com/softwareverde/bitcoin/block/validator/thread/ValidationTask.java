@@ -1,15 +1,15 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 class ValidationTask<T, S> implements Runnable {
-    private final MysqlDatabaseConnection _databaseConnection;
+    private final DatabaseConnection _databaseConnection;
     private final DatabaseManagerCache _databaseManagerCache;
     private final TaskHandler<T, S> _taskHandler;
     private final List<T> _list;
@@ -19,7 +19,7 @@ class ValidationTask<T, S> implements Runnable {
     private boolean _didEncounterError = false;
     private volatile boolean _shouldAbort = false;
 
-    public ValidationTask(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final List<T> list, final TaskHandler<T, S> taskHandler) {
+    public ValidationTask(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final List<T> list, final TaskHandler<T, S> taskHandler) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
         _list = list;

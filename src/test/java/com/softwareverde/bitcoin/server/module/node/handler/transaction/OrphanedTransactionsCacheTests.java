@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -24,7 +25,6 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
@@ -70,7 +70,7 @@ public class OrphanedTransactionsCacheTests extends IntegrationTest {
     @Test
     public void should_queue_transaction_whose_output_cannot_be_found() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 

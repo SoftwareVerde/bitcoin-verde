@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.wor
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
@@ -18,9 +18,9 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.AuthenticatedServlet;
 
 public class CreateWorkerApi extends AuthenticatedServlet {
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public CreateWorkerApi(final Configuration.StratumProperties stratumProperties, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public CreateWorkerApi(final Configuration.StratumProperties stratumProperties, final DatabaseConnectionFactory databaseConnectionFactory) {
         super(stratumProperties);
         _databaseConnectionFactory = databaseConnectionFactory;
     }
@@ -45,7 +45,7 @@ public class CreateWorkerApi extends AuthenticatedServlet {
                 return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid worker username."));
             }
 
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
                 final WorkerId existingWorkerId = accountDatabaseManager.getWorkerId(username);
                 if (existingWorkerId != null) {

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -13,7 +14,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -25,7 +25,7 @@ import java.util.HashSet;
 public class BitcoinNodeDatabaseManager {
     public static final Object MUTEX = new Object();
 
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final SystemTime _systemTime = new SystemTime();
 
     protected NodeFeatures _inflateNodeFeatures(final Long nodeId) throws DatabaseException {
@@ -55,7 +55,7 @@ public class BitcoinNodeDatabaseManager {
         return NodeId.wrap(row.getLong("id"));
     }
 
-    public BitcoinNodeDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public BitcoinNodeDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 

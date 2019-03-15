@@ -11,11 +11,13 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.impl.DatabaseImpl;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
@@ -23,8 +25,6 @@ import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabase
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -61,7 +61,7 @@ public class ChainValidationModule {
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
         final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(Database.BITCOIN, databaseProperties);
+        final Database database = DatabaseImpl.newInstance(DatabaseImpl.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
@@ -84,15 +84,15 @@ public class ChainValidationModule {
     }
 
     public void run() {
-        final MysqlDatabase database = _environment.getDatabase();
+        final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final UnspentTransactionOutputCache unspentTransactionOutputCache = masterDatabaseManagerCache.getUnspentTransactionOutputCache();
 
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final MysqlDatabaseConnection databaseConnection = database.newConnection();
-                final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
+        try (final DatabaseConnection databaseConnection = database.newConnection();
+             final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
 
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);

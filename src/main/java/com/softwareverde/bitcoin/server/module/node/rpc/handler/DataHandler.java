@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
@@ -25,15 +27,13 @@ import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
 public class DataHandler implements NodeRpcHandler.DataHandler {
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final ReadOnlyLocalDatabaseManagerCache _databaseManagerCache;
 
     protected final NetworkTime _networkTime;
@@ -42,7 +42,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
 
-    public DataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final ReadOnlyLocalDatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public DataHandler(final DatabaseConnectionFactory databaseConnectionFactory, final ReadOnlyLocalDatabaseManagerCache databaseManagerCache, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _transactionDownloader = transactionDownloader;
@@ -54,7 +54,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Long getBlockHeaderHeight() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -70,7 +70,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Long getBlockHeight() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -87,7 +87,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Long getBlockHeaderTimestamp() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             if (headBlockId == null) { return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP; }
@@ -102,7 +102,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Long getBlockTimestamp() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
             if (headBlockId == null) { return MedianBlockTime.GENESIS_BLOCK_TIMESTAMP; }
@@ -118,7 +118,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public List<BlockHeader> getBlockHeaders(final Long nullableBlockHeight, final Integer maxBlockCount) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -157,7 +157,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public BlockHeader getBlockHeader(final Long blockHeight) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -176,7 +176,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public BlockHeader getBlockHeader(final Sha256Hash blockHash) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -192,7 +192,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Block getBlock(final Long blockHeight) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -212,7 +212,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Block getBlock(final Sha256Hash blockHash) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -229,7 +229,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Transaction getTransaction(final Sha256Hash transactionHash) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
@@ -245,7 +245,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Difficulty getDifficulty() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
             return difficultyCalculator.calculateRequiredDifficulty();
         }
@@ -257,7 +257,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public List<Transaction> getUnconfirmedTransactions() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
@@ -277,7 +277,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public List<TransactionWithFee> getUnconfirmedTransactionsWithFees() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
@@ -305,7 +305,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
     @Override
     public Long getBlockReward() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -326,7 +326,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     public BlockValidationResult validatePrototypeBlock(final Block block) {
         Logger.log("Validating Prototype Block: " + block.getHash());
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             try {
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     TransactionUtil.startTransaction(databaseConnection);

@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 
 public interface TaskHandler<T, S> {
-    void init(MysqlDatabaseConnection databaseConnection, DatabaseManagerCache databaseManagerCache);
+    void init(DatabaseConnection databaseConnection, DatabaseManagerCache databaseManagerCache);
 
     /**
      * TaskHandler.executeTask() is invoked an arbitrary number of unique times by the same thread.

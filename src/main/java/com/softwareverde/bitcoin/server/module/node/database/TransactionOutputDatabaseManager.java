@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -26,7 +27,6 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.mysql.BatchedUpdateQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
@@ -48,7 +48,7 @@ public class TransactionOutputDatabaseManager {
         }
     }
 
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected TransactionOutputId _getTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
@@ -307,7 +307,7 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIsSpent;
     }
 
-    public TransactionOutputDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public TransactionOutputDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.sync.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
@@ -13,8 +15,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.timer.MilliTimer;
@@ -32,21 +32,21 @@ public class TransactionDownloader extends SleepyService {
     protected final Object _downloadCallbackPin = new Object();
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final Map<Sha256Hash, MilliTimer> _currentTransactionDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
     protected final BitcoinNodeManager.DownloadTransactionCallback _transactionDownloadedCallback;
 
     protected Runnable _newTransactionAvailableCallback = null;
 
-    protected void _onTransactionDownloaded(final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected void _onTransactionDownloaded(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
 
         pendingTransactionDatabaseManager.storeTransaction(transaction);
     }
 
     protected void _markPendingTransactionIdsAsFailed(final Set<Sha256Hash> pendingTransactionHashes) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
             for (final Sha256Hash pendingTransactionHash : pendingTransactionHashes) {
                 final PendingTransactionId pendingTransactionId = pendingTransactionDatabaseManager.getPendingTransactionId(pendingTransactionHash);
@@ -123,7 +123,7 @@ public class TransactionDownloader extends SleepyService {
             }
         }
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
@@ -177,7 +177,7 @@ public class TransactionDownloader extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public TransactionDownloader(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
+    public TransactionDownloader(final BitcoinNodeManager bitcoinNodeManager, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
@@ -185,7 +185,7 @@ public class TransactionDownloader extends SleepyService {
         _transactionDownloadedCallback = new BitcoinNodeManager.DownloadTransactionCallback() {
             @Override
             public void onResult(final Transaction transaction) {
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     _onTransactionDownloaded(transaction, databaseConnection);
                 }
                 catch (final DatabaseException exception) {
@@ -216,7 +216,7 @@ public class TransactionDownloader extends SleepyService {
 
             @Override
             public void onFailure(final List<Sha256Hash> transactionHashes) {
-                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
 
                     for (final Sha256Hash transactionHash : transactionHashes) {
@@ -253,7 +253,7 @@ public class TransactionDownloader extends SleepyService {
     }
 
     public void submitTransaction(final Transaction transaction) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             _onTransactionDownloaded(transaction, databaseConnection);
             Logger.log("Transaction submitted: " + transaction.getHash());
         }

@@ -17,7 +17,6 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.Query;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import org.junit.Assert;
@@ -60,7 +59,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
      *               A #1           Height: 0
      *
      */
-    protected ScenarioData _setupScenario(final MysqlDatabaseConnection databaseConnection) throws Exception {
+    protected ScenarioData _setupScenario(final DatabaseConnection databaseConnection) throws Exception {
         final BlockInflater blockInflater = new BlockInflater();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -121,7 +120,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void should_inflate_stored_transaction() throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
 
             // Setup
             final BlockInflater blockInflater = new BlockInflater();
@@ -174,7 +173,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_connected_block_when_parent() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -195,7 +194,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_not_connected_block() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -216,7 +215,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_connected_block_for_child() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -237,7 +236,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_connected_block_for_child_2() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -258,7 +257,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_connected_block_for_child_3() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -279,7 +278,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_connected_block_for_child_4() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -300,7 +299,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_not_connected_block_2() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -321,7 +320,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_not_connected_block_3() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -342,7 +341,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_not_connected_block_4() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -363,7 +362,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_detect_not_connected_block_5() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final ScenarioData scenarioData;
@@ -385,7 +384,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     public void should_inflate_block_00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7() throws Exception {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -429,7 +428,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_store_block_if_input_exist_on_prior_blockchain_segment_after_fork() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -487,7 +486,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_find_block_at_height_across_blockchain_segments() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);

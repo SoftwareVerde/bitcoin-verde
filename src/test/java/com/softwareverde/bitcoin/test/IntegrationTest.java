@@ -9,9 +9,10 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
+import com.softwareverde.test.database.TestDatabase;
 
 public class IntegrationTest {
-    protected static final MysqlTestDatabase _database = new MysqlTestDatabase();
+    protected static final TestDatabase _database = new TestDatabase(new MysqlTestDatabase());
     protected static final Boolean _nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
     protected static Boolean _nativeCacheWasInitialized = false;
 
@@ -29,7 +30,7 @@ public class IntegrationTest {
         });
         try {
             _database.reset();
-            final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+            final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getMysqlDatabaseConnectionFactory();
             try (final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
                 databaseInitializer.initializeDatabase(databaseConnection);
             }

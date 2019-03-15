@@ -1,18 +1,18 @@
 package com.softwareverde.bitcoin.server;
 
+import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.database.mysql.MysqlDatabase;
 
 public class Environment {
-    protected final MysqlDatabase _database;
+    protected final Database _database;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
 
-    public Environment(final MysqlDatabase database, final MasterDatabaseManagerCache masterDatabaseManagerCache) {
+    public Environment(final Database database, final MasterDatabaseManagerCache masterDatabaseManagerCache) {
         _database = database;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
     }
 
-    public MysqlDatabase getDatabase() {
+    public Database getDatabase() {
         return _database;
     }
 

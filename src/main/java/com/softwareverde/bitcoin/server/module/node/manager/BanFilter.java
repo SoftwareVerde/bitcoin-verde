@@ -1,16 +1,16 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 
 public class BanFilter {
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
-    private MysqlDatabaseConnection _cachedDatabaseConnection;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    private DatabaseConnection _cachedDatabaseConnection;
 
-    protected MysqlDatabaseConnection _getCachedDatabaseConnection() throws DatabaseException {
+    protected DatabaseConnection _getCachedDatabaseConnection() throws DatabaseException {
         if (_cachedDatabaseConnection == null) {
             _cachedDatabaseConnection = _databaseConnectionFactory.newConnection();
         }
@@ -19,7 +19,7 @@ public class BanFilter {
     }
 
     protected void _closeDatabaseConnection() {
-        final MysqlDatabaseConnection databaseConnection = _cachedDatabaseConnection;
+        final DatabaseConnection databaseConnection = _cachedDatabaseConnection;
         _cachedDatabaseConnection = null;
 
         if (databaseConnection != null) {
@@ -27,13 +27,13 @@ public class BanFilter {
         }
     }
 
-    public BanFilter(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public BanFilter(final DatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
     public Boolean isIpBanned(final Ip ip) {
         try {
-            final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
+            final DatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
             return isBanned;
@@ -48,7 +48,7 @@ public class BanFilter {
 
     public Boolean shouldBanIp(final Ip ip) {
         try {
-            final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
+            final DatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip);
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
@@ -66,7 +66,7 @@ public class BanFilter {
         Logger.log("Banning Node: " + ip);
 
         try {
-            final MysqlDatabaseConnection databaseConnection = _getCachedDatabaseConnection();
+            final DatabaseConnection databaseConnection = _getCachedDatabaseConnection();
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
             nodeDatabaseManager.setIsBanned(ip, true);
         }

@@ -24,7 +24,6 @@ import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -45,7 +44,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void transaction_spending_output_spent_by_other_mempool_tx_should_be_invalid() throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();

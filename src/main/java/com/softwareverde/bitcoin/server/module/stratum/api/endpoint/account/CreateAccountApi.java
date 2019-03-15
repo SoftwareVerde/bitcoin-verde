@@ -2,12 +2,12 @@ package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account;
 
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.http.HttpMethod;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
@@ -21,9 +21,9 @@ import com.softwareverde.servlet.session.Session;
 public class CreateAccountApi extends StratumApiEndpoint {
     public static final Integer MIN_PASSWORD_LENGTH = 8;
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public CreateAccountApi(final Configuration.StratumProperties stratumProperties, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public CreateAccountApi(final Configuration.StratumProperties stratumProperties, final DatabaseConnectionFactory databaseConnectionFactory) {
         super(stratumProperties);
 
         _databaseConnectionFactory = databaseConnectionFactory;
@@ -52,7 +52,7 @@ public class CreateAccountApi extends StratumApiEndpoint {
                 return new JsonResponse(Response.Codes.BAD_REQUEST, new StratumApiResult(false, "Invalid password length."));
             }
 
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
 
                 { // Check for existing account...

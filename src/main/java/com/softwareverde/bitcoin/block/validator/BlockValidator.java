@@ -11,6 +11,8 @@ import com.softwareverde.bitcoin.block.validator.thread.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
@@ -25,8 +27,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
@@ -42,7 +42,7 @@ public class BlockValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected Boolean _shouldLogValidBlocks = true;
@@ -231,7 +231,7 @@ public class BlockValidator {
         final Block block;
         final Long blockHeight;
         final BlockchainSegmentId blockchainSegmentId;
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             if (nullableBlock != null) {
@@ -298,7 +298,7 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidator(final MysqlDatabaseConnectionFactory threadedConnectionsFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public BlockValidator(final DatabaseConnectionFactory threadedConnectionsFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseConnectionFactory = threadedConnectionsFactory;
         _databaseManagerCache = databaseManagerCache;
         _networkTime = networkTime;
@@ -336,7 +336,7 @@ public class BlockValidator {
         final Block block;
         final Long blockHeight;
         final BlockchainSegmentId blockchainSegmentId;
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);

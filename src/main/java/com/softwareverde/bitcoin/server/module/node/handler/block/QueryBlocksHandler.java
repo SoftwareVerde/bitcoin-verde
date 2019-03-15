@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -11,8 +13,6 @@ import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabase
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeConnection;
 
@@ -22,13 +22,13 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
         public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) { }
     };
 
-    public QueryBlocksHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryBlocksHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         super(databaseConnectionFactory, databaseManagerCache);
     }
 
     @Override
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final NodeConnection nodeConnection) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, true, desiredBlockHash, databaseConnection);

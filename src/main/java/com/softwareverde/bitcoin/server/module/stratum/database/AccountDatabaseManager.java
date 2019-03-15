@@ -4,13 +4,13 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.security.pbkdf2.Pbkdf2Key;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -18,7 +18,7 @@ import com.softwareverde.util.type.time.SystemTime;
 public class AccountDatabaseManager {
     protected static final Integer WORKER_PASSWORD_ITERATIONS = 8; // Authenticating workers happens much more frequently than account authentications...
 
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
 
     protected Boolean _authenticateAccount(final AccountId accountId, final String password) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
@@ -41,7 +41,7 @@ public class AccountDatabaseManager {
         return true;
     }
 
-    public AccountDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public AccountDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.stratum.StratumServer;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
@@ -25,7 +26,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.ReflectionUtil;
@@ -160,7 +160,7 @@ class StratumServerPartialMock extends StratumServer {
 
     protected final MutableList<Json> _fakeJsonResponses = new MutableList<Json>();
 
-    public StratumServerPartialMock(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServerPartialMock(final DatabaseConnectionFactory databaseConnectionFactory) {
         super(configuration.getStratumProperties(), new MainThreadPool(1, 1L), databaseConnectionFactory);
 
         ReflectionUtil.setValue(this, "_stratumServerSocket", new FakeStratumServerSocket());

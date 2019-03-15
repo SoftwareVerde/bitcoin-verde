@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.stratum;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.impl.DatabaseImpl;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.*;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.worker.CreateWorkerApi;
@@ -14,8 +16,6 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWor
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
-import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
@@ -69,14 +69,14 @@ public class StratumModule {
         final Configuration.StratumProperties stratumProperties = _configuration.getStratumProperties();
         final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(Database.STRATUM, databaseProperties);
+        final Database database = DatabaseImpl.newInstance(DatabaseImpl.STRATUM, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
         }
         Logger.log("[Database Online]");
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
         _stratumServer = new StratumServer(_configuration.getStratumProperties(), _stratumThreadPool, databaseConnectionFactory);
 

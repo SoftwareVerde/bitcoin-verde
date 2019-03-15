@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -37,7 +38,6 @@ import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -56,7 +56,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     }
 
     protected StoredBlock _storeBlock(final String blockBytes) throws DatabaseException {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
@@ -102,7 +102,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransaction;
     }
 
-    public static Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static Long _calculateBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
     }
 
@@ -115,7 +115,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_validate_valid_transaction() throws Exception {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -148,7 +148,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -195,7 +195,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_detect_an_address_attempting_to_spend_an_output_it_cannot_unlock() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -241,7 +241,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_detect_an_address_attempting_to_spend_an_output_with_the_incorrect_signature() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -287,7 +287,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_not_validate_transaction_whose_inputs_spend_the_same_output() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -346,7 +346,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_transaction_that_spends_the_same_input_twice() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -418,7 +418,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_not_accept_transaction_that_double_spends_output_into_mempool() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();

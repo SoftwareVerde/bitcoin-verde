@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
@@ -19,8 +21,6 @@ import com.softwareverde.bitcoin.test.fake.FakeNodeConnection;
 import com.softwareverde.bitcoin.test.fake.FakeSocket;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -44,7 +44,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario() throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
 
@@ -78,7 +78,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
@@ -139,7 +139,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
@@ -182,7 +182,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
@@ -226,7 +226,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
@@ -270,7 +270,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
@@ -315,7 +315,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
-            final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+            final DatabaseConnection databaseConnection = _database.newConnection();
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockDatabaseManager.insertBlock(mutableBlock);
@@ -328,7 +328,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
         final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);

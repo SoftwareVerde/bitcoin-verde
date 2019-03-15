@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -13,7 +14,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
@@ -54,11 +54,11 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected MysqlDatabaseConnection _databaseConnection;
+    protected DatabaseConnection _databaseConnection;
     protected DatabaseManagerCache _databaseManagerCache;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected static TransactionOutput _getTransactionOutput(final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    protected static TransactionOutput _getTransactionOutput(final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         try {
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
 
@@ -85,7 +85,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         return null;
     }
 
-    protected static Long _calculateTotalTransactionInputs(final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    protected static Long _calculateTotalTransactionInputs(final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
@@ -116,7 +116,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     }
 
     @Override
-    public void init(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public void init(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

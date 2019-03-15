@@ -4,12 +4,10 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 public class DatabaseMaintainer {
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
     protected static final List<String> TABLES;
     static {
@@ -40,12 +38,12 @@ public class DatabaseMaintainer {
         TABLES = listBuilder.build();
     }
 
-    public DatabaseMaintainer(final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public DatabaseMaintainer(final DatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
     }
 
     public void analyzeTables() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             for (final String tableName : TABLES) {
                 databaseConnection.executeSql(new Query("ANALYZE TABLE " + tableName));
             }

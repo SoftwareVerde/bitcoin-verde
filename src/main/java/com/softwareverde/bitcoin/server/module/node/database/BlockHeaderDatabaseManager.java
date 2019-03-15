@@ -14,11 +14,11 @@ import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -56,10 +56,10 @@ public class BlockHeaderDatabaseManager {
         return medianBlockTime;
     }
 
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    public BlockHeaderDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public BlockHeaderDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

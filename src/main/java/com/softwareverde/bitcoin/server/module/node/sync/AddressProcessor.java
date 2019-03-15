@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
@@ -12,8 +14,6 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.MilliTimer;
@@ -21,10 +21,10 @@ import com.softwareverde.util.timer.MilliTimer;
 public class AddressProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    public AddressProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public AddressProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
     }
@@ -34,7 +34,7 @@ public class AddressProcessor extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final MilliTimer processTimer = new MilliTimer();
 
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);

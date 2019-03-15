@@ -22,7 +22,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.timer.MilliTimer;
@@ -40,7 +39,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         _resetDatabase();
     }
 
-    public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+    public static void _createRequiredTransactionInputs(final List<Transaction> transactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final HashSet<Sha256Hash> excludedTransactionHashes = new HashSet<Sha256Hash>(transactions.getSize());
         for (final Transaction transaction : transactions) {
             final Sha256Hash transactionHash = transaction.getHash();
@@ -136,7 +135,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         final MilliTimer setupTimer = new MilliTimer();
         setupTimer.start();
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(UtxoCount.wrap(0L));
         final BlockInflater blockInflater = new BlockInflater();
 

@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,7 +32,6 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -237,7 +237,7 @@ public class TransactionValidator {
         return minedCount;
     }
 
-    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
         _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);

@@ -8,11 +8,11 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.Util;
@@ -30,7 +30,7 @@ public class DifficultyCalculator {
     protected final BlockchainDatabaseManager _blockchainDatabaseManager;
     protected final BlockHeaderDatabaseManager _blockHeaderDatabaseManager;
 
-    public DifficultyCalculator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public DifficultyCalculator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
         _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
     }

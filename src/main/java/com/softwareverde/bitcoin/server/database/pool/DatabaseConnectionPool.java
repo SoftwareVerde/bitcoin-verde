@@ -1,20 +1,22 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.impl.DatabaseConnectionImpl;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory implements AutoCloseable {
+public class DatabaseConnectionPool extends DatabaseConnectionFactory implements AutoCloseable {
     public static final Long DEFAULT_DEADLOCK_TIMEOUT = 30000L; // The number of milliseconds the pool will wait before allowing the maximum pool count to be exceeded.
 
-    protected final class CachedMysqlDatabaseConnection extends MysqlDatabaseConnection {
+    protected final class CachedDatabaseConnection extends MysqlDatabaseConnection {
 
-        public CachedMysqlDatabaseConnection(final Connection rawConnection) {
+        public CachedDatabaseConnection(final Connection rawConnection) {
             super(rawConnection);
         }
 
@@ -55,22 +57,22 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
 
     protected final Object _mutex = new Object();
     protected final Integer _maxConnectionCount;
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Long _deadlockTimeout;
     protected Integer _connectionCount = 0;
     protected Boolean _isShutdown = false;
-    protected final ConcurrentLinkedQueue<CachedMysqlDatabaseConnection> _mysqlDatabaseConnections = new ConcurrentLinkedQueue<CachedMysqlDatabaseConnection>();
+    protected final ConcurrentLinkedQueue<CachedDatabaseConnection> _mysqlDatabaseConnections = new ConcurrentLinkedQueue<CachedDatabaseConnection>();
 
-    public MysqlDatabaseConnectionPool(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount) {
-        super(null, null, null, null, null);
+    public DatabaseConnectionPool(final DatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount) {
+        super(mysqlDatabaseConnectionFactory);
 
         _databaseConnectionFactory = mysqlDatabaseConnectionFactory;
         _maxConnectionCount = maxConnectionCount;
         _deadlockTimeout = DEFAULT_DEADLOCK_TIMEOUT;
     }
 
-    public MysqlDatabaseConnectionPool(final MysqlDatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount, final Long deadlockTimeout) {
-        super(null, null, null, null, null);
+    public DatabaseConnectionPool(final DatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount, final Long deadlockTimeout) {
+        super(mysqlDatabaseConnectionFactory);
 
         _databaseConnectionFactory = mysqlDatabaseConnectionFactory;
         _maxConnectionCount = maxConnectionCount;
@@ -78,13 +80,13 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
     }
 
     @Override
-    public MysqlDatabaseConnection newConnection() throws DatabaseException {
+    public DatabaseConnection newConnection() throws DatabaseException {
         if (_isShutdown) { throw new DatabaseException("Connection pool has been shutdown."); }
 
         { // Check if there is an available cached connection...
             final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
             if (cachedDatabaseConnection != null) {
-                return cachedDatabaseConnection;
+                return new DatabaseConnectionImpl(cachedDatabaseConnection);
             }
         }
 
@@ -98,7 +100,7 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
                     if (stillIsAtMaxCapacity) {
                         // If the connectionCount is still at max capacity, then this is likely either a deadlock scenario or the database is under high contention.
                         //  In this scenario, we will allow the pool to exceed the maximum connection count.
-                        Logger.log("NOTICE: MysqlDatabaseConnectionPool exceeding capacity to mitigate deadlock.");
+                        Logger.log("NOTICE: DatabaseConnectionPool exceeding capacity to mitigate deadlock.");
                         Logger.log(new Exception());
                         return _databaseConnectionFactory.newConnection();
                     }
@@ -110,16 +112,16 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
         { // Check again if there is now an available cached connection made available by close...
             final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
             if (cachedDatabaseConnection != null) {
-                return cachedDatabaseConnection;
+                return new DatabaseConnectionImpl(cachedDatabaseConnection);
             }
         }
 
-        final MysqlDatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
+        final DatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
         synchronized (_mutex) {
             _connectionCount += 1;
         }
 
-        return new CachedMysqlDatabaseConnection(mysqlDatabaseConnection.getRawConnection());
+        return new DatabaseConnectionImpl(new CachedDatabaseConnection(mysqlDatabaseConnection.getRawConnection()));
     }
 
     @Override
@@ -127,7 +129,7 @@ public class MysqlDatabaseConnectionPool extends MysqlDatabaseConnectionFactory 
         _isShutdown = true;
 
         synchronized (_mutex) {
-            CachedMysqlDatabaseConnection cachedConnection;
+            CachedDatabaseConnection cachedConnection;
             while ((cachedConnection = _mysqlDatabaseConnections.poll()) != null) {
                 try {
                     cachedConnection.superClose();

@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockRelationship;
@@ -13,7 +14,6 @@ import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 import org.junit.Assert;
@@ -30,7 +30,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
         _resetDatabase();
 
         final BlockInflater blockInflater = new BlockInflater();
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -45,7 +45,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
     }
 
     private Sha256Hash _insertTestBlocks(final Sha256Hash startingHash, final int blockCount) throws DatabaseException {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final Random random = new Random();
@@ -92,7 +92,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
         // Action
         long timestamp = -1;
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId headHashId = blockHeaderDatabaseManager.getBlockHeaderId(headHash);
             final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(headHashId, 15);
@@ -111,7 +111,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
         // Action
         long timestamp = -1;
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId headHashId = blockHeaderDatabaseManager.getBlockHeaderId(headHash);
             final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(headHashId, 0);
@@ -130,7 +130,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
 
         // Action
         long timestamp = -1;
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId headHashId = blockHeaderDatabaseManager.getBlockHeaderId(headHash);
             final BlockId ancestorBlockId = blockHeaderDatabaseManager.getAncestorBlockId(headHashId, 100);
@@ -150,7 +150,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
         final Sha256Hash fork2Hash = _insertTestBlocks(forkStartHash, 3);
 
         // Action
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -185,7 +185,7 @@ public class BlockchainDatabaseManagerTests2 extends IntegrationTest {
         final Sha256Hash fork4Hash = _insertTestBlocks(forkStartHash2, 10);
 
         // Action
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 

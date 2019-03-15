@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransaction;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -16,7 +17,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -39,7 +39,7 @@ public class PendingTransactionDatabaseManager {
     }
 
     protected final SystemTime _systemTime = new SystemTime();
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
 
     protected PendingTransactionId _getPendingTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         final java.util.List<Row> rows = _databaseConnection.query(
@@ -154,7 +154,7 @@ public class PendingTransactionDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    public PendingTransactionDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public PendingTransactionDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 

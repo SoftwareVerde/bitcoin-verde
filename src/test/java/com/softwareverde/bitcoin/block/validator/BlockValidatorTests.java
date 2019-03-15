@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -41,7 +42,6 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -104,7 +104,7 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockInflater blockInflater = new BlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -144,7 +144,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_validate_block_that_contains_transaction_that_spends_outputs_in_same_block() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -219,7 +219,7 @@ public class BlockValidatorTests extends IntegrationTest {
 //        // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
 //
 //        // Setup
-//        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+//        final DatabaseConnection databaseConnection = _database.newConnection();
 //
 //        final BlockInflater blockInflater = new BlockInflater();
 //        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
@@ -262,7 +262,7 @@ public class BlockValidatorTests extends IntegrationTest {
             //
         */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -336,7 +336,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final Long genesisBlockTimestamp = (DateUtil.datetimeToTimestamp("2009-01-03 18:15:05", timeZone) / 1000L);
 
         final BlockInflater blockInflater = new BlockInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
@@ -445,7 +445,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_transaction_when_transaction_output_is_only_found_on_separate_fork() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -486,7 +486,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -611,7 +611,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_allowed_to_spent_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -782,7 +782,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();

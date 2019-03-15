@@ -4,13 +4,13 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
@@ -58,7 +58,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     @Override
-    public void init(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public void init(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _transactionValidator = new TransactionValidator(databaseConnection, databaseManagerCache, _networkTime, _medianBlockTime);
     }
 

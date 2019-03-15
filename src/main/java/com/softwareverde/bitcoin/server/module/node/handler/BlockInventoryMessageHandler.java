@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
@@ -10,8 +12,6 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 
@@ -21,7 +21,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) { }
     };
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final SynchronizationStatusHandler _synchronizationStatusHandler;
 
@@ -35,7 +35,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
     protected StoreBlockHashesResult _storeBlockHashes(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
         final StoreBlockHashesResult storeBlockHashesResult = new StoreBlockHashesResult();
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
 
@@ -79,7 +79,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
         return storeBlockHashesResult;
     }
 
-    public BlockInventoryMessageHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final SynchronizationStatusHandler synchronizationStatusHandler) {
+    public BlockInventoryMessageHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final SynchronizationStatusHandler synchronizationStatusHandler) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
         _synchronizationStatusHandler = synchronizationStatusHandler;
@@ -107,7 +107,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 //            if (blockHashes.getSize() > 1) {
 //                mostRecentBlockIsMemberOfHeadBlockchain = false;
 //
-//                try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+//                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
 //                    final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseCache);
 //                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
 //

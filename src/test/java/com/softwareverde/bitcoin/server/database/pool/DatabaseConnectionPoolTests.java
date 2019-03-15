@@ -1,17 +1,17 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.util.List;
 
-public class MysqlDatabaseConnectionPoolTests extends IntegrationTest {
-    protected Integer _getCurrentConnectionCount(final MysqlDatabaseConnection databaseConnection) throws Exception {
+public class DatabaseConnectionPoolTests extends IntegrationTest {
+    protected Integer _getCurrentConnectionCount(final DatabaseConnection databaseConnection) throws Exception {
         final List<Row> rows = databaseConnection.query(new Query("SHOW STATUS WHERE variable_name = 'Threads_connected'"));
         final Row row = rows.get(0);
         return row.getInteger("value");
@@ -25,17 +25,17 @@ public class MysqlDatabaseConnectionPoolTests extends IntegrationTest {
     @Test
     public void should_not_surpass_max_connection_count() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final Integer baselineConnectionCount = _getCurrentConnectionCount(databaseConnection);
 
         final Integer maxConnectionCount = 10;
-        final MysqlDatabaseConnectionPool databaseConnectionPool = new MysqlDatabaseConnectionPool(_database.getDatabaseConnectionFactory(), maxConnectionCount);
+        final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(_database.getDatabaseConnectionFactory(), maxConnectionCount);
 
-        final MysqlDatabaseConnection[] pooledConnections = new MysqlDatabaseConnection[maxConnectionCount];
+        final DatabaseConnection[] pooledConnections = new DatabaseConnection[maxConnectionCount];
 
         // Action
         for (int i = 0; i < maxConnectionCount; ++i) {
-            final MysqlDatabaseConnection pooledConnection = databaseConnectionPool.newConnection();
+            final DatabaseConnection pooledConnection = databaseConnectionPool.newConnection();
             pooledConnections[i] = pooledConnection;
 
             // Assert
@@ -45,7 +45,7 @@ public class MysqlDatabaseConnectionPoolTests extends IntegrationTest {
         }
 
         // Should not actually close any connections... just mark them as available.
-        for (final MysqlDatabaseConnection pooledDatabaseConnection : pooledConnections) {
+        for (final DatabaseConnection pooledDatabaseConnection : pooledConnections) {
             pooledDatabaseConnection.close();
         }
 
@@ -57,7 +57,7 @@ public class MysqlDatabaseConnectionPoolTests extends IntegrationTest {
 
         // Action
         for (int i = 0; i < maxConnectionCount * 2; ++i) {
-            try (final MysqlDatabaseConnection pooledConnection = databaseConnectionPool.newConnection()) {
+            try (final DatabaseConnection pooledConnection = databaseConnectionPool.newConnection()) {
                 // Assert
                 final Integer newConnectionCount = _getCurrentConnectionCount(pooledConnection);
                 final Integer expectedConnectionCount = (maxConnectionCount + baselineConnectionCount);

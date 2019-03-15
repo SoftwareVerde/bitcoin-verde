@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -23,7 +24,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -32,7 +32,7 @@ import com.softwareverde.util.timer.NanoTimer;
 import java.util.Map;
 
 public class TransactionInputDatabaseManager {
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
 //    protected TransactionOutputId _getPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
@@ -141,7 +141,7 @@ public class TransactionInputDatabaseManager {
         _databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    public TransactionInputDatabaseManager(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public TransactionInputDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
     }

@@ -7,9 +7,12 @@ import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.impl.DatabaseImpl;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -32,9 +35,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 
@@ -78,7 +78,7 @@ public class RepairModule {
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
         final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(Database.BITCOIN, databaseProperties);
+        final Database database = DatabaseImpl.newInstance(DatabaseImpl.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
@@ -101,7 +101,7 @@ public class RepairModule {
         };
 
         { // Initialize NodeInitializer...
-            final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+            final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
             final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
             final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
@@ -127,7 +127,7 @@ public class RepairModule {
     }
 
     public void run() {
-        final MysqlDatabase database = _environment.getDatabase();
+        final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
@@ -158,7 +158,7 @@ public class RepairModule {
             bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
-                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                    try (final DatabaseConnection databaseConnection = database.newConnection()) {
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
 

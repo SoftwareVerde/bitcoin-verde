@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
@@ -12,15 +14,13 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
-    protected final MysqlDatabaseConnectionFactory _connectionFactory;
+    protected final DatabaseConnectionFactory _connectionFactory;
     protected final BlockDownloader _blockDownloader;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final DatabaseManagerCache _databaseCache;
@@ -30,7 +30,7 @@ public class BlockDownloadRequester {
     protected final Object _lastNodeInventoryBroadcastTimestampMutex = new Object();
     protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
-    protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final DatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
         final BlockId childBlockId = blockHeaderDatabaseManager.getBlockHeaderId(childBlockHash);
         if (childBlockId == null) { return null; }
@@ -42,7 +42,7 @@ public class BlockDownloadRequester {
     }
 
     protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) {
-        try (final MysqlDatabaseConnection databaseConnection = _connectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _connectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
             pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
@@ -113,7 +113,7 @@ public class BlockDownloadRequester {
 //        _bitcoinNodeManager.findNodeInventory();
 //    }
 
-    public BlockDownloadRequester(final MysqlDatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {
+    public BlockDownloadRequester(final DatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {
         _connectionFactory = connectionFactory;
         _blockDownloader = blockDownloader;
         _bitcoinNodeManager = bitcoinNodeManager;

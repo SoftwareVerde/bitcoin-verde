@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -9,7 +10,6 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 
 import java.util.HashMap;
@@ -59,7 +59,7 @@ public class OrphanedTransactionsCache {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public synchronized void add(final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public synchronized void add(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         final Boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
         if (! transactionIsUnique) { return; }
 

@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
@@ -22,7 +23,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -30,7 +30,7 @@ import com.softwareverde.util.Util;
 
 public class TransactionTestUtil {
 
-    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final DatabaseConnection databaseConnection) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
@@ -77,11 +77,11 @@ public class TransactionTestUtil {
         return transactionHashes;
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
