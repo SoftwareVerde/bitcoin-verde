@@ -106,7 +106,7 @@ public class StratumModule {
             public Long getHashesPerSecond() {
                 final Long hashesPerSecondMultiplier = (1L << 32);
                 final Integer shareDifficulty = _stratumServer.getShareDifficulty();
-                final Long startTimeInSeconds = _stratumServer.getStartTimeInSeconds();
+                final Long startTimeInSeconds = _stratumServer.getCurrentBlockStartTimeInSeconds();
                 final Long shareCount = _stratumServer.getShareCount();
 
                 final Long now = _systemTime.getCurrentTimeInSeconds();

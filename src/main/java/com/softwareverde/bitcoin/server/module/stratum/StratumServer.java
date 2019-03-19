@@ -84,6 +84,7 @@ public class StratumServer {
     protected Thread _rebuildTaskThread;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
+    protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
     protected AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
@@ -266,6 +267,9 @@ public class StratumServer {
         finally {
             _mineBlockTaskWriteLock.unlock();
         }
+
+        _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
+        _shareCount.set(0L);
     }
 
     /**
@@ -657,4 +661,6 @@ public class StratumServer {
     public Long getStartTimeInSeconds() {
         return _startTime;
     }
+
+    public Long getCurrentBlockStartTimeInSeconds() { return _currentBlockStartTime; }
 }
