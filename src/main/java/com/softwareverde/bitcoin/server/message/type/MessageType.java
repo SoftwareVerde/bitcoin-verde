@@ -19,7 +19,9 @@ public enum MessageType {
     REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
     REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx"),
 
-    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr");
+    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr"),
+
+    SET_TRANSACTION_BLOOM_FILTER("filterload"), UPDATE_TRANSACTION_BLOOM_FILTER("filteradd"), CLEAR_TRANSACTION_BLOOM_FILTER("filterclear");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

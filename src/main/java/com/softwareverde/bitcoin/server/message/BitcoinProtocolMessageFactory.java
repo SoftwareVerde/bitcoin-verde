@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.server.message;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTransactionBloomFilterMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
@@ -60,6 +63,9 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.THIN_TRANSACTIONS, new ThinTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.FEE_FILTER, new FeeFilterMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_PEERS, new RequestPeersMessageInflater());
+        _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
     }
 
     @Override

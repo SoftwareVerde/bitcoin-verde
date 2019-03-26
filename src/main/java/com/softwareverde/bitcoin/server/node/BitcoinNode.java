@@ -9,6 +9,9 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTransactionBloomFilterMessage;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -37,7 +40,16 @@ import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransa
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -116,6 +128,28 @@ public class BitcoinNode extends Node {
 
     public interface RequestExtraThinTransactionCallback {
         void run(Sha256Hash blockHash, List<ByteArray> transactionShortHashes, NodeConnection nodeConnection);
+    }
+
+    public enum UpdateBloomFilterMode {
+        READ_ONLY(0),  // The filter is not adjusted when a match is found...
+        UPDATE_ALL(1), // The filter is updated to include the TransactionOutput's TransactionOutputIdentifier when a match to any data element in the LockingScript is found.
+        P2PK_P2MS(2);  // The filter is updated to include the TransactionOutput TransactionOutputIdentifier only if a data element in the LockingScript is matched, and the script is either P2PK or MultiSig.
+
+        public static UpdateBloomFilterMode valueOf(final int value) {
+            final int maskedValue = (0x03 & value);
+            for (final UpdateBloomFilterMode filterMode : UpdateBloomFilterMode.values()) {
+                if (maskedValue == filterMode.getValue()) { return filterMode; }
+            }
+
+            return null;
+        }
+
+        protected int _value;
+        UpdateBloomFilterMode(final int value) {
+            _value = value;
+        }
+
+        public int getValue() { return _value; }
     }
 
     public static class ThinBlockParameters {
@@ -206,6 +240,9 @@ public class BitcoinNode extends Node {
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
+
+    protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.UPDATE_ALL; // TODO
+    protected MutableBloomFilter _bloomFilter = null;
 
     @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
@@ -397,6 +434,18 @@ public class BitcoinNode extends Node {
 
                     case REQUEST_PEERS: {
                         _onRequestPeersMessageReceived((RequestPeersMessage) message);
+                    } break;
+
+                    case SET_TRANSACTION_BLOOM_FILTER: {
+                        _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message);
+                    } break;
+
+                    case UPDATE_TRANSACTION_BLOOM_FILTER: {
+                        _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message);
+                    } break;
+
+                    case CLEAR_TRANSACTION_BLOOM_FILTER: {
+                        _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message);
                     } break;
 
                     default: {
@@ -719,6 +768,20 @@ public class BitcoinNode extends Node {
         _queueMessage(nodeIpAddressMessage);
     }
 
+    protected void _onSetTransactionBloomFilterMessageReceived(final SetTransactionBloomFilterMessage setTransactionBloomFilterMessage) {
+        _bloomFilter = MutableBloomFilter.copyOf(setTransactionBloomFilterMessage.getBloomFilter());
+    }
+
+    protected void _onUpdateTransactionBloomFilterMessageReceived(final UpdateTransactionBloomFilterMessage updateTransactionBloomFilterMessage) {
+        if (_bloomFilter != null) {
+            _bloomFilter.addItem(updateTransactionBloomFilterMessage.getItem());
+        }
+    }
+
+    protected void _onClearTransactionBloomFilterMessageReceived(final ClearTransactionBloomFilterMessage clearTransactionBloomFilterMessage) {
+        _bloomFilter = null;
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
@@ -782,6 +845,74 @@ public class BitcoinNode extends Node {
         }
 
         _queueMessage(queryBlocksMessage);
+    }
+
+    /**
+     * Returns true if transaction matches matches _bloomFilter or if _bloomFilter has not been set.
+     * If updateBloomFilterMode is not null, then _bloomFilter will be updated accordingly.
+     */
+    protected Boolean _matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
+        final MutableBloomFilter bloomFilter = _bloomFilter;
+        if (bloomFilter == null) { return true; }
+
+        // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki
+        // To determine if a transaction matches the filter, the following algorithm is used. Once a match is found the algorithm aborts.
+        final Sha256Hash transactionHash = transaction.getHash();
+        if (bloomFilter.containsItem(transactionHash)) { return true; } // 1. Test the hash of the transaction itself.
+
+        int transactionOutputIndex = 0;
+        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) { // 2. For each output, test each data element of the output script. This means each hash and key in the output script is tested independently.
+            final LockingScript lockingScript = transactionOutput.getLockingScript();
+            for (final Operation operation : lockingScript.getOperations()) {
+                if (operation.getType() != PushOperation.TYPE) { continue; }
+
+                final ByteArray value = ((PushOperation) operation).getValue();
+                if (bloomFilter.containsItem(value)) {
+                    boolean shouldUpdateBloomFilter = false;
+
+                    if (updateBloomFilterMode == UpdateBloomFilterMode.UPDATE_ALL) {
+                        shouldUpdateBloomFilter = true;
+                    }
+                    else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
+                        final ScriptType scriptType = lockingScript.getScriptType();
+                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH)) {
+                            shouldUpdateBloomFilter = true;
+                        }
+                    }
+
+                    if (shouldUpdateBloomFilter) {
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
+                        bloomFilter.addItem(transactionOutputIdentifier.toBytes());
+                    }
+                    return true;
+                }
+            }
+
+            transactionOutputIndex += 1;
+        }
+
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            // 3. For each input, test the serialized COutPoint structure.
+            final ByteArray cOutpoint;
+            { // NOTE: "COutPoint" is a class in the reference client that follows the same serialization process as the a TransactionInput's prevout format (TxHash | OutputIndex, both as LittleEndian)...
+                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
+                cOutpoint = transactionOutputIdentifier.toBytes();
+            }
+
+            if (bloomFilter.containsItem(cOutpoint)) { return true; }
+
+            // 4. For each input, test each data element of the input script.
+            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
+            for (final Operation operation : unlockingScript.getOperations()) {
+                if (operation.getType() != PushOperation.TYPE) { continue; }
+
+                final ByteArray value = ((PushOperation) operation).getValue();
+                if (bloomFilter.containsItem(value)) { return true; }
+            }
+        }
+
+        return false;
     }
 
     public void requestBlockHashesAfter(final Sha256Hash blockHash) {
@@ -930,6 +1061,14 @@ public class BitcoinNode extends Node {
 
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {
         _queueMessage(protocolMessage);
+    }
+
+    public Boolean matchesFilter(final Transaction transaction) {
+        return _matchesFilter(transaction, _updateBloomFilterMode);
+    }
+
+    public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
+        return _matchesFilter(transaction, updateBloomFilterMode);
     }
 
     @Override
