@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.Util;
 
 public class PartialMerkleNode {
     protected static Sha256Hash calculateMerkleHash(final Sha256Hash left, final Sha256Hash right) {
@@ -25,9 +26,9 @@ public class PartialMerkleNode {
         if (depth > maxDepth) { throw new IndexOutOfBoundsException(); }
     }
 
-    public PartialMerkleNode parent = null;
     public final int depth;
     public final int maxDepth;
+    public PartialMerkleNode parent = null;
     public PartialMerkleNode left = null;
     public PartialMerkleNode right = null;
     public Sha256Hash value = null;
@@ -53,6 +54,13 @@ public class PartialMerkleNode {
             return this.value;
         }
 
-        return PartialMerkleNode.calculateMerkleHash(this.left.getHash(), this.right.getHash());
+        final Sha256Hash leftHash = this.left.getHash();
+        final Sha256Hash rightHash = (this.right == null ? leftHash : this.right.getHash());
+
+        if (Util.areEqual(leftHash, rightHash)) {
+            if (this.right != null) { return null; } // The left hash must not equal the right hash unless it was not provided...
+        }
+
+        return PartialMerkleNode.calculateMerkleHash(leftHash, rightHash);
     }
 }

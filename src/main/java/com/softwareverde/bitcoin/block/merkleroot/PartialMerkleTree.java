@@ -64,18 +64,25 @@ public class PartialMerkleTree {
     }
 
     public MerkleRoot getMerkleRoot() {
+        final int maxHashIndex = _hashes.getSize();
+        final int maxFlagsIndex = (_flags.getByteCount() * 8);
+
         int flagIndex = 0;
         int hashIndex = 0;
 
         final PartialMerkleNode rootMerkleNode = PartialMerkleNode.newRootNode(_itemCount);
         PartialMerkleNode currentNode = rootMerkleNode;
         while (currentNode != null) {
+            if (hashIndex >= maxHashIndex) { break; }
+            if (flagIndex >= maxFlagsIndex) { break; }
+
             if ( (currentNode.left != null) && (currentNode.right != null) ) {
                 currentNode = currentNode.parent;
                 if (currentNode == null) { break; }
+                continue;
             }
 
-            if ( (currentNode.left != null) && (currentNode.right == null) ) {
+            if (currentNode.left != null) {
                 currentNode = currentNode.newRightNode();
             }
 
@@ -107,6 +114,12 @@ public class PartialMerkleTree {
 
                 currentNode = currentNode.parent;
             }
+        }
+
+        if (hashIndex != maxHashIndex) { return null; } // All hashes were not consumed...
+        for (int i = flagIndex; i < maxFlagsIndex; ++i) {
+            final boolean flag = _flags.getBit(i);
+            if (flag) { return null; } // All non-padding flag bits were not consumed...
         }
 
         return MutableMerkleRoot.wrap(rootMerkleNode.getHash().getBytes());

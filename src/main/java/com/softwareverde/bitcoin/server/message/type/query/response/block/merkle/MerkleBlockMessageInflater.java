@@ -53,7 +53,7 @@ public class MerkleBlockMessageInflater extends BitcoinProtocolMessageInflater {
             return null;
         }
 
-        final MutableByteArray flags = MutableByteArray.wrap(byteArrayReader.readBytes(flagsByteCount, Endian.LITTLE));
+        final MutableByteArray flags = MutableByteArray.wrap(byteArrayReader.readBytes(flagsByteCount));
         for (int i = 0; i < flagsByteCount; ++i) {
             flags.set(i, ByteUtil.reverseBits(flags.getByte(i)));
         }
