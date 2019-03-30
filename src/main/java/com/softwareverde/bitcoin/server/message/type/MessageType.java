@@ -9,7 +9,7 @@ public enum MessageType {
 
     QUERY_BLOCKS("getblocks"), INVENTORY("inv"),
     REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
-    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"),
+    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"), MERKLE_BLOCK("merkleblock"),
 
     NOT_FOUND("notfound"), ERROR("reject"),
 

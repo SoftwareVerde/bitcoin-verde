@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
@@ -143,6 +144,65 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         }
 
         return _hash;
+    }
+
+    protected Boolean _buildPartialMerkleTree(final BloomFilter bloomFilter, final PartialMerkleTree partialMerkleTree) {
+        /*
+            - Traverse the merkle tree from the root down, and for each encountered node:
+                - Check whether this node corresponds to a leaf node (transaction) that is to be included OR any parent thereof:
+                    - If so, append a '1' bit to the flag bits
+                    - Otherwise, append a '0' bit.
+                - Check whether this node is a internal node (non-leaf) AND is the parent of an included leaf node:
+                    - If so:
+                        - Descend into its left child node, and process the subtree beneath it entirely (depth-first).
+                        - If this node has a right child node too, descend into it as well.
+                    - Otherwise: append this node's hash to the hash list.
+         */
+
+//        if (_itemCount < 2) {
+//            boolean itemWasAdded = false;
+//
+//            if (_item0 != null) {
+//                final Sha256Hash itemHash = _item0.getHash();
+//                if (bloomFilter.containsItem(itemHash)) {
+//                    partialMerkleTree.includeLeaf(itemHash);
+//                    itemWasAdded = true;
+//                }
+//                else {
+//                    partialMerkleTree.excludeLeaf(itemHash);
+//                }
+//            }
+//
+//            if (_item1 != null) {
+//                final Sha256Hash itemHash = _item1.getHash();
+//                if (bloomFilter.containsItem(itemHash)) {
+//                    partialMerkleTree.includeLeaf(itemHash);
+//                    itemWasAdded = true;
+//                }
+//                else {
+//                    partialMerkleTree.excludeLeaf(itemHash);
+//                }
+//            }
+//
+//            return itemWasAdded;
+//        }
+//        else {
+//            boolean itemWasAdded = false;
+//
+//            if (_childNode0 != null) {
+//                itemWasAdded |= _childNode0._buildPartialMerkleTree(bloomFilter, partialMerkleTree);
+//                if (itemWasAdded) {
+//                    partialMerkleTree.includeNode(_childNode0._getIntermediaryHash());
+//                }
+//            }
+//
+//            if (_childNode1 != null) {
+//                itemWasAdded |= _childNode1._buildPartialMerkleTree(bloomFilter, partialMerkleTree);
+//            }
+//
+//            return itemWasAdded;
+//        }
+        return false;
     }
 
     protected int _calculateItemCount() {
@@ -312,5 +372,10 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         final ImmutableListBuilder<Sha256Hash> partialTreeBuilder = new ImmutableListBuilder<Sha256Hash>();
         _getPartialTree(index, partialTreeBuilder);
         return partialTreeBuilder.build();
+    }
+
+    @Override
+    public PartialMerkleTree getPartialTree(final BloomFilter bloomFilter) {
+        return new PartialMerkleTree(0);
     }
 }

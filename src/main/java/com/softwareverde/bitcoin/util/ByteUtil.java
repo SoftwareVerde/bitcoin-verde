@@ -67,4 +67,8 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
             bytes.set(i, (byte) 0x00);
         }
     }
+
+    public static byte reverseBits(final byte b) {
+        return (byte) (Integer.reverse(b) >>> 24);
+    }
 }

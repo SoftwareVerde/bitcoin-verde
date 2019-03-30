@@ -25,9 +25,13 @@ public class BloomFilterInflater {
             bloomFilterBytes.setBit(bitcoinBloomFilterIndex, bit);
         }
 
+        final byte updateMode = byteArrayReader.readByte();
+
         if (byteArrayReader.didOverflow()) { return null; }
 
-        return MutableBloomFilter.newInstance(bloomFilterBytes, hashFunctionCount, nonce);
+        final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(bloomFilterBytes, hashFunctionCount, nonce);
+        mutableBloomFilter.setUpdateMode(updateMode);
+        return mutableBloomFilter;
     }
 
     public MutableBloomFilter fromBytes(final ByteArray byteArray) {

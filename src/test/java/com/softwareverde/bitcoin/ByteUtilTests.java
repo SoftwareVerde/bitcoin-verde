@@ -25,4 +25,17 @@ public class ByteUtilTests {
 
         Assert.assertEquals(268435456, ByteUtil.bytesToInteger(new byte[]{ (byte) 0x10, (byte) 0x00, (byte) 0x00, (byte) 0x00 }));
     }
+
+    @Test
+    public void reverse_bytes_tests() {
+        Assert.assertEquals((byte) 0b00000000, ByteUtil.reverseBits((byte) 0b00000000));
+        Assert.assertEquals((byte) 0b10000000, ByteUtil.reverseBits((byte) 0b00000001));
+        Assert.assertEquals((byte) 0b01000000, ByteUtil.reverseBits((byte) 0b00000010));
+        Assert.assertEquals((byte) 0b00100000, ByteUtil.reverseBits((byte) 0b00000100));
+        Assert.assertEquals((byte) 0b00010000, ByteUtil.reverseBits((byte) 0b00001000));
+        Assert.assertEquals((byte) 0b00001000, ByteUtil.reverseBits((byte) 0b00010000));
+        Assert.assertEquals((byte) 0b00000100, ByteUtil.reverseBits((byte) 0b00100000));
+        Assert.assertEquals((byte) 0b00000010, ByteUtil.reverseBits((byte) 0b01000000));
+        Assert.assertEquals((byte) 0b00000001, ByteUtil.reverseBits((byte) 0b10000000));
+    }
 }

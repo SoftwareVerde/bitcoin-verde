@@ -8,17 +8,20 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
     protected final ByteArray _bytes;
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
+    protected final byte _updateMode;
 
     public ImmutableBloomFilter(final BloomFilter bloomFilter) {
         _bytes = bloomFilter.getBytes().asConst();
         _nonce = bloomFilter.getNonce();
         _hashFunctionCount = bloomFilter.getHashFunctionCount();
+        _updateMode = bloomFilter.getUpdateMode();
     }
 
     protected ImmutableBloomFilter(final byte[] bytes, final Long nonce, final Integer hashFunctionCount) {
         _bytes = new ImmutableByteArray(bytes);
         _nonce = nonce;
         _hashFunctionCount = hashFunctionCount;
+        _updateMode = 0x01;
     }
 
     @Override
@@ -42,6 +45,11 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
     }
 
     @Override
+    public byte getUpdateMode() {
+        return _updateMode;
+    }
+
+    @Override
     public Float getFalsePositiveRate(final Long elementCount) {
         return BloomFilterCore.getFalsePositiveRate(_bytes, _hashFunctionCount, elementCount);
     }
@@ -58,7 +66,7 @@ public class ImmutableBloomFilter implements BloomFilter, Const {
 
     @Override
     public boolean equals(final Object object) {
-        return BloomFilterCore.equals(_bytes, _hashFunctionCount, _nonce, object);
+        return BloomFilterCore.equals(_bytes, _hashFunctionCount, _nonce, _updateMode, object);
     }
 
     @Override

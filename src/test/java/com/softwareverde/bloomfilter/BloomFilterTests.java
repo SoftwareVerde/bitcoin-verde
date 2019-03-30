@@ -2,6 +2,7 @@ package com.softwareverde.bloomfilter;
 
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterDeflater;
 import com.softwareverde.bitcoin.bloomfilter.BloomFilterInflater;
+import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.test.util.TestUtil;
@@ -64,7 +65,6 @@ public class BloomFilterTests {
         }
     }
 
-
     @Test
     public void should_create_deserialize_to_the_same_filter_as_bitcoin_core() {
         // Setup
@@ -80,6 +80,47 @@ public class BloomFilterTests {
 
         // Assert
         final byte[] expectedBytes = HexUtil.hexStringToByteArray("03614E9B050000000000000001");
+        TestUtil.assertEqual(expectedBytes, deflatedBloomFilter.getBytes());
+    }
+
+    @Test
+    public void should_create_deserialize_to_the_same_filter_as_bitcoinj() {
+        // Setup
+        final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(3L, 0.01D, 2147483649L);
+        bloomFilter.setUpdateMode(UpdateBloomFilterMode.P2PK_P2MS.getValue());
+
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("99108AD8ED9BB6274D3980BAB5A85C048F0950C8")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B5A2C786D9EF4658287CED5914B37A1B4AA32EEE")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B9300670B4C5366E95B2699E8B18BC75E5F729C5")));
+
+        // Action
+        final ByteArray deflatedBloomFilter = bloomFilterDeflater.toBytes(bloomFilter);
+
+        // Assert
+        final byte[] expectedBytes = HexUtil.hexStringToByteArray("03CE4299050000000100008002");
+        TestUtil.assertEqual(expectedBytes, deflatedBloomFilter.getBytes());
+    }
+
+    @Test
+    public void should_create_deserialize_to_the_same_filter_as_bitcoinj_2() {
+        // Setup
+        final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
+        final MutableBloomFilter bloomFilter = new MutableBloomFilter(5L, 0.001D, 0L);
+        bloomFilter.setUpdateMode(UpdateBloomFilterMode.P2PK_P2MS.getValue());
+
+        // These values were acquired by manually inspecting the values added to the bitcoinj filter within its test...
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("045B81F0017E2091E2EDCD5EECF10D5BDD120A5514CB3EE65B8447EC18BFC4575C6D5BF415E54E03B1067934A0F0BA76B01C6B9AB227142EE1D543764B69D901E0")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("477ABBACD4113F2E6B100526222EEDD953C26A64")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("03CB219F69F1B49468BD563239A86667E74A06FCBA69AC50A08A5CBC42A5808E99")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B12F2EF5AF078D5765212FFB45271CA9A4A1FD77")));
+        bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("6408CC63471A969B603B56B022886EE5CC5CB2A2FA3E7102B5D34FB49E33E83C00000000")));
+
+        // Action
+        final ByteArray deflatedBloomFilter = bloomFilterDeflater.toBytes(bloomFilter);
+
+        // Assert
+        final byte[] expectedBytes = HexUtil.hexStringToByteArray("082AE5EDC8E51D4A03080000000000000002");
         TestUtil.assertEqual(expectedBytes, deflatedBloomFilter.getBytes());
     }
 

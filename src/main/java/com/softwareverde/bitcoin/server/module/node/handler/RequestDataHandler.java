@@ -26,7 +26,7 @@ import com.softwareverde.util.timer.NanoTimer;
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
         @Override
-        public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) { }
+        public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) { }
     };
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -38,7 +38,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     }
 
     @Override
-    public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) {
+    public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -66,11 +66,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final BlockMessage blockMessage = new BlockMessage();
-                        blockMessage.setBlock(block);
-                        nodeConnection.queueMessage(blockMessage);
+                        bitcoinNode.transmitBlock(block);
                         getBlockDataTimer.stop();
-                        Logger.log("GetBlockData: " + blockHash + " "  + nodeConnection.toString() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+                        Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     case TRANSACTION: {
@@ -93,10 +91,14 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         final TransactionMessage transactionMessage = new TransactionMessage();
                         transactionMessage.setTransaction(transaction);
-                        nodeConnection.queueMessage(transactionMessage);
+                        bitcoinNode.queueMessage(transactionMessage);
 
                         getTransactionTimer.stop();
-                        Logger.log("GetTransactionData: " + transactionHash + " to " + nodeConnection.toString() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                        Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                    } break;
+
+                    case MERKLE_BLOCK: {
+                        // TODO
                     } break;
 
                     default: {
@@ -110,7 +112,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 for (final InventoryItem inventoryItem : notFoundDataHashes) {
                     notFoundResponseMessage.addItem(inventoryItem);
                 }
-                nodeConnection.queueMessage(notFoundResponseMessage);
+                bitcoinNode.queueMessage(notFoundResponseMessage);
             }
         }
         catch (final DatabaseException exception) { Logger.log(exception); }
