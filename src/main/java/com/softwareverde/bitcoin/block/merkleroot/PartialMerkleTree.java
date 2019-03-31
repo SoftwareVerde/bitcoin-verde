@@ -3,75 +3,36 @@ package com.softwareverde.bitcoin.block.merkleroot;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 
-public class PartialMerkleTree {
+public class PartialMerkleTree implements Const {
     public static PartialMerkleTree build(final Integer itemCount, final List<Sha256Hash> hashes, final ByteArray flags) {
         return new PartialMerkleTree(itemCount, hashes, flags);
     }
 
-    protected static int _calculateTreeWidth(final int totalItemCount, final int depth) {
-//        final int height = depth; // ((BitcoinUtil.log2(totalItemCount) - 1) - depth);
-//        return ((totalItemCount + (1 << height) - 1) >> height);
-        return (int) Math.pow(2, depth);
-    }
-
     protected final Integer _itemCount;
-    protected Integer _flagCount = 0;
-    protected final MutableByteArray _flags;
-    protected final MutableList<Sha256Hash> _hashes;
+    protected final ByteArray _flags;
+    protected final List<Sha256Hash> _hashes;
+
+    protected MerkleRoot _cachedMerkleRoot;
 
     protected PartialMerkleTree(final Integer itemCount, final List<Sha256Hash> hashes, final ByteArray flags) {
         _itemCount = itemCount;
-        _flags = new MutableByteArray(flags);
-        _hashes = new MutableList<Sha256Hash>(hashes);
-        _flagCount = _flags.getByteCount();
+        _flags = flags.asConst();
+        _hashes = hashes.asConst();
     }
 
-    public PartialMerkleTree(final Integer itemCount) {
-        _itemCount = itemCount;
-        _flags = new MutableByteArray((itemCount + 7) / 8);
-        _hashes = new MutableList<Sha256Hash>(itemCount);
-    }
-
-    public void includeLeaf(final Sha256Hash itemHash) {
-        _hashes.add(itemHash);
-        _flags.setBit(_flagCount, true);
-        _flagCount += 1;
-    }
-
-    public void excludeLeaf(final Sha256Hash itemHash) {
-        _hashes.add(itemHash);
-        _flags.setBit(_flagCount, false);
-        _flagCount += 1;
-    }
-
-    public void includeNode(final Sha256Hash nodeHash) {
-        _hashes.add(nodeHash);
-        _flags.setBit(_flagCount, true);
-        _flagCount += 1;
-    }
-
-    public List<Sha256Hash> getHashes() {
-        return _hashes;
-    }
-
-    public ByteArray getFlags() {
-        return _flags;
-    }
-
-    public MerkleRoot getMerkleRoot() {
+    protected PartialMerkleTreeNode _buildPartialMerkleTree() {
         final int maxHashIndex = _hashes.getSize();
         final int maxFlagsIndex = (_flags.getByteCount() * 8);
 
         int flagIndex = 0;
         int hashIndex = 0;
 
-        final PartialMerkleNode rootMerkleNode = PartialMerkleNode.newRootNode(_itemCount);
-        PartialMerkleNode currentNode = rootMerkleNode;
+        final PartialMerkleTreeNode rootMerkleNode = PartialMerkleTreeNode.newRootNode(_itemCount);
+        PartialMerkleTreeNode currentNode = rootMerkleNode;
         while (currentNode != null) {
             if (hashIndex >= maxHashIndex) { break; }
             if (flagIndex >= maxFlagsIndex) { break; }
@@ -122,6 +83,35 @@ public class PartialMerkleTree {
             if (flag) { return null; } // All non-padding flag bits were not consumed...
         }
 
-        return MutableMerkleRoot.wrap(rootMerkleNode.getHash().getBytes());
+        return rootMerkleNode;
+    }
+
+    public List<Sha256Hash> getHashes() {
+        return _hashes;
+    }
+
+    public ByteArray getFlags() {
+        return _flags;
+    }
+
+    public synchronized MerkleRoot getMerkleRoot() {
+        if (_cachedMerkleRoot == null) {
+            final PartialMerkleTreeNode partialMerkleTreeRoot = _buildPartialMerkleTree();
+            final Sha256Hash rootHash = partialMerkleTreeRoot.getHash();
+            _cachedMerkleRoot = MutableMerkleRoot.wrap(rootHash.getBytes());
+        }
+
+        return _cachedMerkleRoot;
+    }
+
+    public synchronized PartialMerkleTreeNode getPartialMerkleTree() {
+        final PartialMerkleTreeNode partialMerkleTreeRoot = _buildPartialMerkleTree();
+
+        if (_cachedMerkleRoot == null) {
+            final Sha256Hash rootHash = partialMerkleTreeRoot.getHash();
+            _cachedMerkleRoot = MutableMerkleRoot.wrap(rootHash.getBytes());
+        }
+
+        return partialMerkleTreeRoot;
     }
 }

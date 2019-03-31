@@ -26,7 +26,7 @@ public class MutableSha256Hash extends MutableHash implements Sha256Hash {
     }
 
     @Override
-    public Sha256Hash toReversedEndian() {
+    public MutableSha256Hash toReversedEndian() {
         return MutableSha256Hash.wrap(ByteUtil.reverseEndian(_bytes));
     }
 

@@ -8,24 +8,26 @@ import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
-    protected static final ThreadLocal<byte[]> _threadLocalScratchSpace = new ThreadLocal<byte[]>() {
+    protected static final ThreadLocal<MutableByteArray> _threadLocalScratchSpace = new ThreadLocal<MutableByteArray>() {
         @Override
-        protected byte[] initialValue() {
-            return new byte[Sha256Hash.BYTE_COUNT * 2];
+        protected MutableByteArray initialValue() {
+            return new MutableByteArray(Sha256Hash.BYTE_COUNT * 2);
         }
     };
 
-    protected static byte[] _calculateNodeHash(final Sha256Hash hash0, final Sha256Hash hash1) {
-        final byte[] scratchSpace = _threadLocalScratchSpace.get();
+    public static Sha256Hash calculateNodeHash(final Sha256Hash leftHash, final Sha256Hash rightHash) {
+        final MutableByteArray scratchSpace = _threadLocalScratchSpace.get();
 
-        ByteUtil.setBytes(scratchSpace, hash0.toReversedEndian().getBytes());
-        ByteUtil.setBytes(scratchSpace, hash1.toReversedEndian().getBytes(), Sha256Hash.BYTE_COUNT);
+        ByteUtil.setBytes(scratchSpace.unwrap(), leftHash.toReversedEndian().getBytes());
+        ByteUtil.setBytes(scratchSpace.unwrap(), rightHash.toReversedEndian().getBytes(), Sha256Hash.BYTE_COUNT);
 
-        return ByteUtil.reverseEndian(BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)));
+        return BitcoinUtil.sha256(BitcoinUtil.sha256(scratchSpace)).toReversedEndian();
     }
 
     protected Boolean _hashIsValid = false;
@@ -88,7 +90,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
             }
         }
 
-        _hash.setBytes(_calculateNodeHash(hash0, hash1));
+        _hash.setBytes(MerkleTreeNode.calculateNodeHash(hash0, hash1));
         _hashIsValid = true;
     }
 
@@ -374,8 +376,95 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         return partialTreeBuilder.build();
     }
 
+    protected PartialMerkleTreeNode<T> _toPartialMerkleTreeNode(final int depth, final int maxDepth) {
+        final PartialMerkleTreeNode<T> partialMerkleTreeNode = new PartialMerkleTreeNode<T>(depth, maxDepth);
+
+        if (_item0 != null) {
+            partialMerkleTreeNode.newLeftNode();
+            partialMerkleTreeNode.left.value = _item0.getHash();
+            partialMerkleTreeNode.left.object = _item0;
+        }
+        else if (_childNode0 != null) {
+            partialMerkleTreeNode.left = _childNode0._toPartialMerkleTreeNode(depth + 1, maxDepth);
+            partialMerkleTreeNode.left.parent = partialMerkleTreeNode;
+        }
+
+        if (_item1 != null) {
+            partialMerkleTreeNode.newRightNode();
+            partialMerkleTreeNode.right.value = _item1.getHash();
+            partialMerkleTreeNode.right.object = _item1;
+        }
+        else if (_childNode1 != null) {
+            partialMerkleTreeNode.right = _childNode1._toPartialMerkleTreeNode(depth + 1, maxDepth);
+            partialMerkleTreeNode.right.parent = partialMerkleTreeNode;
+        }
+
+        return partialMerkleTreeNode;
+    }
+
     @Override
-    public PartialMerkleTree getPartialTree(final BloomFilter bloomFilter) {
-        return new PartialMerkleTree(0);
+    public PartialMerkleTree getPartialTree(final Filter<T> filter) {
+        final int maxDepth = PartialMerkleTreeNode.calculateMaxDepth(_itemCount);
+        final PartialMerkleTreeNode<T> rootPartialMerkleTreeNode = _toPartialMerkleTreeNode(0, maxDepth);
+
+        final MutableList<PartialMerkleTreeNode<T>> leafNodes = new MutableList<PartialMerkleTreeNode<T>>(_itemCount);
+        rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
+            @Override
+            public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {
+                final T object = partialMerkleTreeNode.object;
+                if (object == null) {
+                    partialMerkleTreeNode.include = false;
+                }
+                else {
+                    partialMerkleTreeNode.include = filter.shouldInclude(object);
+                }
+
+                if (partialMerkleTreeNode.isLeafNode()) {
+                    leafNodes.add(partialMerkleTreeNode);
+                }
+            }
+        });
+
+        for (final PartialMerkleTreeNode<T> leafNode : leafNodes) {
+            if (! leafNode.include) { continue; }
+
+            PartialMerkleTreeNode<T> currentNode = leafNode;
+            while (currentNode != null) {
+                currentNode.include = true;
+                currentNode = currentNode.parent;
+
+                if ( (currentNode != null) && (currentNode.include) ) { break; }
+            }
+        }
+
+        final MutableList<Sha256Hash> hashes = new MutableList<Sha256Hash>();
+        final MutableList<Boolean> flagBits = new MutableList<Boolean>();
+        rootPartialMerkleTreeNode.visit(new PartialMerkleTreeNode.Visitor<T>() {
+            @Override
+            public void visit(final PartialMerkleTreeNode<T> partialMerkleTreeNode) {
+                if (partialMerkleTreeNode.isLeafNode()) {
+                    if ( (partialMerkleTreeNode.include) || ((partialMerkleTreeNode.parent != null) && (partialMerkleTreeNode.parent.include)) ) {
+                        hashes.add(partialMerkleTreeNode.value);
+                        flagBits.add(partialMerkleTreeNode.include);
+                    }
+                }
+                else {
+                    if ( (! partialMerkleTreeNode.include) && ((partialMerkleTreeNode.parent != null) && (partialMerkleTreeNode.parent.include)) ) {
+                        hashes.add(partialMerkleTreeNode.getHash());
+                    }
+
+                    if ( (partialMerkleTreeNode.include) || ((partialMerkleTreeNode.parent != null) && (partialMerkleTreeNode.parent.include)) ) {
+                        flagBits.add(partialMerkleTreeNode.include);
+                    }
+                }
+            }
+        });
+
+        final MutableByteArray flags = new MutableByteArray((flagBits.getSize() + 7) / 8);
+        for (int i = 0; i < flagBits.getSize(); ++i) {
+            flags.setBit(i, flagBits.get(i));
+        }
+
+        return PartialMerkleTree.build(_itemCount, hashes, flags);
     }
 }

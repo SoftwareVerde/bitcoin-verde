@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.block.merkle;
 
+import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
@@ -28,6 +29,11 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
     }
 
     public PartialMerkleTree getPartialMerkleTree() { return _partialMerkleTree; }
+
+    public MerkleBlock getMerkleBlock() {
+        if ( (_blockHeader == null) || (_partialMerkleTree == null) ) { return null; }
+        return new MerkleBlock(_blockHeader, _partialMerkleTree);
+    }
 
     public void setBlockHeader(final BlockHeaderWithTransactionCount blockHeader) {
         _blockHeader = blockHeader;

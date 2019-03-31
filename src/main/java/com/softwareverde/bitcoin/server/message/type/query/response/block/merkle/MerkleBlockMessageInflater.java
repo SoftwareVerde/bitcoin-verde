@@ -61,11 +61,6 @@ public class MerkleBlockMessageInflater extends BitcoinProtocolMessageInflater {
         if (byteArrayReader.didOverflow()) { return null; }
 
         final PartialMerkleTree partialMerkleTree = PartialMerkleTree.build(transactionCount, hashesBuilder.build(), flags);
-        if (partialMerkleTree == null) {
-            Logger.log("Invalid PartialMerkleTree for MerkleBlock.");
-            return null;
-        }
-
         merkleBlockMessage.setPartialMerkleTree(partialMerkleTree);
 
         return merkleBlockMessage;

@@ -1,10 +1,10 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -70,7 +70,6 @@ import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
-import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -89,6 +88,9 @@ public class BitcoinNode extends Node {
     }
 
     public interface DownloadBlockCallback extends Callback<Block> {
+        default void onFailure(Sha256Hash blockHash) { }
+    }
+    public interface DownloadMerkleBlockCallback extends Callback<MerkleBlock> {
         default void onFailure(Sha256Hash blockHash) { }
     }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
@@ -212,6 +214,7 @@ public class BitcoinNode extends Node {
     protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback;
 
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
     protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
@@ -263,6 +266,7 @@ public class BitcoinNode extends Node {
         }
 
         synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
+        synchronized (_downloadMerkleBlockRequests) { _downloadMerkleBlockRequests.clear(); }
         synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
         synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
         synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
@@ -566,17 +570,11 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onMerkleBlockReceived(final MerkleBlockMessage merkleBlockMessage) {
-        // TODO
-        final PartialMerkleTree partialMerkleTree = merkleBlockMessage.getPartialMerkleTree();
-        final List<Sha256Hash> hashes = partialMerkleTree.getHashes();
-        final String[] hashStrings = new String[hashes.getSize()];
+        final MerkleBlock merkleBlock = merkleBlockMessage.getMerkleBlock();
+        final Boolean merkleBlockIsValid = merkleBlock.isValid();
 
-        for (int i = 0; i < hashes.getSize(); ++i) {
-            final Sha256Hash hash = hashes.get(i);
-            hashStrings[i] = hash.toString();
-        }
-
-        Logger.log("RECEIVED MERKLE BLOCK: " + merkleBlockMessage.getBlockHeader().getHash() + " : " + Util.join(", ", hashStrings) + " : " + partialMerkleTree.getFlags());
+        final Sha256Hash blockHash = merkleBlock.getHash();
+        _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, (merkleBlockIsValid ? merkleBlock : null), _threadPool);
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
@@ -739,6 +737,22 @@ public class BitcoinNode extends Node {
                                     final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>();
                                     transactionHashes.add(itemHash); // TODO: Consider batching failure message...
                                     downloadTransactionCallback.onFailure(transactionHashes);
+                                }
+                            });
+                        }
+                    }
+                } break;
+
+                case MERKLE_BLOCK: {
+                    synchronized (_downloadMerkleBlockRequests) {
+                        final Set<DownloadMerkleBlockCallback> downloadMerkleBlockCallbacks = _downloadMerkleBlockRequests.remove(itemHash);
+                        if (downloadMerkleBlockCallbacks == null) { return; }
+
+                        for (final DownloadMerkleBlockCallback downloadMerkleBlockCallback : downloadMerkleBlockCallbacks) {
+                            _threadPool.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    downloadMerkleBlockCallback.onFailure(itemHash);
                                 }
                             });
                         }
@@ -930,8 +944,8 @@ public class BitcoinNode extends Node {
         _requestBlock(blockHash);
     }
 
-    public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadBlockCallback downloadBlockCallback) {
-        _storeInMapSet(_downloadBlockRequests, blockHash, downloadBlockCallback);
+    public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
+        _storeInMapSet(_downloadMerkleBlockRequests, blockHash, downloadMerkleBlockCallback);
         _requestMerkleBlock(blockHash);
     }
 

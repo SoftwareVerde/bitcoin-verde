@@ -19,7 +19,7 @@ public class ImmutableSha256Hash extends ImmutableHash implements Sha256Hash, Co
     }
 
     @Override
-    public Sha256Hash toReversedEndian() {
+    public MutableSha256Hash toReversedEndian() {
         return MutableSha256Hash.wrap(ByteUtil.reverseEndian(_bytes));
     }
 
