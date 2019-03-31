@@ -29,6 +29,7 @@ public interface Block extends BlockHeaderWithTransactionCount {
     }
 
     List<Transaction> getTransactions();
+    List<Transaction> getTransactions(BloomFilter bloomFilter);
     CoinbaseTransaction getCoinbaseTransaction();
     List<Sha256Hash> getPartialMerkleTree(Integer transactionIndex);
     PartialMerkleTree getPartialMerkleTree(BloomFilter bloomFilter);

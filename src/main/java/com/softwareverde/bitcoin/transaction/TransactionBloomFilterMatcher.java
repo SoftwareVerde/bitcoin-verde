@@ -1,11 +1,8 @@
 package com.softwareverde.bitcoin.transaction;
 
-import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -15,39 +12,27 @@ import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
-import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.json.Jsonable;
+import com.softwareverde.constable.list.mutable.MutableList;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
-    Long VERSION = 0x01L;
-    Long SATOSHIS_PER_BITCOIN = 100_000_000L;
-
-    static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {
-        final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(blockHeight, coinbaseMessage));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
-        return coinbaseTransaction;
-    }
-
-    static Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
-        final MutableTransaction coinbaseTransaction = new MutableTransaction();
-        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
-        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
-        return coinbaseTransaction;
-    }
-
+public class TransactionBloomFilterMatcher {
     /**
-     * Returns true if transaction matches matches _bloomFilter or if _bloomFilter has not been set.
+     * Returns null if no parts of the transaction matched the BloomFilter.
+     * Otherwise, returns the list of ByteArrays that matched the BloomFilter.
+     *  If bloomFilter is null, a match always occurs.
+     *  NOTE: An empty list is an indication that a match occurred.
      */
-    static Boolean matchesFilter(final Transaction transaction, final BloomFilter bloomFilter) {
-        if (bloomFilter == null) { return true; }
+    protected List<ByteArray> _getMatchedItems(final Transaction transaction, final BloomFilter bloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
+        final MutableList<ByteArray> matchedItems = new MutableList<ByteArray>();
+        if (bloomFilter == null) { return matchedItems; } // TRUE
 
         // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki
         // To determine if a transaction matches the filter, the following algorithm is used. Once a match is found the algorithm aborts.
         final Sha256Hash transactionHash = transaction.getHash();
-        if (bloomFilter.containsItem(transactionHash)) { return true; } // 1. Test the hash of the transaction itself.
+        if (bloomFilter.containsItem(transactionHash)) { return matchedItems; } // 1. Test the hash of the transaction itself.
+
+        boolean didMatch = false;
 
         int transactionOutputIndex = 0;
         for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) { // 2. For each output, test each data element of the output script. This means each hash and key in the output script is tested independently.
@@ -57,7 +42,24 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
 
                 final ByteArray value = ((PushOperation) operation).getValue();
                 if (bloomFilter.containsItem(value)) {
-                    return true;
+                    boolean shouldUpdateBloomFilter = false;
+
+                    if (updateBloomFilterMode == UpdateBloomFilterMode.UPDATE_ALL) {
+                        shouldUpdateBloomFilter = true;
+                    }
+                    else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
+                        final ScriptType scriptType = lockingScript.getScriptType();
+                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH)) {
+                            shouldUpdateBloomFilter = true;
+                        }
+                    }
+
+                    if (shouldUpdateBloomFilter) {
+                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
+                        matchedItems.add(transactionOutputIdentifier.toBytes());
+                    }
+
+                    didMatch = true;
                 }
             }
 
@@ -73,7 +75,7 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
                 cOutpoint = transactionOutputIdentifier.toBytes();
             }
 
-            if (bloomFilter.containsItem(cOutpoint)) { return true; }
+            if (bloomFilter.containsItem(cOutpoint)) { didMatch = true; }
 
             // 4. For each input, test each data element of the input script.
             final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
@@ -81,20 +83,18 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
                 if (operation.getType() != PushOperation.TYPE) { continue; }
 
                 final ByteArray value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) { return true; }
+                if (bloomFilter.containsItem(value)) { didMatch = true; }
             }
         }
 
-        return false;
+        return (didMatch ? matchedItems : null);
     }
 
-    Long getVersion();
-    List<TransactionInput> getTransactionInputs();
-    List<TransactionOutput> getTransactionOutputs();
-    LockTime getLockTime();
-    Long getTotalOutputValue();
-    Boolean matches(BloomFilter bloomFilter);
+    public Boolean matchesFilter(final Transaction transaction, final BloomFilter bloomFilter) {
+        return (_getMatchedItems(transaction, bloomFilter, UpdateBloomFilterMode.READ_ONLY) != null);
+    }
 
-    @Override
-    ImmutableTransaction asConst();
+    public Boolean matchesFilterAndUpdate(final Transaction transaction, final MutableBloomFilter bloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
+        return (_getMatchedItems(transaction, bloomFilter, updateBloomFilterMode) != null);
+    }
 }

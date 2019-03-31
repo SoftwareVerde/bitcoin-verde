@@ -60,6 +60,17 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     }
 
     @Override
+    public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        for (final Transaction transaction : _transactions) {
+            if (transaction.matches(bloomFilter)) {
+                matchedTransactions.add(transaction);
+            }
+        }
+        return matchedTransactions.build();
+    }
+
+    @Override
     public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
 

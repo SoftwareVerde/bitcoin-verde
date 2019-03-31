@@ -43,14 +43,7 @@ import com.softwareverde.bitcoin.server.message.type.thin.transaction.ThinTransa
 import com.softwareverde.bitcoin.server.message.type.version.acknowledge.BitcoinAcknowledgeVersionMessage;
 import com.softwareverde.bitcoin.server.message.type.version.synchronize.BitcoinSynchronizeVersionMessage;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
-import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
-import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -867,74 +860,6 @@ public class BitcoinNode extends Node {
         _queueMessage(queryBlocksMessage);
     }
 
-    /**
-     * Returns true if transaction matches matches _bloomFilter or if _bloomFilter has not been set.
-     * If updateBloomFilterMode is not null, then _bloomFilter will be updated accordingly.
-     */
-    protected Boolean _matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
-        final MutableBloomFilter bloomFilter = _bloomFilter;
-        if (bloomFilter == null) { return true; }
-
-        // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki
-        // To determine if a transaction matches the filter, the following algorithm is used. Once a match is found the algorithm aborts.
-        final Sha256Hash transactionHash = transaction.getHash();
-        if (bloomFilter.containsItem(transactionHash)) { return true; } // 1. Test the hash of the transaction itself.
-
-        int transactionOutputIndex = 0;
-        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) { // 2. For each output, test each data element of the output script. This means each hash and key in the output script is tested independently.
-            final LockingScript lockingScript = transactionOutput.getLockingScript();
-            for (final Operation operation : lockingScript.getOperations()) {
-                if (operation.getType() != PushOperation.TYPE) { continue; }
-
-                final ByteArray value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) {
-                    boolean shouldUpdateBloomFilter = false;
-
-                    if (updateBloomFilterMode == UpdateBloomFilterMode.UPDATE_ALL) {
-                        shouldUpdateBloomFilter = true;
-                    }
-                    else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
-                        final ScriptType scriptType = lockingScript.getScriptType();
-                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH)) {
-                            shouldUpdateBloomFilter = true;
-                        }
-                    }
-
-                    if (shouldUpdateBloomFilter) {
-                        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-                        bloomFilter.addItem(transactionOutputIdentifier.toBytes());
-                    }
-                    return true;
-                }
-            }
-
-            transactionOutputIndex += 1;
-        }
-
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            // 3. For each input, test the serialized COutPoint structure.
-            final ByteArray cOutpoint;
-            { // NOTE: "COutPoint" is a class in the reference client that follows the same serialization process as the a TransactionInput's prevout format (TxHash | OutputIndex, both as LittleEndian)...
-                final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(previousOutputTransactionHash, transactionInput.getPreviousOutputIndex());
-                cOutpoint = transactionOutputIdentifier.toBytes();
-            }
-
-            if (bloomFilter.containsItem(cOutpoint)) { return true; }
-
-            // 4. For each input, test each data element of the input script.
-            final UnlockingScript unlockingScript = transactionInput.getUnlockingScript();
-            for (final Operation operation : unlockingScript.getOperations()) {
-                if (operation.getType() != PushOperation.TYPE) { continue; }
-
-                final ByteArray value = ((PushOperation) operation).getValue();
-                if (bloomFilter.containsItem(value)) { return true; }
-            }
-        }
-
-        return false;
-    }
-
     public void requestBlockHashesAfter(final Sha256Hash blockHash) {
         _queryForBlockHashesAfter(blockHash);
     }
@@ -1024,7 +949,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlock(final Block block) {
-        final BloomFilter bloomFilter = _bloomFilter;
+        final MutableBloomFilter bloomFilter = _bloomFilter;
         if (bloomFilter == null) {
             final BlockMessage blockMessage = new BlockMessage();
             blockMessage.setBlock(block);
@@ -1033,8 +958,24 @@ public class BitcoinNode extends Node {
         else {
             final MerkleBlockMessage merkleBlockMessage = new MerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);
-            merkleBlockMessage.setPartialMerkleTree(block.getPartialMerkleTree(_bloomFilter));
+            merkleBlockMessage.setPartialMerkleTree(block.getPartialMerkleTree(bloomFilter));
             _queueMessage(merkleBlockMessage);
+
+            // BIP37 dictates that matched transactions be separately relayed...
+            //  "In addition, because a merkleblock message contains only a list of transaction hashes, transactions
+            //      matching the filter should also be sent in separate tx messages after the merkleblock is sent. This
+            //      avoids a slow roundtrip that would otherwise be required (receive hashes, didn't see some of these
+            //      transactions yet, ask for them)."
+            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
+            final List<Transaction> transactions = block.getTransactions();
+            for (final Transaction transaction : transactions) {
+                final Boolean transactionMatches = transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, bloomFilter, _updateBloomFilterMode);
+                if (transactionMatches) {
+                    final TransactionMessage transactionMessage = new TransactionMessage();
+                    transactionMessage.setTransaction(transaction);
+                    _queueMessage(transactionMessage);
+                }
+            }
         }
     }
 
@@ -1104,11 +1045,13 @@ public class BitcoinNode extends Node {
     }
 
     public Boolean matchesFilter(final Transaction transaction) {
-        return _matchesFilter(transaction, _updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
+        return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, _updateBloomFilterMode);
     }
 
     public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
-        return _matchesFilter(transaction, updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
+        return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, updateBloomFilterMode);
     }
 
     @Override

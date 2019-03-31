@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -169,6 +170,17 @@ public class MutableBlock implements Block {
     @Override
     public List<Transaction> getTransactions() {
         return _transactions;
+    }
+
+    @Override
+    public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        for (final Transaction transaction : _transactions) {
+            if (transaction.matches(bloomFilter)) {
+                matchedTransactions.add(transaction);
+            }
+        }
+        return matchedTransactions.build();
     }
 
     @Override
