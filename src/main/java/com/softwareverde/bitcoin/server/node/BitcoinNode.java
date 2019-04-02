@@ -117,6 +117,10 @@ public class BitcoinNode extends Node {
         void run(List<Sha256Hash> blockHashes, Sha256Hash desiredBlockHash, BitcoinNode bitcoinNode);
     }
 
+    public interface QueryUnconfirmedTransactionsCallback {
+        void run(BitcoinNode bitcoinNode);
+    }
+
     public interface RequestDataCallback {
         void run(List<InventoryItem> dataHashes, BitcoinNode bitcoinNode);
     }
@@ -198,6 +202,7 @@ public class BitcoinNode extends Node {
     protected RequestDataCallback _requestDataMessageCallback = null;
     protected BlockInventoryMessageCallback _blockInventoryMessageHandler = null;
     protected RequestPeersHandler _requestPeersHandler = null;
+    protected QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
@@ -372,6 +377,10 @@ public class BitcoinNode extends Node {
 
                     case QUERY_BLOCKS: {
                         _onQueryBlocksMessageReceived((QueryBlocksMessage) message);
+                    } break;
+
+                    case QUERY_UNCONFIRMED_TRANSACTIONS: {
+                        _onQueryUnconfirmedTransactionsReceived();
                     } break;
 
                     case REQUEST_BLOCK_HEADERS: {
@@ -607,6 +616,21 @@ public class BitcoinNode extends Node {
         else {
             Logger.log("NOTICE: No handler set for QueryBlocks message.");
         }
+    }
+
+    protected void _onQueryUnconfirmedTransactionsReceived() {
+        final QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback = _queryUnconfirmedTransactionsCallback;
+        if (queryUnconfirmedTransactionsCallback == null) {
+            Logger.log("NOTICE: No handler set for QueryUnconfirmedTransactions (Mempool) message.");
+            return;
+        }
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                queryUnconfirmedTransactionsCallback.run(BitcoinNode.this);
+            }
+        });
     }
 
     protected void _onQueryBlockHeadersMessageReceived(final RequestBlockHeadersMessage requestBlockHeadersMessage) {
@@ -1003,6 +1027,10 @@ public class BitcoinNode extends Node {
         _requestPeersHandler = requestPeersHandler;
     }
 
+    public void setQueryUnconfirmedTransactionsCallback(final QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback) {
+        _queryUnconfirmedTransactionsCallback = queryUnconfirmedTransactionsCallback;
+    }
+
     public void setRequestExtraThinBlockCallback(final RequestExtraThinBlockCallback requestExtraThinBlockCallback) {
         _requestExtraThinBlockCallback = requestExtraThinBlockCallback;
     }
@@ -1044,11 +1072,22 @@ public class BitcoinNode extends Node {
         _queueMessage(protocolMessage);
     }
 
+    public Boolean hasBloomFilter() {
+        return (_bloomFilter != null);
+    }
+
+    /**
+     * Returns true if the Transaction matches the BitcoinNode's BloomFilter, or if a BloomFilter has not been set.
+     *  The BitcoinNode's BloomFilter is updated as necessary, as specified by the peer.
+     */
     public Boolean matchesFilter(final Transaction transaction) {
         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
         return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, _updateBloomFilterMode);
     }
 
+    /**
+     * Returns true if the Transaction matches the BitcoinNode's BloomFilter, or if a BloomFilter has not been set.
+     */
     public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
         return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, updateBloomFilterMode);

@@ -48,6 +48,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
             for (final InventoryItem inventoryItem : dataHashes) {
                 switch (inventoryItem.getItemType()) {
+
+                    case MERKLE_BLOCK: // BitcoinNode::transmitBlock converts the block to a MerkleBlock...
                     case BLOCK: {
                         final NanoTimer getBlockDataTimer = new NanoTimer();
                         getBlockDataTimer.start();
@@ -95,10 +97,6 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         getTransactionTimer.stop();
                         Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
-                    } break;
-
-                    case MERKLE_BLOCK: {
-                        // TODO
                     } break;
 
                     default: {

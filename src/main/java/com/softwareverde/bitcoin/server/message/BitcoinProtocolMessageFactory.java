@@ -15,6 +15,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMes
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessageInflater;
@@ -50,6 +51,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.REQUEST_BLOCK_HEADERS, new RequestBlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, new QueryUnconfirmedTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(MessageType.NOT_FOUND, new NotFoundResponseMessageInflater());
         _commandInflaterMap.put(MessageType.INVENTORY, new InventoryMessageInflater());
