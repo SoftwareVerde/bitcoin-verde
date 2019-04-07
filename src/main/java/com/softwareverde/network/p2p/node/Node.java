@@ -385,7 +385,12 @@ public abstract class Node {
     }
 
     public void connect() {
-        _connection.connect();
+        if (_connection.isConnected()) {
+            _onConnect();
+        }
+        else {
+            _connection.connect();
+        }
     }
 
     public void disconnect() {

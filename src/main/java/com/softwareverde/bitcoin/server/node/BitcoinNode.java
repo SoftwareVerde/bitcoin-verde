@@ -412,9 +412,6 @@ public class BitcoinNode extends Node {
                 _onConnect();
             }
         });
-        if (_connection.isConnected()) {
-            _onConnect();
-        }
 
         _connection.setOnConnectFailureCallback(new Runnable() {
             @Override
