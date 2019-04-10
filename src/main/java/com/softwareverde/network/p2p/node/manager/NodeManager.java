@@ -246,22 +246,26 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _initNode(final NODE node) {
-        final Container<Boolean> nodeConnected = new Container<Boolean>(null);
+        // final Container<Boolean> nodeConnected = new Container<Boolean>(null);
 
-        final Object lock = new Object();
+        final Container<Boolean> nodeDidConnect = new Container<Boolean>(null);
 
         final Runnable timeoutRunnable = new Runnable() {
             @Override
             public void run() {
                 try {
-                    synchronized (lock) {
-                        lock.wait(10000L);
+                    synchronized (nodeDidConnect) {
+                        if (! Util.coalesce(nodeDidConnect.value, false)) {
+                            nodeDidConnect.wait(10000L);
+                        }
                     }
 
-                    synchronized (nodeConnected) {
-                        if (nodeConnected.value != null) { return; }
+                    synchronized (nodeDidConnect) {
+                        if (nodeDidConnect.value != null) { // Node connected successfully or has already been marked as disconnected...
+                            return;
+                        }
 
-                        nodeConnected.value = false;
+                        nodeDidConnect.value = false;
 
                         if (LOGGING_ENABLED) {
                             Logger.log("P2P: Node failed to connect. Purging node.");
@@ -357,26 +361,21 @@ public class NodeManager<NODE extends Node> {
             @Override
             public void onNodeConnected() {
                 { // Handle connection timeout...
-                    if (nodeConnected.value == null) {
-                        synchronized (nodeConnected) {
-                            if (nodeConnected.value == null) {
-                                nodeConnected.value = true;
-                            }
+                    synchronized (nodeDidConnect) {
+                        if (nodeDidConnect.value == null) {
+                            nodeDidConnect.value = true;
+                        }
+                        else if (! nodeDidConnect.value) {
+                            // Node connection timed out; abort.
+                            return;
                         }
 
-                        synchronized (lock) {
-                            lock.notifyAll();
-                        }
+                        nodeDidConnect.notifyAll();
                     }
                 }
 
                 _onNodeConnected(node);
-
-                if (! node.hasActiveConnection()) { return; }
-
-                synchronized (_mutex) {
-                    _processQueuedMessages();
-                }
+                _processQueuedMessages();
             }
         });
 
@@ -412,10 +411,10 @@ public class NodeManager<NODE extends Node> {
             }
         });
 
-        _threadPool.execute(timeoutRunnable);
-
         node.connect();
         node.handshake();
+
+        _threadPool.execute(timeoutRunnable);
     }
 
     // NOTE: Requires Mutex Lock...

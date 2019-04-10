@@ -447,16 +447,6 @@ public class BitcoinNode extends Node {
             }
         });
 
-        _connection.setOnConnectCallback(new Runnable() {
-            @Override
-            public void run() {
-                _onConnect();
-            }
-        });
-        if (_connection.isConnected()) {
-            _onConnect();
-        }
-
         _connection.setOnConnectFailureCallback(new Runnable() {
             @Override
             public void run() {
@@ -468,6 +458,13 @@ public class BitcoinNode extends Node {
             @Override
             public void run() {
                 _disconnect();
+            }
+        });
+
+        _connection.setOnConnectCallback(new Runnable() {
+            @Override
+            public void run() {
+                _onConnect();
             }
         });
     }

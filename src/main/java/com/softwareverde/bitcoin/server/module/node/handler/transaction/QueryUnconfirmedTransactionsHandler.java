@@ -38,7 +38,7 @@ public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.QueryUnc
             if (bitcoinNode.hasBloomFilter()) {
                 for (final TransactionId transactionId : unconfirmedTransactionIds) {
                     final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    if (bitcoinNode.matchesFilter(transaction)) {
+                    if ( (transaction != null) && (bitcoinNode.matchesFilter(transaction)) ) {
                         unconfirmedTransactionHashes.add(transaction.getHash());
                     }
                 }

@@ -37,6 +37,7 @@ public abstract class Socket {
     protected Boolean _isClosed = false;
 
     protected Runnable _messageReceivedCallback;
+    protected Runnable _socketClosedCallback;
     protected Boolean _isListening = false;
     protected final ReadThread _readThread;
 
@@ -109,6 +110,11 @@ public abstract class Socket {
         }
         catch (final Exception exception) { }
 
+        final Runnable onCloseCallback = _socketClosedCallback;
+        if (onCloseCallback != null) {
+            onCloseCallback.run();
+        }
+
         if (! wasClosed) {
             _onSocketClosed();
         }
@@ -165,6 +171,10 @@ public abstract class Socket {
         _messageReceivedCallback = callback;
     }
 
+    public void setOnClosedCallback(final Runnable callback) {
+        _socketClosedCallback = callback;
+    }
+
     public void write(final ProtocolMessage outboundMessage) {
         final ByteArray bytes = outboundMessage.getBytes();
 
@@ -214,7 +224,7 @@ public abstract class Socket {
      * Returns false if this instance has had its close() function invoked or the socket is no longer connected.
      */
     public Boolean isConnected() {
-        return (! (_isClosed || _socket.isClosed()));
+        return ( (! _isClosed) && (! _socket.isClosed()) );
     }
 
     @Override
