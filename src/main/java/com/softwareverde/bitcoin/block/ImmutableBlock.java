@@ -12,10 +12,8 @@ import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Const;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
@@ -99,7 +97,6 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
-        if (_merkleTree.isEmpty()) { return PartialMerkleTree.build(0, new MutableList<Sha256Hash>(0), new MutableByteArray(0)); }
         return _merkleTree.getPartialTree(Block.createMerkleTreeFilter(bloomFilter));
     }
 

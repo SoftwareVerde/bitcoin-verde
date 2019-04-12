@@ -199,7 +199,6 @@ public class MutableBlock implements Block {
 
     @Override
     public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
-        if (_merkleTree.isEmpty()) { return PartialMerkleTree.build(0, new MutableList<Sha256Hash>(0), new MutableByteArray(0)); }
         return _merkleTree.getPartialTree(Block.createMerkleTreeFilter(bloomFilter));
     }
 
