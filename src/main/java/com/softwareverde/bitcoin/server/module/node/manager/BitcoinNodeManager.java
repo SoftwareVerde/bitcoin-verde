@@ -265,7 +265,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 bitcoinNode.requestBlockHeaders(blockHashes, new BitcoinNode.DownloadBlockHeadersCallback() {
                     @Override
-                    public void onResult(final List<BlockHeaderWithTransactionCount> result) {
+                    public void onResult(final List<BlockHeader> result) {
                         _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 

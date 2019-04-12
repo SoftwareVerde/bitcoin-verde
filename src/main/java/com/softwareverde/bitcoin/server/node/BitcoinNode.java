@@ -86,7 +86,7 @@ public class BitcoinNode extends Node {
     public interface DownloadMerkleBlockCallback extends Callback<MerkleBlock> {
         default void onFailure(Sha256Hash blockHash) { }
     }
-    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeaderWithTransactionCount>> { }
+    public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeader>> { }
     public interface DownloadTransactionCallback extends Callback<Transaction> {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
     }
@@ -577,7 +577,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
-        final List<BlockHeaderWithTransactionCount> blockHeaders = blockHeadersMessage.getBlockHeaders();
+        final List<BlockHeader> blockHeaders = blockHeadersMessage.getBlockHeaders();
 
         final Boolean allBlockHeadersAreValid;
         {
@@ -634,7 +634,7 @@ public class BitcoinNode extends Node {
         final QueryBlockHeadersCallback queryBlockHeadersCallback = _queryBlockHeadersCallback;
 
         if (queryBlockHeadersCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(requestBlockHeadersMessage.getBlockHeaderHashes());
+            final List<Sha256Hash> blockHeaderHashes = requestBlockHeadersMessage.getBlockHeaderHashes();
             final Sha256Hash desiredBlockHeaderHash = requestBlockHeadersMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -969,9 +969,30 @@ public class BitcoinNode extends Node {
         _queueMessage(blockHeadersMessage);
     }
 
+    public void setBloomFilter(final BloomFilter bloomFilter) {
+        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage();
+        bloomFilterMessage.setBloomFilter(bloomFilter);
+        _queueMessage(bloomFilterMessage);
+    }
+
+    public void transmitBlockHeaders(final List<BlockHeader> blockHeaders) {
+        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+        for (final BlockHeader blockHeader : blockHeaders) {
+            blockHeadersMessage.addBlockHeader(blockHeader);
+        }
+        _queueMessage(blockHeadersMessage);
+    }
+
     public void transmitBlock(final Block block) {
+        final BlockMessage blockMessage = new BlockMessage();
+        blockMessage.setBlock(block);
+        _queueMessage(blockMessage);
+    }
+
+    public void transmitMerkleBlock(final Block block) {
         final MutableBloomFilter bloomFilter = _bloomFilter;
         if (bloomFilter == null) {
+            Logger.log("NOTICE: Attempting to Transmit MerkleBlock when no BloomFilter is available.");
             final BlockMessage blockMessage = new BlockMessage();
             blockMessage.setBlock(block);
             _queueMessage(blockMessage);

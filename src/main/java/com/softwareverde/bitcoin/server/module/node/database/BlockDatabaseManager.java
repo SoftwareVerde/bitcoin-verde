@@ -14,6 +14,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
@@ -23,9 +24,38 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class BlockDatabaseManager {
+    public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
+
     protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
+    protected void _associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
+        synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
+            final Integer currentTransactionCount = _getTransactionCount(blockId);
+            _databaseConnection.executeSql(
+                new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
+                    .setParameter(blockId)
+                    .setParameter(transactionId)
+                    .setParameter(currentTransactionCount)
+            );
+        }
+    }
+
+
+    protected void _associateTransactionsToBlock(final List<TransactionId> transactionIds, final BlockId blockId) throws DatabaseException {
+        synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
+            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
+            int sortOrder = 0;
+            for (final TransactionId transactionId : transactionIds) {
+                batchedInsertQuery.setParameter(blockId);
+                batchedInsertQuery.setParameter(transactionId);
+                batchedInsertQuery.setParameter(sortOrder);
+                sortOrder += 1;
+            }
+
+            _databaseConnection.executeSql(batchedInsertQuery);
+        }
+    }
 
     protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
         final MilliTimer storeBlockTimer = new MilliTimer();
@@ -39,12 +69,23 @@ public class BlockDatabaseManager {
             if (transactionIds == null) { throw new DatabaseException("Unable to store block transactions."); }
 
             associateTransactionsTimer.start();
-            transactionDatabaseManager.associateTransactionsToBlock(transactionIds, blockId);
+            _associateTransactionsToBlock(transactionIds, blockId);
             associateTransactionsTimer.stop();
             Logger.log("AssociateTransactions: " + associateTransactionsTimer.getMillisecondsElapsed() + "ms");
         }
         storeBlockTimer.stop();
         Logger.log("StoreBlockDuration: " + storeBlockTimer.getMillisecondsElapsed() + "ms");
+    }
+
+    protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
+                .setParameter(blockId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("transaction_count");
     }
 
     public List<TransactionId> _getTransactionIds(final BlockId blockId) throws DatabaseException {
@@ -236,15 +277,7 @@ public class BlockDatabaseManager {
     }
 
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
-                .setParameter(blockId)
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final Integer transactionCount = row.getInteger("transaction_count");
-        return transactionCount;
+        return _getTransactionCount(blockId);
     }
 
     public void repairBlock(final Block block) throws DatabaseException {

@@ -6,9 +6,9 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
@@ -20,7 +20,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
@@ -49,7 +48,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
             for (final InventoryItem inventoryItem : dataHashes) {
                 switch (inventoryItem.getItemType()) {
 
-                    case MERKLE_BLOCK: // BitcoinNode::transmitBlock converts the block to a MerkleBlock...
+                    case MERKLE_BLOCK:
                     case BLOCK: {
                         final NanoTimer getBlockDataTimer = new NanoTimer();
                         getBlockDataTimer.start();
@@ -68,7 +67,13 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        bitcoinNode.transmitBlock(block);
+                        if (inventoryItem.getItemType() == InventoryItemType.MERKLE_BLOCK) {
+                            bitcoinNode.transmitMerkleBlock(block);
+                        }
+                        else {
+                            bitcoinNode.transmitBlock(block);
+                        }
+
                         getBlockDataTimer.stop();
                         Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
                     } break;

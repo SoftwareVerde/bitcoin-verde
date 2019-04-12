@@ -2,22 +2,16 @@ package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
-import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
-import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessage;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeConnection;
 
 public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     public static final BitcoinNode.QueryBlockHeadersCallback IGNORES_REQUESTS_HANDLER = new BitcoinNode.QueryBlockHeadersCallback() {
@@ -33,7 +27,6 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
     public void run(final List<Sha256Hash> blockHashes, final Sha256Hash desiredBlockHash, final BitcoinNode bitcoinNode) {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
             final StartingBlock startingBlock = _getStartingBlock(blockHashes, false, desiredBlockHash, databaseConnection);
 
@@ -42,24 +35,17 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
                 return;
             }
 
-            final MutableList<BlockHeaderWithTransactionCount> blockHeaders = new MutableList<BlockHeaderWithTransactionCount>();
+            final MutableList<BlockHeader> blockHeaders = new MutableList<BlockHeader>();
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
-                    final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
-                    final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
-                    blockHeaders.add(blockHeaderWithTransactionCount);
+                    blockHeaders.add(blockHeader);
                 }
             }
 
-            final BlockHeadersMessage responseMessage = new BlockHeadersMessage();
-            for (final BlockHeaderWithTransactionCount blockHeader : blockHeaders) {
-                responseMessage.addBlockHeader(blockHeader);
-            }
-
-            bitcoinNode.queueMessage(responseMessage);
+            bitcoinNode.transmitBlockHeaders(blockHeaders);
         }
-        catch (final DatabaseException exception) { Logger.log(exception); }
+        catch (final Exception exception) { Logger.log(exception); }
     }
 }

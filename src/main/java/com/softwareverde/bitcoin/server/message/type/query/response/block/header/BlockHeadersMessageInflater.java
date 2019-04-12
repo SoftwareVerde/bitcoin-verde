@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.block.header;
 
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCountInflater;
@@ -29,9 +30,9 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final Integer bytesRequired = ( blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        final BlockHeaderWithTransactionCountInflater blockHeaderInflater = new BlockHeaderWithTransactionCountInflater();
+        final BlockHeaderWithTransactionCountInflater blockHeaderInflater = new BlockHeaderWithTransactionCountInflater(); // NOTE: The BlockHeaders message always appends a zero variable-sized-integer to represent the TransactionCount.
         for (int i=0; i<blockHeaderCount; ++i) {
-            final BlockHeaderWithTransactionCount blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
             if (blockHeader == null) { return null; }
 
             blockHeadersResponseMessage._blockHeaders.add(blockHeader);
