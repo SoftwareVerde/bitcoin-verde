@@ -143,7 +143,7 @@ public class BlockHeaderDownloader extends SleepyService {
         return true;
     }
 
-    protected void _processBlockHeaders(final List<BlockHeaderWithTransactionCount> blockHeaders) {
+    protected void _processBlockHeaders(final List<BlockHeader> blockHeaders) {
         final MilliTimer storeHeadersTimer = new MilliTimer();
         storeHeadersTimer.start();
 
@@ -199,7 +199,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
-            public void onResult(final List<BlockHeaderWithTransactionCount> blockHeaders) {
+            public void onResult(final List<BlockHeader> blockHeaders) {
                 _processBlockHeaders(blockHeaders);
 
                 final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;

@@ -5,7 +5,6 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -23,6 +22,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -102,13 +102,16 @@ public class RepairModule {
 
         { // Initialize NodeInitializer...
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
-            final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
-            final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
-            final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
-            final BitcoinNode.RequestDataCallback requestDataHandler = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
-            final TransactionInventoryMessageHandlerFactory transactionInventoryMessageHandlerFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
-            final BitcoinNode.BlockInventoryMessageCallback inventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
-            final BitcoinNode.RequestPeersHandler requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
+
+            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+            nodeInitializerProperties.synchronizationStatus = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
+            nodeInitializerProperties.queryBlocksCallback = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.queryBlockHeadersCallback = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
+            nodeInitializerProperties.requestDataCallback = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
+            nodeInitializerProperties.blockInventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
+            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = QueryUnconfirmedTransactionsHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     return new MutableList<BitcoinNodeIpAddress>(0);
@@ -122,7 +125,10 @@ public class RepairModule {
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures, requestPeersHandler);
+            nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
+            nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
+
+            _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
     }
 

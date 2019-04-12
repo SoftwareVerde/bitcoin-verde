@@ -6,9 +6,9 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
@@ -20,13 +20,12 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
-import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
         @Override
-        public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) { }
+        public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) { }
     };
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
@@ -38,7 +37,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     }
 
     @Override
-    public void run(final List<InventoryItem> dataHashes, final NodeConnection nodeConnection) {
+    public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -48,6 +47,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
             for (final InventoryItem inventoryItem : dataHashes) {
                 switch (inventoryItem.getItemType()) {
+
+                    case MERKLE_BLOCK:
                     case BLOCK: {
                         final NanoTimer getBlockDataTimer = new NanoTimer();
                         getBlockDataTimer.start();
@@ -66,11 +67,15 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final BlockMessage blockMessage = new BlockMessage();
-                        blockMessage.setBlock(block);
-                        nodeConnection.queueMessage(blockMessage);
+                        if (inventoryItem.getItemType() == InventoryItemType.MERKLE_BLOCK) {
+                            bitcoinNode.transmitMerkleBlock(block);
+                        }
+                        else {
+                            bitcoinNode.transmitBlock(block);
+                        }
+
                         getBlockDataTimer.stop();
-                        Logger.log("GetBlockData: " + blockHash + " "  + nodeConnection.toString() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+                        Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     case TRANSACTION: {
@@ -93,10 +98,10 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         final TransactionMessage transactionMessage = new TransactionMessage();
                         transactionMessage.setTransaction(transaction);
-                        nodeConnection.queueMessage(transactionMessage);
+                        bitcoinNode.queueMessage(transactionMessage);
 
                         getTransactionTimer.stop();
-                        Logger.log("GetTransactionData: " + transactionHash + " to " + nodeConnection.toString() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
+                        Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
                     } break;
 
                     default: {
@@ -110,7 +115,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                 for (final InventoryItem inventoryItem : notFoundDataHashes) {
                     notFoundResponseMessage.addItem(inventoryItem);
                 }
-                nodeConnection.queueMessage(notFoundResponseMessage);
+                bitcoinNode.queueMessage(notFoundResponseMessage);
             }
         }
         catch (final DatabaseException exception) { Logger.log(exception); }

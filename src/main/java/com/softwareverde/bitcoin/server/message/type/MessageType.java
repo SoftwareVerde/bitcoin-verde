@@ -7,9 +7,9 @@ public enum MessageType {
     PING("ping"), PONG("pong"),
     NODE_ADDRESSES("addr"),
 
-    QUERY_BLOCKS("getblocks"), INVENTORY("inv"),
+    QUERY_BLOCKS("getblocks"), INVENTORY("inv"), QUERY_UNCONFIRMED_TRANSACTIONS("mempool"),
     REQUEST_BLOCK_HEADERS("getheaders"), BLOCK_HEADERS("headers"),
-    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"),
+    REQUEST_DATA("getdata"), BLOCK("block"), TRANSACTION("tx"), MERKLE_BLOCK("merkleblock"),
 
     NOT_FOUND("notfound"), ERROR("reject"),
 
@@ -19,7 +19,9 @@ public enum MessageType {
     REQUEST_EXTRA_THIN_BLOCK("get_xthin"), EXTRA_THIN_BLOCK("xthinblock"), THIN_BLOCK("thinblock"),
     REQUEST_EXTRA_THIN_TRANSACTIONS("get_xblocktx"), THIN_TRANSACTIONS("xblocktx"),
 
-    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr");
+    FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr"),
+
+    SET_TRANSACTION_BLOOM_FILTER("filterload"), UPDATE_TRANSACTION_BLOOM_FILTER("filteradd"), CLEAR_TRANSACTION_BLOOM_FILTER("filterclear");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

@@ -151,6 +151,10 @@ public class TransactionProcessor extends SleepyService {
 
                     final List<NodeId> nodesWithoutTransaction = nodeDatabaseManager.filterNodesViaTransactionInventory(connectedNodes, transactionHash, FilterType.KEEP_NODES_WITHOUT_INVENTORY);
                     for (final NodeId nodeId : nodesWithoutTransaction) {
+                        final BitcoinNode bitcoinNode = _bitcoinNodeManager.getNode(nodeId);
+                        if (bitcoinNode == null) { continue; }
+                        if (! bitcoinNode.matchesFilter(transaction)) { continue; }
+
                         if (! nodeUnseenTransactionHashes.containsKey(nodeId)) {
                             nodeUnseenTransactionHashes.put(nodeId, new MutableList<Sha256Hash>());
                         }

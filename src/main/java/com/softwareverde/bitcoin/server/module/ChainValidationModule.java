@@ -141,7 +141,7 @@ public class ChainValidationModule {
 
                 final Block block = blockDatabaseManager.getBlock(blockId, true);
 
-                validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
+                validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
                 final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
 
                 if (! blockValidationResult.isValid) {

@@ -4,7 +4,7 @@ public enum InventoryItemType {
     ERROR(0x00),
     TRANSACTION(0x01),
     BLOCK(0x02),
-    FILTERED_BLOCK(0x03),
+    MERKLE_BLOCK(0x03),
     COMPACT_BLOCK(0x04),
     EXTRA_THIN_BLOCK(0x05);
 

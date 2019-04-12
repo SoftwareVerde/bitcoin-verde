@@ -259,6 +259,10 @@ public class NodeConnection {
         _threadPool = threadPool;
     }
 
+    /**
+     * Starts the connection process.
+     *  NodeConnection::connect is safe to call multiple times.
+     */
     public void connect() {
         synchronized (_connectionThreadMutex) {
             { // Shutdown the existing connection thread, if it exists...

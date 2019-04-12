@@ -16,6 +16,7 @@ import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
@@ -46,7 +47,8 @@ public abstract class Node {
     protected final SystemTime _systemTime;
 
     protected NodeIpAddress _localNodeIpAddress = null;
-    protected Boolean _handshakeHasBeenInvoked = false;
+    protected final AtomicBoolean _handshakeHasBeenInvoked = new AtomicBoolean(false);
+    protected final AtomicBoolean _synchronizeVersionMessageHasBeenSent = new AtomicBoolean(false);
     protected Boolean _handshakeIsComplete = false;
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
@@ -121,7 +123,7 @@ public abstract class Node {
      *  connected, otherwise _createSynchronizeVersionMessage() cannot determine the correct remote address.
      */
     protected void _handshake() {
-        if (! _handshakeHasBeenInvoked) {
+        if (! _handshakeHasBeenInvoked.getAndSet(true)) {
             final Runnable createAndQueueHandshake = new Runnable() {
                 @Override
                 public void run() {
@@ -133,6 +135,11 @@ public abstract class Node {
                     }
 
                     _connection.queueMessage(synchronizeVersionMessage);
+
+                    synchronized (_synchronizeVersionMessageHasBeenSent) {
+                        _synchronizeVersionMessageHasBeenSent.set(true);
+                        _synchronizeVersionMessageHasBeenSent.notifyAll();
+                    }
                 }
             };
 
@@ -144,13 +151,12 @@ public abstract class Node {
                     _postConnectQueue.offer(createAndQueueHandshake);
                 }
             }
-
-            _handshakeHasBeenInvoked = true;
         }
     }
 
     protected void _onConnect() {
         _handshake();
+
         synchronized (_postConnectQueue) {
             Runnable postConnectRunnable;
             while ((postConnectRunnable = _postConnectQueue.poll()) != null) {
@@ -213,8 +219,22 @@ public abstract class Node {
 
         _localNodeIpAddress = synchronizeVersionMessage.getLocalNodeIpAddress();
 
-        final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
-        _connection.queueMessage(acknowledgeVersionMessage);
+        { // Ensure that this node sends its SynchronizeVersion message before the AcknowledgeVersionMessage is transmitted...
+            // NOTE: Since  Node::handshake may have been invoked already, it's possible for a race condition between responding to
+            //  the SynchronizeVersion here and the other call to handshake.  Therefore, _synchronizeVersionMessageHasBeenSent is
+            //  waited on until actually queuing the AcknowledgeVersionMessage.
+
+            _handshake();
+
+            synchronized (_synchronizeVersionMessageHasBeenSent) {
+                if (! _synchronizeVersionMessageHasBeenSent.get()) {
+                    try { _synchronizeVersionMessageHasBeenSent.wait(10000L); } catch (final Exception exception) { }
+                }
+            }
+
+            final AcknowledgeVersionMessage acknowledgeVersionMessage = _createAcknowledgeVersionMessage(synchronizeVersionMessage);
+            _connection.queueMessage(acknowledgeVersionMessage);
+        }
     }
 
     protected void _onAcknowledgeVersionMessageReceived(final AcknowledgeVersionMessage acknowledgeVersionMessage) {
@@ -251,6 +271,22 @@ public abstract class Node {
         }
     }
 
+    protected void _initConnection() {
+        _connection.setOnConnectCallback(new Runnable() {
+            @Override
+            public void run() {
+                _onConnect();
+            }
+        });
+
+        _connection.setOnDisconnectCallback(new Runnable() {
+            @Override
+            public void run() {
+                _disconnect();
+            }
+        });
+    }
+
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool) {
         synchronized (NODE_ID_MUTEX) {
             _id = NodeId.wrap(_nextId);
@@ -261,6 +297,8 @@ public abstract class Node {
         _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+
+        _initConnection();
     }
 
     public Node(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final SystemTime systemTime, final ThreadPool threadPool) {
@@ -273,6 +311,8 @@ public abstract class Node {
         _connection = new NodeConnection(host, port, binaryPacketFormat, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+
+        _initConnection();
     }
 
     public Node(final BinarySocket binarySocket, final ThreadPool threadPool) {
@@ -285,6 +325,8 @@ public abstract class Node {
         _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+
+        _initConnection();
     }
 
     public NodeId getId() { return _id; }
@@ -347,8 +389,8 @@ public abstract class Node {
         _nodeConnectedCallback = nodeConnectedCallback;
 
         if (_connection.isConnected()) {
-            if (_nodeConnectedCallback != null) {
-                _nodeConnectedCallback.onNodeConnected();
+            if (nodeConnectedCallback != null) {
+                nodeConnectedCallback.onNodeConnected();
             }
         }
     }
@@ -384,6 +426,9 @@ public abstract class Node {
         _queueMessage(nodeIpAddressMessage);
     }
 
+    /**
+     * NodeConnection::connect must be called, even if the underlying socket was already connected.
+     */
     public void connect() {
         if (_connection.isConnected()) {
             _onConnect();

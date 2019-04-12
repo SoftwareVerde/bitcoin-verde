@@ -3,13 +3,17 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
+import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bloomfilter.BloomFilter;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
@@ -169,6 +173,17 @@ public class MutableBlock implements Block {
     }
 
     @Override
+    public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        for (final Transaction transaction : _transactions) {
+            if (transaction.matches(bloomFilter)) {
+                matchedTransactions.add(transaction);
+            }
+        }
+        return matchedTransactions.build();
+    }
+
+    @Override
     public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
 
@@ -177,9 +192,14 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public List<Sha256Hash> getPartialMerkleTree(final int transactionIndex) {
+    public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
         if (_merkleTree.isEmpty()) { return new MutableList<Sha256Hash>(); }
         return _merkleTree.getPartialTree(transactionIndex);
+    }
+
+    @Override
+    public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
+        return _merkleTree.getPartialTree(Block.createMerkleTreeFilter(bloomFilter));
     }
 
     @Override

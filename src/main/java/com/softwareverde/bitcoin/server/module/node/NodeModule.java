@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatu
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.*;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
@@ -344,11 +345,14 @@ public class NodeModule {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 }
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
                 return nodeFeatures;
             }
         };
 
         { // Initialize NodeInitializer...
+            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+
             final Runnable newInventoryCallback = new Runnable() {
                 @Override
                 public void run() {
@@ -356,11 +360,17 @@ public class NodeModule {
                 }
             };
 
-            final TransactionInventoryMessageHandlerFactory transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, newInventoryCallback);
-            final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final QueryBlockHeadersHandler queryBlockHeadersHandler = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final RequestDataHandler requestDataHandler = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            final BitcoinNode.RequestPeersHandler requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
+            nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
+            nodeInitializerProperties.blockInventoryMessageHandler = blockInventoryMessageHandler;
+            nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
+            nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
+            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, newInventoryCallback);
+            nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.requestDataCallback = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+
+            nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
@@ -371,7 +381,8 @@ public class NodeModule {
                     return nodeIpAddresses.build();
                 }
             };
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, blockInventoryMessageHandler, transactionsAnnouncementCallbackFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures, requestPeersHandler);
+
+            _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
 
         { // Initialize NodeManager...

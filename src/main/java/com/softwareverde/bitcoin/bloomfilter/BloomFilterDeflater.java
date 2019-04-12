@@ -14,6 +14,7 @@ public class BloomFilterDeflater {
         final Integer bloomFilterBitCount = (bloomFilterByteCount * 8);
         final Long nonce = bloomFilter.getNonce();
         final Integer hashFunctionCount = bloomFilter.getHashFunctionCount();
+        final byte updateMode = bloomFilter.getUpdateMode();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(bloomFilterByteCount));
@@ -33,7 +34,7 @@ public class BloomFilterDeflater {
         }
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(hashFunctionCount), Endian.LITTLE);
         byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(nonce), Endian.LITTLE);
-        byteArrayBuilder.appendByte((byte) 0x01);
+        byteArrayBuilder.appendByte(updateMode);
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
 }

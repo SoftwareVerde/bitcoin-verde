@@ -44,7 +44,6 @@ import java.util.Set;
 import java.util.TreeSet;
 
 public class TransactionDatabaseManager {
-    public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
     // TODO: Inserting a transaction requires a write lock...
 
     // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
@@ -211,18 +210,6 @@ public class TransactionDatabaseManager {
                 .setParameter(lockTime.getValue())
                 .setParameter(transactionId)
         );
-    }
-
-    protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
-                .setParameter(blockId)
-        );
-
-        if (rows.isEmpty()) { return null; }
-        final Row row = rows.get(0);
-
-        return row.getInteger("transaction_count");
     }
 
     protected List<BlockId> _getBlockIds(final TransactionId transactionId) throws DatabaseException {
@@ -597,33 +584,6 @@ public class TransactionDatabaseManager {
         return allTransactionIds;
     }
 
-    public void associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
-        synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
-            final Integer currentTransactionCount = _getTransactionCount(blockId);
-            _databaseConnection.executeSql(
-                new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
-                    .setParameter(blockId)
-                    .setParameter(transactionId)
-                    .setParameter(currentTransactionCount)
-            );
-        }
-    }
-
-    public void associateTransactionsToBlock(final List<TransactionId> transactionIds, final BlockId blockId) throws DatabaseException {
-        synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
-            final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
-            int sortOrder = 0;
-            for (final TransactionId transactionId : transactionIds) {
-                batchedInsertQuery.setParameter(blockId);
-                batchedInsertQuery.setParameter(transactionId);
-                batchedInsertQuery.setParameter(sortOrder);
-                sortOrder += 1;
-            }
-
-            _databaseConnection.executeSql(batchedInsertQuery);
-        }
-    }
-
     public TransactionId getTransactionId(final Sha256Hash transactionHash) throws DatabaseException {
         return _getTransactionIdFromHash(transactionHash);
     }
@@ -766,10 +726,6 @@ public class TransactionDatabaseManager {
         final Row row = rows.get(0);
 
         return row.getInteger("transaction_count");
-    }
-
-    public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
-        return _getTransactionCount(blockId);
     }
 
     public BlockId getBlockId(final BlockchainSegmentId blockchainSegmentId, final TransactionId transactionId) throws DatabaseException {

@@ -15,6 +15,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 
 public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     protected static class StartingBlock {
@@ -35,6 +36,10 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         _databaseManagerCache = databaseManagerCache;
     }
 
+    /**
+     * Returns the children BlockIds of the provided blockId, until either maxCount is reached or desiredBlockHash is reached.
+     *  The returned list of BlockIds does not include blockId.
+     */
     protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final BlockHeaderDatabaseManager blockDatabaseManager) throws DatabaseException {
         final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
 
@@ -43,7 +48,9 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHash(nextBlockId);
             if (addedBlockHash == null) { break; }
 
-            returnedBlockIds.add(nextBlockId);
+            if (! Util.areEqual(blockId, nextBlockId)) {
+                returnedBlockIds.add(nextBlockId);
+            }
 
             if (addedBlockHash.equals(desiredBlockHash)) { break; }
             if (returnedBlockIds.getSize() >= maxCount) { break; }
