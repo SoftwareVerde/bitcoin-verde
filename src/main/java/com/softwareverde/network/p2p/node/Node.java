@@ -430,12 +430,7 @@ public abstract class Node {
      * NodeConnection::connect must be called, even if the underlying socket was already connected.
      */
     public void connect() {
-        if (_connection.isConnected()) {
-            _onConnect();
-        }
-        else {
-            _connection.connect();
-        }
+        _connection.connect();
     }
 
     public void disconnect() {
