@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.handler.block;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -39,6 +40,10 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
 
             final InventoryMessage responseMessage = new InventoryMessage();
             {
+                if (! startingBlock.matchWasFound) {
+                    responseMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, BlockHeader.GENESIS_BLOCK_HASH));
+                }
+
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
