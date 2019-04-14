@@ -38,18 +38,23 @@ public class QueryBlocksHandler extends AbstractQueryBlocksHandler implements Bi
                 return;
             }
 
+            Sha256Hash lastBlockHash = null;
             final InventoryMessage responseMessage = new InventoryMessage();
             {
                 if (! startingBlock.matchWasFound) {
                     responseMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, BlockHeader.GENESIS_BLOCK_HASH));
+                    lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
                 }
 
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, QueryBlocksMessage.MAX_BLOCK_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
                     responseMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
+                    lastBlockHash = blockHash;
                 }
             }
+
+            bitcoinNode.setBatchContinueHash(lastBlockHash);
 
             { // Debug Logging...
                 final Sha256Hash firstBlockHash = ((! blockHashes.isEmpty()) ? blockHashes.get(0) : null);

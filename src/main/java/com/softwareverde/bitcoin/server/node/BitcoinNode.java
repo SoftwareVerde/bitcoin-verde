@@ -226,6 +226,7 @@ public class BitcoinNode extends Node {
 
     protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.UPDATE_ALL; // TODO
     protected MutableBloomFilter _bloomFilter = null;
+    protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
 
     @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
@@ -1109,6 +1110,23 @@ public class BitcoinNode extends Node {
     public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
         return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, updateBloomFilterMode);
+    }
+
+    public void setBatchContinueHash(final Sha256Hash hash) {
+        _batchContinueHash = (hash != null ? hash.asConst() : null);
+    }
+
+    public Sha256Hash getBatchContinueHash() {
+        return _batchContinueHash;
+    }
+
+    // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
+    public void transmitBatchContinueHash(final Sha256Hash headBlockHash) {
+        final InventoryMessage inventoryMessage = new InventoryMessage();
+        final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, headBlockHash);
+        inventoryMessage.addInventoryItem(inventoryItem);
+        _queueMessage(inventoryMessage);
+        Logger.log("Transmitting Batch Continue: " + headBlockHash);
     }
 
     @Override

@@ -20,6 +20,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
@@ -76,6 +77,12 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         getBlockDataTimer.stop();
                         Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+
+                        final Sha256Hash batchContinueHash = bitcoinNode.getBatchContinueHash();
+                        if (Util.areEqual(batchContinueHash, blockHash)) {
+                            final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                            bitcoinNode.transmitBatchContinueHash(headBlockHash);
+                        }
                     } break;
 
                     case TRANSACTION: {
