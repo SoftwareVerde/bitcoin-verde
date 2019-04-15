@@ -350,6 +350,8 @@ public class NodeModule {
             }
         };
 
+        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache));
+
         { // Initialize NodeInitializer...
             final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
 
@@ -367,7 +369,7 @@ public class NodeModule {
             nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, newInventoryCallback);
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            nodeInitializerProperties.requestDataCallback = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache));
+            nodeInitializerProperties.requestDataCallback = requestDataHandler;
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
@@ -566,6 +568,9 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.NewTransactionProcessedCallback() {
                 @Override
                 public void onNewTransaction(final Transaction transaction) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    requestDataHandler.addTransactionHash(transactionHash);
+
                     final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
                     if (nodeRpcHandler != null) {
                         try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {

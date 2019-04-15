@@ -32,6 +32,15 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
 
     protected final BitcoinNode.RequestDataCallback _core;
 
+    protected void _checkFalsePositives() {
+        final Float falsePositiveRate = PREVIOUS_TRANSACTIONS.getFalsePositiveRate(FILTER_TRANSACTION_COUNT);
+        if (falsePositiveRate >= MAX_FALSE_POSITIVE_RATE) {
+            Logger.log("Resetting BanningRequestDataHandler BloomFilter. Item Count: " + FILTER_TRANSACTION_COUNT);
+            PREVIOUS_TRANSACTIONS.clear();
+            FILTER_TRANSACTION_COUNT = 0L;
+        }
+    }
+
     protected RequestDataHandlerMonitor(final BitcoinNode.RequestDataCallback core) {
         _core = core;
     }
@@ -50,17 +59,12 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     final Container<Integer> nodeScore = NODE_SCORES.get(bitcoinNode);
                     nodeScore.value += ((transactionWasSeenBefore ? 1 : -1));
                     if (nodeScore.value < BAN_THRESHOLD) {
-                        Logger.log("Disconnecting BitcoinNode " + bitcoinNode.getHost() + "/" + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions.");
+                        Logger.log("Disconnecting BitcoinNode " + bitcoinNode.getIp() + bitcoinNode.getUserAgent() + " - Requesting too many unusual Transactions. Score: " + nodeScore.value);
                         bitcoinNode.disconnect(); // TODO: Consider banning node...
                         return;
                     }
 
-                    final Float falsePositiveRate = PREVIOUS_TRANSACTIONS.getFalsePositiveRate(FILTER_TRANSACTION_COUNT);
-                    if (falsePositiveRate >= MAX_FALSE_POSITIVE_RATE) {
-                        Logger.log("Resetting BanningRequestDataHandler BloomFilter.");
-                        PREVIOUS_TRANSACTIONS.clear();
-                        FILTER_TRANSACTION_COUNT = 0L;
-                    }
+                    _checkFalsePositives();
 
                     if (! transactionWasSeenBefore) {
                         PREVIOUS_TRANSACTIONS.addItem(transactionHash);
@@ -70,6 +74,22 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
             }
 
             _core.run(dataHashes, bitcoinNode);
+        }
+    }
+
+    /**
+     * TransactionHashes added via this method will not penalize nodes for requesting them.
+     *  NOTE: Transactions added via this method will no longer be safe after the filter has become full.
+     */
+    public void addTransactionHash(final Sha256Hash transactionHash) {
+        synchronized (MUTEX) {
+            _checkFalsePositives();
+
+            final Boolean transactionWasSeenBefore = PREVIOUS_TRANSACTIONS.containsItem(transactionHash);
+            if (! transactionWasSeenBefore) {
+                PREVIOUS_TRANSACTIONS.addItem(transactionHash);
+                FILTER_TRANSACTION_COUNT += 1L;
+            }
         }
     }
 }
