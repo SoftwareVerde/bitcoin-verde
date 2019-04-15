@@ -66,10 +66,12 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
 
                     _checkFalsePositives();
 
-                    if (! transactionWasSeenBefore) {
-                        PREVIOUS_TRANSACTIONS.addItem(transactionHash);
-                        FILTER_TRANSACTION_COUNT += 1L;
-                    }
+                    // NOTE: Adding other requested transactions is disabled because attackers often request the same unusual transactions.
+                    //  Instead, the Monitor is filled to represent the state of the MemPool via RequestDataHandlerMonitor::addTransactionHash.
+                    // if (! transactionWasSeenBefore) {
+                    //     PREVIOUS_TRANSACTIONS.addItem(transactionHash);
+                    //     FILTER_TRANSACTION_COUNT += 1L;
+                    // }
                 }
             }
 
