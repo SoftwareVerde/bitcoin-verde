@@ -367,7 +367,7 @@ public class NodeModule {
             nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, newInventoryCallback);
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            nodeInitializerProperties.requestDataCallback = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.requestDataCallback = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache));
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
