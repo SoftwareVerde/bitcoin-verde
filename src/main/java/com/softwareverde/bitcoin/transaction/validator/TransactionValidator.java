@@ -123,7 +123,7 @@ public class TransactionValidator {
         return true;
     }
 
-    protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight) throws DatabaseException {
+    protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight, final Boolean validateForMemoryPool) throws DatabaseException {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
 
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
@@ -165,7 +165,7 @@ public class TransactionValidator {
                 }
                 else {
                     final Long blockHeightContainingOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeight(blockIdContainingOutputBeingSpent);
-                    final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
+                    final Long blockCount = ( (blockHeight - blockHeightContainingOutputBeingSpent) + (validateForMemoryPool ? 1 : 0) );
                     final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
                     final Boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
@@ -295,7 +295,7 @@ public class TransactionValidator {
         if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
                 try {
-                    final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockchainSegmentId, transaction, blockHeight);
+                    final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockchainSegmentId, transaction, blockHeight, validateForMemoryPool);
                     if (! sequenceNumbersAreValid) {
                         if (_shouldLogInvalidTransactions) {
                             Logger.log("Transaction SequenceNumber validation failed.");
