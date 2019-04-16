@@ -460,4 +460,15 @@ public abstract class Node {
     public String toString() {
         return _connection.toString();
     }
+
+    @Override
+    public int hashCode() {
+        return _id.hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Node)) { return false; }
+        return Util.areEqual(_id, ((Node) object)._id);
+    }
 }

@@ -29,7 +29,7 @@ public class BitcoinVerdeDatabase extends Database {
     public static final InitFile STRATUM = new InitFile("/queries/stratum_init.sql", 1);
 
     public static Database newInstance(final InitFile initFile, final Configuration.DatabaseProperties databaseProperties) {
-        return newInstance(initFile, databaseProperties, 512, new Runnable() {
+        return newInstance(initFile, databaseProperties, new Runnable() {
             @Override
             public void run() {
                 // Nothing.
@@ -37,7 +37,7 @@ public class BitcoinVerdeDatabase extends Database {
         });
     }
 
-    public static Database newInstance(final InitFile sqlInitFile, final Configuration.DatabaseProperties databaseProperties, final Integer maxPeerCount, final Runnable onShutdownCallback) {
+    public static Database newInstance(final InitFile sqlInitFile, final Configuration.DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
         final DatabaseInitializer databaseInitializer = new DatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, new DatabaseInitializer.DatabaseUpgradeHandler() {
             @Override
             public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }
@@ -47,7 +47,7 @@ public class BitcoinVerdeDatabase extends Database {
             if (databaseProperties.useEmbeddedDatabase()) {
                 // Initialize the embedded database...
                 final DatabaseCommandLineArguments commandLineArguments = new DatabaseCommandLineArguments();
-                final Integer maxDatabaseThreadCount = Math.max(512, (maxPeerCount * 8));
+                final Integer maxDatabaseThreadCount = 100000; // Maximum supported by MySql...
                 DatabaseConfigurer.configureCommandLineArguments(commandLineArguments, maxDatabaseThreadCount, databaseProperties);
 
                 Logger.log("[Initializing Database]");

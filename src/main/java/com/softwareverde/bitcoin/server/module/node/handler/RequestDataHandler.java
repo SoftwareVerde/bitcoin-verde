@@ -23,6 +23,8 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
+import java.util.HashSet;
+
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
         @Override
@@ -46,7 +48,14 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
+            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getSize());
+
             for (final InventoryItem inventoryItem : dataHashes) {
+                { // Avoid duplicate inventoryItems... This was encountered during the initial block download of an Android SPV wallet.
+                    if (processedDataHashes.contains(inventoryItem)) { continue; }
+                    processedDataHashes.add(inventoryItem);
+                }
+
                 switch (inventoryItem.getItemType()) {
 
                     case MERKLE_BLOCK:

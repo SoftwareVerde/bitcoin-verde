@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
@@ -37,6 +38,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.Transaction
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -73,6 +75,7 @@ public class NodeModule {
 
     protected final Configuration _configuration;
     protected final Environment _environment;
+    protected DatabaseConnectionPool _databaseConnectionPool;
 
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final BinarySocketServer _socketServer;
@@ -224,6 +227,7 @@ public class NodeModule {
 
         Logger.log("[Shutting Down Database]");
         _banFilter.close(); // Close the database connections within the BanFilter...
+        _databaseConnectionPool.close();
         _environment.getMasterDatabaseManagerCache().close();
 
         try { _databaseMaintenanceThread.join(30000L); } catch (final InterruptedException exception) { }
@@ -267,7 +271,7 @@ public class NodeModule {
             }
         });
 
-        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, bitcoinProperties.getMaxPeerCount(), new Runnable() {
+        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, new Runnable() {
             @Override
             public void run() {
                 _shutdown();
@@ -276,6 +280,7 @@ public class NodeModule {
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
+            throw new RuntimeException("");
         }
         Logger.log("[Database Online]");
 
@@ -295,9 +300,10 @@ public class NodeModule {
 
         _environment = new Environment(database, masterDatabaseManagerCache);
 
-        final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+        final DatabaseConnectionFactory rawDatabaseConnectionFactory = database.newConnectionFactory();
+        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(512, (maxPeerCount * 8)), 5000L);
 
-        _banFilter = new BanFilter(databaseConnectionFactory);
+        _banFilter = new BanFilter(_databaseConnectionPool);
 
         final MutableMedianBlockTime medianBlockTime;
         final MutableMedianBlockTime medianBlockHeaderTime;
@@ -305,7 +311,7 @@ public class NodeModule {
             {
                 MutableMedianBlockTime newMedianBlockTime = null;
                 MutableMedianBlockTime newMedianBlockHeaderTime = null;
-                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
                     final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
                     newMedianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
                     newMedianBlockHeaderTime = blockHeaderDatabaseManager.initializeMedianBlockHeaderTime();
@@ -319,17 +325,17 @@ public class NodeModule {
             }
         }
 
-        final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-        final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+        final SynchronizationStatusHandler synchronizationStatusHandler = new SynchronizationStatusHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
+        final MemoryPoolEnquirer memoryPoolEnquirer = new MemoryPoolEnquirerHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
 
         final BlockInventoryMessageHandler blockInventoryMessageHandler;
         {
-            blockInventoryMessageHandler = new BlockInventoryMessageHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, synchronizationStatusHandler);
+            blockInventoryMessageHandler = new BlockInventoryMessageHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache, synchronizationStatusHandler);
         }
 
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
 
-        final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
+        final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
                 return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _mainThreadPool);
@@ -350,6 +356,21 @@ public class NodeModule {
             }
         };
 
+        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(new RequestDataHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache));
+        { // Initialize the monitor with transactions from the memory pool...
+            Logger.log("[Loading RequestDataHandlerMonitor]");
+            try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
+                final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
+                for (final TransactionId transactionId : transactionDatabaseManager.getUnconfirmedTransactionIds()) {
+                    final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
+                    requestDataHandler.addTransactionHash(transactionHash);
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+            }
+        }
+
         { // Initialize NodeInitializer...
             final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
 
@@ -362,13 +383,13 @@ public class NodeModule {
 
             nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerProperties.blockInventoryMessageHandler = blockInventoryMessageHandler;
-            nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
+            nodeInitializerProperties.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
-            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(databaseConnectionFactory, readOnlyDatabaseManagerCache, newInventoryCallback);
-            nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            nodeInitializerProperties.requestDataCallback = new RequestDataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(_databaseConnectionPool, readOnlyDatabaseManagerCache, newInventoryCallback);
+            nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
+            nodeInitializerProperties.requestDataCallback = requestDataHandler;
+            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
@@ -386,47 +407,47 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
-            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, threadPoolFactory, localNodeFeatures);
+            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, _databaseConnectionPool, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, nodeThreadPoolFactory, localNodeFeatures);
         }
 
         { // Initialize the TransactionDownloader...
-            _transactionDownloader = new TransactionDownloader(_bitcoinNodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            _transactionDownloader = new TransactionDownloader(_bitcoinNodeManager, _databaseConnectionPool, readOnlyDatabaseManagerCache);
         }
 
         { // Initialize the TransactionProcessor...
-            _transactionProcessor = new TransactionProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _bitcoinNodeManager);
+            _transactionProcessor = new TransactionProcessor(_databaseConnectionPool, readOnlyDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, _bitcoinNodeManager);
         }
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(databaseConnectionFactory, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
+            blockProcessor = new BlockProcessor(_databaseConnectionPool, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
 
         { // Initialize the BlockDownloader...
-            _blockDownloader = new BlockDownloader(_bitcoinNodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            _blockDownloader = new BlockDownloader(_bitcoinNodeManager, _databaseConnectionPool, readOnlyDatabaseManagerCache);
         }
 
-        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(databaseConnectionFactory, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
+        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(_databaseConnectionPool, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
 
         { // Initialize BlockHeaderDownloader...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseConnectionFactory, readOnlyDatabaseManagerCache, _bitcoinNodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(_databaseConnectionPool, readOnlyDatabaseManagerCache, _bitcoinNodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);
         }
 
         { // Initialize BlockchainBuilder...
-            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseConnectionFactory, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
+            _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, _databaseConnectionPool, readOnlyDatabaseManagerCache, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
         if (bitcoinProperties.shouldTrimBlocks()) {
             _addressProcessor = new DisabledAddressProcessor();
         }
         else {
-            _addressProcessor = new AddressProcessor(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+            _addressProcessor = new AddressProcessor(_databaseConnectionPool, readOnlyDatabaseManagerCache);
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-        final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseConnectionFactory, localDatabaseCache);
+        final BlockTrimmer blockTrimmer = new BlockTrimmer(_databaseConnectionPool, localDatabaseCache);
 
         { // Set the synchronization elements to cascade to each component...
             _blockchainBuilder.setNewBlockProcessedCallback(new BlockchainBuilder.NewBlockProcessedCallback() {
@@ -455,7 +476,7 @@ public class NodeModule {
                         _blockHeaderDownloader.wakeUp();
                     }
 
-                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
                         final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, localDatabaseCache);
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
                         final BlockId newBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -517,7 +538,7 @@ public class NodeModule {
                 public void run() {
                     _blockDownloader.wakeUp();
 
-                    try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseCache);
                         final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
@@ -566,9 +587,12 @@ public class NodeModule {
             _transactionProcessor.setNewTransactionProcessedCallback(new TransactionProcessor.NewTransactionProcessedCallback() {
                 @Override
                 public void onNewTransaction(final Transaction transaction) {
+                    final Sha256Hash transactionHash = transaction.getHash();
+                    requestDataHandler.addTransactionHash(transactionHash);
+
                     final NodeRpcHandler nodeRpcHandler = _nodeRpcHandler;
                     if (nodeRpcHandler != null) {
-                        try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                        try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
                             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, readOnlyDatabaseManagerCache);
                             nodeRpcHandler.onNewTransaction(new TransactionWithFee(transaction, transactionDatabaseManager.calculateTransactionFee(transaction)));
                         }
@@ -620,11 +644,11 @@ public class NodeModule {
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
-                final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+                final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
-                final DataHandler dataHandler = new DataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
-                final MetadataHandler metadataHandler = new MetadataHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
-                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(databaseConnectionFactory, readOnlyDatabaseManagerCache);
+                final DataHandler dataHandler = new DataHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
+                final MetadataHandler metadataHandler = new MetadataHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
+                final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
 
                 final ServiceInquisitor serviceInquisitor = new ServiceInquisitor();
                 for (final SleepyService sleepyService : new SleepyService[]{ _addressProcessor, _transactionProcessor, _transactionDownloader, _blockchainBuilder, _blockDownloader, _blockHeaderDownloader }) {
@@ -654,7 +678,7 @@ public class NodeModule {
 
         _transactionBloomFilterFilename = (databaseProperties.getDataDirectory() + "/transaction-bloom-filter.dat");
 
-        try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, localDatabaseCache);
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -675,7 +699,7 @@ public class NodeModule {
         }
 
         { // Initialize the DatabaseMaintenance Thread...
-            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(databaseConnectionFactory);
+            final DatabaseMaintainer databaseMaintainer = new DatabaseMaintainer(_databaseConnectionPool);
             _databaseMaintenanceThread = new Thread(new Runnable() {
                 @Override
                 public void run() {

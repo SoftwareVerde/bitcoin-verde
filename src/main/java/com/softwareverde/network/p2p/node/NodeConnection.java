@@ -344,12 +344,17 @@ public class NodeConnection {
             }
         }
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                _writeOrQueueMessage(message);
-            }
-        });
+        // NOTE: Queuing the message into the ThreadPool can cause significant memory usage for large message if the message
+        //  remains in the queue for its duration.
+        //  This could be mediated by pushing the write to the front of the queue...
+        _writeOrQueueMessage(message);
+
+        // _threadPool.execute(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         _writeOrQueueMessage(message);
+        //     }
+        // });
     }
 
     public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {
