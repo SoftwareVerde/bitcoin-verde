@@ -335,7 +335,7 @@ public class NodeModule {
 
         final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(readOnlyDatabaseManagerCache);
 
-        final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
+        final ThreadPoolFactory nodeThreadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
                 return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _mainThreadPool);
@@ -383,7 +383,7 @@ public class NodeModule {
 
             nodeInitializerProperties.synchronizationStatus = synchronizationStatusHandler;
             nodeInitializerProperties.blockInventoryMessageHandler = blockInventoryMessageHandler;
-            nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
+            nodeInitializerProperties.threadPoolFactory = nodeThreadPoolFactory;
             nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
             nodeInitializerProperties.transactionsAnnouncementCallbackFactory = new TransactionInventoryMessageHandlerFactory(_databaseConnectionPool, readOnlyDatabaseManagerCache, newInventoryCallback);
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
@@ -407,7 +407,7 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
-            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, _databaseConnectionPool, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, threadPoolFactory, localNodeFeatures);
+            _bitcoinNodeManager = new BitcoinNodeManager(maxPeerCount, _databaseConnectionPool, readOnlyDatabaseManagerCache, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, nodeThreadPoolFactory, localNodeFeatures);
         }
 
         { // Initialize the TransactionDownloader...
