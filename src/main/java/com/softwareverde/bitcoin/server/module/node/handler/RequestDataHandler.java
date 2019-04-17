@@ -56,6 +56,8 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                     processedDataHashes.add(inventoryItem);
                 }
 
+                if (! bitcoinNode.isConnected()) { break; }
+
                 switch (inventoryItem.getItemType()) {
 
                     case MERKLE_BLOCK:

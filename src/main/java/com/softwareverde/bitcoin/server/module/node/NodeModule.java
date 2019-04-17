@@ -301,7 +301,8 @@ public class NodeModule {
         _environment = new Environment(database, masterDatabaseManagerCache);
 
         final DatabaseConnectionFactory rawDatabaseConnectionFactory = database.newConnectionFactory();
-        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(512, (maxPeerCount * 8)), 5000L);
+        // _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(512, (maxPeerCount * 8)), 5000L);
+        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, 64);
 
         _banFilter = new BanFilter(_databaseConnectionPool);
 
@@ -804,11 +805,13 @@ public class NodeModule {
         _databaseMaintenanceThread.start();
 
         while (! Thread.interrupted()) { // NOTE: Clears the isInterrupted flag for subsequent checks...
-            try { Thread.sleep(60000); } catch (final Exception exception) { break; }
+            try { Thread.sleep(10000); } catch (final Exception exception) { break; }
 
             Logger.log("Current Memory Usage: " + (runtime.totalMemory() - runtime.freeMemory()) + " bytes | MAX=" + runtime.maxMemory() + " TOTAL=" + runtime.totalMemory() + " FREE=" + runtime.freeMemory());
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
             Logger.log("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
+
+            Logger.log("Instance Count: " + DatabaseConnectionPool.instanceCount.get() + " | Close Count: " + DatabaseConnectionPool.discardCount.get() + " | Connection Count: " + _databaseConnectionPool._aliveConnectionCount.get() + " | List Size: " + _databaseConnectionPool._mysqlDatabaseConnections.size() + " | Issue Count: " + DatabaseConnectionPool.issueCount.get());
         }
 
         System.exit(0);

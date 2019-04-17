@@ -70,6 +70,6 @@ public class DatabaseConnectionPoolTests extends IntegrationTest {
         // Assert
         final Integer newConnectionCount = _getCurrentConnectionCount(databaseConnection);
         Assert.assertEquals(baselineConnectionCount, newConnectionCount);
-        Assert.assertEquals(0, databaseConnectionPool._connectionCount.intValue());
+        Assert.assertEquals(0, databaseConnectionPool._aliveConnectionCount.intValue());
     }
 }

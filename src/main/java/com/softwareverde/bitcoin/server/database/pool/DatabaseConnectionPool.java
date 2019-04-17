@@ -4,16 +4,20 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.timer.MilliTimer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class DatabaseConnectionPool extends DatabaseConnectionFactory implements AutoCloseable {
+    public static final AtomicInteger instanceCount = new AtomicInteger(0);
+    public static final AtomicInteger discardCount = new AtomicInteger(0);
+    public static final AtomicInteger issueCount = new AtomicInteger(0);
     public static final Long DEFAULT_DEADLOCK_TIMEOUT = 30000L; // The number of milliseconds the pool will wait before allowing the maximum pool count to be exceeded.
 
     protected static boolean isConnectionAlive(final MysqlDatabaseConnection databaseConnection) {
@@ -34,9 +38,9 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
     }
 
     protected final class CachedDatabaseConnection extends MysqlDatabaseConnection {
-
         public CachedDatabaseConnection(final Connection rawConnection) {
             super(rawConnection);
+            instanceCount.incrementAndGet();
         }
 
         public void superClose() throws DatabaseException {
@@ -45,43 +49,13 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
 
         @Override
         public void close() {
-            final Connection rawConnection = this.getRawConnection();
-            boolean connectionShouldBeCached;
-            try {
-                final boolean isClosed = rawConnection.isClosed();
-                if (isClosed) {
-                    connectionShouldBeCached = false;
-                }
-                else {
-                    // Reset connection...
-                    try {
-                        DatabaseConnectionPool.resetConnectionState(rawConnection);
-                        connectionShouldBeCached = DatabaseConnectionPool.isConnectionAlive(this);
-                    }
-                    catch (Exception exception) {
-                        Logger.log("NOTICE: Unable to resetting database connection.");
-                        Logger.log(exception);
-                        connectionShouldBeCached = false;
-                    }
-                }
-            }
-            catch (final Exception exception) {
-                connectionShouldBeCached = false;
+            issueCount.decrementAndGet();
+            if (_isAtMaxCapacity()) {
+                _discardCachedConnection(this);
+                return;
             }
 
-            final boolean queueIsFull = (_mysqlDatabaseConnections.size() >= _maxConnectionCount);
-
-            if (connectionShouldBeCached && (! queueIsFull)) {
-                _mysqlDatabaseConnections.add(this);
-            }
-            else {
-                _connectionCount.addAndGet(-1);
-                try { this.superClose(); } catch (final DatabaseException exception) { }
-            }
-
-            synchronized (_mutex) {
-                _mutex.notify();
-            }
+            _returnCachedConnection(this);
         }
     }
 
@@ -89,9 +63,72 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
     protected final Integer _maxConnectionCount;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final Long _deadlockTimeout;
-    protected AtomicInteger _connectionCount = new AtomicInteger(0);
-    protected Boolean _isShutdown = false;
-    protected final ConcurrentLinkedQueue<CachedDatabaseConnection> _mysqlDatabaseConnections = new ConcurrentLinkedQueue<CachedDatabaseConnection>();
+    public final AtomicInteger _aliveConnectionCount = new AtomicInteger(0);
+    protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
+    public final ConcurrentLinkedQueue<CachedDatabaseConnection> _mysqlDatabaseConnections = new ConcurrentLinkedQueue<CachedDatabaseConnection>();
+
+    protected boolean _isAtMaxCapacity() {
+        return (_aliveConnectionCount.get() >= _maxConnectionCount);
+    }
+
+    protected CachedDatabaseConnection _createNewCachedConnection() throws DatabaseException {
+        final CachedDatabaseConnection newConnection;
+        try {
+            final DatabaseConnection newUnwrappedDatabaseConnection = _databaseConnectionFactory.newConnection();
+            final CachedDatabaseConnection newCachedDatabaseConnection = new CachedDatabaseConnection(newUnwrappedDatabaseConnection.getRawConnection());
+            newConnection = newCachedDatabaseConnection;
+        }
+        catch (final Exception exception) {
+            if (exception instanceof DatabaseException) { throw exception; }
+            throw new DatabaseException(exception);
+        }
+
+        _aliveConnectionCount.incrementAndGet();
+        return newConnection;
+    }
+
+    protected void _returnCachedConnection(final CachedDatabaseConnection cachedDatabaseConnection) {
+        try {
+            DatabaseConnectionPool.resetConnectionState(cachedDatabaseConnection.getRawConnection());
+        }
+        catch (final Exception exception) {
+            Logger.log(exception);
+            return;
+        }
+
+        _mysqlDatabaseConnections.add(cachedDatabaseConnection);
+        synchronized (_mutex) {
+            _mutex.notify();
+        }
+    }
+
+    protected void _discardCachedConnection(final CachedDatabaseConnection cachedDatabaseConnection) {
+        _aliveConnectionCount.decrementAndGet();
+        try { cachedDatabaseConnection.superClose(); } catch (final Exception exception) { }
+        discardCount.incrementAndGet();
+    }
+
+    protected CachedDatabaseConnection _getCachedConnection() {
+        while (true) {
+            final CachedDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
+            if (cachedDatabaseConnection == null) { return null; }
+
+            if (! DatabaseConnectionPool.isConnectionAlive(cachedDatabaseConnection)) {
+                _discardCachedConnection(cachedDatabaseConnection);
+                continue;
+            }
+
+            try {
+                DatabaseConnectionPool.resetConnectionState(cachedDatabaseConnection.getRawConnection());
+            }
+            catch (final Exception exception) {
+                _discardCachedConnection(cachedDatabaseConnection);
+                continue;
+            }
+
+            return cachedDatabaseConnection;
+        }
+    }
 
     public DatabaseConnectionPool(final DatabaseConnectionFactory mysqlDatabaseConnectionFactory, final Integer maxConnectionCount) {
         super(mysqlDatabaseConnectionFactory);
@@ -111,59 +148,49 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
 
     @Override
     public DatabaseConnection newConnection() throws DatabaseException {
-        if (_isShutdown) { throw new DatabaseException("Connection pool has been shutdown."); }
+        int waitDuration = 0;
+        while (true) {
+            if (_isShutdown.get()) { throw new DatabaseException("Connection pool has been shutdown."); }
 
-        while (true) { // Check if there is an available cached connection...
-            final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
-            if (cachedDatabaseConnection == null) { break; }
+            final CachedDatabaseConnection cachedDatabaseConnection = _getCachedConnection();
+            if (cachedDatabaseConnection != null) { issueCount.incrementAndGet(); return new DatabaseConnectionWrapper(cachedDatabaseConnection); }
 
-            if (DatabaseConnectionPool.isConnectionAlive(cachedDatabaseConnection)) {
-                return new DatabaseConnectionWrapper(cachedDatabaseConnection);
-            }
-        }
-
-        synchronized (_mutex) {
-            final Boolean isAtMaxCapacity = (_connectionCount.get() >= _maxConnectionCount);
-            if (isAtMaxCapacity) {
-                try {
-                    _mutex.wait(_deadlockTimeout);
-
-                    final Boolean stillIsAtMaxCapacity = (_connectionCount.get() >= _maxConnectionCount);
-                    if (stillIsAtMaxCapacity) {
-                        // If the connectionCount is still at max capacity, then this is likely either a deadlock scenario or the database is under high contention.
-                        //  In this scenario, we will allow the pool to exceed the maximum connection count.
-                        Logger.log("NOTICE: DatabaseConnectionPool exceeding capacity to mitigate deadlock.");
-                        Logger.log(new Exception());
-                        return _databaseConnectionFactory.newConnection();
-                    }
+            synchronized (_mutex) {
+                if (! _isAtMaxCapacity()) {
+                    issueCount.incrementAndGet();
+                    return new DatabaseConnectionWrapper(_createNewCachedConnection());
                 }
-                catch (final InterruptedException exception) { throw new DatabaseException(exception); }
+
+                if (waitDuration >= _deadlockTimeout) {
+                    Logger.log("NOTICE: DatabaseConnectionPool exceeding capacity to mitigate deadlock.");
+                    Logger.log(new Exception());
+                    issueCount.incrementAndGet();
+                    return new DatabaseConnectionWrapper(_createNewCachedConnection());
+                }
+
+                final MilliTimer waitTimer = new MilliTimer();
+                waitTimer.start();
+                { // Time the duration actually waited.  Early notifies can happen organically or if another thread (that hasn't waited) is fighting over ownership of the next item...
+                    try {
+                        _mutex.wait(_deadlockTimeout);
+                    }
+                    catch (final InterruptedException exception) { throw new DatabaseException(exception); }
+                }
+                waitTimer.stop();
+                waitDuration += waitTimer.getMillisecondsElapsed();
             }
         }
-
-        { // Check again if there is now an available cached connection made available by close...
-            final MysqlDatabaseConnection cachedDatabaseConnection = _mysqlDatabaseConnections.poll();
-            if (cachedDatabaseConnection != null) {
-                return new DatabaseConnectionWrapper(cachedDatabaseConnection);
-            }
-        }
-
-        final DatabaseConnection mysqlDatabaseConnection = _databaseConnectionFactory.newConnection();
-        _connectionCount.incrementAndGet();
-
-        return new DatabaseConnectionWrapper(new CachedDatabaseConnection(mysqlDatabaseConnection.getRawConnection()));
     }
 
     @Override
     public void close() {
-        _isShutdown = true;
+        _isShutdown.set(true);
 
         synchronized (_mutex) {
             CachedDatabaseConnection cachedConnection;
             while ((cachedConnection = _mysqlDatabaseConnections.poll()) != null) {
                 try {
-                    cachedConnection.superClose();
-                    cachedConnection.close();
+                    _discardCachedConnection(cachedConnection);
                 }
                 catch (final Exception exception) { }
             }
