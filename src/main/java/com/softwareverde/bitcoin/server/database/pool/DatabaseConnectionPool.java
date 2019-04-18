@@ -1,13 +1,18 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
+import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,10 +49,11 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
 
     protected CachedDatabaseConnection _createNewCachedConnection() throws DatabaseException {
         final DatabaseConnection newUnwrappedDatabaseConnection = _databaseConnectionFactory.newConnection();
-        final CachedDatabaseConnection newCachedDatabaseConnection = CachedDatabaseConnection.assignToPool(this, newUnwrappedDatabaseConnection);
+        final CachedDatabaseConnection cachedDatabaseConnection = CachedDatabaseConnection.assignToPool(this, newUnwrappedDatabaseConnection);
 
         _aliveConnectionCount.incrementAndGet();
-        return newCachedDatabaseConnection;
+        cachedDatabaseConnection.enable();
+        return cachedDatabaseConnection;
     }
 
     protected void _returnCachedConnection(final CachedDatabaseConnection cachedDatabaseConnection) {
@@ -59,6 +65,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
             return;
         }
 
+        cachedDatabaseConnection.disable();
         _pooledDatabaseConnections.add(cachedDatabaseConnection);
         synchronized (_mutex) {
             _mutex.notify();
@@ -92,6 +99,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
                 continue;
             }
 
+            cachedDatabaseConnection.enable();
             return cachedDatabaseConnection;
         }
     }
@@ -227,6 +235,33 @@ class CachedDatabaseConnection extends DatabaseConnection {
 
     protected final DatabaseConnectionPool _databaseConnectionPool;
 
+    /**
+     * DatabaseConnections are disabled while parked within the pool in order to reduce the chance that a thread is attempting to reuse a connection that has been closed.
+     *  This is erroneous state is still possible despite the mitigation.
+     *  If the DatabaseConnection is removed from the pool before the original owner executes a query, then it will not know it had been closed.
+     */
+    protected Boolean _isEnabled = true;
+
+    /**
+     * DatabaseConnections are not thread-safe, and in order to prevent multiple threads from obtaining the same DatabaseConnections from the pool the owning ThreadId is validated at query time.
+     */
+    protected Long _ownerThreadId = null;
+
+    protected void _assertConnectionIsEnabled() throws DatabaseException {
+        if (! _isEnabled) {
+            throw new DatabaseException("Connection closed.");
+        }
+    }
+
+    protected void _assertThreadOwner() throws DatabaseException {
+        final Thread currentThread = Thread.currentThread();
+        final Long currentThreadId = currentThread.getId();
+        if (! Util.areEqual(_ownerThreadId, currentThreadId)) {
+            if (_ownerThreadId != null) { throw new DatabaseException("Attempted to use DatabaseConnection across multiple threads."); }
+            _ownerThreadId = currentThreadId;
+        }
+    }
+
     private CachedDatabaseConnection(final DatabaseConnectionPool databaseConnectionPool, final DatabaseConnection coreConnection) {
         super(coreConnection);
         _databaseConnectionPool = databaseConnectionPool;
@@ -238,13 +273,67 @@ class CachedDatabaseConnection extends DatabaseConnection {
         ALIVE_CONNECTIONS_COUNT.decrementAndGet();
     }
 
+    public void disable() {
+        _isEnabled = false;
+        _ownerThreadId = null;
+    }
+
+    public void enable() {
+        _isEnabled = true;
+        _ownerThreadId = null;
+    }
+
+    @Override
+    public void executeDdl(final String queryString) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        super.executeDdl(queryString);
+    }
+
+    @Override
+    public void executeDdl(final Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        super.executeDdl(query);
+    }
+
+    @Override
+    public Long executeSql(final String queryString, final String[] parameters) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.executeSql(queryString, parameters);
+    }
+
+    @Override
+    public Long executeSql(final Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.executeSql(query);
+    }
+
+    @Override
+    public List<Row> query(final String queryString, final String[] parameters) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.query(queryString, parameters);
+    }
+
+    @Override
+    public List<Row> query(final Query query) throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
+        return super.query(query);
+    }
+
     @Override
     public Integer getRowsAffectedCount() {
         return ((DatabaseConnection) _core).getRowsAffectedCount();
     }
 
     @Override
-    public void close() {
+    public void close() throws DatabaseException {
+        _assertConnectionIsEnabled();
+        _assertThreadOwner();
         _databaseConnectionPool.returnToPool(this);
     }
 }

@@ -991,7 +991,6 @@ public class BlockValidatorTests extends IntegrationTest {
             Logger.log("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
             Logger.log("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
             Assert.assertEquals(Integer.valueOf(0), databaseConnectionPool.getInUseConnectionCount());
-            Logger.log("");
         }
 
         // Action
