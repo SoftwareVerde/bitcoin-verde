@@ -28,6 +28,7 @@ public abstract class Socket {
         void setCallback(Callback callback);
         void interrupt();
         void join() throws InterruptedException;
+        void join(long timeout) throws InterruptedException;
         void start();
     }
 
@@ -101,7 +102,7 @@ public abstract class Socket {
         catch (final Exception exception) { }
 
         try {
-            _readThread.join();
+            _readThread.join(5000L);
         }
         catch (final Exception exception) { }
 

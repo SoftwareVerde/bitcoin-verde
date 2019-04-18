@@ -397,10 +397,7 @@ public class NodeManager<NODE extends Node> {
                 }
 
                 _onNodeHandshakeComplete(node);
-
-                synchronized (_mutex) {
-                    _processQueuedMessages();
-                }
+                _processQueuedMessages();
             }
         });
 
@@ -649,7 +646,7 @@ public class NodeManager<NODE extends Node> {
 
     public void stopNodeMaintenanceThread() {
         _nodeMaintenanceThread.interrupt();
-        try { _nodeMaintenanceThread.join(); } catch (final Exception exception) { }
+        try { _nodeMaintenanceThread.join(10000L); } catch (final Exception exception) { }
     }
 
     protected void _selectNodeForRequest(final NodeApiRequest<NODE> apiRequest) {

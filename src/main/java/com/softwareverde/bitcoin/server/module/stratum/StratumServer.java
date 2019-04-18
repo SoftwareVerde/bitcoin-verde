@@ -633,7 +633,7 @@ public class StratumServer {
 
     public void stop() {
         _rebuildTaskThread.interrupt();
-        try { _rebuildTaskThread.join(); } catch (final Exception exception) { }
+        try { _rebuildTaskThread.join(15000L); } catch (final Exception exception) { }
 
         _stratumServerSocket.stop();
     }

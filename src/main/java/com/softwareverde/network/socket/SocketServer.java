@@ -154,7 +154,7 @@ public class SocketServer<T extends Socket> {
         try {
             _serverThread.interrupt();
             if (_serverThread != null) {
-                _serverThread.join();
+                _serverThread.join(30000L);
             }
         }
         catch (final Exception exception) { }

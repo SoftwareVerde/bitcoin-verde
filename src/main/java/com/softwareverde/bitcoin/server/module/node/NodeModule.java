@@ -301,7 +301,7 @@ public class NodeModule {
 
         final DatabaseConnectionFactory rawDatabaseConnectionFactory = database.newConnectionFactory();
         // _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(512, (maxPeerCount * 8)), 5000L);
-        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, 64);
+        _databaseConnectionPool = new DatabaseConnectionPool(rawDatabaseConnectionFactory, Math.max(32, (maxPeerCount * 2)));
 
         _banFilter = new BanFilter(_databaseConnectionPool);
 
