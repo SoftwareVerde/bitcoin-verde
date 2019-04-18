@@ -19,6 +19,11 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -42,7 +47,9 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.DateUtil;
@@ -52,7 +59,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.sql.Connection;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
@@ -139,6 +148,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+        MonitoredDatabaseConnection.databaseConnectionCount.set(0);
     }
 
     @Test
@@ -908,5 +918,105 @@ public class BlockValidatorTests extends IntegrationTest {
                 Assert.assertTrue(blockIsValid);
             }
         }
+    }
+
+    @Test
+    public void block_validator_should_close_all_database_connections_when_multithreaded_validation_is_executed() throws Exception {
+        // This test stores a "big block" (1,000+ Txns) and then validates it multiple times with a DatabaseConnectionPool, a DatabaseCache, and a varying number of validation threads.
+        // The Block should be validated correctly and all of its transactions should closed after closing the pool (no DatabaseConnections were leaked).
+        // The DatabaseConnectionPool is configured to provide less DatabaseConnections (16) than is required for the BlockValidator with 32 threads.  This tests that the Validator
+        //  properly waits for a connection to become available.  Alternatively, the DeadlockTimeout property of the DatabaseConnectionPool can be configured to surpass the maximum connection count.
+
+        // Setup
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(1048576L);
+        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final DatabaseConnection databaseConnection = _database.newConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final ReadUncommittedDatabaseConnectionFactory coreDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory(coreDatabaseConnectionFactory) {
+            @Override
+            public DatabaseConnection newConnection() throws DatabaseException {
+                // Logger.log(" ***** NEW CONNECTION *****");
+                return new DatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
+            }
+        };
+        final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
+
+        final BlockValidator blockValidator = new BlockValidator(databaseConnectionPool, databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        blockValidator.setMaxThreadCount(8);
+
+        final String bigBlockPreRequisite = IoUtil.getResource("/blocks/0000000000000000013C4F15DDF9040B6210DC86DFBE7371417EF83EA7BFBA34");
+        final String bigBlock = IoUtil.getResource("/blocks/00000000000000000051CFB8C9B8191EC4EF14F8F44F3E2290D67A8A0A29DD05");
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        int i = 0;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, bigBlockPreRequisite, bigBlock }) {
+            final MutableBlock block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                if (i == 3) {
+                    databaseConnection.executeSql(new Query("UPDATE blocks SET hash = ? WHERE id = ?").setParameter(block.getPreviousBlockHash()).setParameter(lastBlockId));
+
+                    lastBlockId = blockHeaderDatabaseManager.storeBlockHeader(block);
+                    lastBlock = block;
+                    i += 1;
+                    continue;
+                }
+                else if (i == 4) {
+                    boolean isCoinbase = true;
+                    for (final Transaction transaction : block.getTransactions()) {
+                        if (! isCoinbase) {
+                            TransactionTestUtil.createRequiredTransactionInputs(BlockchainSegmentId.wrap(1L), transaction, databaseConnection);
+                        }
+                        isCoinbase = false;
+                    }
+                }
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+                lastBlock = block;
+                i += 1;
+            }
+        }
+
+        for (int j = 0; j < 6; ++j) {
+            final int threadCount = (int) Math.pow(2, j);
+            Logger.log("");
+            Logger.log("Validating Block w/ " + threadCount + " threads.");
+            blockValidator.setMaxThreadCount(threadCount);
+            blockValidator.validateBlock(lastBlockId, lastBlock);
+
+            Logger.log("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
+            Logger.log("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
+            Logger.log("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
+            Assert.assertEquals(Integer.valueOf(0), databaseConnectionPool.getInUseConnectionCount());
+            Logger.log("");
+        }
+
+        // Action
+        final BlockValidationResult blockValidationResult = blockValidator.validateBlock(lastBlockId, lastBlock);
+        final Boolean blockIsValid = blockValidationResult.isValid;
+
+        // Assert
+        Assert.assertTrue(blockIsValid);
+
+        databaseConnectionPool.close();
+        Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
+    }
+}
+
+class MonitoredDatabaseConnection extends MysqlDatabaseConnection {
+    public static final AtomicInteger databaseConnectionCount = new AtomicInteger(0);
+
+    public MonitoredDatabaseConnection(final Connection rawConnection) {
+        super(rawConnection);
+        databaseConnectionCount.incrementAndGet();
+    }
+
+    @Override
+    public void close() throws DatabaseException {
+        databaseConnectionCount.decrementAndGet();
+        super.close();
     }
 }

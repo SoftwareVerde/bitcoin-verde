@@ -226,7 +226,6 @@ public class NodeModule {
         }
 
         Logger.log("[Shutting Down Database]");
-        _banFilter.close(); // Close the database connections within the BanFilter...
         _databaseConnectionPool.close();
         _environment.getMasterDatabaseManagerCache().close();
 
@@ -811,7 +810,9 @@ public class NodeModule {
             Logger.log("Utxo Cache Hit: " + TransactionOutputDatabaseManager.cacheHit.get() + " vs " + TransactionOutputDatabaseManager.cacheMiss.get() + " (" + (TransactionOutputDatabaseManager.cacheHit.get() / ((float) TransactionOutputDatabaseManager.cacheHit.get() + TransactionOutputDatabaseManager.cacheMiss.get()) * 100F) + "%)");
             Logger.log("ThreadPool Queue: " + _mainThreadPool.getQueueCount() + " | Active Thread Count: " + _mainThreadPool.getActiveThreadCount());
 
-            Logger.log("Instance Count: " + DatabaseConnectionPool.instanceCount.get() + " | Close Count: " + DatabaseConnectionPool.discardCount.get() + " | Connection Count: " + _databaseConnectionPool._aliveConnectionCount.get() + " | List Size: " + _databaseConnectionPool._mysqlDatabaseConnections.size() + " | Issue Count: " + DatabaseConnectionPool.issueCount.get());
+            Logger.log("Alive Connections Count: " + _databaseConnectionPool.getAliveConnectionCount());
+            Logger.log("Buffered Connections Count: " + _databaseConnectionPool.getCurrentPoolSize());
+            Logger.log("In-Use Connections Count: " + _databaseConnectionPool.getInUseConnectionCount());
         }
 
         System.exit(0);
