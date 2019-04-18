@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.database.pool;
 
-import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
@@ -20,9 +19,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class DatabaseConnectionPool extends DatabaseConnectionFactory implements AutoCloseable {
     public static final Long DEFAULT_DEADLOCK_TIMEOUT = 30000L; // The number of milliseconds the pool will wait before allowing the maximum pool count to be exceeded.
 
-    protected static boolean isConnectionAlive(final DatabaseConnection databaseConnection) {
+    protected static boolean isConnectionAlive(final CachedDatabaseConnection cachedDatabaseConnection) {
         try {
-            databaseConnection.query("SELECT 1", null);
+            final DatabaseConnection unwrappedConnection = cachedDatabaseConnection.unwrap(); // Must use the unwrapped connection since the cached connection may be in the disabled state.
+            unwrappedConnection.query("SELECT 1", null);
             return true;
         }
         catch (final Exception exception) {
@@ -335,5 +335,9 @@ class CachedDatabaseConnection extends DatabaseConnection {
         _assertConnectionIsEnabled();
         _assertThreadOwner();
         _databaseConnectionPool.returnToPool(this);
+    }
+
+    public DatabaseConnection unwrap() {
+        return (DatabaseConnection) _core;
     }
 }
