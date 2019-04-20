@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.block.merkle;
 
 import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
@@ -24,7 +23,7 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         super(MessageType.MERKLE_BLOCK);
     }
 
-    public BlockHeader getBlockHeader() {
+    public BlockHeaderWithTransactionCount getBlockHeader() {
         return _blockHeader;
     }
 
@@ -55,12 +54,15 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         final List<Sha256Hash> hashes = _partialMerkleTree.getHashes();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(hashes.getSize()));
         for (final Sha256Hash hash : hashes) {
-            byteArrayBuilder.appendBytes(hash);
+            byteArrayBuilder.appendBytes(hash, Endian.LITTLE);
         }
 
         final ByteArray flags = _partialMerkleTree.getFlags();
         byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(flags.getByteCount()));
-        byteArrayBuilder.appendBytes(flags, Endian.LITTLE);
+
+        for (int i = 0; i < flags.getByteCount(); ++i) {
+            byteArrayBuilder.appendByte(ByteUtil.reverseBits(flags.getByte(i)));
+        }
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }
