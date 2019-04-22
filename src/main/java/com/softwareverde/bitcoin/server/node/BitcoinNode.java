@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -24,6 +25,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessage;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessage;
+import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessage;
@@ -125,6 +127,10 @@ public class BitcoinNode extends Node {
         void run(List<InventoryItem> dataHashes, BitcoinNode bitcoinNode);
     }
 
+    public interface RequestSpvBlocksCallback {
+        void run(List<Address> addresses, BitcoinNode bitcoinNode);
+    }
+
     public interface RequestExtraThinBlockCallback {
         void run(Sha256Hash blockHash, BloomFilter bloomFilter, BitcoinNode bitcoinNode);
     }
@@ -203,6 +209,7 @@ public class BitcoinNode extends Node {
     protected BlockInventoryMessageCallback _blockInventoryMessageHandler = null;
     protected RequestPeersHandler _requestPeersHandler = null;
     protected QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback = null;
+    protected RequestSpvBlocksCallback _requestSpvBlocksCallback = null;
 
     protected RequestExtraThinBlockCallback _requestExtraThinBlockCallback = null;
     protected RequestExtraThinTransactionCallback _requestExtraThinTransactionCallback = null;
@@ -258,6 +265,7 @@ public class BitcoinNode extends Node {
             _queryBlocksCallback = null;
             _queryBlockHeadersCallback = null;
             _requestDataMessageCallback = null;
+            _requestSpvBlocksCallback = null;
             _blockInventoryMessageHandler = null;
             _requestExtraThinBlockCallback = null;
             _requestExtraThinTransactionCallback = null;
@@ -440,6 +448,10 @@ public class BitcoinNode extends Node {
                     case CLEAR_TRANSACTION_BLOOM_FILTER: {
                         _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message);
                     } break;
+
+                    case QUERY_ADDRESS_BLOCKS: {
+                        _onQueryAddressBlocks((QueryAddressBlocksMessage) message);
+                    }
 
                     default: {
                         Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
@@ -811,6 +823,22 @@ public class BitcoinNode extends Node {
         _bloomFilter = null;
     }
 
+    protected void _onQueryAddressBlocks(final QueryAddressBlocksMessage queryAddressBlocksMessage) {
+        final RequestSpvBlocksCallback requestDataCallback = _requestSpvBlocksCallback;
+        if (requestDataCallback != null) {
+            final List<Address> addresses = queryAddressBlocksMessage.getAddresses().asConst();
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    requestDataCallback.run(addresses, BitcoinNode.this);
+                }
+            });
+        }
+        else {
+            Logger.log("NOTICE: No handler set for RequestSpvBlocks message.");
+        }
+    }
+
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
         final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
@@ -1036,6 +1064,10 @@ public class BitcoinNode extends Node {
 
     public void setRequestDataCallback(final RequestDataCallback requestDataCallback) {
         _requestDataMessageCallback = requestDataCallback;
+    }
+
+    public void setRequestSpvBlocksCallback(final RequestSpvBlocksCallback requestSpvBlocksCallback) {
+        _requestSpvBlocksCallback = requestSpvBlocksCallback;
     }
 
     public void setBlockInventoryMessageHandler(final BlockInventoryMessageCallback blockInventoryMessageHandler) {

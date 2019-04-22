@@ -21,7 +21,10 @@ public enum MessageType {
 
     FEE_FILTER("feefilter"), REQUEST_PEERS("getaddr"),
 
-    SET_TRANSACTION_BLOOM_FILTER("filterload"), UPDATE_TRANSACTION_BLOOM_FILTER("filteradd"), CLEAR_TRANSACTION_BLOOM_FILTER("filterclear");
+    SET_TRANSACTION_BLOOM_FILTER("filterload"), UPDATE_TRANSACTION_BLOOM_FILTER("filteradd"), CLEAR_TRANSACTION_BLOOM_FILTER("filterclear"),
+
+    // BitcoinVerde Messages
+    QUERY_ADDRESS_BLOCKS("addrblocks");
 
     public static MessageType fromBytes(final byte[] bytes) {
         for (final MessageType command : MessageType.values()) {

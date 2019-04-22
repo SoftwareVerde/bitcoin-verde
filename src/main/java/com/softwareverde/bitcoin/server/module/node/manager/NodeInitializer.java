@@ -18,6 +18,7 @@ public class NodeInitializer {
         public BitcoinNode.QueryBlocksCallback queryBlocksCallback;
         public BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback;
         public BitcoinNode.RequestDataCallback requestDataCallback;
+        public BitcoinNode.RequestSpvBlocksCallback requestSpvBlocksCallback;
         public ThreadPoolFactory threadPoolFactory;
         public LocalNodeFeatures localNodeFeatures;
         public BitcoinNode.RequestPeersHandler requestPeersHandler;
@@ -30,6 +31,7 @@ public class NodeInitializer {
     protected final BitcoinNode.QueryBlocksCallback _queryBlocksCallback;
     protected final BitcoinNode.QueryBlockHeadersCallback _queryBlockHeadersCallback;
     protected final BitcoinNode.RequestDataCallback _requestDataCallback;
+    protected final BitcoinNode.RequestSpvBlocksCallback _requestSpvBlocksCallback;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
@@ -41,6 +43,7 @@ public class NodeInitializer {
         bitcoinNode.setQueryBlocksCallback(_queryBlocksCallback);
         bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         bitcoinNode.setRequestDataCallback(_requestDataCallback);
+        bitcoinNode.setRequestSpvBlocksCallback(_requestSpvBlocksCallback);
 
         bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryMessageHandler);
         bitcoinNode.setQueryUnconfirmedTransactionsCallback(_queryUnconfirmedTransactionsCallback);
@@ -56,18 +59,19 @@ public class NodeInitializer {
 
     public NodeInitializer(final Properties properties) {
         this(properties.synchronizationStatus, properties.blockInventoryMessageHandler, properties.transactionsAnnouncementCallbackFactory,
-            properties.queryBlocksCallback, properties.queryBlockHeadersCallback, properties.requestDataCallback,
+            properties.queryBlocksCallback, properties.queryBlockHeadersCallback, properties.requestDataCallback, properties.requestSpvBlocksCallback,
             properties.threadPoolFactory, properties.localNodeFeatures, properties.requestPeersHandler, properties.queryUnconfirmedTransactionsCallback
         );
     }
 
-    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, final BitcoinNode.RequestPeersHandler requestPeersHandler, final BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback) {
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final BitcoinNode.RequestSpvBlocksCallback requestSpvBlocksCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, final BitcoinNode.RequestPeersHandler requestPeersHandler, final BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback) {
         _synchronizationStatus = synchronizationStatus;
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
         _queryBlocksCallback = queryBlocksCallback;
         _queryBlockHeadersCallback = queryBlockHeadersCallback;
         _requestDataCallback = requestDataCallback;
+        _requestSpvBlocksCallback = requestSpvBlocksCallback;
         _threadPoolFactory = threadPoolFactory;
         _localNodeFeatures = localNodeFeatures;
         _requestPeersHandler = requestPeersHandler;

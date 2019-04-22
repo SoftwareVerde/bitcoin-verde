@@ -15,6 +15,8 @@ public class InventoryItemInflater {
         if (byteArrayReader.didOverflow()) { return null; }
 
         final InventoryItemType dataType = InventoryItemType.fromValue(inventoryTypeCode);
+        if (dataType == null) { return null; }
+
         return new InventoryItem(dataType, objectHash);
     }
 }
