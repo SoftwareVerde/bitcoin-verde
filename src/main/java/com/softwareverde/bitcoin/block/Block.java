@@ -8,7 +8,11 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
+import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 
@@ -21,8 +25,26 @@ public interface Block extends BlockHeaderWithTransactionCount {
 
                 for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
                     final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
-                    return bloomFilter.containsItem(transactionOutputIdentifier.toBytes());
+                    if (bloomFilter.containsItem(transactionOutputIdentifier.toBytes())) {
+                        return true;
+                    }
                 }
+
+                for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                    final LockingScript lockingScript = transactionOutput.getLockingScript();
+                    for (final Operation operation : lockingScript.getOperations()) {
+                        if (operation.getType() == Operation.Type.OP_PUSH) {
+                            if (bloomFilter.containsItem(((PushOperation) operation).getValue())) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                if (bloomFilter.containsItem(transaction.getHash())) {
+                    return true;
+                }
+
                 return false;
             }
         };
