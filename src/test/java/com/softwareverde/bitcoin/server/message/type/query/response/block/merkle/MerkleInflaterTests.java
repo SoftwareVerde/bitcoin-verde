@@ -44,7 +44,6 @@ public class MerkleInflaterTests {
 
     @Test
     public void should_inflate_bitoinj_bloom_filter_and_serve_matched_merkle_block() {
-        // TODO: Merge logic within the BitcoinNode Tx matching and the Block::createMerkleTreeFilter.
         final BloomFilterInflater bloomFilterInflater = new BloomFilterInflater();
         final BlockInflater blockInflater = new BlockInflater();
         // Block 0000000000000000019A726683D642E8981228E33D79E868E0BE0E4AEA70BCB8

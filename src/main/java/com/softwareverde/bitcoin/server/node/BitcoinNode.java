@@ -1009,10 +1009,10 @@ public class BitcoinNode extends Node {
             //      matching the filter should also be sent in separate tx messages after the merkleblock is sent. This
             //      avoids a slow roundtrip that would otherwise be required (receive hashes, didn't see some of these
             //      transactions yet, ask for them)."
-            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
+            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _updateBloomFilterMode);
             final List<Transaction> transactions = block.getTransactions();
             for (final Transaction transaction : transactions) {
-                final Boolean transactionMatches = transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, bloomFilter, _updateBloomFilterMode);
+                final Boolean transactionMatches = transactionBloomFilterMatcher.shouldInclude(transaction);
                 if (transactionMatches) {
                     final TransactionMessage transactionMessage = new TransactionMessage();
                     transactionMessage.setTransaction(transaction);
@@ -1100,16 +1100,16 @@ public class BitcoinNode extends Node {
      *  The BitcoinNode's BloomFilter is updated as necessary, as specified by the peer.
      */
     public Boolean matchesFilter(final Transaction transaction) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
-        return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, _updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(_bloomFilter, _updateBloomFilterMode);
+        return transactionBloomFilterMatcher.shouldInclude(transaction);
     }
 
     /**
      * Returns true if the Transaction matches the BitcoinNode's BloomFilter, or if a BloomFilter has not been set.
      */
     public Boolean matchesFilter(final Transaction transaction, final UpdateBloomFilterMode updateBloomFilterMode) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
-        return transactionBloomFilterMatcher.matchesFilterAndUpdate(transaction, _bloomFilter, updateBloomFilterMode);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(_bloomFilter, updateBloomFilterMode);
+        return transactionBloomFilterMatcher.shouldInclude(transaction);
     }
 
     public void setBatchContinueHash(final Sha256Hash hash) {

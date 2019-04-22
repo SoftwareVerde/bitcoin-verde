@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bloomfilter.BloomFilter;
@@ -97,7 +98,8 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
-        return _merkleTree.getPartialTree(Block.createMerkleTreeFilter(bloomFilter));
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        return _merkleTree.getPartialTree(transactionBloomFilterMatcher);
     }
 
     @Override
