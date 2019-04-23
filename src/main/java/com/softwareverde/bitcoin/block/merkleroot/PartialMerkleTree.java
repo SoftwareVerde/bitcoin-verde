@@ -3,9 +3,11 @@ package com.softwareverde.bitcoin.block.merkleroot;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 
 public class PartialMerkleTree implements Const {
     public static PartialMerkleTree build(final Integer itemCount, final List<Sha256Hash> hashes, final ByteArray flags) {
@@ -24,14 +26,14 @@ public class PartialMerkleTree implements Const {
         _hashes = hashes.asConst();
     }
 
-    protected PartialMerkleTreeNode _buildPartialMerkleTree() {
+    protected PartialMerkleTreeNode<Transaction> _buildPartialMerkleTree() {
         final int maxHashIndex = _hashes.getSize();
         final int maxFlagsIndex = (_flags.getByteCount() * 8);
 
         int flagIndex = 0;
         int hashIndex = 0;
 
-        final PartialMerkleTreeNode rootMerkleNode = PartialMerkleTreeNode.newRootNode(_itemCount);
+        final PartialMerkleTreeNode<Transaction> rootMerkleNode = PartialMerkleTreeNode.newRootNode(_itemCount);
         PartialMerkleTreeNode currentNode = rootMerkleNode;
         while (currentNode != null) {
             if (hashIndex >= maxHashIndex) { break; }
@@ -104,8 +106,8 @@ public class PartialMerkleTree implements Const {
         return _cachedMerkleRoot;
     }
 
-    public synchronized PartialMerkleTreeNode getPartialMerkleTree() {
-        final PartialMerkleTreeNode partialMerkleTreeRoot = _buildPartialMerkleTree();
+    public synchronized PartialMerkleTreeNode<Transaction> getMerkleRootNode() {
+        final PartialMerkleTreeNode<Transaction> partialMerkleTreeRoot = _buildPartialMerkleTree();
 
         if (_cachedMerkleRoot == null) {
             final Sha256Hash rootHash = partialMerkleTreeRoot.getHash();
@@ -113,5 +115,26 @@ public class PartialMerkleTree implements Const {
         }
 
         return partialMerkleTreeRoot;
+    }
+
+    public synchronized List<Sha256Hash> getTransactionHashes() {
+        final PartialMerkleTreeNode<Transaction> partialMerkleTreeRoot = _buildPartialMerkleTree();
+
+        if (_cachedMerkleRoot == null) {
+            final Sha256Hash rootHash = partialMerkleTreeRoot.getHash();
+            _cachedMerkleRoot = MutableMerkleRoot.wrap(rootHash.getBytes());
+        }
+
+        final MutableList<Sha256Hash> leafNodes = new MutableList<Sha256Hash>();
+        partialMerkleTreeRoot.visit(new PartialMerkleTreeNode.Visitor<Transaction>() {
+            @Override
+            public void visit(final PartialMerkleTreeNode<Transaction> partialMerkleTreeNode) {
+                if (partialMerkleTreeNode.isLeafNode()) {
+                    leafNodes.add(partialMerkleTreeNode.value);
+                }
+            }
+        });
+
+        return leafNodes;
     }
 }

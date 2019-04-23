@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
@@ -52,6 +53,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public interface DownloadBlockCallback extends BitcoinNode.DownloadBlockCallback {
         default void onFailure(Sha256Hash blockHash) { }
     }
+    public interface DownloadMerkleBlockCallback extends BitcoinNode.DownloadMerkleBlockCallback {
+        default void onFailure(Sha256Hash blockHash) { }
+    }
     public interface DownloadBlockHeadersCallback extends BitcoinNode.DownloadBlockHeadersCallback, FailableCallback { }
     public interface DownloadTransactionCallback extends BitcoinNode.DownloadTransactionCallback {
         default void onFailure(List<Sha256Hash> transactionHashes) { }
@@ -79,6 +83,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected final SynchronizationStatus _synchronizationStatusHandler;
     protected final ThreadPoolFactory _threadPoolFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
+
+    protected Runnable _onNodeListChanged;
 
     // BitcoinNodeManager::transmitBlockHash is often called in rapid succession with the same BlockHash, therefore a simple cache is used...
     protected BlockHeaderWithTransactionCount _cachedTransmittedBlockHeader = null;
@@ -129,6 +135,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         catch (final DatabaseException exception) {
             Logger.log(exception);
         }
+
+        final Runnable onNodeListChangedCallback = _onNodeListChanged;
+        if (onNodeListChangedCallback != null) {
+            _threadPool.execute(onNodeListChangedCallback);
+        }
     }
 
     @Override
@@ -142,6 +153,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             if (_banFilter.shouldBanIp(ip)) {
                 _banFilter.banIp(ip);
             }
+        }
+
+        final Runnable onNodeListChangedCallback = _onNodeListChanged;
+        if (onNodeListChangedCallback != null) {
+            _threadPool.execute(onNodeListChangedCallback);
         }
     }
 
@@ -234,6 +250,11 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);
+        }
+
+        final Runnable onNodeListChangedCallback = _onNodeListChanged;
+        if (onNodeListChangedCallback != null) {
+            _threadPool.execute(onNodeListChangedCallback);
         }
     }
 
@@ -402,6 +423,52 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _selectNodeForRequest(selectedNode, _createRequestBlockRequest(blockHash, callback));
     }
 
+    protected void _requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
+        final NodeApiRequest<BitcoinNode> downloadMerkleBlockRequest = new NodeApiRequest<BitcoinNode>() {
+            protected BitcoinNode _bitcoinNode;
+
+            @Override
+            public void run(final BitcoinNode bitcoinNode) {
+                _bitcoinNode = bitcoinNode;
+
+                final NodeApiRequest<BitcoinNode> apiRequest = this;
+
+                bitcoinNode.requestMerkleBlock(blockHash, new BitcoinNode.DownloadMerkleBlockCallback() {
+                    @Override
+                    public void onResult(final MerkleBlock block) {
+                        _onResponseReceived(bitcoinNode, apiRequest);
+                        if (apiRequest.didTimeout) { return; }
+
+                        if (callback != null) {
+                            Logger.log("Received Merkle Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
+                            callback.onResult(block);
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(final Sha256Hash blockHash) {
+                        if (apiRequest.didTimeout) { return; }
+
+                        _pendingRequestsManager.removePendingRequest(apiRequest);
+
+                        apiRequest.onFailure();
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure() {
+                Logger.log("Request failed: BitcoinNodeManager.requestMerkleBlock("+ blockHash +") " + (_bitcoinNode != null ? _bitcoinNode.getConnectionString() : "null"));
+
+                if (callback != null) {
+                    callback.onFailure(blockHash);
+                }
+            }
+        };
+
+        _selectNodeForRequest(downloadMerkleBlockRequest);
+    }
+
     protected NodeApiRequest<BitcoinNode> _createRequestTransactionsRequest(final List<Sha256Hash> transactionHashes, final DownloadTransactionCallback callback) {
         return new NodeApiRequest<BitcoinNode>() {
             @Override
@@ -567,6 +634,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _requestBlock(selectedNode, blockHash, callback);
     }
 
+    public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
+        _requestMerkleBlock(blockHash, callback);
+    }
+
     public void transmitBlockHash(final BitcoinNode bitcoinNode, final Block block) {
         if (bitcoinNode.newBlocksViaHeadersIsEnabled()) {
             bitcoinNode.transmitBlockHeader(block, block.getTransactionCount());
@@ -676,5 +747,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);
         }
+    }
+
+    public void setOnNodeListChanged(final Runnable callback) {
+        _onNodeListChanged = callback;
     }
 }

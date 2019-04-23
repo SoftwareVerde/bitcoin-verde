@@ -23,6 +23,7 @@ public class NodeInitializer {
         public LocalNodeFeatures localNodeFeatures;
         public BitcoinNode.RequestPeersHandler requestPeersHandler;
         public BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback;
+        public BitcoinNode.SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback;
     }
 
     protected final SynchronizationStatus _synchronizationStatus;
@@ -36,6 +37,7 @@ public class NodeInitializer {
     protected final LocalNodeFeatures _localNodeFeatures;
     protected final BitcoinNode.RequestPeersHandler _requestPeersHandler;
     protected final BitcoinNode.QueryUnconfirmedTransactionsCallback _queryUnconfirmedTransactionsCallback;
+    protected final BitcoinNode.SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback;
 
     protected void _initializeNode(final BitcoinNode bitcoinNode) {
         bitcoinNode.setSynchronizationStatusHandler(_synchronizationStatus);
@@ -44,6 +46,7 @@ public class NodeInitializer {
         bitcoinNode.setQueryBlockHeadersCallback(_queryBlockHeadersCallback);
         bitcoinNode.setRequestDataCallback(_requestDataCallback);
         bitcoinNode.setRequestSpvBlocksCallback(_requestSpvBlocksCallback);
+        bitcoinNode.setSpvBlockInventoryMessageCallback(_spvBlockInventoryMessageCallback);
 
         bitcoinNode.setBlockInventoryMessageHandler(_blockInventoryMessageHandler);
         bitcoinNode.setQueryUnconfirmedTransactionsCallback(_queryUnconfirmedTransactionsCallback);
@@ -60,11 +63,12 @@ public class NodeInitializer {
     public NodeInitializer(final Properties properties) {
         this(properties.synchronizationStatus, properties.blockInventoryMessageHandler, properties.transactionsAnnouncementCallbackFactory,
             properties.queryBlocksCallback, properties.queryBlockHeadersCallback, properties.requestDataCallback, properties.requestSpvBlocksCallback,
-            properties.threadPoolFactory, properties.localNodeFeatures, properties.requestPeersHandler, properties.queryUnconfirmedTransactionsCallback
+            properties.threadPoolFactory, properties.localNodeFeatures, properties.requestPeersHandler, properties.queryUnconfirmedTransactionsCallback,
+            properties.spvBlockInventoryMessageCallback
         );
     }
 
-    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final BitcoinNode.RequestSpvBlocksCallback requestSpvBlocksCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, final BitcoinNode.RequestPeersHandler requestPeersHandler, final BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback) {
+    public NodeInitializer(final SynchronizationStatus synchronizationStatus, final BitcoinNode.BlockInventoryMessageCallback blockInventoryMessageHandler, final TransactionsAnnouncementCallbackFactory transactionsAnnouncementCallbackFactory, final BitcoinNode.QueryBlocksCallback queryBlocksCallback, final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersCallback, final BitcoinNode.RequestDataCallback requestDataCallback, final BitcoinNode.RequestSpvBlocksCallback requestSpvBlocksCallback, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures, final BitcoinNode.RequestPeersHandler requestPeersHandler, final BitcoinNode.QueryUnconfirmedTransactionsCallback queryUnconfirmedTransactionsCallback, final BitcoinNode.SpvBlockInventoryMessageCallback spvBlockInventoryMessageCallback) {
         _synchronizationStatus = synchronizationStatus;
         _blockInventoryMessageHandler = blockInventoryMessageHandler;
         _transactionsAnnouncementCallbackFactory = transactionsAnnouncementCallbackFactory;
@@ -76,6 +80,7 @@ public class NodeInitializer {
         _localNodeFeatures = localNodeFeatures;
         _requestPeersHandler = requestPeersHandler;
         _queryUnconfirmedTransactionsCallback = queryUnconfirmedTransactionsCallback;
+        _spvBlockInventoryMessageCallback = spvBlockInventoryMessageCallback;
     }
 
     public BitcoinNode initializeNode(final String host, final Integer port) {

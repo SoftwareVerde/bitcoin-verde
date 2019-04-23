@@ -10,6 +10,7 @@ import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
+import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -65,6 +66,8 @@ public abstract class Node {
     protected final ConcurrentLinkedQueue<Runnable> _postConnectQueue = new ConcurrentLinkedQueue<Runnable>();
 
     protected final ThreadPool _threadPool;
+
+    protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
 
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
@@ -188,10 +191,19 @@ public abstract class Node {
         if (pingRequest == null) { return; }
 
         final PingCallback pingCallback = pingRequest.pingCallback;
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final Long msElapsed = (now - pingRequest.timestamp);
+
+        _latencies.pushItem(msElapsed);
+
         if (pingCallback != null) {
-            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-            final Long msElapsed = (now - pingRequest.timestamp);
-            pingCallback.onResult(msElapsed);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    pingCallback.onResult(msElapsed);
+                }
+            });
         }
     }
 
@@ -470,5 +482,21 @@ public abstract class Node {
     public boolean equals(final Object object) {
         if (! (object instanceof Node)) { return false; }
         return Util.areEqual(_id, ((Node) object)._id);
+    }
+
+    public Long getAveragePing() {
+        final int itemCount = _latencies.getItemCount();
+        long sum = 0L;
+        long count = 0L;
+        for (int i = 0; i < itemCount; ++i) {
+            final Long value = _latencies.get(i);
+            if (value == null) { continue; }
+
+            sum += value;
+            count += 1L;
+        }
+        if (count == 0L) { return Long.MAX_VALUE; }
+
+        return (sum / count);
     }
 }
