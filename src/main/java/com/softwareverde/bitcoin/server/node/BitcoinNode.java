@@ -62,6 +62,7 @@ import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
+import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.HexUtil;
 
 import java.util.HashMap;
@@ -209,7 +210,7 @@ public class BitcoinNode extends Node {
 
     protected BitcoinSynchronizeVersionMessage _synchronizeVersionMessage = null;
 
-    protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback;
+    protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback = null;
 
     protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
@@ -549,7 +550,7 @@ public class BitcoinNode extends Node {
                     else {
                         Logger.log("NOTICE: No handler set for TransactionInventoryMessageCallback.");
                     }
-                }
+                } break;
             }
         }
     }
@@ -1126,7 +1127,6 @@ public class BitcoinNode extends Node {
         final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, headBlockHash);
         inventoryMessage.addInventoryItem(inventoryItem);
         _queueMessage(inventoryMessage);
-        Logger.log("Transmitting Batch Continue: " + headBlockHash);
     }
 
     @Override
