@@ -166,8 +166,55 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         final Ip ip = node.getIp();
         final Integer port = node.getPort();
 
-        synchronized (_mutex) {
+        if (_isShuttingDown) {
+            node.disconnect();
+            return;
+        }
+
+        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
+        allNodes.addAll(_nodes.values());
+
+        for (final BitcoinNode bitcoinNode : allNodes) {
+            final Ip existingNodeIp = bitcoinNode.getIp();
+            final Integer existingNodePort = bitcoinNode.getPort();
+
+            if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
+                return; // Duplicate Node...
+            }
+        }
+
+        final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
+        final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
+        if (blockchainIsEnabled == null) {
+            Logger.log("NOTICE: Unable to determine feature for node: " + node.getConnectionString());
+        }
+
+        if ( (! Util.coalesce(blockchainIsEnabled, false)) && (! blockchainIsSynchronized) ) {
+            node.disconnect();
+            return; // Reject SPV Nodes during the initial-sync...
+        }
+
+        super._addHandshakedNode(node);
+    }
+
+    @Override
+    protected void _addNotHandshakedNode(final BitcoinNode node) {
+        final Ip ip = node.getIp();
+        final Integer port = node.getPort();
+
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
+            if (isBanned) {
+                _nodes.remove(node.getId());
+                _pendingNodes.remove(node.getId());
+                node.disconnect();
+                return;
+            }
+
             if (_isShuttingDown) {
+                _nodes.remove(node.getId());
+                _pendingNodes.remove(node.getId());
                 node.disconnect();
                 return;
             }
@@ -184,54 +231,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 }
             }
 
-            final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
-            final Boolean blockchainIsSynchronized = _synchronizationStatusHandler.isBlockchainSynchronized();
-            if (blockchainIsEnabled == null) {
-                Logger.log("NOTICE: Unable to determine feature for node: " + node.getConnectionString());
-            }
-
-            if ( (! Util.coalesce(blockchainIsEnabled, false)) && (! blockchainIsSynchronized) ) {
-                node.disconnect();
-                return; // Reject SPV Nodes during the initial-sync...
-            }
-
-            super._addHandshakedNode(node);
-        }
-    }
-
-    @Override
-    protected void _addNotHandshakedNode(final BitcoinNode node) {
-        final Ip ip = node.getIp();
-        final Integer port = node.getPort();
-
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
-            if (isBanned) {
-                node.disconnect();
-                return;
-            }
-
-            synchronized (_mutex) {
-                if (_isShuttingDown) {
-                    node.disconnect();
-                    return;
-                }
-
-                final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
-                allNodes.addAll(_nodes.values());
-
-                for (final BitcoinNode bitcoinNode : allNodes) {
-                    final Ip existingNodeIp = bitcoinNode.getIp();
-                    final Integer existingNodePort = bitcoinNode.getPort();
-
-                    if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
-                        return; // Duplicate Node...
-                    }
-                }
-
-                super._addNotHandshakedNode(node);
-            }
+            super._addNotHandshakedNode(node);
 
             nodeDatabaseManager.storeNode(node);
         }
@@ -310,10 +310,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void broadcastBlockFinder(final List<Sha256Hash> blockHashes) {
-        synchronized (_mutex) {
-            for (final BitcoinNode bitcoinNode : _nodes.values()) {
-                bitcoinNode.transmitBlockFinder(blockHashes);
-            }
+        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+            bitcoinNode.transmitBlockFinder(blockHashes);
         }
     }
 
@@ -330,11 +328,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
      * Finds incomplete PendingBlocks that are not provided by any of the connected Nodes and attempts to locate them based on download-priority.
      */
     public void findNodeInventory() {
-        final List<NodeId> connectedNodes;
-        synchronized (_mutex) {
-            connectedNodes = new MutableList<NodeId>(_nodes.keySet());
-        }
-
+        final List<NodeId> connectedNodes = new MutableList<NodeId>(_nodes.keySet());
         if (connectedNodes.isEmpty()) { return; }
 
         final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
@@ -361,12 +355,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             Logger.log(exception);
         }
 
-        synchronized (_mutex) {
-            for (final QueryBlocksMessage queryBlocksMessage : queryBlocksMessages) {
-                Logger.log("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
-                for (final BitcoinNode bitcoinNode : _nodes.values()) {
-                    bitcoinNode.queueMessage(queryBlocksMessage);
-                }
+        for (final QueryBlocksMessage queryBlocksMessage : queryBlocksMessages) {
+            Logger.log("Broadcasting QueryBlocksMessage: " + queryBlocksMessage.getBlockHashes().get(0) + " -> " + queryBlocksMessage.getStopBeforeBlockHash());
+            for (final BitcoinNode bitcoinNode : _nodes.values()) {
+                bitcoinNode.queueMessage(queryBlocksMessage);
             }
         }
     }
@@ -607,11 +599,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 }
             };
 
-            final BitcoinNode selectedNode;
-            synchronized (_mutex) {
-                selectedNode = _selectBestNode(nodeFilter);
-            }
-
+            final BitcoinNode selectedNode = _selectBestNode(nodeFilter);
             if (selectedNode != null) {
                 Logger.log("NOTICE: Requesting thin block. " + System.currentTimeMillis());
                 _selectNodeForRequest(selectedNode, thinBlockApiRequest);
@@ -721,19 +709,23 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
 
         // Disconnect all currently-connected nodes at that ip...
-        synchronized (_mutex) {
-            final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
 
-            for (final NodeId nodeId : _nodes.keySet()) {
-                final BitcoinNode bitcoinNode = _nodes.get(nodeId);
-                if (Util.areEqual(ip, bitcoinNode.getIp())) {
-                    droppedNodes.add(bitcoinNode);
-                }
+        for (final BitcoinNode bitcoinNode : _nodes.values()) {
+            if (Util.areEqual(ip, bitcoinNode.getIp())) {
+                droppedNodes.add(bitcoinNode);
             }
+        }
 
-            for (final BitcoinNode bitcoinNode : droppedNodes) {
-                _removeNode(bitcoinNode);
+        // Disconnect all pending nodes at that ip...
+        for (final BitcoinNode bitcoinNode : _pendingNodes.values()) {
+            if (Util.areEqual(ip, bitcoinNode.getIp())) {
+                droppedNodes.add(bitcoinNode);
             }
+        }
+
+        for (final BitcoinNode bitcoinNode : droppedNodes) {
+            _removeNode(bitcoinNode);
         }
     }
 

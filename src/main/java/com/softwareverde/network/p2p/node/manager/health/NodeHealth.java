@@ -11,7 +11,7 @@ public interface NodeHealth extends Constable<ImmutableNodeHealth> {
     Long FULL_HEALTH = 24L * 60L * 60L * 1000L;
     Float REGEN_TO_REQUEST_TIME_RATIO = 0.5F;
 
-    Comparator<NodeHealth> COMPARATOR = new Comparator<NodeHealth>() {
+    Comparator<NodeHealth> HEALTH_ASCENDING_COMPARATOR = new Comparator<NodeHealth>() {
         @Override
         public int compare(final NodeHealth nodeHealth0, final NodeHealth nodeHealth1) {
             final Long nodeHealth0Value = nodeHealth0.getHealth();
