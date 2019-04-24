@@ -3,7 +3,6 @@ package com.softwareverde.network.p2p.node.manager;
 import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -20,10 +19,10 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeManager<NODE extends Node> {
     public static Boolean LOGGING_ENABLED = false;
@@ -63,13 +62,8 @@ public class NodeManager<NODE extends Node> {
         @Override
         public void run() {
             while (true) {
-                synchronized (_mutex) {
-                    _pingIdleNodes();
-                }
-
-                synchronized (_mutex) {
-                    _removeDisconnectedNodes();
-                }
+                _pingIdleNodes();
+                _removeDisconnectedNodes();
 
                 try { Thread.sleep(10000L); } catch (final Exception exception) { break; }
             }
@@ -80,13 +74,13 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    protected final Object _mutex = new Object();
+    // protected final Object _mutex = new Object();
     protected final SystemTime _systemTime;
     protected final NodeFactory<NODE> _nodeFactory;
-    protected final Map<NodeId, NODE> _nodes;
-    protected Map<NodeId, NODE> _pendingNodes = new HashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
+    protected final ConcurrentHashMap<NodeId, NODE> _nodes;
+    protected ConcurrentHashMap<NodeId, NODE> _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
     protected final ConcurrentHashMap<NodeId, MutableNodeHealth> _nodeHealthMap;
-    protected final MutableList<NodeApiMessage<NODE>> _queuedTransmissions = new MutableList<NodeApiMessage<NODE>>();
+    protected final ConcurrentLinkedQueue<NodeApiMessage<NODE>> _queuedTransmissions = new ConcurrentLinkedQueue<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
     protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
@@ -112,7 +106,7 @@ public class NodeManager<NODE extends Node> {
 
         { // Cleanup any pending nodes that still haven't completed their handshake...
             final Map<NodeId, NODE> pendingNodes = _pendingNodes;
-            _pendingNodes = new HashMap<NodeId, NODE>(pendingNodes);
+            _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(pendingNodes);
 
             for (final NODE oldPendingNode : pendingNodes.values()) {
                 final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
@@ -131,12 +125,19 @@ public class NodeManager<NODE extends Node> {
     protected void _removeNode(final NODE node) {
         final NodeId nodeId = node.getId();
 
-        _nodes.remove(nodeId);
-
         if (LOGGING_ENABLED) {
-            final MutableNodeHealth nodeHealth = _nodeHealthMap.remove(nodeId);
+            final NodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
             Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") +  "hp");
         }
+
+        _nodes.remove(nodeId);
+        _pendingNodes.remove(nodeId);
+        _nodeHealthMap.remove(nodeId);
+
+        node.setNodeDisconnectedCallback(null);
+        node.setNodeHandshakeCompleteCallback(null);
+        node.setNodeConnectedCallback(null);
+        node.setNodeAddressesReceivedCallback(null);
 
         node.disconnect();
 
@@ -147,7 +148,6 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    // NOTE: Requires Mutex lock...
     protected void _checkMaxNodeCount(final Integer maxNodeCount) {
         if (maxNodeCount > 0) {
             while (_nodes.size() > maxNodeCount) {
@@ -172,7 +172,6 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    // NOTE: Requires Mutex Lock...
     protected void _broadcastNewNodesToExistingNodes(final List<NodeIpAddress> nodeIpAddresses) {
         for (final NODE node : _nodes.values()) {
             node.broadcastNodeAddresses(nodeIpAddresses);
@@ -183,7 +182,6 @@ public class NodeManager<NODE extends Node> {
         }
     }
 
-    // NOTE: Requires Mutex Lock...
     protected void _broadcastExistingNodesToNewNode(final NODE newNode) {
         final Collection<NODE> nodes = _nodes.values();
 
@@ -203,35 +201,36 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _onNodeDisconnected(final NODE node) {
-        synchronized (_mutex) {
-            if (LOGGING_ENABLED) {
-                Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
-            }
-
-            _removeNode(node);
+        if (LOGGING_ENABLED) {
+            Logger.log("P2P: Node Disconnected: " + node.getConnectionString());
         }
+
+        _removeNode(node);
     }
 
     protected void _processQueuedMessages() {
-        synchronized (_mutex) {
-            // Copy the list of queued transactions since _selectNodeForRequest and _sendMessage could potentially requeue the transmission...
-            final List<NodeApiMessage<NODE>> queuedTransmissions = new ImmutableList<NodeApiMessage<NODE>>(_queuedTransmissions);
-            _queuedTransmissions.clear();
-
-            for (final NodeApiMessage<NODE> apiTransmission : queuedTransmissions) {
-                _threadPool.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (apiTransmission instanceof NodeApiRequest) {
-                            _selectNodeForRequest((NodeApiRequest<NODE>) apiTransmission);
-                        }
-                        else {
-                            _sendMessage(apiTransmission);
-                        }
-                    }
-                });
+        // Copy the list of queued transactions since _selectNodeForRequest and _sendMessage could potentially requeue the transmission...
+        final MutableList<NodeApiMessage<NODE>> queuedTransmissions = new MutableList<NodeApiMessage<NODE>>(_queuedTransmissions.size());
+        while (! _queuedTransmissions.isEmpty()) {
+            final NodeApiMessage<NODE> message = _queuedTransmissions.poll();
+            if (message != null) {
+                queuedTransmissions.add(message);
             }
         }
+
+        _threadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                for (final NodeApiMessage<NODE> apiTransmission : queuedTransmissions) {
+                    if (apiTransmission instanceof NodeApiRequest) {
+                        _selectNodeForRequest((NodeApiRequest<NODE>) apiTransmission);
+                    }
+                    else {
+                        _sendMessage(apiTransmission);
+                    }
+                }
+            }
+        });
     }
 
     protected Boolean _isConnectedToNode(final NodeIpAddress nodeIpAddress) {
@@ -271,19 +270,17 @@ public class NodeManager<NODE extends Node> {
                             Logger.log("P2P: Node failed to connect. Purging node.");
                         }
 
-                        synchronized (_mutex) {
-                            _pendingNodes.remove(node.getId());
+                        _pendingNodes.remove(node.getId());
 
-                            node.disconnect();
+                        node.disconnect();
 
-                            if (LOGGING_ENABLED) {
-                                Logger.log("P2P: Node purged.");
-                            }
+                        if (LOGGING_ENABLED) {
+                            Logger.log("P2P: Node purged.");
+                        }
 
-                            if (_nodes.isEmpty()) {
-                                if (!_isShuttingDown) {
-                                    _onAllNodesDisconnected();
-                                }
+                        if (_nodes.isEmpty()) {
+                            if (!_isShuttingDown) {
+                                _onAllNodesDisconnected();
                             }
                         }
                     }
@@ -317,42 +314,40 @@ public class NodeManager<NODE extends Node> {
                 }
                 if (unseenNodeAddresses.isEmpty()) { return; }
 
-                synchronized (_mutex) {
-                    if (_isShuttingDown) { return; }
+                if (_isShuttingDown) { return; }
 
-                    { // Batch at least 30 seconds worth of new NodeIpAddresses, then broadcast the group to current peers...
-                        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-                        final Long msElapsedSinceLastBroadcast = (now - _lastAddressBroadcastTimestamp);
-                        if (msElapsedSinceLastBroadcast >= 30000L) {
-                            _lastAddressBroadcastTimestamp = now;
+                { // Batch at least 30 seconds worth of new NodeIpAddresses, then broadcast the group to current peers...
+                    final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+                    final Long msElapsedSinceLastBroadcast = (now - _lastAddressBroadcastTimestamp);
+                    if (msElapsedSinceLastBroadcast >= 30000L) {
+                        _lastAddressBroadcastTimestamp = now;
 
-                            final List<NodeIpAddress> newNodeAddresses = new MutableList<NodeIpAddress>(_newNodeAddresses);
-                            _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
-                            _broadcastNewNodesToExistingNodes(newNodeAddresses);
-                        }
+                        final List<NodeIpAddress> newNodeAddresses = new MutableList<NodeIpAddress>(_newNodeAddresses);
+                        _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+                        _broadcastNewNodesToExistingNodes(newNodeAddresses);
                     }
+                }
 
-                    // Connect to the node if the node if the NodeManager is still looking for peers...
-                    for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
-                        final Integer healthyNodeCount = _countNodesAboveHealth(50);
-                        if (healthyNodeCount >= _maxNodeCount) { break; }
+                // Connect to the node if the node if the NodeManager is still looking for peers...
+                for (final NodeIpAddress nodeIpAddress : unseenNodeAddresses) {
+                    final Integer healthyNodeCount = _countNodesAboveHealth(50);
+                    if (healthyNodeCount >= _maxNodeCount) { break; }
 
-                        final String address = nodeIpAddress.getIp().toString();
-                        final Integer port = nodeIpAddress.getPort();
+                    final String address = nodeIpAddress.getIp().toString();
+                    final Integer port = nodeIpAddress.getPort();
 
-                        final Boolean isAlreadyConnectedToNode = _isConnectedToNode(nodeIpAddress);
-                        if (isAlreadyConnectedToNode) { continue; }
+                    final Boolean isAlreadyConnectedToNode = _isConnectedToNode(nodeIpAddress);
+                    if (isAlreadyConnectedToNode) { continue; }
 
-                        final NODE newNode = _nodeFactory.newNode(address, port);
+                    final NODE newNode = _nodeFactory.newNode(address, port);
 
-                        _initNode(newNode);
+                    _initNode(newNode);
 
-                        _broadcastExistingNodesToNewNode(newNode);
+                    _broadcastExistingNodesToNewNode(newNode);
 
-                        _checkMaxNodeCount(_maxNodeCount - 1);
+                    _checkMaxNodeCount(_maxNodeCount - 1);
 
-                        _addNotHandshakedNode(newNode);
-                    }
+                    _addNotHandshakedNode(newNode);
                 }
             }
         });
@@ -386,10 +381,8 @@ public class NodeManager<NODE extends Node> {
                     Logger.log("P2P: HandshakeComplete: " + node.getConnectionString());
                 }
 
-                synchronized (_mutex) {
-                    _pendingNodes.remove(node.getId());
-                    _addHandshakedNode(node);
-                }
+                _pendingNodes.remove(node.getId());
+                _addHandshakedNode(node);
 
                 final Long nodeNetworkTimeOffset = node.getNetworkTimeOffset();
                 if (nodeNetworkTimeOffset != null) {
@@ -414,7 +407,6 @@ public class NodeManager<NODE extends Node> {
         _threadPool.execute(timeoutRunnable);
     }
 
-    // NOTE: Requires Mutex Lock...
     protected Integer _countNodesAboveHealth(final Integer minimumHealth) {
         int nodeCount = 0;
         final List<NODE> activeNodes = _getActiveNodes();
@@ -427,7 +419,6 @@ public class NodeManager<NODE extends Node> {
         return nodeCount;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected List<NODE> _getInactiveNodes() {
         final MutableList<NODE> inactiveNodes = new MutableList<NODE>(_nodes.size());
         for (final NODE node : _nodes.values()) {
@@ -438,7 +429,6 @@ public class NodeManager<NODE extends Node> {
         return inactiveNodes;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected List<NODE> _getActiveNodes() {
         final MutableList<NODE> activeNodes = new MutableList<NODE>(_nodes.size());
         for (final NODE node : _nodes.values()) {
@@ -450,7 +440,6 @@ public class NodeManager<NODE extends Node> {
         return activeNodes;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected NODE _selectWorstActiveNode() {
         final List<NODE> activeNodes = _getActiveNodes();
 
@@ -460,12 +449,21 @@ public class NodeManager<NODE extends Node> {
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final MutableNodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
-            nodeHealthList.add(nodeHealth.asConst());
+            if (nodeHealth != null) {
+                nodeHealthList.add(nodeHealth.asConst());
+            }
         }
-        nodeHealthList.sort(MutableNodeHealth.COMPARATOR);
+        nodeHealthList.sort(MutableNodeHealth.HEALTH_ASCENDING_COMPARATOR);
 
-        final NodeHealth bestNodeHealth = nodeHealthList.get(0);
-        return _nodes.get(bestNodeHealth.getNodeId());
+        for (int i = 0; i < nodeHealthList.getSize(); ++i) {
+            final NodeHealth worstNodeHealth = nodeHealthList.get(i);
+            final NODE worstNode = _nodes.get(worstNodeHealth.getNodeId());
+            if (worstNode != null) { // _nodes may have been updated while the health was sorted, so it is possible that the worst node is no longer connected...
+                return worstNode;
+            }
+        }
+
+        return null;
     }
 
     // NOTE: Requires Mutex Lock...
@@ -483,7 +481,6 @@ public class NodeManager<NODE extends Node> {
         return selectedNode;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected NODE _selectBestNode(final NodeFilter<NODE> nodeFilter) {
         final List<NODE> nodes = _selectBestNodes(_maxNodeCount);
         if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
@@ -493,7 +490,9 @@ public class NodeManager<NODE extends Node> {
 
             if (LOGGING_ENABLED) {
                 final NodeHealth nodeHealth = _nodeHealthMap.get(node.getId());
-                Logger.log("P2P: Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
+                if (nodeHealth != null) {
+                    Logger.log("P2P: Selected Node: " + (node.getId()) + " (" + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") + "hp) - " + (node.getConnectionString()) + " - " + _nodes.size());
+                }
             }
 
             return node;
@@ -512,9 +511,11 @@ public class NodeManager<NODE extends Node> {
         final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
-            nodeHealthList.add(nodeHealth.asConst()); // NOTE: Items must be a snapshot to prevent concurrent modifications during sort...
+            if (nodeHealth != null) {
+                nodeHealthList.add(nodeHealth.asConst()); // NOTE: Items must be a snapshot to prevent concurrent modifications during sort...
+            }
         }
-        nodeHealthList.sort(NodeHealth.COMPARATOR);
+        nodeHealthList.sort(NodeHealth.HEALTH_ASCENDING_COMPARATOR);
 
         final Integer nodeCount;
         {
@@ -528,16 +529,19 @@ public class NodeManager<NODE extends Node> {
 
         final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
         for (int i = 0; i < nodeCount; ++i) {
-            final NodeHealth bestNodeHealth = nodeHealthList.get(nodeHealthList.getSize() - i - 1);
-            final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
+            final int index = (nodeHealthList.getSize() - i - 1);
+            if ( (index < 0) || (index >= nodeHealthList.getSize()) ) { continue; }
 
-            selectedNodes.add(selectedNode);
+            final NodeHealth bestNodeHealth = nodeHealthList.get(index);
+            final NODE selectedNode = _nodes.get(bestNodeHealth.getNodeId());
+            if (selectedNode != null) { // _nodes may have been updated during the selection process...
+                selectedNodes.add(selectedNode);
+            }
         }
 
         return selectedNodes;
     }
 
-    // NOTE: Requires Mutex lock...
     protected void _pingIdleNodes() {
         final Long maxIdleTime = 30000L;
 
@@ -576,13 +580,14 @@ public class NodeManager<NODE extends Node> {
 
                     final NodeId nodeId = idleNode.getId();
                     final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
-                    nodeHealth.updatePingInMilliseconds(pingInMilliseconds);
+                    if (nodeHealth != null) {
+                        nodeHealth.updatePingInMilliseconds(pingInMilliseconds);
+                    }
                 }
             });
         }
     }
 
-    // NOTE: Requires Mutex lock...
     protected void _removeDisconnectedNodes() {
         final MutableList<NODE> purgeableNodes = new MutableList<NODE>();
 
@@ -602,7 +607,7 @@ public class NodeManager<NODE extends Node> {
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
         _systemTime = new SystemTime();
-        _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
+        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
@@ -613,7 +618,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
-        _nodes = new HashMap<NodeId, NODE>(maxNodeCount);
+        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
         _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
@@ -625,15 +630,12 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void addNode(final NODE node) {
+        if (_isShuttingDown) { return; }
 
-        synchronized (_mutex) {
-            if (_isShuttingDown) { return; }
+        _initNode(node);
 
-            _initNode(node);
-
-            _checkMaxNodeCount(_maxNodeCount - 1);
-            _addNotHandshakedNode(node);
-        }
+        _checkMaxNodeCount(_maxNodeCount - 1);
+        _addNotHandshakedNode(node);
     }
 
     public NetworkTime getNetworkTime() {
@@ -653,17 +655,15 @@ public class NodeManager<NODE extends Node> {
         final NODE selectedNode;
         final MutableNodeHealth nodeHealth;
         {
-            synchronized (_mutex) {
-                selectedNode = _selectBestNode();
+            selectedNode = _selectBestNode();
 
-                if (selectedNode == null) {
-                    _queuedTransmissions.add(apiRequest);
-                    return;
-                }
-
-                final NodeId nodeId = selectedNode.getId();
-                nodeHealth = _nodeHealthMap.get(nodeId);
+            if (selectedNode == null) {
+                _queuedTransmissions.add(apiRequest);
+                return;
             }
+
+            final NodeId nodeId = selectedNode.getId();
+            nodeHealth = _nodeHealthMap.get(nodeId);
         }
 
         apiRequest.nodeHealthRequest = nodeHealth.onRequestSent();
@@ -676,15 +676,13 @@ public class NodeManager<NODE extends Node> {
     protected void _selectNodeForRequest(final NODE selectedNode, final NodeApiRequest<NODE> apiRequest) {
         final MutableNodeHealth nodeHealth;
         {
-            synchronized (_mutex) {
-                if (selectedNode == null) {
-                    _queuedTransmissions.add(apiRequest);
-                    return;
-                }
-
-                final NodeId nodeId = selectedNode.getId();
-                nodeHealth = _nodeHealthMap.get(nodeId);
+            if (selectedNode == null) {
+                _queuedTransmissions.add(apiRequest);
+                return;
             }
+
+            final NodeId nodeId = selectedNode.getId();
+            nodeHealth = _nodeHealthMap.get(nodeId);
         }
 
         if (nodeHealth == null) {
@@ -710,28 +708,24 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _sendMessage(final NodeApiMessage<NODE> apiMessage) {
-        final NODE selectedNode;
-        final MutableNodeHealth nodeHealth;
-        synchronized (_mutex) {
-            selectedNode = _selectBestNode();
+        final NODE selectedNode = _selectBestNode();
 
-            if (selectedNode == null) {
-                _queuedTransmissions.add(apiMessage);
-                return;
-            }
-
-            final NodeId nodeId = selectedNode.getId();
-            nodeHealth = _nodeHealthMap.get(nodeId);
+        if (selectedNode == null) {
+            _queuedTransmissions.add(apiMessage);
+            return;
         }
 
-        nodeHealth.onMessageSent();
+        final NodeId nodeId = selectedNode.getId();
+        final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
+        if (nodeHealth != null) {
+            nodeHealth.onMessageSent();
+        }
+
         apiMessage.run(selectedNode);
     }
 
     public void executeRequest(final NodeApiRequest<NODE> nodeNodeApiRequest) {
-        synchronized (_mutex) {
-            _selectNodeForRequest(nodeNodeApiRequest);
-        }
+        _selectNodeForRequest(nodeNodeApiRequest);
     }
 
     public void sendMessage(final NodeApiMessage<NODE> nodeNodeApiMessage) {
@@ -739,23 +733,17 @@ public class NodeManager<NODE extends Node> {
     }
 
     public List<NODE> getNodes() {
-        synchronized (_mutex) {
-            return new MutableList<NODE>(_nodes.values());
-        }
+        return new MutableList<NODE>(_nodes.values());
     }
 
     public List<NodeId> getNodeIds() {
-        synchronized (_mutex) {
-            final ImmutableListBuilder<NodeId> nodeIds = new ImmutableListBuilder<NodeId>(_nodes.size());
-            nodeIds.addAll(_nodes.keySet());
-            return nodeIds.build();
-        }
+        final ImmutableListBuilder<NodeId> nodeIds = new ImmutableListBuilder<NodeId>(_nodes.size());
+        nodeIds.addAll(_nodes.keySet());
+        return nodeIds.build();
     }
 
     public NODE getNode(final NodeId nodeId) {
-        synchronized (_mutex) {
-            return _nodes.get(nodeId);
-        }
+        return _nodes.get(nodeId);
     }
 
     public Long getNodeHealth(final NodeId nodeId) {
@@ -766,39 +754,28 @@ public class NodeManager<NODE extends Node> {
     }
 
     public NODE getBestNode() {
-        synchronized (_mutex) {
-            return _selectBestNode();
-        }
+        return _selectBestNode();
     }
 
     public List<NODE> getBestNodes(final Integer nodeCount) {
-        synchronized (_mutex) {
-            return _selectBestNodes(nodeCount);
-        }
+        return _selectBestNodes(nodeCount);
     }
 
     public NODE getWorstNode() {
-        synchronized (_mutex) {
-            return _selectWorstActiveNode();
-        }
+        return _selectWorstActiveNode();
     }
 
     public Integer getActiveNodeCount() {
-        synchronized (_mutex) {
-            final List<NODE> nodes = _getActiveNodes();
-            return nodes.getSize();
-        }
+        final List<NODE> nodes = _getActiveNodes();
+        return nodes.getSize();
     }
 
     public void shutdown() {
-        final MutableList<NODE> nodes;
-        synchronized (_mutex) {
-            _isShuttingDown = true;
-            nodes = new MutableList<NODE>(_nodes.values());
-            nodes.addAll(_pendingNodes.values());
-            _nodes.clear();
-            _pendingNodes.clear();
-        }
+        _isShuttingDown = true;
+        final MutableList<NODE> nodes = new MutableList<NODE>(_nodes.values());
+        nodes.addAll(_pendingNodes.values());
+        _nodes.clear();
+        _pendingNodes.clear();
 
         // Nodes must be disconnected outside of the _mutex lock in order to prevent deadlock...
         for (final NODE node : nodes) {
