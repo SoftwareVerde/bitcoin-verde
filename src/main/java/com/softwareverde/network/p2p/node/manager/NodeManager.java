@@ -746,6 +746,10 @@ public class NodeManager<NODE extends Node> {
         return _nodes.get(nodeId);
     }
 
+    public NODE getNode(final NodeFilter<NODE> nodeFilter) {
+        return _selectBestNode(nodeFilter);
+    }
+
     public Long getNodeHealth(final NodeId nodeId) {
         final MutableNodeHealth nodeHealth = _nodeHealthMap.get(nodeId);
         if (nodeHealth == null) { return null; }

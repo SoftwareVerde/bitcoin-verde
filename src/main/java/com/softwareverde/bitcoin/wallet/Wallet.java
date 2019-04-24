@@ -26,55 +26,35 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
 import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.wallet.utxo.MutableSpendableTransactionOutput;
+import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
+import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 
-import java.util.Comparator;
+import java.util.Collection;
 import java.util.HashMap;
 
 public class Wallet {
-    protected static class SpendableTransactionOutput {
-        public final TransactionOutputIdentifier identifier;
-        public final TransactionOutput transactionOutput;
-        public Boolean isSpent;
-
-        public SpendableTransactionOutput(final TransactionOutputIdentifier identifier, final TransactionOutput transactionOutput) {
-            this.identifier = identifier;
-            this.transactionOutput = transactionOutput;
-            this.isSpent = false;
-        }
-
-        public SpendableTransactionOutput(final TransactionOutputIdentifier identifier, final TransactionOutput transactionOutput, final Boolean isSpent) {
-            this.identifier = identifier;
-            this.transactionOutput = transactionOutput;
-            this.isSpent = isSpent;
-        }
-    }
-
-    protected static Comparator<SpendableTransactionOutput> _spendableTransactionOutputComparatorAmountAscending = new Comparator<SpendableTransactionOutput>() {
-        @Override
-        public int compare(final SpendableTransactionOutput transactionOutput0, final SpendableTransactionOutput transactionOutput1) {
-            return transactionOutput0.transactionOutput.getAmount().compareTo(transactionOutput1.transactionOutput.getAmount());
-        }
-    };
-
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
-    protected final HashMap<TransactionOutputIdentifier, SpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, SpendableTransactionOutput>();
+    protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
 
-    protected Double _satoshisPerByteFee = 10D;
+    protected final Long _bytesPerTransactionInput = 150L;
+    protected final Long _bytesPerTransactionOutput = 35L;
+    protected final Long _bytesPerTransactionMetadata = 8L;
 
-    protected Long _bytesPerTransactionInput = 150L;
-    protected Long _bytesPerTransactionOutput = 35L;
-    protected Long _bytesPerTransactionMetadata = 8L;
+    protected Double _satoshisPerByteFee = 5D;
 
     public void setSatoshisPerByteFee(final Double satoshisPerByte) {
         _satoshisPerByteFee = satoshisPerByte;
     }
 
-    public void addPrivateKey(final PrivateKey privateKey) {
+    public synchronized void addPrivateKey(final PrivateKey privateKey) {
         final PrivateKey constPrivateKey = privateKey.asConst();
         final PublicKey publicKey = constPrivateKey.getPublicKey();
         final PublicKey compressedPublicKey = publicKey.compress();
@@ -91,7 +71,7 @@ public class Wallet {
         _publicKeys.put(decompressedAddress, decompressedPublicKey);
     }
 
-    public void addTransaction(final Transaction transaction) {
+    public synchronized void addTransaction(final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         final Sha256Hash transactionHash = constTransaction.getHash();
         _transactions.put(transactionHash.asConst(), constTransaction);
@@ -100,6 +80,14 @@ public class Wallet {
         final List<TransactionOutput> transactionOutputs = constTransaction.getTransactionOutputs();
         for (int transactionOutputIndex = 0; transactionOutputIndex < transactionOutputs.getSize(); ++transactionOutputIndex) {
             final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndex);
+
+            // Mark outputs as spent, if any...
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
+                final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+                if (spendableTransactionOutput == null) { continue; }
+                spendableTransactionOutput.setIsSpent(true);
+            }
 
             final LockingScript lockingScript = transactionOutput.getLockingScript();
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
@@ -110,30 +98,30 @@ public class Wallet {
 
             if (_publicKeys.containsKey(address)) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-                final SpendableTransactionOutput spendableTransactionOutput = new SpendableTransactionOutput(transactionOutputIdentifier, transactionOutput);
+                final MutableSpendableTransactionOutput spendableTransactionOutput = new MutableSpendableTransactionOutput(transactionOutputIdentifier, transactionOutput);
                 _transactionOutputs.put(transactionOutputIdentifier, spendableTransactionOutput);
             }
         }
     }
 
-    public void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
+    public synchronized void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
         final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-        final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
         if (spendableTransactionOutput == null) { return; }
 
-        spendableTransactionOutput.isSpent = true;
+        spendableTransactionOutput.setIsSpent(true);
     }
 
-    public Transaction createTransaction(final List<PaymentAmount> paymentAmounts) {
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts) {
         if (paymentAmounts.isEmpty()) { return null; }
 
         final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<SpendableTransactionOutput>(_transactionOutputs.size());
         for (final SpendableTransactionOutput transactionOutput : _transactionOutputs.values()) {
-            if (! transactionOutput.isSpent) {
+            if (! transactionOutput.isSpent()) {
                 unspentTransactionOutputs.add(transactionOutput);
             }
         }
-        unspentTransactionOutputs.sort(_spendableTransactionOutputComparatorAmountAscending);
+        unspentTransactionOutputs.sort(SpendableTransactionOutput.AMOUNT_ASCENDING_COMPARATOR);
 
         Long totalPaymentAmount = 0L;
         Long requiredAmount = 0L;
@@ -151,7 +139,7 @@ public class Wallet {
         for (final SpendableTransactionOutput spendableTransactionOutput : unspentTransactionOutputs) {
             if (currentAmount >= requiredAmount) { break; }
 
-            final TransactionOutput transactionOutput = spendableTransactionOutput.transactionOutput;
+            final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
 
             final Long feeToSpendOutput = (long) (_satoshisPerByteFee * _bytesPerTransactionInput);
             if (transactionOutput.getAmount() < feeToSpendOutput) { continue; }
@@ -176,8 +164,9 @@ public class Wallet {
         for (int i = 0; i < transactionOutputsToSpend.getSize(); ++i) {
             final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
 
-            final Transaction transactionBeingSpent = _transactions.get(spendableTransactionOutput.identifier.getTransactionHash());
-            final Integer transactionOutputBeingSpentIndex = spendableTransactionOutput.identifier.getOutputIndex();
+            final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
+            final Transaction transactionBeingSpent = _transactions.get(transactionOutputIdentifier.getTransactionHash());
+            final Integer transactionOutputBeingSpentIndex = transactionOutputIdentifier.getOutputIndex();
 
             { // Transaction Input...
                 final MutableTransactionInput transactionInput = new MutableTransactionInput();
@@ -210,7 +199,7 @@ public class Wallet {
             final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
             for (int i = 0; i < transactionInputs.getSize(); ++i) {
                 final SpendableTransactionOutput spendableTransactionOutput = transactionOutputsToSpend.get(i);
-                final TransactionOutput transactionOutputBeingSpent = spendableTransactionOutput.transactionOutput;
+                final TransactionOutput transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
 
                 final PrivateKey privateKey;
                 final Boolean useCompressedPublicKey;
@@ -244,7 +233,7 @@ public class Wallet {
             {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(signedTransactionInput.getPreviousOutputTransactionHash(), signedTransactionInput.getPreviousOutputIndex());
                 final SpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-                transactionOutputBeingSpent = spendableTransactionOutput.transactionOutput;
+                transactionOutputBeingSpent = spendableTransactionOutput.getTransactionOutput();
             }
 
             final MutableContext context = MutableContext.getContextForVerification(signedTransaction, i, transactionOutputBeingSpent);
@@ -260,5 +249,54 @@ public class Wallet {
         Logger.log("Transaction Bytes Count: " + transactionByteCount + " (" + (calculatedFees / transactionByteCount.floatValue()) + " sats/byte)");
 
         return signedTransaction;
+    }
+
+    public synchronized MutableBloomFilter generateBloomFilter() {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Collection<PrivateKey> privateKeys = _privateKeys.values();
+
+        final long itemCount;
+        {
+            final int privateKeyCount = privateKeys.size();
+            final int estimatedItemCount = (privateKeyCount * 4);
+            itemCount = (int) (Math.pow(2, (BitcoinUtil.log2(estimatedItemCount) + 1)));
+        }
+
+        final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.01D);
+
+        for (final PrivateKey privateKey : privateKeys) {
+            final PublicKey publicKey = privateKey.getPublicKey();
+
+            // Add sending matchers...
+            bloomFilter.addItem(publicKey.decompress());
+            bloomFilter.addItem(publicKey.compress());
+
+            // Add receiving matchers...
+            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey));
+            bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
+        }
+
+        return bloomFilter;
+    }
+
+    public synchronized List<SpendableTransactionOutput> getTransactionOutputs() {
+        final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
+        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
+        for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
+            transactionOutputs.add(spendableTransactionOutput);
+        }
+        return transactionOutputs.build();
+    }
+
+    public synchronized Long getBalance() {
+        long amount = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            if (! spendableTransactionOutput.isSpent()) {
+                final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+                amount += transactionOutput.getAmount();
+            }
+        }
+        return amount;
     }
 }
