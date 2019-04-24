@@ -687,7 +687,7 @@ public class TransactionDatabaseManager {
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             listBuilder.add(transactionId);
         }
         return listBuilder.build();
@@ -713,7 +713,7 @@ public class TransactionDatabaseManager {
 
         final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
         for (final Row row : rows) {
-            final TransactionId transactionId = TransactionId.wrap(row.getLong("id"));
+            final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             listBuilder.add(transactionId);
         }
         return listBuilder.build();
