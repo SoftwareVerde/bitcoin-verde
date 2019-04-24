@@ -466,7 +466,6 @@ public class NodeManager<NODE extends Node> {
         return null;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected NODE _selectBestNode() {
         final List<NODE> nodes = _selectBestNodes(1);
         if ( (nodes == null) || (nodes.isEmpty()) ) { return null; }
@@ -501,7 +500,6 @@ public class NodeManager<NODE extends Node> {
         return null;
     }
 
-    // NOTE: Requires Mutex Lock...
     protected List<NODE> _selectBestNodes(final Integer requestedNodeCount) {
         final List<NODE> activeNodes = _getActiveNodes();
 
