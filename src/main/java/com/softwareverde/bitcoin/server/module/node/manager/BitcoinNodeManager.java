@@ -435,13 +435,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                 bitcoinNode.requestMerkleBlock(blockHash, new BitcoinNode.DownloadMerkleBlockCallback() {
                     @Override
-                    public void onResult(final MerkleBlock block) {
+                    public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
                         _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 
+                        final MerkleBlock merkleBlock = merkleBlockParameters.merkleBlock;
                         if (callback != null) {
-                            Logger.log("Received Merkle Block: "+ block.getHash() +" from Node: " + bitcoinNode.getConnectionString());
-                            callback.onResult(block);
+                            Logger.log("Received Merkle Block: "+ merkleBlock.getHash() +" from Node: " + bitcoinNode.getConnectionString());
+                            callback.onResult(merkleBlockParameters);
                         }
                     }
 

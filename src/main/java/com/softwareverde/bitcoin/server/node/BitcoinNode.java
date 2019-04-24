@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
+import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -64,7 +65,6 @@ import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.HexUtil;
 
 import java.util.HashMap;
@@ -86,7 +86,7 @@ public class BitcoinNode extends Node {
     public interface DownloadBlockCallback extends Callback<Block> {
         default void onFailure(Sha256Hash blockHash) { }
     }
-    public interface DownloadMerkleBlockCallback extends Callback<MerkleBlock> {
+    public interface DownloadMerkleBlockCallback extends Callback<MerkleBlockParameters> {
         default void onFailure(Sha256Hash blockHash) { }
     }
     public interface DownloadBlockHeadersCallback extends Callback<List<BlockHeader>> { }
@@ -146,7 +146,7 @@ public class BitcoinNode extends Node {
         public final List<Sha256Hash> transactionHashes;
         public final List<Transaction> transactions;
 
-        public ThinBlockParameters(final BlockHeader blockHeader, List<Sha256Hash> transactionHashes, List<Transaction> transactions) {
+        public ThinBlockParameters(final BlockHeader blockHeader, final List<Sha256Hash> transactionHashes, final List<Transaction> transactions) {
             this.blockHeader = blockHeader;
             this.transactionHashes = transactionHashes;
             this.transactions = transactions;
@@ -158,9 +158,19 @@ public class BitcoinNode extends Node {
         public final List<ByteArray> transactionHashes;
         public final List<Transaction> transactions;
 
-        public ExtraThinBlockParameters(final BlockHeader blockHeader, List<ByteArray> transactionHashes, List<Transaction> transactions) {
+        public ExtraThinBlockParameters(final BlockHeader blockHeader, final List<ByteArray> transactionHashes, final List<Transaction> transactions) {
             this.blockHeader = blockHeader;
             this.transactionHashes = transactionHashes;
+            this.transactions = transactions;
+        }
+    }
+
+    public static class MerkleBlockParameters {
+        public final MerkleBlock merkleBlock;
+        public final List<Transaction> transactions;
+
+        public MerkleBlockParameters(final MerkleBlock merkleBlock, final List<Transaction> transactions) {
+            this.merkleBlock = merkleBlock;
             this.transactions = transactions;
         }
     }
@@ -605,7 +615,43 @@ public class BitcoinNode extends Node {
         final Boolean merkleBlockIsValid = merkleBlock.isValid();
 
         final Sha256Hash blockHash = merkleBlock.getHash();
-        _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, (merkleBlockIsValid ? merkleBlock : null), _threadPool);
+
+        if (! merkleBlockIsValid) {
+            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, null, _threadPool);
+            return;
+        }
+
+        final PartialMerkleTree partialMerkleTree = merkleBlock.getPartialMerkleTree();
+        final List<Sha256Hash> merkleTreeTransactionHashes = partialMerkleTree.getTransactionHashes();
+        final Integer transactionCount = merkleTreeTransactionHashes.getSize();
+
+        final MutableList<Transaction> receivedTransactions = new MutableList<Transaction>(transactionCount);
+
+        if (transactionCount == 0) {
+            final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock, receivedTransactions);
+            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
+        }
+
+        final HashSet<Sha256Hash> missingTransactions = new HashSet<Sha256Hash>(transactionCount);
+
+        final DownloadTransactionCallback onTransactionReceived = new DownloadTransactionCallback() {
+            @Override
+            public void onResult(final Transaction transaction) {
+                final Sha256Hash transactionHash = transaction.getHash();
+                missingTransactions.remove(transactionHash);
+                receivedTransactions.add(transaction);
+
+                if (missingTransactions.isEmpty()) {
+                    final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock, receivedTransactions);
+                    _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
+                }
+            }
+        };
+
+        for (final Sha256Hash transactionHash : merkleTreeTransactionHashes) {
+            missingTransactions.add(transactionHash);
+            _storeInMapSet(_downloadTransactionRequests, transactionHash, onTransactionReceived);
+        }
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {
