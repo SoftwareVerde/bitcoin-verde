@@ -184,7 +184,7 @@ public class PartialMerkleTreeTests {
         bitcoinNode.requestMerkleBlock(block.getHash(), new BitcoinNode.DownloadMerkleBlockCallback() {
             @Override
             public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
-                merkleBlockContainer.value = merkleBlockParameters.merkleBlock;
+                merkleBlockContainer.value = merkleBlockParameters.getMerkleBlock();
             }
         });
         Thread.sleep(3000L);

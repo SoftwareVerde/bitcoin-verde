@@ -365,7 +365,7 @@ public class BitcoinNode extends Node {
                 final BitcoinProtocolMessage message = (BitcoinProtocolMessage) protocolMessage;
 
                 if (LOGGING_ENABLED) {
-                    Logger.log("Received: " + message.getCommand());
+                    Logger.log("Received: " + message.getCommand() + " from " + BitcoinNode.this.getConnectionString());
                 }
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
@@ -1114,16 +1114,23 @@ public class BitcoinNode extends Node {
     public void transmitMerkleBlock(final Block block) {
         final MutableBloomFilter bloomFilter = _bloomFilter;
         if (bloomFilter == null) {
+            // NOTE: When a MerkleBlock is requested without a BloomFilter set, Bitcoin XT sends a MerkleBlock w/ BloomFilter.MATCH_ALL.
             Logger.log("NOTICE: Attempting to Transmit MerkleBlock when no BloomFilter is available.");
             final BlockMessage blockMessage = new BlockMessage();
             blockMessage.setBlock(block);
             _queueMessage(blockMessage);
         }
         else {
+            // The response to a MerkleBlock request is a combination of messages.
+            //  1. The first message should be the MerkleBlock itself.
+            //  2. Immediately following should be the any transactions that match the Node's bloomFilter.
+            //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
+            final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>();
+
             final MerkleBlockMessage merkleBlockMessage = new MerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);
             merkleBlockMessage.setPartialMerkleTree(block.getPartialMerkleTree(bloomFilter));
-            _queueMessage(merkleBlockMessage);
+            messages.add(merkleBlockMessage);
 
             // BIP37 dictates that matched transactions be separately relayed...
             //  "In addition, because a merkleblock message contains only a list of transaction hashes, transactions
@@ -1137,9 +1144,15 @@ public class BitcoinNode extends Node {
                 if (transactionMatches) {
                     final TransactionMessage transactionMessage = new TransactionMessage();
                     transactionMessage.setTransaction(transaction);
-                    _queueMessage(transactionMessage);
+                    messages.add(transactionMessage);
                 }
             }
+
+            // NOTE: A ping message is queued to inform the node that no more transactions follow...
+            //  This isn't directly called out in the specification, but is a logical convention.
+            messages.add(_createPingMessage());
+
+            _queueMessages(messages);
         }
     }
 
