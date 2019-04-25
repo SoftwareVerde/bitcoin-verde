@@ -76,18 +76,19 @@ public class Wallet {
         final Sha256Hash transactionHash = constTransaction.getHash();
         _transactions.put(transactionHash.asConst(), constTransaction);
 
+        // Mark outputs as spent, if any...
+        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+            if (spendableTransactionOutput == null) { continue; }
+
+            spendableTransactionOutput.setIsSpent(true);
+        }
+
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
         final List<TransactionOutput> transactionOutputs = constTransaction.getTransactionOutputs();
         for (int transactionOutputIndex = 0; transactionOutputIndex < transactionOutputs.getSize(); ++transactionOutputIndex) {
             final TransactionOutput transactionOutput = transactionOutputs.get(transactionOutputIndex);
-
-            // Mark outputs as spent, if any...
-            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-                final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionInput.getPreviousOutputTransactionHash(), transactionInput.getPreviousOutputIndex());
-                final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-                if (spendableTransactionOutput == null) { continue; }
-                spendableTransactionOutput.setIsSpent(true);
-            }
 
             final LockingScript lockingScript = transactionOutput.getLockingScript();
             final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
@@ -123,8 +124,8 @@ public class Wallet {
         }
         unspentTransactionOutputs.sort(SpendableTransactionOutput.AMOUNT_ASCENDING_COMPARATOR);
 
-        Long totalPaymentAmount = 0L;
-        Long requiredAmount = 0L;
+        long totalPaymentAmount = 0L;
+        long requiredAmount = 0L;
         for (final PaymentAmount paymentAmount : paymentAmounts) {
             requiredAmount += (long) (_bytesPerTransactionOutput * _satoshisPerByteFee);
             requiredAmount += paymentAmount.amount;
@@ -135,13 +136,13 @@ public class Wallet {
         requiredAmount += (long) (_bytesPerTransactionMetadata * _satoshisPerByteFee);
 
         final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
-        Long currentAmount = 0L;
+        long currentAmount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : unspentTransactionOutputs) {
             if (currentAmount >= requiredAmount) { break; }
 
             final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
 
-            final Long feeToSpendOutput = (long) (_satoshisPerByteFee * _bytesPerTransactionInput);
+            final long feeToSpendOutput = (long) (_satoshisPerByteFee * _bytesPerTransactionInput);
             if (transactionOutput.getAmount() < feeToSpendOutput) { continue; }
 
             requiredAmount += (long) (_bytesPerTransactionInput * _satoshisPerByteFee);
@@ -154,7 +155,7 @@ public class Wallet {
             return null;
         }
 
-        final Long calculatedFees = (requiredAmount - totalPaymentAmount);
+        final long calculatedFees = (requiredAmount - totalPaymentAmount);
         Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmounts.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + calculatedFees + " in fees. " + (currentAmount - totalPaymentAmount - calculatedFees) + " in change.");
 
         final MutableTransaction transaction = new MutableTransaction();

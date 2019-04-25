@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
+import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.MerkleBlock;
@@ -13,6 +14,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessage;
@@ -65,7 +67,9 @@ import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
+import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -166,12 +170,27 @@ public class BitcoinNode extends Node {
     }
 
     public static class MerkleBlockParameters {
-        public final MerkleBlock merkleBlock;
-        public final List<Transaction> transactions;
+        protected final MerkleBlock _merkleBlock;
+        protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
 
-        public MerkleBlockParameters(final MerkleBlock merkleBlock, final List<Transaction> transactions) {
-            this.merkleBlock = merkleBlock;
-            this.transactions = transactions;
+        public MerkleBlock getMerkleBlock() {
+            return _merkleBlock;
+        }
+
+        public List<Transaction> getTransactions() {
+            return _transactions;
+        }
+
+        public MerkleBlockParameters(final MerkleBlock merkleBlock) {
+            _merkleBlock = merkleBlock.asConst();
+        }
+
+        protected Boolean hasAllTransactions() {
+            return Util.areEqual(_merkleBlock.getTransactionCount(), _transactions.getSize());
+        }
+
+        protected void addTransaction(final Transaction transaction) {
+            _transactions.add(transaction.asConst());
         }
     }
 
@@ -247,6 +266,8 @@ public class BitcoinNode extends Node {
     protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.UPDATE_ALL; // TODO
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
+
+    protected MerkleBlockParameters _currentMerkleBlockBeingTransmitted = null; // Represents the currently MerkleBlock being transmitted from the node. Becomes unset after a non-transaction message is received.
 
     @Override
     protected void _onSynchronizeVersion(final SynchronizeVersionMessage synchronizeVersionMessage) {
@@ -348,6 +369,18 @@ public class BitcoinNode extends Node {
                 }
 
                 _lastMessageReceivedTimestamp = _systemTime.getCurrentTimeInMilliSeconds();
+
+                // If a MerkleBlock was requested, trigger the MerkleBlock completion when a non-Transaction message is received.
+                if (message.getCommand() != MessageType.TRANSACTION) {
+                    final MerkleBlockParameters merkleBlockParameters = _currentMerkleBlockBeingTransmitted;
+                    _currentMerkleBlockBeingTransmitted = null;
+
+                    if (merkleBlockParameters != null) {
+                        final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
+                        final Sha256Hash blockHash = merkleBlock.getHash();
+                        _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
+                    }
+                }
 
                 switch (message.getCommand()) {
                     case PING: {
@@ -608,6 +641,19 @@ public class BitcoinNode extends Node {
 
         final Sha256Hash transactionHash = transaction.getHash();
         _executeAndClearCallbacks(_downloadTransactionRequests, transactionHash, transaction, _threadPool);
+
+        final MerkleBlockParameters merkleBlockParameters = _currentMerkleBlockBeingTransmitted;
+        if (merkleBlockParameters != null) {
+            final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
+            if (merkleBlock.containsTransaction(transactionHash)) {
+                merkleBlockParameters.addTransaction(transaction);
+            }
+
+            if (merkleBlockParameters.hasAllTransactions()) {
+                _currentMerkleBlockBeingTransmitted = null;
+                _executeAndClearCallbacks(_downloadMerkleBlockRequests, merkleBlock.getHash(), merkleBlockParameters, _threadPool);
+            }
+        }
     }
 
     protected void _onMerkleBlockReceived(final MerkleBlockMessage merkleBlockMessage) {
@@ -623,35 +669,17 @@ public class BitcoinNode extends Node {
 
         final PartialMerkleTree partialMerkleTree = merkleBlock.getPartialMerkleTree();
         final List<Sha256Hash> merkleTreeTransactionHashes = partialMerkleTree.getTransactionHashes();
-        final Integer transactionCount = merkleTreeTransactionHashes.getSize();
-
-        final MutableList<Transaction> receivedTransactions = new MutableList<Transaction>(transactionCount);
+        final int transactionCount = merkleTreeTransactionHashes.getSize();
 
         if (transactionCount == 0) {
-            final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock, receivedTransactions);
-            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
+            // No Transactions should be transmitted alongside this MerkleBlock, so execute any callbacks and return early.
+            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, new MerkleBlockParameters(merkleBlock), _threadPool);
+            return;
         }
 
-        final HashSet<Sha256Hash> missingTransactions = new HashSet<Sha256Hash>(transactionCount);
-
-        final DownloadTransactionCallback onTransactionReceived = new DownloadTransactionCallback() {
-            @Override
-            public void onResult(final Transaction transaction) {
-                final Sha256Hash transactionHash = transaction.getHash();
-                missingTransactions.remove(transactionHash);
-                receivedTransactions.add(transaction);
-
-                if (missingTransactions.isEmpty()) {
-                    final MerkleBlockParameters merkleBlockParameters = new MerkleBlockParameters(merkleBlock, receivedTransactions);
-                    _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, merkleBlockParameters, _threadPool);
-                }
-            }
-        };
-
-        for (final Sha256Hash transactionHash : merkleTreeTransactionHashes) {
-            missingTransactions.add(transactionHash);
-            _storeInMapSet(_downloadTransactionRequests, transactionHash, onTransactionReceived);
-        }
+        // Wait for additional Transactions to be transmitted.
+        //  NOTE: Not all Transactions listed within the MerkleTree will be broadcast, so receiving non-Transaction message will also trigger the completion of the MerkleBlock.
+        _currentMerkleBlockBeingTransmitted = new MerkleBlockParameters(merkleBlock);
     }
 
     protected void _onBlockHeadersMessageReceived(final BlockHeadersMessage blockHeadersMessage) {

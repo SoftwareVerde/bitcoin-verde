@@ -431,7 +431,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                         _onResponseReceived(bitcoinNode, apiRequest);
                         if (apiRequest.didTimeout) { return; }
 
-                        final MerkleBlock merkleBlock = merkleBlockParameters.merkleBlock;
+                        final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
                         if (callback != null) {
                             Logger.log("Received Merkle Block: "+ merkleBlock.getHash() +" from Node: " + bitcoinNode.getConnectionString());
                             callback.onResult(merkleBlockParameters);

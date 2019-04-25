@@ -4,8 +4,9 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 
 public class MutableSpendableTransactionOutput extends SpendableTransactionOutputCore implements SpendableTransactionOutput {
-    protected TransactionOutputIdentifier _transactionOutputIdentifier;
-    protected TransactionOutput _transactionOutput;
+    protected final TransactionOutputIdentifier _transactionOutputIdentifier;
+    protected final TransactionOutput _transactionOutput;
+
     protected Boolean _isSpent;
 
     public MutableSpendableTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier, final TransactionOutput transactionOutput) {

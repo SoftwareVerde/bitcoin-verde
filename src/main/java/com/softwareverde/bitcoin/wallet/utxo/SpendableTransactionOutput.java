@@ -17,6 +17,7 @@ public interface SpendableTransactionOutput extends Constable<ImmutableSpendable
 
     TransactionOutputIdentifier getIdentifier();
     TransactionOutput getTransactionOutput();
+
     Boolean isSpent();
 
     @Override
