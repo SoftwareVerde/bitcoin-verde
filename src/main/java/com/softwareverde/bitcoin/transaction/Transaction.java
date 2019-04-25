@@ -21,7 +21,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
 public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
-    Long VERSION = 0x01L;
+    Long VERSION = 0x02L;
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
     static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {

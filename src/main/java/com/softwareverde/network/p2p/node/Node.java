@@ -18,6 +18,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
@@ -75,12 +76,51 @@ public abstract class Node {
     protected abstract AcknowledgeVersionMessage _createAcknowledgeVersionMessage(SynchronizeVersionMessage synchronizeVersionMessage);
     protected abstract NodeIpAddressMessage _createNodeIpAddressMessage();
 
+    protected final ReentrantReadWriteLock.ReadLock _sendSingleMessageLock;
+    protected final ReentrantReadWriteLock.WriteLock _sendMultiMessageLock;
+
     protected void _queueMessage(final ProtocolMessage message) {
-        if (_handshakeIsComplete) {
-            _connection.queueMessage(message);
+        try {
+            _sendMultiMessageLock.lockInterruptibly();
         }
-        else {
-            _postHandshakeMessageQueue.offer(message);
+        catch (final InterruptedException exception) { return; }
+
+        try {
+            if (_handshakeIsComplete) {
+                _connection.queueMessage(message);
+            }
+            else {
+                _postHandshakeMessageQueue.offer(message);
+            }
+        }
+        finally {
+            _sendSingleMessageLock.unlock();
+        }
+    }
+
+    /**
+     * Guarantees that the messages are queued in the order provided, and that no other messages are sent between them.
+     */
+    protected void _queueMessages(final List<? extends ProtocolMessage> messages) {
+        try {
+            _sendMultiMessageLock.lockInterruptibly();
+        }
+        catch (final InterruptedException exception) { return; }
+
+        try {
+            if (_handshakeIsComplete) {
+                for (final ProtocolMessage message : messages) {
+                    _connection.queueMessage(message);
+                }
+            }
+            else {
+                for (final ProtocolMessage message : messages) {
+                    _postHandshakeMessageQueue.offer(message);
+                }
+            }
+        }
+        finally {
+            _sendMultiMessageLock.unlock();
         }
     }
 
@@ -178,6 +218,15 @@ public abstract class Node {
                 }
             });
         }
+    }
+
+    protected void _ping(final PingCallback pingCallback) {
+        final PingMessage pingMessage = _createPingMessage();
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final PingRequest pingRequest = new PingRequest(pingCallback, now);
+        _pingRequests.put(pingMessage.getNonce(), pingRequest);
+        _queueMessage(pingMessage);
     }
 
     protected void _onPingReceived(final PingMessage pingMessage) {
@@ -310,6 +359,10 @@ public abstract class Node {
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
 
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
+
         _initConnection();
     }
 
@@ -324,6 +377,10 @@ public abstract class Node {
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
 
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
+
         _initConnection();
     }
 
@@ -337,6 +394,10 @@ public abstract class Node {
         _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
 
         _initConnection();
     }
@@ -416,12 +477,7 @@ public abstract class Node {
     }
 
     public void ping(final PingCallback pingCallback) {
-        final PingMessage pingMessage = _createPingMessage();
-
-        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-        final PingRequest pingRequest = new PingRequest(pingCallback, now);
-        _pingRequests.put(pingMessage.getNonce(), pingRequest);
-        _queueMessage(pingMessage);
+        _ping(pingCallback);
     }
 
     public void broadcastNodeAddress(final NodeIpAddress nodeIpAddress) {
