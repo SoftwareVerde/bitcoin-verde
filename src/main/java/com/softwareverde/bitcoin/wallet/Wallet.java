@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
@@ -42,6 +43,8 @@ public class Wallet {
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
+
+    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
 
     protected final Long _bytesPerTransactionInput = 150L;
@@ -79,6 +82,8 @@ public class Wallet {
         // Mark outputs as spent, if any...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            _spentTransactionOutputs.put(transactionOutputIdentifier, transactionHash);
+
             final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
             if (spendableTransactionOutput == null) { continue; }
 
@@ -100,6 +105,7 @@ public class Wallet {
             if (_publicKeys.containsKey(address)) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
                 final MutableSpendableTransactionOutput spendableTransactionOutput = new MutableSpendableTransactionOutput(transactionOutputIdentifier, transactionOutput);
+                spendableTransactionOutput.setIsSpent(_spentTransactionOutputs.containsKey(transactionOutputIdentifier));
                 _transactionOutputs.put(transactionOutputIdentifier, spendableTransactionOutput);
             }
         }
