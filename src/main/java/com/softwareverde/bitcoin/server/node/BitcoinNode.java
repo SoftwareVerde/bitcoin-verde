@@ -114,7 +114,7 @@ public class BitcoinNode extends Node {
         public Boolean isReadyForTransactions() { return false; }
 
         @Override
-        public Integer getCurrentBlockHeight() { return 0; }
+        public Long getCurrentBlockHeight() { return 0L; }
     };
 
     public interface QueryBlocksCallback {
