@@ -432,7 +432,7 @@ public class NodeModule {
             _blockDownloader = new BlockDownloader(_bitcoinNodeManager, _databaseConnectionPool, readOnlyDatabaseManagerCache);
         }
 
-        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(_databaseConnectionPool, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
+        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(_databaseConnectionPool, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
 
         { // Initialize BlockHeaderDownloader...
             _blockHeaderDownloader = new BlockHeaderDownloader(_databaseConnectionPool, readOnlyDatabaseManagerCache, _bitcoinNodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);

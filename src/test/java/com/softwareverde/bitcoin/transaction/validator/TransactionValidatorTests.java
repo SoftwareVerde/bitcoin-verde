@@ -466,14 +466,14 @@ public class TransactionValidatorTests extends IntegrationTest {
         {
             final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
             paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("1HPPterRZy2Thr8kEtd4SAennyaFFEAngV"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
-            signedTransaction = wallet.createTransaction(paymentAmounts);
+            signedTransaction = wallet.createTransaction(paymentAmounts, null);
         }
 
         final Transaction doubleSpendingSignedTransaction;
         {
             final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
             paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
-            doubleSpendingSignedTransaction = wallet.createTransaction(paymentAmounts);
+            doubleSpendingSignedTransaction = wallet.createTransaction(paymentAmounts, null);
         }
 
         final TransactionId signedTransactionId = transactionDatabaseManager.storeTransaction(signedTransaction);

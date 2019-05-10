@@ -14,7 +14,6 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
@@ -35,6 +34,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Container;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -49,15 +49,11 @@ public class Wallet {
 
     protected final Long _bytesPerTransactionInput = 150L;
     protected final Long _bytesPerTransactionOutput = 35L;
-    protected final Long _bytesPerTransactionMetadata = 8L;
+    protected final Long _bytesPerTransactionHeader = 8L;
 
     protected Double _satoshisPerByteFee = 5D;
 
-    public void setSatoshisPerByteFee(final Double satoshisPerByte) {
-        _satoshisPerByteFee = satoshisPerByte;
-    }
-
-    public synchronized void addPrivateKey(final PrivateKey privateKey) {
+    protected void _addPrivateKey(final PrivateKey privateKey) {
         final PrivateKey constPrivateKey = privateKey.asConst();
         final PublicKey publicKey = constPrivateKey.getPublicKey();
         final PublicKey compressedPublicKey = publicKey.compress();
@@ -74,7 +70,7 @@ public class Wallet {
         _publicKeys.put(decompressedAddress, decompressedPublicKey);
     }
 
-    public synchronized void addTransaction(final Transaction transaction) {
+    protected void _addTransaction(final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         final Sha256Hash transactionHash = constTransaction.getHash();
         _transactions.put(transactionHash.asConst(), constTransaction);
@@ -111,58 +107,92 @@ public class Wallet {
         }
     }
 
-    public synchronized void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
-        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-        final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
-        if (spendableTransactionOutput == null) { return; }
+    protected void _reloadTransactions() {
+        _spentTransactionOutputs.clear();
+        _transactionOutputs.clear();
 
-        spendableTransactionOutput.setIsSpent(true);
+        final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
+        _transactions.clear();
+
+        for (final Transaction transaction : transactions) {
+            _addTransaction(transaction);
+        }
     }
 
-    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts) {
-        if (paymentAmounts.isEmpty()) { return null; }
+    protected Container<Long> _createNewFeeContainer(final Integer newOutputCount) {
+        final Container<Long> feesContainer = new Container<Long>(0L);
+        feesContainer.value += (long) (_bytesPerTransactionHeader * _satoshisPerByteFee);
+
+        final long feeToSpendOneOutput = (long) (_bytesPerTransactionOutput * _satoshisPerByteFee);
+        feesContainer.value += (feeToSpendOneOutput * newOutputCount);
+
+        return feesContainer;
+    }
+
+    protected List<SpendableTransactionOutput> _getOutputsToSpend(final Long minimumUtxoAmount, final Container<Long> feesToSpendOutputs, final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend) {
+        final Long originalFeesToSpendOutputs = feesToSpendOutputs.value;
+        final long feeToSpendOneOutput = (long) (_bytesPerTransactionInput * _satoshisPerByteFee);
+
+        long selectedUtxoAmount = 0L;
+        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
 
         final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<SpendableTransactionOutput>(_transactionOutputs.size());
-        for (final SpendableTransactionOutput transactionOutput : _transactionOutputs.values()) {
-            if (! transactionOutput.isSpent()) {
-                unspentTransactionOutputs.add(transactionOutput);
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+
+            { // If this TransactionOutput is one that must be included in this transaction,
+              //    then add it to transactionOutputsToSpend, its amount to selectedUtxoAmount,
+              //    increase the total fees required for this transaction, and exclude the Utxo
+              //    from the possible spendableTransactionOutputs to prevent it from being added twice.
+                final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
+                if (mandatoryTransactionOutputsToSpend.contains(transactionOutputIdentifier)) {
+                    final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+                    selectedUtxoAmount += transactionOutput.getAmount();
+                    feesToSpendOutputs.value += feeToSpendOneOutput;
+                    transactionOutputsToSpend.add(spendableTransactionOutput);
+                    continue;
+                }
+            }
+
+            if (! spendableTransactionOutput.isSpent()) {
+                unspentTransactionOutputs.add(spendableTransactionOutput);
             }
         }
         unspentTransactionOutputs.sort(SpendableTransactionOutput.AMOUNT_ASCENDING_COMPARATOR);
 
-        long totalPaymentAmount = 0L;
-        long requiredAmount = 0L;
-        for (final PaymentAmount paymentAmount : paymentAmounts) {
-            requiredAmount += (long) (_bytesPerTransactionOutput * _satoshisPerByteFee);
-            requiredAmount += paymentAmount.amount;
-
-            totalPaymentAmount += paymentAmount.amount;
-        }
-
-        requiredAmount += (long) (_bytesPerTransactionMetadata * _satoshisPerByteFee);
-
-        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
-        long currentAmount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : unspentTransactionOutputs) {
-            if (currentAmount >= requiredAmount) { break; }
+            if (selectedUtxoAmount >= (minimumUtxoAmount + feesToSpendOutputs.value)) { break; }
 
             final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+            final Long transactionOutputAmount = transactionOutput.getAmount();
 
-            final long feeToSpendOutput = (long) (_satoshisPerByteFee * _bytesPerTransactionInput);
-            if (transactionOutput.getAmount() < feeToSpendOutput) { continue; }
+            if (transactionOutputAmount < feeToSpendOneOutput) { continue; } // Exclude spending dust...
 
-            requiredAmount += (long) (_bytesPerTransactionInput * _satoshisPerByteFee);
-            currentAmount += transactionOutput.getAmount();
+            // If the next UnspentTransactionOutput covers the whole transaction cost by itself, then use only that output instead...
+            if (transactionOutputAmount >= (minimumUtxoAmount + feeToSpendOneOutput + originalFeesToSpendOutputs)) {
+                feesToSpendOutputs.value = (originalFeesToSpendOutputs + feeToSpendOneOutput);
+                selectedUtxoAmount = transactionOutputAmount;
+                transactionOutputsToSpend.clear();
+                transactionOutputsToSpend.add(spendableTransactionOutput);
+                break;
+            }
+
+            feesToSpendOutputs.value += feeToSpendOneOutput;
+            selectedUtxoAmount += transactionOutputAmount;
             transactionOutputsToSpend.add(spendableTransactionOutput);
         }
 
-        if (currentAmount < requiredAmount) {
+        if (selectedUtxoAmount < (minimumUtxoAmount + feesToSpendOutputs.value)) {
             Logger.log("INFO: Insufficient funds to fund transaction.");
+            feesToSpendOutputs.value = originalFeesToSpendOutputs; // Reset the feesToSpendOutputs container...
             return null;
         }
 
-        final long calculatedFees = (requiredAmount - totalPaymentAmount);
-        Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmounts.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + calculatedFees + " in fees. " + (currentAmount - totalPaymentAmount - calculatedFees) + " in change.");
+        return transactionOutputsToSpend;
+    }
+
+    protected Transaction _createSignedTransaction(final List<PaymentAmount> paymentAmounts, final List<SpendableTransactionOutput> transactionOutputsToSpend) {
+        if (paymentAmounts.isEmpty()) { return null; }
+        if (transactionOutputsToSpend == null) { return null; }
 
         final MutableTransaction transaction = new MutableTransaction();
         transaction.setVersion(Transaction.VERSION);
@@ -228,10 +258,6 @@ public class Wallet {
             signedTransaction = transactionBeingSigned;
         }
 
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        Logger.log(signedTransaction.getHash());
-        Logger.log(transactionDeflater.toBytes(signedTransaction));
-
         final ScriptRunner scriptRunner = new ScriptRunner();
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         for (int i = 0; i < signedTransactionInputs.getSize(); ++i) {
@@ -252,10 +278,109 @@ public class Wallet {
             }
         }
 
+        return signedTransaction;
+    }
+
+    protected Transaction _createSignedTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> mandatoryOutputs) {
+        long totalPaymentAmount = 0L;
+        for (final PaymentAmount paymentAmount : paymentAmounts) {
+            totalPaymentAmount += paymentAmount.amount;
+        }
+
+        final int newOutputCount = (paymentAmounts.getSize() + (changeAddress != null ? 1 : 0));
+
+        final Container<Long> feesContainer = _createNewFeeContainer(newOutputCount);
+        final List<SpendableTransactionOutput> transactionOutputsToSpend = _getOutputsToSpend(totalPaymentAmount, feesContainer, mandatoryOutputs);
+        if (transactionOutputsToSpend == null) { return null; }
+
+        long totalAmountSelected = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : transactionOutputsToSpend) {
+            final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+            totalAmountSelected += transactionOutput.getAmount();
+        }
+
+        final boolean includedChangeOutput;
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getSize() + 1);
+        {
+            paymentAmountsWithChange.addAll(paymentAmounts);
+
+            final Long changeAmount = (totalAmountSelected - totalPaymentAmount - feesContainer.value);
+            includedChangeOutput = ( (changeAddress != null) && (changeAmount > 0) );
+
+            if (includedChangeOutput) {
+                paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
+            }
+        }
+
+        Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (includedChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
+
+        final Transaction signedTransaction = _createSignedTransaction(paymentAmountsWithChange, transactionOutputsToSpend);
+        if (signedTransaction == null) { return null; }
+
+        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        Logger.log(signedTransaction.getHash());
+        Logger.log(transactionDeflater.toBytes(signedTransaction));
+
         final Integer transactionByteCount = transactionDeflater.getByteCount(signedTransaction);
-        Logger.log("Transaction Bytes Count: " + transactionByteCount + " (" + (calculatedFees / transactionByteCount.floatValue()) + " sats/byte)");
+        Logger.log("Transaction Bytes Count: " + transactionByteCount + " (" + (feesContainer.value / transactionByteCount.floatValue()) + " sats/byte)");
 
         return signedTransaction;
+    }
+
+    public void setSatoshisPerByteFee(final Double satoshisPerByte) {
+        _satoshisPerByteFee = satoshisPerByte;
+    }
+
+    public synchronized void addPrivateKey(final PrivateKey privateKey) {
+        _addPrivateKey(privateKey);
+        _reloadTransactions();
+    }
+
+    public synchronized void addPrivateKeys(final List<PrivateKey> privateKeys) {
+        for (final PrivateKey privateKey : privateKeys) {
+            _addPrivateKey(privateKey);
+        }
+        _reloadTransactions();
+    }
+
+    public synchronized void addTransaction(final Transaction transaction) {
+        _addTransaction(transaction);
+    }
+
+    public synchronized void markTransactionOutputSpent(final Sha256Hash transactionHash, final Integer transactionOutputIndex) {
+        final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
+        final MutableSpendableTransactionOutput spendableTransactionOutput = _transactionOutputs.get(transactionOutputIdentifier);
+        if (spendableTransactionOutput == null) { return; }
+
+        spendableTransactionOutput.setIsSpent(true);
+    }
+
+    public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount) {
+        final Container<Long> feesContainer = _createNewFeeContainer(newTransactionOutputCount);
+        final List<TransactionOutputIdentifier> mandatoryOutputs = new MutableList<TransactionOutputIdentifier>(0);
+        final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, mandatoryOutputs);
+        if (spendableTransactionOutputs == null) { return null; }
+
+        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getSize());
+        for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
+            transactionOutputs.add(spendableTransactionOutput.getIdentifier());
+        }
+        return transactionOutputs;
+    }
+
+    public Long calculateFees(final Integer newOutputCount, final Integer outputsBeingSpentCount) {
+        final Container<Long> feeContainer = _createNewFeeContainer(newOutputCount);
+        feeContainer.value += (long) ((_bytesPerTransactionInput * _satoshisPerByteFee) * outputsBeingSpentCount);
+        return feeContainer.value;
+    }
+
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress) {
+        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        return _createSignedTransaction(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend);
+    }
+
+    public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress, final List<TransactionOutputIdentifier> transactionOutputIdentifiersToSpend) {
+        return _createSignedTransaction(paymentAmounts, changeAddress, transactionOutputIdentifiersToSpend);
     }
 
     public synchronized MutableBloomFilter generateBloomFilter() {
@@ -285,6 +410,10 @@ public class Wallet {
         }
 
         return bloomFilter;
+    }
+
+    public synchronized SpendableTransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
+        return _transactionOutputs.get(transactionOutputIdentifier);
     }
 
     public synchronized List<SpendableTransactionOutput> getTransactionOutputs() {

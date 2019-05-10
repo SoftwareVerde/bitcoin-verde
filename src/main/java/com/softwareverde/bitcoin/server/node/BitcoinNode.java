@@ -1003,6 +1003,12 @@ public class BitcoinNode extends Node {
         _queueMessage(queryBlocksMessage);
     }
 
+    public void transmitTransaction(final Transaction transaction) {
+        final TransactionMessage transactionMessage = new TransactionMessage();
+        transactionMessage.setTransaction(transaction);
+        _queueMessage(transactionMessage);
+    }
+
     public void requestBlockHashesAfter(final Sha256Hash blockHash) {
         _queryForBlockHashesAfter(blockHash);
     }

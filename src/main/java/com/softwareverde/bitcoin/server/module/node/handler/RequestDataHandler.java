@@ -114,9 +114,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final TransactionMessage transactionMessage = new TransactionMessage();
-                        transactionMessage.setTransaction(transaction);
-                        bitcoinNode.queueMessage(transactionMessage);
+                        bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
                         Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");
