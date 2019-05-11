@@ -4,7 +4,6 @@ import com.softwareverde.database.mysql.embedded.properties.MutableEmbeddedDatab
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.ByteUtil;
-import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;
 
 import java.io.File;

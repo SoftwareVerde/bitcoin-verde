@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.block.merkle;
 
-import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;

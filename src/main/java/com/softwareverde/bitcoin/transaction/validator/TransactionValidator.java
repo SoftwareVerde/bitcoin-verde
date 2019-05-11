@@ -312,8 +312,6 @@ public class TransactionValidator {
             }
         }
 
-        // TODO: Consider enforcing Canonical Transaction Order (HF20181115)...
-
         final Long totalTransactionInputValue;
         try {
             final TransactionId transactionId = _transactionDatabaseManager.getTransactionId(transactionHash);

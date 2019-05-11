@@ -2,26 +2,23 @@ package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
-import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bloomfilter.BloomFilter;
-import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
 public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
-    Long VERSION = 0x01L;
+    Long VERSION = 0x02L;
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
     static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {

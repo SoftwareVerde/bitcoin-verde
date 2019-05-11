@@ -20,7 +20,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
     protected BitcoinNodeIpAddress _remoteNodeIpAddress;
     protected BitcoinNodeIpAddress _localNodeIpAddress;
     protected Long _nonce;
-    protected Integer _currentBlockHeight;
+    protected Long _currentBlockHeight;
     protected Boolean _transactionRelayIsEnabled = false;
 
     public BitcoinSynchronizeVersionMessage() {
@@ -32,7 +32,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
         _timestampInSeconds = (System.currentTimeMillis() / 1000L);
         _nonce = (long) (Math.random() * Long.MAX_VALUE);
-        _currentBlockHeight = 0;
+        _currentBlockHeight = 0L;
 
         _userAgent = Constants.USER_AGENT;
     }
@@ -46,7 +46,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     public Boolean transactionRelayIsEnabled() { return _transactionRelayIsEnabled; }
 
-    public Integer getCurrentBlockHeight() { return _currentBlockHeight; }
+    public Long getCurrentBlockHeight() { return _currentBlockHeight; }
 
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {
         _nodeFeatures.setFeaturesFlags(nodeFeatures);
@@ -75,7 +75,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         return _remoteNodeIpAddress;
     }
 
-    public void setCurrentBlockHeight(final Integer currentBlockHeight) {
+    public void setCurrentBlockHeight(final Long currentBlockHeight) {
         _currentBlockHeight = currentBlockHeight;
     }
 

@@ -47,7 +47,27 @@ public class AddressDatabaseManager {
         public Boolean wasSpent() { return (_spentByTransactionInputId != null); }
         public Boolean isMined() { return (_blockId != null); }
         public Boolean isUnconfirmed() { return _isUnconfirmed; }
+    }
 
+    protected AddressId _getAddressId(final String addressString) throws DatabaseException {
+        final AddressId cachedAddressId = _databaseManagerCache.getCachedAddressId(addressString);
+        if (cachedAddressId != null) {
+            return cachedAddressId;
+        }
+
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT id FROM addresses WHERE address = ?")
+                .setParameter(addressString)
+        );
+
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final AddressId addressId = AddressId.wrap(row.getLong("id"));
+
+        _databaseManagerCache.cacheAddressId(addressString, addressId);
+
+        return addressId;
     }
 
     protected List<TransactionId> _getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
@@ -331,24 +351,11 @@ public class AddressDatabaseManager {
     }
 
     public AddressId getAddressId(final String addressString) throws DatabaseException {
-        final AddressId cachedAddressId = _databaseManagerCache.getCachedAddressId(addressString);
-        if (cachedAddressId != null) {
-            return cachedAddressId;
-        }
+        return _getAddressId(addressString);
+    }
 
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT id FROM addresses WHERE address = ?")
-                .setParameter(addressString)
-        );
-
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        final AddressId addressId = AddressId.wrap(row.getLong("id"));
-
-        _databaseManagerCache.cacheAddressId(addressString, addressId);
-
-        return addressId;
+    public AddressId getAddressId(final Address address) throws DatabaseException {
+        return _getAddressId(address.toBase58CheckEncoded());
     }
 
     public List<SpendableTransactionOutput> getSpendableTransactionOutputs(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {

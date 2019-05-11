@@ -48,4 +48,14 @@ public class BanFilter {
             Logger.log(exception);
         }
     }
+
+    public void unbanNode(final Ip ip) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            nodeDatabaseManager.setIsBanned(ip, false);
+        }
+        catch (final DatabaseException databaseException) {
+            Logger.log(databaseException);
+        }
+    }
 }

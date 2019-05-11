@@ -47,6 +47,11 @@ public class TransactionOutputIdentifier implements Const {
         return (_transactionHash.hashCode() + _outputIndex.hashCode());
     }
 
+    @Override
+    public String toString() {
+        return (_transactionHash + ":" + _outputIndex);
+    }
+
     /**
      * Serializes the TransactionOutputIdentifier as (TransactionHash | OutputIndex), as LittleEndian.  The reference client refers to this as a COutPoint.
      */

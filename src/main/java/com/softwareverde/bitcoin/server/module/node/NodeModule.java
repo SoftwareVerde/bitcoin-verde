@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.block.RequestSpvBlockHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
@@ -352,6 +353,7 @@ public class NodeModule {
                 }
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BLOOM_CONNECTIONS_ENABLED);
+                nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_INDEX_ENABLED); // BitcoinVerde 2019-04-22
                 return nodeFeatures;
             }
         };
@@ -389,6 +391,7 @@ public class NodeModule {
             nodeInitializerProperties.queryBlocksCallback = new QueryBlocksHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
             nodeInitializerProperties.queryBlockHeadersCallback = new QueryBlockHeadersHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
             nodeInitializerProperties.requestDataCallback = requestDataHandler;
+            nodeInitializerProperties.requestSpvBlocksCallback = new RequestSpvBlockHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = new QueryUnconfirmedTransactionsHandler(_databaseConnectionPool, readOnlyDatabaseManagerCache);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
@@ -429,7 +432,7 @@ public class NodeModule {
             _blockDownloader = new BlockDownloader(_bitcoinNodeManager, _databaseConnectionPool, readOnlyDatabaseManagerCache);
         }
 
-        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequester(_databaseConnectionPool, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
+        final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(_databaseConnectionPool, _blockDownloader, _bitcoinNodeManager, readOnlyDatabaseManagerCache);
 
         { // Initialize BlockHeaderDownloader...
             _blockHeaderDownloader = new BlockHeaderDownloader(_databaseConnectionPool, readOnlyDatabaseManagerCache, _bitcoinNodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);

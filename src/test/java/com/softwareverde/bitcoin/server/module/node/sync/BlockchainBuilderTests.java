@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -30,15 +31,15 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class BlockchainBuilderTests extends IntegrationTest {
-    static class FakeBlockDownloadRequester extends BlockDownloadRequester {
+    static class FakeBlockDownloadRequester implements BlockDownloadRequester {
         @Override
-        protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Long priority) {
-            // Nothing.
-        }
+        public void requestBlock(final BlockHeader blockHeader) { }
 
-        public FakeBlockDownloadRequester() {
-            super(null, null, null, null);
-        }
+        @Override
+        public void requestBlock(final Sha256Hash blockHash, final Long priority) { }
+
+        @Override
+        public void requestBlock(final Sha256Hash blockHash) { }
     }
 
     @Before

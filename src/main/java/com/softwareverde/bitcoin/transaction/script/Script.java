@@ -8,6 +8,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
 public interface Script extends Constable<ImmutableScript>, Jsonable {
+    Integer MAX_BYTE_COUNT = 0x00100000; // 1 MB
     Script EMPTY_SCRIPT = new ImmutableScript();
 
     Boolean isValid();

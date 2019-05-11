@@ -4,5 +4,5 @@ public interface SynchronizationStatus {
     State getState();
     Boolean isBlockchainSynchronized();
     Boolean isReadyForTransactions();
-    Integer getCurrentBlockHeight();
+    Long getCurrentBlockHeight();
 }

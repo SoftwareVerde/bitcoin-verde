@@ -32,17 +32,9 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -51,7 +43,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
-import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -65,24 +56,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
-
-    public static class FakeNetworkTime extends MutableNetworkTime {
-        private final Long _fakeTime;
-
-        public FakeNetworkTime(final Long fakeTime) {
-            _fakeTime = fakeTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return _fakeTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return _fakeTime;
-        }
-    }
 
     public static class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
 
@@ -363,7 +336,13 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            _storeBlocks(2015, genesisBlockTimestamp + 1L);
+            // _storeBlocks(2015, genesisBlockTimestamp + 1L);
+            _storeBlocks(1, genesisBlockTimestamp + 1L);
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET block_height = ? WHERE id = ?")
+                    .setParameter(2015)
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
         { // Store the block that is 2016 blocks before the firstBlockWithDifficultyAdjustment
@@ -372,8 +351,14 @@ public class BlockValidatorTests extends IntegrationTest {
             // Timestamp: B1512B4B
             // NOTE: This block is the block referenced when calculating the elapsed time since the previous update...
             final String blockData = IoUtil.getResource("/blocks/000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8");
-            final MutableBlock block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            block30240.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            final Block block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(block30240.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
+
             final BlockId blockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.insertBlock(block30240);
@@ -384,16 +369,29 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            // _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            _storeBlocks(1, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET block_height = ? WHERE id = ?")
+                    .setParameter(4030)
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
-        final Sha256Hash previousBlockHash;
         // Timestamp: 23EC3A4B
+        // Block Height: 4031
+        // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
         { // Store the previous block so the firstBlockWithDifficultyAdjustment has the correct hash...
-            // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B -> AFB816727FE415551ADBE28BCAF2E3D8ECEE4799B4B07735613B40ED8EAD01BA
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
-            final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            final Block previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            // previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(previousBlock.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
+
             final BlockId blockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.insertBlock(previousBlock);
@@ -401,8 +399,6 @@ public class BlockValidatorTests extends IntegrationTest {
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
             Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
-
-            previousBlockHash = previousBlock.getHash();
         }
 
         final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
@@ -412,29 +408,18 @@ public class BlockValidatorTests extends IntegrationTest {
         final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
 
         final Block firstBlockWithDifficultyIncrease;
-        { // Modify the real block to set the the previousBlockHash to our custom block...
-            // This block's is intended to only have its previousBlockHash rewritten while still having a suitable Block Hash.
-            //  To accomplish this, this block was re-mined with a nonce and extra-nonce.  Instead of using the bytes directly, the
-            //  modified fields are set programmatically to more easily determine what exactly was/wasn't modified.
-            final MutableBlock mutableBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+        {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
-            mutableBlock.setPreviousBlockHash(previousBlockHash);
-
-            mutableBlock.setNonce(4003753885L);
-
-            { // Append extra nonce to coinbase transaction...
-                final CoinbaseTransaction coinbaseTransaction = mutableBlock.getCoinbaseTransaction();
-                final MutableCoinbaseTransaction modifiedCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
-                final MutableUnlockingScript mutableCoinbaseScript = new MutableUnlockingScript(modifiedCoinbaseTransaction.getCoinbaseScript());
-                final OperationInflater operationInflater = new OperationInflater();
-                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("06323230393937")));
-                mutableCoinbaseScript.addOperation(operation);
-                modifiedCoinbaseTransaction.setCoinbaseScript(mutableCoinbaseScript);
-                mutableBlock.replaceTransaction(0, modifiedCoinbaseTransaction);
-            }
-
-            firstBlockWithDifficultyIncrease = mutableBlock;
+            firstBlockWithDifficultyIncrease = block;
             System.out.println(firstBlockWithDifficultyIncrease.getHash());
+
+            // Hack the hash of the block before this so firstBlockWithDifficultyIncrease can be inserted...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(block.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
         final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();
@@ -511,6 +496,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         Block lastBlock = null;
         BlockId lastBlockId = null;
         for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
@@ -567,7 +554,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -635,6 +622,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -692,7 +680,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -806,6 +794,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -863,7 +852,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 

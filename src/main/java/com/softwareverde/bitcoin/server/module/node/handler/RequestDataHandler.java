@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -114,9 +113,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final TransactionMessage transactionMessage = new TransactionMessage();
-                        transactionMessage.setTransaction(transaction);
-                        bitcoinNode.queueMessage(transactionMessage);
+                        bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
                         Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");

@@ -84,11 +84,18 @@ public class NodeConnection {
 
             if ( (socket != null) && (socket.isConnected()) ) {
                 _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
+                _binarySocket.setOnClosedCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        _disconnect();
+                    }
+                });
                 _onSocketConnected();
             }
             else {
-                if (_onConnectFailureCallback != null) {
-                    _onConnectFailureCallback.run();
+                final Runnable onConnectFailureCallback = _onConnectFailureCallback;
+                if (onConnectFailureCallback != null) {
+                    _threadPool.execute(onConnectFailureCallback);
                 }
             }
         }
@@ -197,6 +204,35 @@ public class NodeConnection {
      */
     protected void _onMessagesProcessed() {
         // Nothing.
+    }
+
+    protected void _disconnect() {
+        Logger.log("DISCONNECT: " + this.getIp() + ":" + this.getPort());
+        final Runnable onDisconnectCallback = _onDisconnectCallback;
+
+        _messageReceivedCallback = null;
+        _onDisconnectCallback = null;
+        _onReconnectCallback = null;
+        _onConnectCallback = null;
+        _onConnectFailureCallback = null;
+
+        synchronized (_connectionThreadMutex) {
+            if (_connectionThread != null) {
+                _shutdownConnectionThread();
+            }
+        }
+
+        final BinarySocket binarySocket = _binarySocket;
+        _binarySocket = null;
+        if (binarySocket != null) {
+            binarySocket.setMessageReceivedCallback(null);
+            binarySocket.setOnClosedCallback(null);
+            binarySocket.close();
+        }
+
+        if (onDisconnectCallback != null) {
+            (new Thread(onDisconnectCallback)).start();
+        }
     }
 
     protected void _processOutboundMessageQueue() {
@@ -311,30 +347,7 @@ public class NodeConnection {
     }
 
     public void disconnect() {
-        final Runnable onDisconnectCallback = _onDisconnectCallback;
-
-        _messageReceivedCallback = null;
-        _onDisconnectCallback = null;
-        _onReconnectCallback = null;
-        _onConnectCallback = null;
-        _onConnectFailureCallback = null;
-
-        synchronized (_connectionThreadMutex) {
-            if (_connectionThread != null) {
-                _shutdownConnectionThread();
-            }
-        }
-
-        final BinarySocket binarySocket = _binarySocket;
-        _binarySocket = null;
-        if (binarySocket != null) {
-            binarySocket.setMessageReceivedCallback(null);
-            binarySocket.close();
-        }
-
-        if (onDisconnectCallback != null) {
-            (new Thread(onDisconnectCallback)).start();
-        }
+        _disconnect();
     }
 
     public void queueMessage(final ProtocolMessage message) {

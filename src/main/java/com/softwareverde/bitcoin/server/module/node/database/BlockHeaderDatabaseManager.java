@@ -16,9 +16,13 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
+import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -221,6 +225,49 @@ public class BlockHeaderDatabaseManager {
         ));
     }
 
+    protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
+        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+
+        final BlockHeader firstBlockHeader = blockHeaders.get(0);
+
+        BlockId previousBlockId = _getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
+        Long previousBlockHeight = _getBlockHeight(previousBlockId);
+        ChainWork previousChainWork = (previousBlockId == null ? new MutableChainWork() : _getChainWork(previousBlockId));
+
+        final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO blocks (hash, previous_block_id, block_height, merkle_root, version, timestamp, difficulty, nonce, chain_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        for (final BlockHeader blockHeader : blockHeaders) {
+            long blockHeight = (previousBlockId == null ? 0 : (previousBlockHeight + 1L));
+            final Difficulty difficulty = blockHeader.getDifficulty();
+
+            final BlockWork blockWork = difficulty.calculateWork();
+            final ChainWork chainWork = ChainWork.add(previousChainWork, blockWork);
+
+            batchedInsertQuery.setParameter(blockHeader.getHash());
+            batchedInsertQuery.setParameter(previousBlockId);
+            batchedInsertQuery.setParameter(blockHeight);
+            batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());
+            batchedInsertQuery.setParameter(blockHeader.getVersion());
+            batchedInsertQuery.setParameter(blockHeader.getTimestamp());
+            batchedInsertQuery.setParameter(difficulty.encode());
+            batchedInsertQuery.setParameter(blockHeader.getNonce());
+            batchedInsertQuery.setParameter(chainWork);
+
+            previousBlockHeight = blockHeight;
+            previousBlockId = BlockId.wrap((previousBlockId == null ? 0L : previousBlockId.longValue()) + 1L);
+            previousChainWork = chainWork;
+        }
+
+        final BlockId firstBlockId = BlockId.wrap(_databaseConnection.executeSql(batchedInsertQuery));
+        if (firstBlockId == null) { return null; }
+
+        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getSize());
+        for (int i = 0; i < blockHeaders.getSize(); ++i) {
+            blockIds.add(BlockId.wrap(firstBlockId.longValue() + i));
+        }
+        return blockIds;
+    }
+
     protected void _setBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         _databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
 
@@ -228,6 +275,17 @@ public class BlockHeaderDatabaseManager {
             new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id = ?")
                 .setParameter(blockchainSegmentId)
                 .setParameter(blockId)
+        );
+    }
+
+    protected void _setBlockchainSegmentIds(final List<BlockId> blockIds, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        for (final BlockId blockId : blockIds) {
+            _databaseManagerCache.cacheBlockchainSegmentId(blockId, blockchainSegmentId);
+        }
+
+        _databaseConnection.executeSql(
+            new Query("UPDATE blocks SET blockchain_segment_id = ? WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+                .setParameter(blockchainSegmentId)
         );
     }
 
@@ -375,6 +433,34 @@ public class BlockHeaderDatabaseManager {
         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
 
         return blockId;
+    }
+
+    /**
+     * Batch-Inserts the provided BlockHeaders.  The BlockHeaders must be provided in-order relative to one another in
+     *  ascending order; aka, each BlockHeader must be the (only) child of the previous BlockHeader.
+     * This function is intended to be used for bootstrapping a database with a known set of headers; be extra careful
+     *  when using this function in other circumstances.
+     * Each BlockHeader is inserted with the next assumed block height.  The first BlockHeader's height is calculated
+     *  by attempting to look up its previous block via its PreviousBlockHash.  If it is not found, it is assumed to be
+     *  a genesis block and is inserted at height 0.
+     * This function is safe to invoke if other BlockHeaders have been stored, if, and only if, each header is guaranteed
+     *  to not be contentious with another block.
+     * The BlockchainSegmentId assigned to every BlockHeader (except the first) is the same as its parent.  The first
+     *  BlockHeader's BlockchainSegmentId is assigned by the normal BlockchainDatabaseManager::updateBlockchainsForNewBlock
+     *  method.
+     */
+    public List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
+        if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
+        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+
+        final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders);
+
+        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.updateBlockchainsForNewBlock(blockIds.get(0));
+
+        _setBlockchainSegmentIds(blockIds, blockchainSegmentId);
+
+        return blockIds;
     }
 
     public void setBlockByteCount(final BlockId blockId, final Integer byteCount) throws DatabaseException {
