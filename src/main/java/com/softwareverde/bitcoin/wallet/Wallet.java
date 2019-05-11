@@ -40,6 +40,15 @@ import java.util.Collection;
 import java.util.HashMap;
 
 public class Wallet {
+    protected static final Long BYTES_PER_TRANSACTION_INPUT = 148L; // P2PKH Inputs are either 147-148 bytes for compressed addresses, or 179-180 bytes for uncompressed addresses.
+    protected static final Long BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT = 180L;
+    protected static final Long BYTES_PER_TRANSACTION_OUTPUT = 34L;
+    protected static final Long BYTES_PER_TRANSACTION_HEADER = 10L; // This value becomes inaccurate if either the number of inputs or the number out outputs exceeds 252 (The max value of a 1-byte variable length integer)...
+
+    public static Long getDefaultDustThreshold() {
+        return (long) ((BYTES_PER_TRANSACTION_OUTPUT + BYTES_PER_TRANSACTION_INPUT) * 3D);
+    }
+
     protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
     protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
     protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
@@ -47,11 +56,16 @@ public class Wallet {
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
 
-    protected final Long _bytesPerTransactionInput = 150L;
-    protected final Long _bytesPerTransactionOutput = 35L;
-    protected final Long _bytesPerTransactionHeader = 8L;
+    protected Double _satoshisPerByteFee = 1D;
 
-    protected Double _satoshisPerByteFee = 5D;
+    protected Long _calculateDustThreshold(final Long transactionOutputByteCount, final Boolean isCompressed) {
+        // "Dust" is defined by XT/ABC as being an output that is less than 1/3 of the fees required to spend that output.
+        // Non-spendable TransactionOutputs are exempt from this network rule.
+        // For the common default _satoshisPerByteFee (1), the dust threshold is 546 satoshis.
+
+        final long transactionInputByteCount = (isCompressed ? BYTES_PER_TRANSACTION_INPUT : BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT);
+        return (long) ((transactionOutputByteCount + transactionInputByteCount) * _satoshisPerByteFee * 3D);
+    }
 
     protected void _addPrivateKey(final PrivateKey privateKey) {
         final PrivateKey constPrivateKey = privateKey.asConst();
@@ -100,7 +114,7 @@ public class Wallet {
 
             if (_publicKeys.containsKey(address)) {
                 final TransactionOutputIdentifier transactionOutputIdentifier = new TransactionOutputIdentifier(transactionHash, transactionOutputIndex);
-                final MutableSpendableTransactionOutput spendableTransactionOutput = new MutableSpendableTransactionOutput(transactionOutputIdentifier, transactionOutput);
+                final MutableSpendableTransactionOutput spendableTransactionOutput = new MutableSpendableTransactionOutput(address, transactionOutputIdentifier, transactionOutput);
                 spendableTransactionOutput.setIsSpent(_spentTransactionOutputs.containsKey(transactionOutputIdentifier));
                 _transactionOutputs.put(transactionOutputIdentifier, spendableTransactionOutput);
             }
@@ -121,9 +135,9 @@ public class Wallet {
 
     protected Container<Long> _createNewFeeContainer(final Integer newOutputCount) {
         final Container<Long> feesContainer = new Container<Long>(0L);
-        feesContainer.value += (long) (_bytesPerTransactionHeader * _satoshisPerByteFee);
+        feesContainer.value += (long) (BYTES_PER_TRANSACTION_HEADER * _satoshisPerByteFee);
 
-        final long feeToSpendOneOutput = (long) (_bytesPerTransactionOutput * _satoshisPerByteFee);
+        final long feeToSpendOneOutput = (long) (BYTES_PER_TRANSACTION_OUTPUT * _satoshisPerByteFee);
         feesContainer.value += (feeToSpendOneOutput * newOutputCount);
 
         return feesContainer;
@@ -131,7 +145,9 @@ public class Wallet {
 
     protected List<SpendableTransactionOutput> _getOutputsToSpend(final Long minimumUtxoAmount, final Container<Long> feesToSpendOutputs, final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend) {
         final Long originalFeesToSpendOutputs = feesToSpendOutputs.value;
-        final long feeToSpendOneOutput = (long) (_bytesPerTransactionInput * _satoshisPerByteFee);
+
+        final long feeToSpendOneOutput = (long) (BYTES_PER_TRANSACTION_INPUT * _satoshisPerByteFee);
+        final long feeToSpendOneUncompressedOutput = (long) (BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT * _satoshisPerByteFee);
 
         long selectedUtxoAmount = 0L;
         final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
@@ -145,9 +161,11 @@ public class Wallet {
               //    from the possible spendableTransactionOutputs to prevent it from being added twice.
                 final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
                 if (mandatoryTransactionOutputsToSpend.contains(transactionOutputIdentifier)) {
+                    final Address address = spendableTransactionOutput.getAddress();
+
                     final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
                     selectedUtxoAmount += transactionOutput.getAmount();
-                    feesToSpendOutputs.value += feeToSpendOneOutput;
+                    feesToSpendOutputs.value += (address.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
                     transactionOutputsToSpend.add(spendableTransactionOutput);
                     continue;
                 }
@@ -162,21 +180,24 @@ public class Wallet {
         for (final SpendableTransactionOutput spendableTransactionOutput : unspentTransactionOutputs) {
             if (selectedUtxoAmount >= (minimumUtxoAmount + feesToSpendOutputs.value)) { break; }
 
+            final Address address = spendableTransactionOutput.getAddress();
+            final Long feeToSpendThisOutput = (address.isCompressed() ? feeToSpendOneOutput : feeToSpendOneUncompressedOutput);
+
             final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
             final Long transactionOutputAmount = transactionOutput.getAmount();
 
-            if (transactionOutputAmount < feeToSpendOneOutput) { continue; } // Exclude spending dust...
+            if (transactionOutputAmount < feeToSpendThisOutput) { continue; } // Exclude spending dust...
 
             // If the next UnspentTransactionOutput covers the whole transaction cost by itself, then use only that output instead...
-            if (transactionOutputAmount >= (minimumUtxoAmount + feeToSpendOneOutput + originalFeesToSpendOutputs)) {
-                feesToSpendOutputs.value = (originalFeesToSpendOutputs + feeToSpendOneOutput);
+            if (transactionOutputAmount >= (minimumUtxoAmount + feeToSpendThisOutput + originalFeesToSpendOutputs)) {
+                feesToSpendOutputs.value = (originalFeesToSpendOutputs + feeToSpendThisOutput);
                 selectedUtxoAmount = transactionOutputAmount;
                 transactionOutputsToSpend.clear();
                 transactionOutputsToSpend.add(spendableTransactionOutput);
                 break;
             }
 
-            feesToSpendOutputs.value += feeToSpendOneOutput;
+            feesToSpendOutputs.value += feeToSpendThisOutput;
             selectedUtxoAmount += transactionOutputAmount;
             transactionOutputsToSpend.add(spendableTransactionOutput);
         }
@@ -305,7 +326,13 @@ public class Wallet {
             paymentAmountsWithChange.addAll(paymentAmounts);
 
             final Long changeAmount = (totalAmountSelected - totalPaymentAmount - feesContainer.value);
-            includedChangeOutput = ( (changeAddress != null) && (changeAmount > 0) );
+            if (changeAddress != null) {
+                final Long dustThreshold = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
+                includedChangeOutput = (changeAmount >= dustThreshold);
+            }
+            else {
+                includedChangeOutput = false;
+            }
 
             if (includedChangeOutput) {
                 paymentAmountsWithChange.add(new PaymentAmount(changeAddress, changeAmount));
@@ -329,6 +356,10 @@ public class Wallet {
 
     public void setSatoshisPerByteFee(final Double satoshisPerByte) {
         _satoshisPerByteFee = satoshisPerByte;
+    }
+
+    public Long getDustThreshold(final Boolean addressIsCompressed) {
+        return _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, addressIsCompressed);
     }
 
     public synchronized void addPrivateKey(final PrivateKey privateKey) {
@@ -370,7 +401,7 @@ public class Wallet {
 
     public Long calculateFees(final Integer newOutputCount, final Integer outputsBeingSpentCount) {
         final Container<Long> feeContainer = _createNewFeeContainer(newOutputCount);
-        feeContainer.value += (long) ((_bytesPerTransactionInput * _satoshisPerByteFee) * outputsBeingSpentCount);
+        feeContainer.value += (long) ((BYTES_PER_TRANSACTION_INPUT * _satoshisPerByteFee) * outputsBeingSpentCount);
         return feeContainer.value;
     }
 

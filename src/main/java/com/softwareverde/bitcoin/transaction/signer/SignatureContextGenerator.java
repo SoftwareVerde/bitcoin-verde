@@ -1,40 +1,29 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
 
+import java.util.HashMap;
+
 public class SignatureContextGenerator {
     // Reference: https://en.bitcoin.it/wiki/OP_CHECKSIG
-    private final TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
 
-    public SignatureContextGenerator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
-    }
+    public SignatureContextGenerator() { }
 
-    public SignatureContextGenerator(final TransactionDatabaseManager transactionDatabaseManager, final TransactionOutputDatabaseManager transactionOutputDatabaseManager) {
-        _transactionOutputDatabaseManager = transactionOutputDatabaseManager;
-    }
-
-    public SignatureContext createContextForEntireTransaction(final Transaction transaction, final Boolean useBitcoinCash) throws DatabaseException {
+    public SignatureContext createContextForEntireTransaction(final Transaction transaction, final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputsToSpend, final Boolean useBitcoinCash) {
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, useBitcoinCash), Long.MAX_VALUE);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final TransactionOutputId transactionOutputId = _transactionOutputDatabaseManager.findTransactionOutput(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
-            final TransactionOutput transactionOutput = _transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+            final TransactionOutput transactionOutput = transactionOutputsToSpend.get(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
 
             signatureContext.setShouldSignInputScript(i, true, transactionOutput);
         }

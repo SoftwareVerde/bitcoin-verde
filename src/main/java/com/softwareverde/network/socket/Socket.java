@@ -112,8 +112,10 @@ public abstract class Socket {
         catch (final Exception exception) { }
 
         final Runnable onCloseCallback = _socketClosedCallback;
+        _socketClosedCallback = null;
+
         if (onCloseCallback != null) {
-            onCloseCallback.run();
+            _threadPool.execute(onCloseCallback);
         }
 
         if (! wasClosed) {

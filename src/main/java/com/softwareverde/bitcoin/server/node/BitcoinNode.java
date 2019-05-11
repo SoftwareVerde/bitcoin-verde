@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.server.node;
 
-import com.softwareverde.async.ConcurrentHashSet;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.MerkleBlock;
@@ -67,7 +66,6 @@ import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
-import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
@@ -263,6 +261,8 @@ public class BitcoinNode extends Node {
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
     protected Integer _compactBlocksVersion = null;
 
+    protected Boolean _transactionRelayIsEnabled = true;
+
     protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.UPDATE_ALL; // TODO
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
@@ -325,7 +325,7 @@ public class BitcoinNode extends Node {
         final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
         synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
 
-        synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions());
+        synchronizeVersionMessage.setTransactionRelayIsEnabled(_synchronizationStatus.isReadyForTransactions() && _transactionRelayIsEnabled);
         synchronizeVersionMessage.setCurrentBlockHeight(_synchronizationStatus.getCurrentBlockHeight());
 
         { // Set Remote NodeIpAddress...
@@ -1229,10 +1229,18 @@ public class BitcoinNode extends Node {
         return nodeFeatures.hasFeatureFlagEnabled(feature);
     }
 
-    public Boolean transactionRelayIsEnabled() {
-        if (_synchronizeVersionMessage == null) { return null; }
+    public void setTransactionRelayIsEnabled(final Boolean transactionRelayIsEnabled) {
+        _transactionRelayIsEnabled = transactionRelayIsEnabled;
+        // TODO: Consider initializing a new handshake to update the relay preference...
+    }
 
-        return _synchronizeVersionMessage.transactionRelayIsEnabled();
+    public Boolean isTransactionRelayEnabled() {
+        if (! _transactionRelayIsEnabled) { return false; }
+
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = _synchronizeVersionMessage;
+        if (synchronizeVersionMessage == null) { return null; }
+
+        return (synchronizeVersionMessage.transactionRelayIsEnabled());
     }
 
     public void queueMessage(final BitcoinProtocolMessage protocolMessage) {

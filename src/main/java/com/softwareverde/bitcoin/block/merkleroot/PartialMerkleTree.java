@@ -132,6 +132,15 @@ public class PartialMerkleTree implements Const {
         return _hashes;
     }
 
+    /**
+     * Returns the total number of items in the tree.
+     *  This value is equivalent to the number of items in a block.
+     *  It is not necessarily the same as the number of hashes returned by ::getHashes or ::getTransactionHashes.
+     */
+    public Integer getItemCount() {
+        return _itemCount;
+    }
+
     public ByteArray getFlags() {
         return _flags;
     }

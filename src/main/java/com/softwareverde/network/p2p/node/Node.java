@@ -55,7 +55,7 @@ public abstract class Node {
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
-    protected Boolean _hasBeenDisconnected = false;
+    protected final AtomicBoolean _hasBeenDisconnected = new AtomicBoolean(false);
 
     protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
 
@@ -125,8 +125,9 @@ public abstract class Node {
     }
 
     protected void _disconnect() {
-        if (_hasBeenDisconnected) { return; }
-        _hasBeenDisconnected = true;
+        if (_hasBeenDisconnected.getAndSet(true)) { return; }
+
+        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
@@ -144,10 +145,9 @@ public abstract class Node {
             ((ThreadPoolThrottle) _threadPool).stop();
         }
 
-        _connection.setOnDisconnectCallback(null); // Intentionally avoid triggering the normal socket disconnect callback...
+        _connection.setOnDisconnectCallback(null); // Prevent any disconnect callbacks from repeating...
+        _connection.cancelConnecting();
         _connection.disconnect();
-
-        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         if (nodeDisconnectedCallback != null) {
             // Intentionally not using the thread pool since it has been shutdown...

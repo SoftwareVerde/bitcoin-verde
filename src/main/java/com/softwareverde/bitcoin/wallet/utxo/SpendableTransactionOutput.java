@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.wallet.utxo;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.Constable;
@@ -15,6 +16,7 @@ public interface SpendableTransactionOutput extends Constable<ImmutableSpendable
         }
     };
 
+    Address getAddress();
     TransactionOutputIdentifier getIdentifier();
     TransactionOutput getTransactionOutput();
 
