@@ -32,17 +32,9 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
@@ -51,7 +43,6 @@ import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
-import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -505,6 +496,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         Block lastBlock = null;
         BlockId lastBlockId = null;
         for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2 }) {
@@ -561,7 +554,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -629,6 +622,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -686,7 +680,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -800,6 +794,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -857,7 +852,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 

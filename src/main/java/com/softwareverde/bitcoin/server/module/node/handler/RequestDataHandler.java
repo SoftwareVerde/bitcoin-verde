@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;

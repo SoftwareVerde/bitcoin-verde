@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.wallet.utxo;
 
 import com.softwareverde.bitcoin.address.Address;
-import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 

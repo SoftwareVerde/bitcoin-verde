@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.json.Json;
-import com.softwareverde.util.Util;
 
 public class MutableBlockHeaderWithTransactionCount extends MutableBlockHeader implements BlockHeaderWithTransactionCount {
     protected Integer _transactionCount;

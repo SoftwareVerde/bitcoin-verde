@@ -8,22 +8,30 @@ import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.Mode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-
-import java.util.HashMap;
+import com.softwareverde.io.Logger;
 
 public class SignatureContextGenerator {
     // Reference: https://en.bitcoin.it/wiki/OP_CHECKSIG
 
-    public SignatureContextGenerator() { }
+    protected final TransactionOutputRepository _transactionOutputRepository;
 
-    public SignatureContext createContextForEntireTransaction(final Transaction transaction, final HashMap<TransactionOutputIdentifier, TransactionOutput> transactionOutputsToSpend, final Boolean useBitcoinCash) {
+    public SignatureContextGenerator(final TransactionOutputRepository transactionOutputRepository) {
+        _transactionOutputRepository = transactionOutputRepository;
+    }
+
+    public SignatureContext createContextForEntireTransaction(final Transaction transaction, final Boolean useBitcoinCash) {
         final SignatureContext signatureContext = new SignatureContext(transaction, new HashType(Mode.SIGNATURE_HASH_ALL, true, useBitcoinCash), Long.MAX_VALUE);
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
         for (int i=0; i<transactionInputs.getSize(); ++i) {
             final TransactionInput transactionInput = transactionInputs.get(i);
 
-            final TransactionOutput transactionOutput = transactionOutputsToSpend.get(TransactionOutputIdentifier.fromTransactionInput(transactionInput));
+            final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);
+            final TransactionOutput transactionOutput = _transactionOutputRepository.get(transactionOutputIdentifier);
+            if (transactionOutput == null) {
+                Logger.log("Unable to create SignatureContext for Transaction.  Unknown TransactionOutput: " + transactionOutputIdentifier);
+                return null;
+            }
 
             signatureContext.setShouldSignInputScript(i, true, transactionOutput);
         }

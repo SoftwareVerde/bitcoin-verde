@@ -799,6 +799,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
     }
 
+    public void unbanNode(final Ip ip) {
+        _banFilter.unbanNode(ip);
+    }
+
     public void setOnNodeListChanged(final Runnable callback) {
         _onNodeListChanged = callback;
     }

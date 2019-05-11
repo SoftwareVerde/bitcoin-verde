@@ -3,15 +3,11 @@ package com.softwareverde.bitcoin.server.database.pool;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;

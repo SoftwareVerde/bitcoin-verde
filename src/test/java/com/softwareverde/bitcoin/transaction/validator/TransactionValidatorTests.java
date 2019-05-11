@@ -31,9 +31,7 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.wallet.PaymentAmount;
 import com.softwareverde.bitcoin.wallet.Wallet;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -191,8 +189,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
         transactionDatabaseManager.storeTransaction(signedTransaction);
@@ -239,8 +239,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -286,8 +288,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
@@ -336,8 +340,10 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Mutate the transaction so that it attempts to spend the same output twice...
         unsignedTransaction.addTransactionInput(unsignedTransaction.getTransactionInputs().get(0));
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -416,8 +422,10 @@ public class TransactionValidatorTests extends IntegrationTest {
                 _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
             );
 
+            final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
             // Sign the unsigned transaction.
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
