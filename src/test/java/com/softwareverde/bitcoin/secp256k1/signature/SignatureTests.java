@@ -14,7 +14,7 @@ public class SignatureTests {
         final Signature signature = new Signature(r, s);
 
         // Action
-        final ByteArray asDer = signature.encodeAsDer();
+        final ByteArray asDer = signature.encode();
         final Signature signatureCopy = Signature.fromBytes(asDer);
 
         // Assert

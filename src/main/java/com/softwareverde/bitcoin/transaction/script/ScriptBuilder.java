@@ -126,7 +126,7 @@ public class ScriptBuilder {
 
     public ScriptBuilder pushSignature(final ScriptSignature scriptSignature) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
-        byteArrayBuilder.appendBytes(scriptSignature.getSignature().encodeAsDer());
+        byteArrayBuilder.appendBytes(scriptSignature.getSignature().encode());
         byteArrayBuilder.appendByte(scriptSignature.getHashType().toByte());
         _pushBytes(MutableByteArray.wrap(byteArrayBuilder.build()));
 

@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
@@ -341,7 +342,14 @@ public class TransactionSigner {
 
     public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
         final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
-        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
+
+        final Signature signature = scriptSignature.getSignature();
+        if (signature.getType() == Signature.Type.SCHNORR) {
+            return Schnorr.verifySignature(signature, publicKey, bytesForSigning);
+        }
+        else {
+            return Secp256k1.verifySignature(signature, publicKey, bytesForSigning);
+        }
     }
 
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
