@@ -8,10 +8,14 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.sun.org.apache.bcel.internal.generic.PUSH;
 
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;
@@ -278,5 +282,27 @@ public class ScriptPatternMatcher {
         }
 
         return ScriptType.CUSTOM_SCRIPT;
+    }
+
+    // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-segwit-recovery.md
+    public Boolean matchesSegregatedWitnessProgram(final UnlockingScript unlockingScript) {
+        final List<Operation> operations = unlockingScript.getOperations();
+        if (operations.getSize() != 1) { return false; }
+
+        final Operation operation = operations.get(0);
+        if (operation.getType() != Operation.Type.OP_PUSH) { return false; }
+
+        final PushOperation pushOperation = (PushOperation) operation;
+        final Value value = pushOperation.getValue();
+
+        final Integer valueByteCount = value.getByteCount();
+        if ( (valueByteCount < 4 || valueByteCount > 42) ) { return false; }
+
+        final byte firstByte = value.getByte(0);
+        if ( (firstByte != 0x00) && (! (firstByte >= 0x51 && firstByte <= 0x60)) ) { return false; }
+
+        final byte secondByte = value.getByte(1);
+        final int secondByteIntegerValue = ByteUtil.byteToInteger(secondByte);
+        return ((value.getByteCount() - 2) == secondByteIntegerValue);
     }
 }
