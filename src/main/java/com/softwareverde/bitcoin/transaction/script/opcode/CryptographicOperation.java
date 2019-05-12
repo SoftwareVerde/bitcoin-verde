@@ -181,11 +181,18 @@ public class CryptographicOperation extends SubTypedOperation {
                     signaturesAreEmpty = false;
                 }
 
-                final ScriptSignature signature = signatureValue.asScriptSignature();
-                // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+                // if (scriptSignature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails / pushes a false value...
+                if (scriptSignature != null) {
+                    // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
+                    final Signature signature = scriptSignature.getSignature();
+                    if (signature.getType() == Signature.Type.SCHNORR) {
+                        return false;
+                    }
+                }
 
                 signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes())); // NOTE: All instances of the signature should be purged from the signed script...
-                listBuilder.add(signature);
+                listBuilder.add(scriptSignature);
             }
             signatures = listBuilder.build();
             bytesToRemoveFromScript = signatureBytesBuilder.build();
