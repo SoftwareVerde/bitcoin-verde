@@ -1,8 +1,11 @@
 package com.softwareverde.bitcoin.secp256k1;
 
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.util.HexUtil;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -10,10 +13,12 @@ import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
+import java.math.BigInteger;
 import java.security.Security;
 
 public class Schnorr {
     public static final byte[] CURVE_P;
+    public static final byte[] CURVE_N;
 
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
@@ -28,6 +33,12 @@ public class Schnorr {
         CURVE_DOMAIN =  new ECDomainParameters(CURVE, CURVE_POINT_G, curveParameterSpec.getN());
 
         CURVE_P = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+        CURVE_N = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    }
+
+    protected static BigInteger _jacobi(final BigInteger x) {
+        final BigInteger p = new BigInteger(1, CURVE_P);
+        return x.modPow((p.subtract(BigInteger.ONE).divide(BigInteger.valueOf(2L))), p);
     }
 
     // https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki
@@ -37,7 +48,7 @@ public class Schnorr {
         // Schnorr Signatures, for message ("m") and public key ("P"), involve a point ("R"),
         //      integers ("e") and ("s") (picked by the signer), and generator G.
         //
-        // "H" is the Sha256 hashing function, and "||" indicates concatenation.
+        // "H" is the Sha256 hashing function, and "||" indicates byte concatenation.
         //
         // "G" is defined as: sG = R + eP, where e = H(R || m).
         //
@@ -51,7 +62,6 @@ public class Schnorr {
         //  Where R is encoded only with its X coordinate (64 bytes).
         //
 
-
         // Key Prefixing: (https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki)
         //  When using the verification rule above directly, it is possible for a third party to convert a signature (R,s)
         //  for key P into a signature (R,s + aH(R || m)) for key P + aG and the same message, for any integer a. This is
@@ -60,6 +70,37 @@ public class Schnorr {
         //  other purposes—especially in combination with schemes like BIP32's unhardened derivation. To combat this, we
         //  choose key prefixed Schnorr signatures; changing the equation to sG = R + H(R || P || m)P.
 
-        return false;
+        // sG = R + H(R || P || m)P
+
+        final ECPoint P = Secp256k1.CURVE.decodePoint(publicKey.compress().getBytes());
+        if (P == null) { return false; }
+        if (P.isInfinity()) { return false; }
+
+        final BigInteger p = new BigInteger(1, CURVE_P);
+        final BigInteger n = new BigInteger(1, CURVE_N);
+
+        final BigInteger r = new BigInteger(signature.getR().getBytes());
+        if (r.compareTo(p) >= 0) { return false; }
+
+        final BigInteger s = new BigInteger(signature.getS().getBytes());
+        if (s.compareTo(n) >= 0) { return false; }
+
+        final BigInteger e;
+        {
+            final ByteArrayBuilder hashPreImageBuilder = new ByteArrayBuilder();
+            hashPreImageBuilder.appendBytes(signature.getR());
+            hashPreImageBuilder.appendBytes(P.getEncoded());
+            hashPreImageBuilder.appendBytes(message);
+            e = new BigInteger(BitcoinUtil.sha256(hashPreImageBuilder.build())).mod(n);
+        }
+
+        final ECPoint sG = CURVE_POINT_G.multiply(s);
+        final ECPoint eP = P.multiply(e);
+        final ECPoint R = sG.add(eP.negate()); // R = sG - eP
+        if (R.isInfinity()) { return false; }
+
+        if (! _jacobi(R.getY().toBigInteger()).equals(BigInteger.ONE)) { return false; }
+
+        return R.getX().toBigInteger().equals(r);
     }
 }
