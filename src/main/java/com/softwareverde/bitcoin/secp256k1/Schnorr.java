@@ -7,13 +7,11 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.jce.ECNamedCurveTable;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECNamedCurveParameterSpec;
 import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
 import java.math.BigInteger;
-import java.security.Security;
 
 public class Schnorr {
     public static final BigInteger TWO;
@@ -25,8 +23,6 @@ public class Schnorr {
     public static final ECDomainParameters CURVE_DOMAIN;
 
     static {
-        Security.addProvider(new BouncyCastleProvider());
-
         final ECNamedCurveParameterSpec curveParameterSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
         CURVE_POINT_G = curveParameterSpec.getG();
         CURVE = curveParameterSpec.getCurve();
