@@ -7,7 +7,6 @@ import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -22,8 +21,6 @@ import java.math.BigInteger;
 import java.security.Security;
 
 public class Secp256k1 {
-    public static final byte[] CURVE_P;
-
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
     public static final ECDomainParameters CURVE_DOMAIN;
@@ -35,8 +32,6 @@ public class Secp256k1 {
         CURVE_POINT_G = curveParameterSpec.getG();
         CURVE = curveParameterSpec.getCurve();
         CURVE_DOMAIN =  new ECDomainParameters(CURVE, CURVE_POINT_G, curveParameterSpec.getN());
-
-        CURVE_P = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
     }
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {

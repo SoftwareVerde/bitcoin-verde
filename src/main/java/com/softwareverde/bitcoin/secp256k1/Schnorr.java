@@ -1,6 +1,5 @@
 package com.softwareverde.bitcoin.secp256k1;
 
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -17,8 +16,9 @@ import java.math.BigInteger;
 import java.security.Security;
 
 public class Schnorr {
-    public static final byte[] CURVE_P;
-    public static final byte[] CURVE_N;
+    public static final BigInteger TWO;
+    public static final BigInteger CURVE_P;
+    public static final BigInteger CURVE_N;
 
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
@@ -32,13 +32,13 @@ public class Schnorr {
         CURVE = curveParameterSpec.getCurve();
         CURVE_DOMAIN =  new ECDomainParameters(CURVE, CURVE_POINT_G, curveParameterSpec.getN());
 
-        CURVE_P = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
-        CURVE_N = HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+        TWO = BigInteger.valueOf(2L);
+        CURVE_P = new BigInteger(1, HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F"));
+        CURVE_N = new BigInteger(1, HexUtil.hexStringToByteArray("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"));
     }
 
     protected static BigInteger _jacobi(final BigInteger x) {
-        final BigInteger p = new BigInteger(1, CURVE_P);
-        return x.modPow((p.subtract(BigInteger.ONE).divide(BigInteger.valueOf(2L))), p);
+        return x.modPow((CURVE_P.subtract(BigInteger.ONE).divide(TWO)), CURVE_P);
     }
 
     // https://github.com/sipa/bips/blob/bip-schnorr/bip-schnorr.mediawiki
@@ -76,14 +76,11 @@ public class Schnorr {
         if (P == null) { return false; }
         if (P.isInfinity()) { return false; }
 
-        final BigInteger p = new BigInteger(1, CURVE_P);
-        final BigInteger n = new BigInteger(1, CURVE_N);
+        final BigInteger r = new BigInteger(1, signature.getR().getBytes());
+        if (r.compareTo(CURVE_P) >= 0) { return false; }
 
-        final BigInteger r = new BigInteger(signature.getR().getBytes());
-        if (r.compareTo(p) >= 0) { return false; }
-
-        final BigInteger s = new BigInteger(signature.getS().getBytes());
-        if (s.compareTo(n) >= 0) { return false; }
+        final BigInteger s = new BigInteger(1, signature.getS().getBytes());
+        if (s.compareTo(CURVE_N) >= 0) { return false; }
 
         final BigInteger e;
         {
@@ -91,7 +88,7 @@ public class Schnorr {
             hashPreImageBuilder.appendBytes(signature.getR());
             hashPreImageBuilder.appendBytes(P.getEncoded());
             hashPreImageBuilder.appendBytes(message);
-            e = new BigInteger(BitcoinUtil.sha256(hashPreImageBuilder.build())).mod(n);
+            e = new BigInteger(1, BitcoinUtil.sha256(hashPreImageBuilder.build())).mod(CURVE_N);
         }
 
         final ECPoint sG = CURVE_POINT_G.multiply(s);
