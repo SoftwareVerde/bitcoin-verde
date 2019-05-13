@@ -133,8 +133,8 @@ public class ScriptRunnerTests {
         final MutableContext context = new MutableContext();
         context.setBlockHeight(590000L);
 
-        final String[] lockingScriptStrings = new String[7];
-        final String[] unlockingScriptStrings = new String[7];
+        final String[] lockingScriptStrings = new String[5];
+        final String[] unlockingScriptStrings = new String[5];
 
         // Recovering v0 P2SH-P2WPKH:
         lockingScriptStrings[0] = "A91417743BEB429C55C942D2EC703B98C4D57C2DF5C687";
