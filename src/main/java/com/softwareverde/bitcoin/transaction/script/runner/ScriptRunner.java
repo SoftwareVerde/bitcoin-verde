@@ -3,8 +3,11 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
+import com.softwareverde.bitcoin.bip.HF20190515;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -24,6 +27,12 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
+    protected final MedianBlockTime _medianBlockTime;
+
+    public ScriptRunner(final MedianBlockTime medianBlockTime) {
+        _medianBlockTime = medianBlockTime;
+    }
+
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
 
@@ -82,6 +91,7 @@ public class ScriptRunner {
             }
         }
 
+        final Boolean scriptIsSegregatedWitnessProgram;
         final Boolean shouldRunPayToScriptHashScript;
         { // Pay-To-Script-Hash Validation
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
@@ -96,6 +106,9 @@ public class ScriptRunner {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
                     if (payToScriptHashStack.didOverflow()) { return false; }
                     final Script redeemScript = new ImmutableScript(redeemScriptValue);
+
+                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                    scriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(redeemScript);
 
                     mutableContext.setCurrentScript(redeemScript);
                     final List<Operation> redeemScriptOperations = redeemScript.getOperations();
@@ -122,13 +135,22 @@ public class ScriptRunner {
                     if (! topStackValue.asBoolean()) { return false; }
                 }
             }
+            else {
+                scriptIsSegregatedWitnessProgram = false;
+            }
         }
 
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
+        // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
         if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
-            if (! stack.isEmpty()) { return false; } // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
+            if (! stack.isEmpty()) {
+                if (HF20190515.isEnabled(_medianBlockTime)) {
+                    if (! (shouldRunPayToScriptHashScript && scriptIsSegregatedWitnessProgram)) { return false; }
+                }
+                else { return false; }
+            }
         }
 
         return true;

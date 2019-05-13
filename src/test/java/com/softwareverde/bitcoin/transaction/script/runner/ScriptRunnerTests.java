@@ -62,7 +62,7 @@ public class ScriptRunnerTests {
         Assert.assertEquals(transactionBytesString01, HexUtil.toHexString(transactionDeflater.toBytes(transaction1).getBytes()));
 
         final MutableContext context = new MutableContext();
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(null);
 
         final TransactionInput transactionInput = transaction1.getTransactionInputs().get(0);
         final TransactionOutput transactionOutput = transactionBeingSpent.getTransactionOutputs().get(0);
@@ -88,7 +88,7 @@ public class ScriptRunnerTests {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(null);
 
         final Transaction transactionBeingSpent = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(
             "01000000015AEFC06AF14A9216350A1F549971E0C8381D69B00B492CA20663CAEB5F191825010000006B4830450220210947BCC472D558BED1A36A573BC3C5E11914BE685E868639A46B330AE1879B022100964512E526759EE915A3178F43520CF53D2C38E18A229062EEAB8E2D544A91990121021B36AF5FEDC577DFBF74D75060B20305F1D9127A3C7A7373EF91BF684F6A0491FFFFFFFF0246FBBB84000000001976A914F6A9D96485D1D45D28E38662F617BA39A6B151BB88AC00093D00000000001976A914D948D7A14685B7B5B528034137AA4C590F84F62988AC00000000"
