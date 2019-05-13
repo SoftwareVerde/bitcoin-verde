@@ -279,7 +279,7 @@ public class Wallet {
             signedTransaction = transactionBeingSigned;
         }
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(null);
         final List<TransactionInput> signedTransactionInputs = signedTransaction.getTransactionInputs();
         for (int i = 0; i < signedTransactionInputs.getSize(); ++i) {
             final TransactionInput signedTransactionInput = signedTransactionInputs.get(i);

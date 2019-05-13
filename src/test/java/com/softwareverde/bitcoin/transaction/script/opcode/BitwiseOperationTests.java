@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
+import com.softwareverde.bitcoin.bip.HF20181115SV;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -33,6 +34,8 @@ public class BitwiseOperationTests {
 
     @Test
     public void should_shift_bits_left() {
+        if (! HF20181115SV.isEnabled(Long.MAX_VALUE)) { return; } // If BSV is disabled, do not execute....
+
         _executeShift(Opcode.SHIFT_LEFT, "FFFF", 0L, "FFFF");
         _executeShift(Opcode.SHIFT_LEFT, "FFFF", 1L, "FFFE");
         _executeShift(Opcode.SHIFT_LEFT, "FFFF", 2L, "FFFC");
@@ -52,6 +55,8 @@ public class BitwiseOperationTests {
 
     @Test
     public void should_shift_bits_right() {
+        if (! HF20181115SV.isEnabled(Long.MAX_VALUE)) { return; } // If BSV is disabled, do not execute....
+
         _executeShift(Opcode.SHIFT_RIGHT, "FFFF", 0L, "FFFF");
         _executeShift(Opcode.SHIFT_RIGHT, "FFFF", 1L, "7FFF");
         _executeShift(Opcode.SHIFT_RIGHT, "FFFF", 2L, "3FFF");

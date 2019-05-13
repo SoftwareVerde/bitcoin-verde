@@ -258,7 +258,7 @@ public class TransactionValidator {
     public Boolean validateTransaction(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(_medianBlockTime);
 
         final MutableContext context = new MutableContext();
         context.setBlockHeight(blockHeight);

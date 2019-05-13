@@ -71,4 +71,16 @@ public class ByteUtil extends com.softwareverde.util.ByteUtil {
     public static byte reverseBits(final byte b) {
         return (byte) (Integer.reverse(b) >>> 24);
     }
+
+    public static void setBytes(final MutableByteArray destination, final ByteArray source, final Integer destinationOffset) {
+        for (int i = 0; i < source.getByteCount(); ++i) {
+            final int writeIndex = (i + destinationOffset);
+            if (writeIndex >= destination.getByteCount()) { break; }
+            destination.set(writeIndex, source.getByte(i));
+        }
+    }
+
+    public static void setBytes(final MutableByteArray destination, final ByteArray source) {
+        ByteUtil.setBytes(destination, source, 0);
+    }
 }
