@@ -133,8 +133,8 @@ public class ScriptRunnerTests {
         final MutableContext context = new MutableContext();
         context.setBlockHeight(590000L);
 
-        final String[] lockingScriptStrings = new String[5];
-        final String[] unlockingScriptStrings = new String[5];
+        final String[] lockingScriptStrings = new String[7];
+        final String[] unlockingScriptStrings = new String[7];
 
         // Recovering v0 P2SH-P2WPKH:
         lockingScriptStrings[0] = "A91417743BEB429C55C942D2EC703B98C4D57C2DF5C687";
@@ -156,19 +156,13 @@ public class ScriptRunnerTests {
         lockingScriptStrings[4] = "A91486123D8E050333A605E434ECF73128D83815B36F87";
         unlockingScriptStrings[4] = "0400025A01";
 
-        // Currently, Bitcoin Verde is intentionally not satisfying test vectors 6 and 7.
-        //  The original motivation for this behaviour was an accidental consequence within Bitcoin ABC's code.
-        //  The ramifications weren't realized until after their 0.19 release. Later, BU and BCHD back-ported the quirk.
-        //  In order to implement these, p2sh scripts that are in the segwit format would not be validated at all.
-        // To enable this functionality, set ScriptRunner.BITCOIN_ABC_QUIRK_ENABLED to true.
-
         // Valid in spite of a false boolean value being left on stack, 0:
-        // lockingScriptStrings[5] = "A9140E01BCFE7C6F3FD2FD8F8109229936974468473387";
-        // unlockingScriptStrings[5] = "0400020000";
+        lockingScriptStrings[5] = "A9140E01BCFE7C6F3FD2FD8F8109229936974468473387";
+        unlockingScriptStrings[5] = "0400020000";
 
         // Valid in spite of a false boolean value being left on stack, minus 0:
-        // lockingScriptStrings[6] = "A91410DDC638CB26615F867DAD80EFACCED9E73766BC87";
-        // unlockingScriptStrings[6] = "0400020080";
+        lockingScriptStrings[6] = "A91410DDC638CB26615F867DAD80EFACCED9E73766BC87";
+        unlockingScriptStrings[6] = "0400020080";
 
         for (int i = 0; i < lockingScriptStrings.length; ++i) {
             final String lockingScriptString = lockingScriptStrings[i];

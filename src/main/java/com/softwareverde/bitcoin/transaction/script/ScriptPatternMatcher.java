@@ -294,12 +294,18 @@ public class ScriptPatternMatcher {
         final PushOperation pushOperation = (PushOperation) operation;
         final Value value = pushOperation.getValue();
 
+        // Total script length must be between 4 and 42, inclusive, in order to be a segwit program...
         final Integer valueByteCount = value.getByteCount();
         if ( (valueByteCount < 4 || valueByteCount > 42) ) { return false; }
 
+        // First byte must push a static value to the stack in order to be a segwit program...
         final byte firstByte = value.getByte(0);
         if ( (firstByte != 0x00) && (! (firstByte >= 0x51 && firstByte <= 0x60)) ) { return false; }
 
+        // The second byte must be a integer value, that is equal to the length of the remaining p2sh script...
+        // Considering the total length of the script must be between 4 and 42 bytes, the only possible opcodes that
+        // that could be provided are push-data operations; these push operations also must consume the rest of the
+        // script, leaving no room for other opcode types. (2 <= secondByteIntegerValue <= 40)
         final byte secondByte = value.getByte(1);
         final int secondByteIntegerValue = ByteUtil.byteToInteger(secondByte);
         return ((value.getByteCount() - 2) == secondByteIntegerValue);

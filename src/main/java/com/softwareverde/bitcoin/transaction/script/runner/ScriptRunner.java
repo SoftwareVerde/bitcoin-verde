@@ -27,7 +27,7 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
-    protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = false;
+    protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
 
     protected final MedianBlockTime _medianBlockTime;
 
