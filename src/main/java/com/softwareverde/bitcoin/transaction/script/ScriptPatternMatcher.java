@@ -15,7 +15,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.sun.org.apache.bcel.internal.generic.PUSH;
 
 public class ScriptPatternMatcher {
     protected static final List<Opcode> PAY_TO_PUBLIC_KEY_PATTERN;

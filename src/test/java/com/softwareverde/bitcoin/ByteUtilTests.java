@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;
 

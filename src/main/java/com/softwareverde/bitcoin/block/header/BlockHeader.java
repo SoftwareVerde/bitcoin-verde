@@ -2,13 +2,11 @@ package com.softwareverde.bitcoin.block.header;
 
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
-import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.json.Jsonable;
-import com.softwareverde.util.HexUtil;
 
 public interface BlockHeader extends Hashable, Constable<ImmutableBlockHeader>, Jsonable {
     Long VERSION = 0x04L;
