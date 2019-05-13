@@ -285,8 +285,8 @@ public class ScriptPatternMatcher {
     }
 
     // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-segwit-recovery.md
-    public Boolean matchesSegregatedWitnessProgram(final Script script) {
-        final List<Operation> operations = script.getOperations();
+    public Boolean matchesSegregatedWitnessProgram(final UnlockingScript unlockingScript) {
+        final List<Operation> operations = unlockingScript.getOperations();
         if (operations.getSize() != 1) { return false; }
 
         final Operation operation = operations.get(0);

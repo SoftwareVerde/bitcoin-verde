@@ -91,7 +91,6 @@ public class ScriptRunner {
             }
         }
 
-        final Boolean scriptIsSegregatedWitnessProgram;
         final Boolean shouldRunPayToScriptHashScript;
         { // Pay-To-Script-Hash Validation
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
@@ -106,9 +105,6 @@ public class ScriptRunner {
                     final Value redeemScriptValue = payToScriptHashStack.pop();
                     if (payToScriptHashStack.didOverflow()) { return false; }
                     final Script redeemScript = new ImmutableScript(redeemScriptValue);
-
-                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
-                    scriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(redeemScript);
 
                     mutableContext.setCurrentScript(redeemScript);
                     final List<Operation> redeemScriptOperations = redeemScript.getOperations();
@@ -135,9 +131,6 @@ public class ScriptRunner {
                     if (! topStackValue.asBoolean()) { return false; }
                 }
             }
-            else {
-                scriptIsSegregatedWitnessProgram = false;
-            }
         }
 
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
@@ -147,7 +140,9 @@ public class ScriptRunner {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
             if (! stack.isEmpty()) {
                 if (HF20190515.isEnabled(_medianBlockTime)) {
-                    if (! (shouldRunPayToScriptHashScript && scriptIsSegregatedWitnessProgram)) { return false; }
+                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                    final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
+                    if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }
                 }
                 else { return false; }
             }
