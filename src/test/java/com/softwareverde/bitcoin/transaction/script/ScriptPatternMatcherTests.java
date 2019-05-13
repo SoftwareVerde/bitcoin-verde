@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.transaction.script;
 import com.softwareverde.bitcoin.transaction.script.locking.ImmutableLockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -87,5 +90,59 @@ public class ScriptPatternMatcherTests {
         Assert.assertEquals("19p8dgapw4MktfhcuaPAevLXpBQaY1Xq8J", scriptPatternMatcher.extractAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
         Assert.assertEquals("1JoiKZz2QRd47ARtcYgvgxC9jhnre9aphv", scriptPatternMatcher.extractDecompressedAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
         Assert.assertEquals("19p8dgapw4MktfhcuaPAevLXpBQaY1Xq8J", scriptPatternMatcher.extractCompressedAddressFromPayToPublicKey(lockingScript).toBase58CheckEncoded());
+    }
+
+    @Test
+    public void should_match_witness_programs() {
+        // Setup
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final String[] unlockingScriptHexStrings = new String[]{
+            "16001491B24BF9F5288532960AC687ABB035127B1D28A5",
+            "2200205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+            "2260205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+            "2A00285A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F2021222324252627",
+            "0400025A01",
+            "0400020000",
+            "0400020080"
+        };
+
+        for (final String unlockingScriptHexString : unlockingScriptHexStrings) {
+            final UnlockingScript script = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptHexString));
+
+            // Action
+            final Boolean isWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(script);
+
+            // Assert
+            Assert.assertTrue(isWitnessProgram);
+        }
+    }
+
+    @Test
+    public void should_not_match_non_witness_programs() {
+        // Setup
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final String[] unlockingScriptHexStrings = new String[]{
+            "0016001491B24BF9F5288532960AC687ABB035127B1D28A5",
+            "1701001491B24BF9F5288532960AC687ABB035127B1D28A5",
+            "05004C0245AA",
+            "0300015A",
+            "2B00295A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728",
+            "224F205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+            "230111205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+            "2250205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F",
+            "2300205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F51"
+        };
+
+        for (final String unlockingScriptHexString : unlockingScriptHexStrings) {
+            final UnlockingScript script = new MutableUnlockingScript(ByteArray.fromHexString(unlockingScriptHexString));
+
+            // Action
+            final Boolean isWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(script);
+
+            // Assert
+            Assert.assertFalse(isWitnessProgram);
+        }
     }
 }

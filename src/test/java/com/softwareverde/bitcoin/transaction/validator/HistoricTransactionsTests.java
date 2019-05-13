@@ -125,7 +125,7 @@ public class HistoricTransactionsTests {
         final LockingScript lockingScript = new ImmutableLockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.lockingScriptBytes)));
         final UnlockingScript unlockingScript = new ImmutableUnlockingScript(MutableByteArray.wrap(HexUtil.hexStringToByteArray(testConfig.unlockingScriptBytes)));
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(null);
 
         // Action
         final Boolean inputIsUnlocked = scriptRunner.runScript(lockingScript, unlockingScript, context);
