@@ -27,6 +27,8 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
+    protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = false;
+
     protected final MedianBlockTime _medianBlockTime;
 
     public ScriptRunner(final MedianBlockTime medianBlockTime) {
@@ -96,7 +98,16 @@ public class ScriptRunner {
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
             final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
-            shouldRunPayToScriptHashScript = ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash));
+            if (BITCOIN_ABC_QUIRK_ENABLED) {
+                // NOTE: Bitcoin ABC's 0.19 behavior does not run P2SH Scripts that match the Segwit format...
+                final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
+                shouldRunPayToScriptHashScript = ( (payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash) && (! unlockingScriptIsSegregatedWitnessProgram) );
+            }
+            else {
+                shouldRunPayToScriptHashScript = ( (payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash) );
+            }
+
             if (shouldRunPayToScriptHashScript) {
                 final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                 if (unlockingScriptContainsNonPushOperations) { return false; }

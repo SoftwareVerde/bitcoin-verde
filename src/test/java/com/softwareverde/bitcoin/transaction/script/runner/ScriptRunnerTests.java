@@ -136,8 +136,8 @@ public class ScriptRunnerTests {
         final MutableContext context = new MutableContext();
         context.setBlockHeight(590000L);
 
-        final String[] lockingScriptStrings = new String[5];
-        final String[] unlockingScriptStrings = new String[5];
+        final String[] lockingScriptStrings = new String[7];
+        final String[] unlockingScriptStrings = new String[7];
 
         // Recovering v0 P2SH-P2WPKH:
         lockingScriptStrings[0] = "A91417743BEB429C55C942D2EC703B98C4D57C2DF5C687";
@@ -159,9 +159,11 @@ public class ScriptRunnerTests {
         lockingScriptStrings[4] = "A91486123D8E050333A605E434ECF73128D83815B36F87";
         unlockingScriptStrings[4] = "0400025A01";
 
-        // Bitcoin Verde is intentionally not satisfying these two test cases as they are a deviation to the p2sh ruleset
-        //  and are brought about because of a bug in Bitcoin ABC, and was later back-ported to BU and BCHD before the fork.
+        // Currently, Bitcoin Verde is intentionally not satisfying test vectors 6 and 7.
+        //  The original motivation for this behaviour was an accidental consequence within Bitcoin ABC's code.
+        //  The ramifications weren't realized until after their 0.19 release. Later, BU and BCHD back-ported the quirk.
         //  In order to implement these, p2sh scripts that are in the segwit format would not be validated at all.
+        // To enable this functionality, set ScriptRunner.BITCOIN_ABC_QUIRK_ENABLED to true.
 
         // Valid in spite of a false boolean value being left on stack, 0:
         // lockingScriptStrings[5] = "A9140E01BCFE7C6F3FD2FD8F8109229936974468473387";
@@ -198,48 +200,48 @@ public class ScriptRunnerTests {
         final String[] unlockingScriptStrings = new String[11];
 
         // Non-P2SH output:
+        lockingScriptStrings[0] = "81";
         unlockingScriptStrings[0] = "16001491B24BF9F5288532960AC687ABB035127B1D28A5";
-        lockingScriptStrings[0] = "01";
 
         // Redeem script hash does not match P2SH output:
-        unlockingScriptStrings[1] = "16001491B24BF9F5288532960AC687ABB035127B1D28A5";
         lockingScriptStrings[1] = "A91417A6BE2F8FE8E94F033E53D17BEEFDA0F3AC440987";
+        unlockingScriptStrings[1] = "16001491B24BF9F5288532960AC687ABB035127B1D28A5";
 
         // scriptSig pushes two items onto the stack:
-        unlockingScriptStrings[2] = "0016001491B24BF9F5288532960AC687ABB035127B1D28A5";
         lockingScriptStrings[2] = "A91417743BEB429C55C942D2EC703B98C4D57C2DF5C687";
+        unlockingScriptStrings[2] = "0016001491B24BF9F5288532960AC687ABB035127B1D28A5";
 
         // Invalid witness program, non-minimal push in version field:
-        unlockingScriptStrings[3] = "1701001491B24BF9F5288532960AC687ABB035127B1D28A5";
         lockingScriptStrings[3] = "A9140718743E67C1EF4911E0421F206C5FF81755718E87";
+        unlockingScriptStrings[3] = "1701001491B24BF9F5288532960AC687ABB035127B1D28A5";
 
         // Invalid witness program, non-minimal push in program field:
-        unlockingScriptStrings[4] = "05004C0245AA";
         lockingScriptStrings[4] = "A914D3EC673296C7FD7E1A9E53BFC36F414DE303E90587";
+        unlockingScriptStrings[4] = "05004C0245AA";
 
         // Invalid witness program, too short, 3 bytes:
-        unlockingScriptStrings[5] = "0300015A";
         lockingScriptStrings[5] = "A91440B6941895022D458DE8F4BBFE27F3AAA4FB9A7487";
+        unlockingScriptStrings[5] = "0300015A";
 
         // Invalid witness program, too long, 43 bytes:
-        unlockingScriptStrings[6] = "2B00295A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728";
         lockingScriptStrings[6] = "A91413AA4FCFD630508E0794DCA320CAC172C5790AEA87";
+        unlockingScriptStrings[6] = "2B00295A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F202122232425262728";
 
         // Invalid witness program, version -1:
-        unlockingScriptStrings[7] = "224F205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
         lockingScriptStrings[7] = "A91497AA1E96E49CA6D744D7344F649DD9F94BCC35EB87";
+        unlockingScriptStrings[7] = "224F205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
 
         // Invalid witness program, version 17:
-        unlockingScriptStrings[8] = "230111205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
         lockingScriptStrings[8] = "A9144B5321BEB1C09F593FF3C02BE4AF21C7F949E10187";
+        unlockingScriptStrings[8] = "230111205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
 
         // Invalid witness program, OP_RESERVED in version field:
-        unlockingScriptStrings[9] = "2250205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
         lockingScriptStrings[9] = "A914BE02794CEEDE051DA41B420E88A86FFF2802AF0687";
+        unlockingScriptStrings[9] = "2250205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F";
 
         // Invalid witness program, more than 2 stack items:
-        unlockingScriptStrings[10] = "2300205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F51";
         lockingScriptStrings[10] = "A9148EB812176C9E71732584123DD06D3246E659B19987";
+        unlockingScriptStrings[10] = "2300205A0102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F51";
 
         for (int i = 0; i < lockingScriptStrings.length; ++i) {
             final String lockingScriptString = lockingScriptStrings[i];
