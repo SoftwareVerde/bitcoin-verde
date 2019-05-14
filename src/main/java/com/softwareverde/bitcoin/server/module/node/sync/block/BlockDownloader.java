@@ -195,19 +195,19 @@ public class BlockDownloader extends SleepyService {
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
 
                 final MilliTimer timer = new MilliTimer();
-                _currentBlockDownloadSet.put(blockHash, timer);
-
-                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
-
                 timer.start();
 
-//                if (bitcoinNode.supportsExtraThinBlocks() && _synchronizationStatus.isReadyForTransactions()) {
-//                    _bitcoinNodeManager.requestThinBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
-//                }
-//                else {
-//                    _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
-//                }
+                _currentBlockDownloadSet.put(blockHash, timer);
+
+                // if (bitcoinNode.supportsExtraThinBlocks() && _synchronizationStatus.isReadyForTransactions()) {
+                //     _bitcoinNodeManager.requestThinBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+                // }
+                // else {
+                //     _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+                // }
                 _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+
+                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
             }
         }
         catch (final DatabaseException exception) {
