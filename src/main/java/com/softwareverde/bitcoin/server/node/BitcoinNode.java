@@ -263,7 +263,7 @@ public class BitcoinNode extends Node {
 
     protected Boolean _transactionRelayIsEnabled = true;
 
-    protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.UPDATE_ALL; // TODO
+    protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.READ_ONLY; // TODO: Should be set by client.  UPDATE_ALL and P2PK_P2MS are potentially broken...
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
 
