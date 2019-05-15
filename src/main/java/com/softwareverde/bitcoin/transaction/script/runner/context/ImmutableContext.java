@@ -8,16 +8,16 @@ import com.softwareverde.constable.Const;
 import com.softwareverde.json.Json;
 
 public class ImmutableContext implements Context, Const {
-    protected Long _blockHeight;
-    protected Transaction _transaction;
+    protected final Long _blockHeight;
+    protected final Transaction _transaction;
 
-    protected Integer _transactionInputIndex;
-    protected TransactionInput _transactionInput;
-    protected TransactionOutput _transactionOutput;
+    protected final Integer _transactionInputIndex;
+    protected final TransactionInput _transactionInput;
+    protected final TransactionOutput _transactionOutput;
 
-    protected Script _currentScript;
-    protected Integer _currentScriptIndex;
-    protected Integer _scriptLastCodeSeparatorIndex;
+    protected final Script _currentScript;
+    protected final Integer _currentScriptIndex;
+    protected final Integer _scriptLastCodeSeparatorIndex;
 
     public ImmutableContext(final Context context) {
         _blockHeight = context.getBlockHeight();
