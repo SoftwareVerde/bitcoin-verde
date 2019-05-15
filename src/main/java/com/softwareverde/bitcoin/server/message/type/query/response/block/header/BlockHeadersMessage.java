@@ -13,7 +13,7 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {
-    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<BlockHeader>();
+    protected final MutableList<BlockHeader> _blockHeaders = new MutableList<>();
 
     public BlockHeadersMessage() {
         super(MessageType.BLOCK_HEADERS);

@@ -77,8 +77,8 @@ public class TransactionProcessor extends SleepyService {
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.selectCandidatePendingTransactionIds();
                 if (pendingTransactionIds.isEmpty()) { return false; }
 
-                final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<Sha256Hash, PendingTransactionId>(pendingTransactionIds.getSize());
-                final MutableList<Transaction> transactionsToStore = new MutableList<Transaction>(pendingTransactionIds.getSize());
+                final HashMap<Sha256Hash, PendingTransactionId> pendingTransactionIdMap = new HashMap<>(pendingTransactionIds.getSize());
+                final MutableList<Transaction> transactionsToStore = new MutableList<>(pendingTransactionIds.getSize());
                 for (final PendingTransactionId pendingTransactionId : pendingTransactionIds) {
                     if (thread.isInterrupted()) { return false; }
 
@@ -107,14 +107,14 @@ public class TransactionProcessor extends SleepyService {
                 final List<NodeId> connectedNodes;
                 {
                     final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
+                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<>(nodes.getSize());
                     for (final BitcoinNode bitcoinNode : nodes) {
                         nodeIdsBuilder.add(bitcoinNode.getId());
                     }
                     connectedNodes = nodeIdsBuilder.build();
                 }
 
-                final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<NodeId, MutableList<Sha256Hash>>();
+                final HashMap<NodeId, MutableList<Sha256Hash>> nodeUnseenTransactionHashes = new HashMap<>();
 
                 int invalidTransactionCount = 0;
                 final MilliTimer storeTransactionsTimer = new MilliTimer();
@@ -156,7 +156,7 @@ public class TransactionProcessor extends SleepyService {
                         if (! bitcoinNode.matchesFilter(transaction)) { continue; }
 
                         if (! nodeUnseenTransactionHashes.containsKey(nodeId)) {
-                            nodeUnseenTransactionHashes.put(nodeId, new MutableList<Sha256Hash>());
+                            nodeUnseenTransactionHashes.put(nodeId, new MutableList<>());
                         }
 
                         final MutableList<Sha256Hash> transactionHashes = nodeUnseenTransactionHashes.get(nodeId);

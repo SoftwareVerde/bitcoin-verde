@@ -14,7 +14,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class RequestDataMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_COUNT = 50000;
 
-    private final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
+    private final MutableList<InventoryItem> _inventoryItems = new MutableList<>();
 
     public RequestDataMessage() {
         super(MessageType.REQUEST_DATA);

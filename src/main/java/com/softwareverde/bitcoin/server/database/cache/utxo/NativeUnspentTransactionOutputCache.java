@@ -28,7 +28,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     private static final boolean LIBRARY_LOADED_CORRECTLY;
     private static final Object MASTER_MUTEX = new Object();
-    private static final ConcurrentHashMap<Integer, ReentrantReadWriteLock> MUTEXES = new ConcurrentHashMap<Integer, ReentrantReadWriteLock>(256);
+    private static final ConcurrentHashMap<Integer, ReentrantReadWriteLock> MUTEXES = new ConcurrentHashMap<>(256);
 
     static {
         boolean isEnabled = true;

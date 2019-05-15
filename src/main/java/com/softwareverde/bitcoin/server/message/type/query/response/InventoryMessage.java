@@ -13,7 +13,7 @@ import com.softwareverde.util.bytearray.Endian;
 
 public class InventoryMessage extends BitcoinProtocolMessage {
 
-    private final MutableList<InventoryItem> _inventoryItems = new MutableList<InventoryItem>();
+    private final MutableList<InventoryItem> _inventoryItems = new MutableList<>();
 
     public InventoryMessage() {
         super(MessageType.INVENTORY);

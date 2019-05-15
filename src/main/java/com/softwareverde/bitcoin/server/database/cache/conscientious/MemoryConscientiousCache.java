@@ -19,7 +19,7 @@ public abstract class MemoryConscientiousCache<T, S> implements MutableCache<T, 
             }
         }
 
-        return new MemoryConscientiousMutableCache<T, S>(cache, memoryPercentThreshold);
+        return new MemoryConscientiousMutableCache<>(cache, memoryPercentThreshold);
     }
 
     public static ConscientiousUnspentTransactionOutputCache wrap(final Float memoryPercentThreshold, final UnspentTransactionOutputCache cache) {

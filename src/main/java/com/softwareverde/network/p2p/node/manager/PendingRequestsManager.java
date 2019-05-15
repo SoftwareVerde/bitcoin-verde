@@ -20,7 +20,7 @@ public class PendingRequestsManager<NODE> extends SleepyService {
     protected final ThreadPool _threadPool;
 
     protected final SystemTime _systemTime;
-    protected final ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long> _pendingRequests = new ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long>();
+    protected final ConcurrentHashMap<NodeManager.NodeApiRequest<NODE>, Long> _pendingRequests = new ConcurrentHashMap<>();
 
     public PendingRequestsManager(final SystemTime systemTime, final ThreadPool threadPool) {
         _systemTime = systemTime;

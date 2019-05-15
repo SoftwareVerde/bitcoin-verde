@@ -15,11 +15,11 @@ public class BlockValidationResult implements Jsonable {
     }
 
     public static BlockValidationResult invalid(final String errorMessage) {
-        return new BlockValidationResult(false, errorMessage, new MutableList<Sha256Hash>());
+        return new BlockValidationResult(false, errorMessage, new MutableList<>());
     }
 
     public static BlockValidationResult invalid(final String errorMessage, final Transaction invalidTransaction) {
-        final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
+        final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<>(1);
         invalidTransactions.add(invalidTransaction.getHash());
 
         return new BlockValidationResult(false, errorMessage, invalidTransactions.build());

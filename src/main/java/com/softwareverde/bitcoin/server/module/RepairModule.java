@@ -66,7 +66,7 @@ public class RepairModule {
     protected RepairModule(final String configurationFilename, final String[] blockHashes) {
         _configuration = _loadConfigurationFile(configurationFilename);
 
-        final ImmutableListBuilder<Sha256Hash> blockHashesBuilder = new ImmutableListBuilder<Sha256Hash>(blockHashes.length);
+        final ImmutableListBuilder<Sha256Hash> blockHashesBuilder = new ImmutableListBuilder<>(blockHashes.length);
         for (final String blockHashString : blockHashes) {
             final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
             if (blockHash != null) {
@@ -114,7 +114,7 @@ public class RepairModule {
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
-                    return new MutableList<BitcoinNodeIpAddress>(0);
+                    return new MutableList<>(0);
                 }
             };
 
@@ -141,7 +141,7 @@ public class RepairModule {
         final List<BitcoinNode> bitcoinNodes;
         {
             final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
-            final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<BitcoinNode>();
+            final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<>();
             for (final Configuration.SeedNodeProperties seedNodeProperties : bitcoinProperties.getSeedNodeProperties()) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();

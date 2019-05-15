@@ -53,10 +53,10 @@ public class BlockValidator {
         final Thread currentThread = Thread.currentThread();
 
         final List<Transaction> transactions;
-        final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
+        final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<>();
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
-            final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(fullTransactionList.getSize());
+            final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<>(fullTransactionList.getSize());
             int transactionIndex = 0;
             for (final Transaction transaction : fullTransactionList) {
                 if (transactionIndex > 0) {
@@ -86,7 +86,7 @@ public class BlockValidator {
 
         final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
 
-        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(_databaseConnectionFactory, _databaseManagerCache);
+        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<>(_databaseConnectionFactory, _databaseManagerCache);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
@@ -95,7 +95,7 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(_databaseConnectionFactory, _databaseManagerCache);
+        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<>(_databaseConnectionFactory, _databaseManagerCache);
         transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
 
         transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
@@ -177,7 +177,7 @@ public class BlockValidator {
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
         if (unlockedInputsResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
 
-        final MutableList<Sha256Hash> invalidTransactions = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> invalidTransactions = new MutableList<>();
 
         final Long totalTransactionFees;
         {

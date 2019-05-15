@@ -26,7 +26,7 @@ public class ProxyModule {
     protected final Configuration _configuration;
     protected final HttpServer _apiServer = new HttpServer();
 
-    protected HashMap<Long, WebSocket> _proxiedWebsockets = new HashMap<Long, WebSocket>();
+    protected HashMap<Long, WebSocket> _proxiedWebsockets = new HashMap<>();
 
     protected Configuration _loadConfigurationFile(final String configurationFilename) {
         final File configurationFile = new File(configurationFilename);
@@ -75,7 +75,7 @@ public class ProxyModule {
 
         _apiServer.setPort(proxyProperties.getHttpPort());
 
-        final HashMap<String, ProxyServlet.Url> proxyConfiguration = new HashMap<String, ProxyServlet.Url>();
+        final HashMap<String, ProxyServlet.Url> proxyConfiguration = new HashMap<>();
         proxyConfiguration.put("^pool\\..*$", new ProxyServlet.Url("http", "localhost", stratumProperties.getHttpPort()));
         proxyConfiguration.put(".*", new ProxyServlet.Url("http", "localhost", explorerProperties.getPort()));
 

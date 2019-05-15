@@ -54,7 +54,7 @@ public class AddressProcessor extends SleepyService {
 
                 final List<ScriptType> scriptTypes;
                 {
-                    final ImmutableListBuilder<ScriptType> scriptTypesBuilder = new ImmutableListBuilder<ScriptType>(lockingScriptCount);
+                    final ImmutableListBuilder<ScriptType> scriptTypesBuilder = new ImmutableListBuilder<>(lockingScriptCount);
                     for (final LockingScript lockingScript : lockingScripts) {
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         scriptTypesBuilder.add(scriptType);

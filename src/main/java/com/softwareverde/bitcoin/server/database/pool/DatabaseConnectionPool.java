@@ -41,7 +41,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
     protected final AtomicInteger _inUseConnectionCount = new AtomicInteger(0);
     protected final AtomicInteger _aliveConnectionCount = new AtomicInteger(0);
     protected final AtomicBoolean _isShutdown = new AtomicBoolean(false);
-    public final ConcurrentLinkedQueue<CachedDatabaseConnection> _pooledDatabaseConnections = new ConcurrentLinkedQueue<CachedDatabaseConnection>();
+    public final ConcurrentLinkedQueue<CachedDatabaseConnection> _pooledDatabaseConnections = new ConcurrentLinkedQueue<>();
 
     protected CachedDatabaseConnection _createNewCachedConnection() throws DatabaseException {
         final DatabaseConnection newUnwrappedDatabaseConnection = _databaseConnectionFactory.newConnection();

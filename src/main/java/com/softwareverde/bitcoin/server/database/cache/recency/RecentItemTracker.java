@@ -21,9 +21,9 @@ public class RecentItemTracker<T> {
     }
 
     public RecentItemTracker(final Integer initialCapacity) {
-        _recentItemInstances = new HashMap<T, RecentItem<T>>(initialCapacity);
-        _recentItems = new LinkedList<RecentItem<T>>();
-        _skippedAccesses = new HashSet<Long>(initialCapacity);
+        _recentItemInstances = new HashMap<>(initialCapacity);
+        _recentItems = new LinkedList<>();
+        _skippedAccesses = new HashSet<>(initialCapacity);
     }
 
     public void markRecent(final T item) {
@@ -37,7 +37,7 @@ public class RecentItemTracker<T> {
                 recentItem = existingInstance;
             }
             else {
-                recentItem = new RecentItem<T>(item);
+                recentItem = new RecentItem<>(item);
                 _recentItemInstances.put(item, recentItem);
             }
         }

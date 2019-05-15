@@ -24,7 +24,7 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class Miner {
-    protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);
+    protected final Container<Boolean> hasBeenFound = new Container<>(false);
 
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
@@ -40,10 +40,10 @@ public class Miner {
     }
 
     public Block mineBlock(final Block prototypeBlock) throws Exception {
-        final MutableList<Thread> threads = new MutableList<Thread>();
-        final MutableList<Container<Long>> hashCounts = new MutableList<Container<Long>>();
+        final MutableList<Thread> threads = new MutableList<>();
+        final MutableList<Container<Long>> hashCounts = new MutableList<>();
 
-        final Container<Block> blockContainer = new Container<Block>();
+        final Container<Block> blockContainer = new Container<>();
 
         final Runnable hashCountPrinter = new Runnable() {
             @Override
@@ -72,7 +72,7 @@ public class Miner {
         final int hashesPerIteration = GpuSha256.maxBatchSize;
         for (int i=0; i<_gpuThreadCount; ++i) {
             final Integer index = (threadIndex++);
-            hashCounts.add(new Container<Long>(0L));
+            hashCounts.add(new Container<>(0L));
 
             final Thread thread = (new Thread(new Runnable() {
                 @Override
@@ -97,7 +97,7 @@ public class Miner {
                     boolean isValidDifficulty = false;
                     while ( (! isValidDifficulty) && (! hasBeenFound.value) ) {
 
-                        final MutableList<ByteArray> blockHeaderBytesList = new MutableList<ByteArray>();
+                        final MutableList<ByteArray> blockHeaderBytesList = new MutableList<>();
                         for (int i=0; i<hashesPerIteration; ++i) {
                             nonce += 1;
                             mutableBlock.setNonce(nonce);
@@ -148,7 +148,7 @@ public class Miner {
 
         for (int i=0; i<_cpuThreadCount; ++i) {
             final Integer index = (threadIndex++);
-            hashCounts.add(new Container<Long>(0L));
+            hashCounts.add(new Container<>(0L));
 
             final Thread thread = (new Thread(new Runnable() {
                 @Override

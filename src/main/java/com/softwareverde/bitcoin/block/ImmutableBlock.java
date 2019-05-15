@@ -23,7 +23,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     protected MerkleTree<Transaction> _merkleTree = null;
 
     protected void _buildMerkleTree() {
-        _merkleTree = new MerkleTreeNode<Transaction>();
+        _merkleTree = new MerkleTreeNode<>();
         for (final Transaction transaction : _transactions) {
             _merkleTree.addItem(transaction);
         }
@@ -32,7 +32,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
     public ImmutableBlock(final BlockHeader blockHeader, final List<Transaction> transactions) {
         super(blockHeader);
 
-        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<Transaction>(transactions.getSize());
+        final ImmutableListBuilder<Transaction> immutableListBuilder = new ImmutableListBuilder<>(transactions.getSize());
         for (final Transaction transaction : transactions) {
             immutableListBuilder.add(transaction.asConst());
         }
@@ -60,7 +60,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
 
     @Override
     public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
-        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<>();
         for (final Transaction transaction : _transactions) {
             if (transaction.matches(bloomFilter)) {
                 matchedTransactions.add(transaction);

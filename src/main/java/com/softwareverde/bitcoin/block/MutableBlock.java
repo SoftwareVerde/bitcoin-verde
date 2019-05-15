@@ -24,8 +24,8 @@ public class MutableBlock implements Block {
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
-    protected MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<Transaction>();
-    protected MutableList<Transaction> _transactions = new MutableList<Transaction>();
+    protected MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<>();
+    protected MutableList<Transaction> _transactions = new MutableList<>();
 
     protected Integer _cachedHashCode = null;
 
@@ -93,7 +93,7 @@ public class MutableBlock implements Block {
         _cachedHashCode = null;
 
         final MutableList<Transaction> oldTransactions = _transactions;
-        _transactions = new MutableList<Transaction>(_transactions.getSize());
+        _transactions = new MutableList<>(_transactions.getSize());
         for (final Transaction transaction : oldTransactions) {
             final Sha256Hash transactionHash = transaction.getHash();
             if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
@@ -174,7 +174,7 @@ public class MutableBlock implements Block {
 
     @Override
     public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
-        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<>();
         for (final Transaction transaction : _transactions) {
             if (transaction.matches(bloomFilter)) {
                 matchedTransactions.add(transaction);
@@ -193,7 +193,7 @@ public class MutableBlock implements Block {
 
     @Override
     public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
-        if (_merkleTree.isEmpty()) { return new MutableList<Sha256Hash>(); }
+        if (_merkleTree.isEmpty()) { return new MutableList<>(); }
         return _merkleTree.getPartialTree(transactionIndex);
     }
 

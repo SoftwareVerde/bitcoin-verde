@@ -41,7 +41,7 @@ import java.util.Map;
 
 public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
     private final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
-    private final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
+    private final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<>();
 
     public BitcoinProtocolMessageFactory() {
         _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new BitcoinSynchronizeVersionMessageInflater());

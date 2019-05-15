@@ -26,13 +26,13 @@ import java.util.Map;
 public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> {
     public static class ExpenditureResult {
         public static ExpenditureResult invalid(final Transaction invalidTransaction) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<>(1);
             invalidTransactions.add(invalidTransaction.getHash());
             return new ExpenditureResult(false, null, invalidTransactions.build());
         }
 
         public static ExpenditureResult invalid(final List<Transaction> invalidTransactions) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<>(1);
             for (final Transaction transaction : invalidTransactions) {
                 invalidTransactionHashes.add(transaction.getHash());
             }
@@ -56,7 +56,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
 
     protected DatabaseConnection _databaseConnection;
     protected DatabaseManagerCache _databaseManagerCache;
-    protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
+    protected final MutableList<Transaction> _invalidTransactions = new MutableList<>(0);
 
     protected static TransactionOutput _getTransactionOutput(final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         try {

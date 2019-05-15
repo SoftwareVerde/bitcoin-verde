@@ -40,7 +40,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
 
             final List<Sha256Hash> unseenTransactionHashes;
             {
-                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<Sha256Hash>(transactionHashes.getSize());
+                final ImmutableListBuilder<Sha256Hash> unseenTransactionHashesBuilder = new ImmutableListBuilder<>(transactionHashes.getSize());
                 for (final Sha256Hash transactionHash : transactionHashes) {
                     final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
                     if (transactionId == null) {

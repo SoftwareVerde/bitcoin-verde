@@ -106,7 +106,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                     final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
-                    final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+                    final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<>();
                     requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                     requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
                     final List<BitcoinNodeIpAddress> bitcoinNodeIpAddresses = nodeDatabaseManager.findNodes(requiredFeatures, _maxNodeCount);
@@ -225,7 +225,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             return;
         }
 
-        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
+        final MutableList<BitcoinNode> allNodes = new MutableList<>(_pendingNodes.values());
         allNodes.addAll(_nodes.values());
 
         for (final BitcoinNode bitcoinNode : allNodes) {
@@ -273,7 +273,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 return;
             }
 
-            final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
+            final MutableList<BitcoinNode> allNodes = new MutableList<>(_pendingNodes.values());
             allNodes.addAll(_nodes.values());
 
             for (final BitcoinNode bitcoinNode : allNodes) {
@@ -382,10 +382,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
      * Finds incomplete PendingBlocks that are not provided by any of the connected Nodes and attempts to locate them based on download-priority.
      */
     public void findNodeInventory() {
-        final List<NodeId> connectedNodes = new MutableList<NodeId>(_nodes.keySet());
+        final List<NodeId> connectedNodes = new MutableList<>(_nodes.keySet());
         if (connectedNodes.isEmpty()) { return; }
 
-        final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
+        final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<>();
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
@@ -688,7 +688,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             bitcoinNode.transmitBlockHeader(block, block.getTransactionCount());
         }
         else {
-            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
+            final MutableList<Sha256Hash> blockHashes = new MutableList<>(1);
             blockHashes.add(block.getHash());
             bitcoinNode.transmitBlockHashes(blockHashes);
         }
@@ -723,7 +723,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             }
         }
         else {
-            final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
+            final MutableList<Sha256Hash> blockHashes = new MutableList<>(1);
             blockHashes.add(blockHash);
 
             bitcoinNode.transmitBlockHashes(blockHashes);
@@ -731,7 +731,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void requestBlockHeadersAfter(final Sha256Hash blockHash, final DownloadBlockHeadersCallback callback) {
-        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(1);
+        final MutableList<Sha256Hash> blockHashes = new MutableList<>(1);
         blockHashes.add(blockHash);
 
         _requestBlockHeaders(blockHashes, callback);
@@ -774,7 +774,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         }
 
         // Disconnect all currently-connected nodes at that ip...
-        final MutableList<BitcoinNode> droppedNodes = new MutableList<BitcoinNode>();
+        final MutableList<BitcoinNode> droppedNodes = new MutableList<>();
 
         for (final BitcoinNode bitcoinNode : _nodes.values()) {
             if (Util.areEqual(ip, bitcoinNode.getIp())) {

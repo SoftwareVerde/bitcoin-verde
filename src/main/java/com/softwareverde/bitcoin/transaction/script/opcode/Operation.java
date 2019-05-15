@@ -48,7 +48,7 @@ public abstract class Operation implements Const {
         }
 
         public List<Opcode> getSubtypes() {
-            final List<Opcode> opcodes = new ArrayList<Opcode>(_opcodes.length);
+            final List<Opcode> opcodes = new ArrayList<>(_opcodes.length);
             for (final Opcode opcode : _opcodes) {
                 opcodes.add(opcode);
             }

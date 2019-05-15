@@ -135,7 +135,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
             final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<BlockHeader>(maxBlockCount);
+            final ImmutableListBuilder<BlockHeader> blockHeaders = new ImmutableListBuilder<>(maxBlockCount);
             for (int i = 0; i < maxBlockCount; ++i) {
                 if (startingBlockHeight < i) { break; }
 
@@ -261,7 +261,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<Transaction>(unconfirmedTransactionIds.getSize());
+            final ImmutableListBuilder<Transaction> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getSize());
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 unconfirmedTransactionsListBuilder.add(transaction);
@@ -282,7 +282,7 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
-            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionIds.getSize());
+            final ImmutableListBuilder<TransactionWithFee> listBuilder = new ImmutableListBuilder<>(unconfirmedTransactionIds.getSize());
             for (final TransactionId transactionId : unconfirmedTransactionIds) {
                 final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
                 if (transaction == null) {

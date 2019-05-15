@@ -127,7 +127,7 @@ public class NodeModule {
     protected void _connectToAdditionalNodes() {
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
         final Configuration.SeedNodeProperties[] seedNodes = bitcoinProperties.getSeedNodeProperties();
-        final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
+        final HashSet<String> seedNodeHosts = new HashSet<>(seedNodes.length);
         for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
             final String host = seedNodeProperties.getAddress();
             final Integer port = seedNodeProperties.getPort();
@@ -139,7 +139,7 @@ public class NodeModule {
         final Integer maxPeerCount = bitcoinProperties.getMaxPeerCount();
         if (maxPeerCount < 1) { return; }
 
-        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
+        final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<>();
         requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
         requiredFeatures.add(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
 
@@ -399,7 +399,7 @@ public class NodeModule {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
+                    final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<>(connectedNodes.getSize());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                         nodeIpAddresses.add(bitcoinNode.getRemoteNodeIpAddress());
                     }
@@ -503,11 +503,11 @@ public class NodeModule {
                             if (synchronizationStatusHandler.getState() == State.ONLINE) {
                                 final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
-                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<NodeId, BitcoinNode>();
+                                final HashMap<NodeId, BitcoinNode> bitcoinNodeMap = new HashMap<>();
                                 final List<NodeId> connectedNodeIds;
                                 {
                                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
-                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<NodeId>(connectedNodes.getSize());
+                                    final ImmutableListBuilder<NodeId> nodeIdsBuilder = new ImmutableListBuilder<>(connectedNodes.getSize());
                                     for (final BitcoinNode bitcoinNode : connectedNodes) {
                                         final NodeId nodeId = bitcoinNode.getId();
                                         nodeIdsBuilder.add(nodeId);

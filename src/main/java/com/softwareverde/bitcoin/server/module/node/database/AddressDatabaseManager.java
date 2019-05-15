@@ -79,7 +79,7 @@ public class AddressDatabaseManager {
                 .setParameter(addressId)
         );
 
-        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
+        final HashSet<TransactionId> transactionIdSet = new HashSet<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
 
@@ -95,7 +95,7 @@ public class AddressDatabaseManager {
             transactionIdSet.add(transactionId);
         }
 
-        return new ImmutableList<TransactionId>(transactionIdSet);
+        return new ImmutableList<>(transactionIdSet);
     }
 
     protected List<TransactionId> _getTransactionIdsSpendingFrom(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
@@ -107,7 +107,7 @@ public class AddressDatabaseManager {
                 .setParameter(addressId)
         );
 
-        final HashSet<TransactionId> transactionIdSet = new HashSet<TransactionId>(rows.size());
+        final HashSet<TransactionId> transactionIdSet = new HashSet<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
 
@@ -123,7 +123,7 @@ public class AddressDatabaseManager {
             transactionIdSet.add(transactionId);
         }
 
-        return new ImmutableList<TransactionId>(transactionIdSet);
+        return new ImmutableList<>(transactionIdSet);
     }
 
     protected List<SpendableTransactionOutput> _getAddressOutputs(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
@@ -133,11 +133,11 @@ public class AddressDatabaseManager {
             new Query("SELECT transactions.id AS transaction_id, transaction_outputs.id AS transaction_output_id, transaction_outputs.amount FROM transactions INNER JOIN transaction_outputs ON transactions.id = transaction_outputs.transaction_id INNER JOIN locking_scripts ON transaction_outputs.id = locking_scripts.transaction_output_id WHERE locking_scripts.address_id = ?")
                 .setParameter(addressId)
         );
-        if (rows.isEmpty()) { return new MutableList<SpendableTransactionOutput>(); }
+        if (rows.isEmpty()) { return new MutableList<>(); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
-        final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<SpendableTransactionOutput>(rows.size());
+        final MutableList<SpendableTransactionOutput> spendableTransactionOutputs = new MutableList<>(rows.size());
 
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
@@ -282,9 +282,9 @@ public class AddressDatabaseManager {
     public List<AddressId> storeScriptAddresses(final List<LockingScript> lockingScripts) throws DatabaseException {
         final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
-        final HashMap<String, AddressId> addressIdMap = new HashMap<String, AddressId>(lockingScripts.getSize());
-        final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<ScriptWrapper, String>(lockingScripts.getSize());
-        final MutableList<String> newAddresses = new MutableList<String>(lockingScripts.getSize());
+        final HashMap<String, AddressId> addressIdMap = new HashMap<>(lockingScripts.getSize());
+        final HashMap<ScriptWrapper, String> lockingScriptAddresses = new HashMap<>(lockingScripts.getSize());
+        final MutableList<String> newAddresses = new MutableList<>(lockingScripts.getSize());
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT IGNORE INTO addresses (address) VALUES (?)");
         for (final LockingScript lockingScript : lockingScripts) {
@@ -321,7 +321,7 @@ public class AddressDatabaseManager {
             addressIdMap.put(address, addressId);
         }
 
-        final MutableList<AddressId> addressIds = new MutableList<AddressId>(lockingScripts.getSize());
+        final MutableList<AddressId> addressIds = new MutableList<>(lockingScripts.getSize());
         for (final LockingScript lockingScript : lockingScripts) {
             final String address = lockingScriptAddresses.get(new ScriptWrapper(lockingScript));
             if (address == null) {
@@ -369,7 +369,7 @@ public class AddressDatabaseManager {
         final List<TransactionId> transactionIdsIn = _getTransactionIdsSendingTo(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
         final List<TransactionId> transactionIdsOut = _getTransactionIdsSpendingFrom(blockchainSegmentId, addressId, includeUnconfirmedTransactions);
 
-        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<TransactionId>(transactionIdsIn.getSize() + transactionIdsOut.getSize());
+        final ImmutableListBuilder<TransactionId> transactionIds = new ImmutableListBuilder<>(transactionIdsIn.getSize() + transactionIdsOut.getSize());
         transactionIds.addAll(transactionIdsIn);
         transactionIds.addAll(transactionIdsOut);
         return transactionIds.build();

@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Account implements Jsonable {
-    private static final Map<Long, Account> _cachedAccounts = new ConcurrentHashMap<Long, Account>();
+    private static final Map<Long, Account> _cachedAccounts = new ConcurrentHashMap<>();
 
     public static String hashPassword(final String rawPassword) {
         return HashUtil.sha256(HashUtil.sha256(rawPassword));

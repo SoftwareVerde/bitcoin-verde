@@ -323,7 +323,7 @@ public class Configuration {
 
     protected String[] _getArrayStringProperty(final String propertyName) {
         final String arrayString = _properties.getProperty(propertyName, "[]").trim();
-        final List<String> matches = new ArrayList<String>();
+        final List<String> matches = new ArrayList<>();
 
         final int startingIndex;
         final int length;

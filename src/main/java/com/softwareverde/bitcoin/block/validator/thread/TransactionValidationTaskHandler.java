@@ -17,13 +17,13 @@ import com.softwareverde.network.time.NetworkTime;
 public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
     public static class TransactionValidationResult {
         public static TransactionValidationResult invalid(final Transaction invalidTransaction) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<>(1);
             invalidTransactions.add(invalidTransaction.getHash());
             return new TransactionValidationResult(false, invalidTransactions.build());
         }
 
         public static TransactionValidationResult invalid(final List<Transaction> invalidTransactions) {
-            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<Sha256Hash>(1);
+            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<>(1);
             for (final Transaction transaction : invalidTransactions) {
                 invalidTransactionHashes.add(transaction.getHash());
             }
@@ -48,7 +48,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
     protected TransactionValidator _transactionValidator;
-    protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
+    protected final MutableList<Transaction> _invalidTransactions = new MutableList<>(0);
 
     public TransactionValidationTaskHandler(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainSegmentId = blockchainSegmentId;

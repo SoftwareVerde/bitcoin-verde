@@ -169,7 +169,7 @@ public class BitcoinNode extends Node {
 
     public static class MerkleBlockParameters {
         protected final MerkleBlock _merkleBlock;
-        protected final MutableList<Transaction> _transactions = new MutableList<Transaction>();
+        protected final MutableList<Transaction> _transactions = new MutableList<>();
 
         public MerkleBlock getMerkleBlock() {
             return _merkleBlock;
@@ -212,7 +212,7 @@ public class BitcoinNode extends Node {
         synchronized (destinationMap) {
             Set<S> destinationSet = destinationMap.get(key);
             if (destinationSet == null) {
-                destinationSet = new HashSet<S>();
+                destinationSet = new HashSet<>();
                 destinationMap.put(key, destinationSet);
             }
             destinationSet.add(value);
@@ -223,7 +223,7 @@ public class BitcoinNode extends Node {
         synchronized (destinationList) {
             MutableList<S> destinationSet = destinationList.get(key);
             if (destinationSet == null) {
-                destinationSet = new MutableList<S>();
+                destinationSet = new MutableList<>();
                 destinationList.put(key, destinationSet);
             }
             destinationSet.add(value);
@@ -248,13 +248,13 @@ public class BitcoinNode extends Node {
     protected TransactionInventoryMessageCallback _transactionsAnnouncementCallback = null;
     protected SpvBlockInventoryMessageCallback _spvBlockInventoryMessageCallback = null;
 
-    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<Sha256Hash, Set<DownloadBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<Sha256Hash, Set<DownloadMerkleBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<Sha256Hash, Set<DownloadBlockHeadersCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<Sha256Hash, Set<DownloadTransactionCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
-    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
+    protected final Map<Sha256Hash, Set<DownloadBlockCallback>> _downloadBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadMerkleBlockCallback>> _downloadMerkleBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadBlockHeadersCallback>> _downloadBlockHeadersRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadTransactionCallback>> _downloadTransactionRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadThinBlockCallback>> _downloadThinBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<>();
+    protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<>();
 
     protected final LocalNodeFeatures _localNodeFeatures;
 
@@ -551,7 +551,7 @@ public class BitcoinNode extends Node {
         final RequestDataCallback requestDataCallback = _requestDataMessageCallback;
 
         if (requestDataCallback != null) {
-            final List<InventoryItem> dataHashes = new ImmutableList<InventoryItem>(requestDataMessage.getInventoryItems());
+            final List<InventoryItem> dataHashes = new ImmutableList<>(requestDataMessage.getInventoryItems());
             _threadPool.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -565,7 +565,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _onInventoryMessageReceived(final InventoryMessage inventoryMessage) {
-        final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<InventoryItemType, MutableList<Sha256Hash>>();
+        final Map<InventoryItemType, MutableList<Sha256Hash>> dataHashesMap = new HashMap<>();
 
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
         for (final InventoryItem inventoryItem : dataHashes) {
@@ -706,7 +706,7 @@ public class BitcoinNode extends Node {
         final QueryBlocksCallback queryBlocksCallback = _queryBlocksCallback;
 
         if (queryBlocksCallback != null) {
-            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<Sha256Hash>(queryBlocksMessage.getBlockHashes());
+            final MutableList<Sha256Hash> blockHeaderHashes = new MutableList<>(queryBlocksMessage.getBlockHashes());
             final Sha256Hash desiredBlockHeaderHash = queryBlocksMessage.getStopBeforeBlockHash();
             _threadPool.execute(new Runnable() {
                 @Override
@@ -853,7 +853,7 @@ public class BitcoinNode extends Node {
                             _threadPool.execute(new Runnable() {
                                 @Override
                                 public void run() {
-                                    final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>();
+                                    final MutableList<Sha256Hash> transactionHashes = new MutableList<>();
                                     transactionHashes.add(itemHash); // TODO: Consider batching failure message...
                                     downloadTransactionCallback.onFailure(transactionHashes);
                                 }
@@ -1033,7 +1033,7 @@ public class BitcoinNode extends Node {
     }
 
     public void requestThinTransactions(final Sha256Hash blockHash, final List<Sha256Hash> transactionHashes, final DownloadThinTransactionsCallback downloadThinBlockCallback) {
-        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<ByteArray>(transactionHashes.getSize());
+        final ImmutableListBuilder<ByteArray> shortTransactionHashesBuilder = new ImmutableListBuilder<>(transactionHashes.getSize());
         for (final Sha256Hash transactionHash : transactionHashes) {
             final ByteArray shortTransactionHash = MutableByteArray.wrap(transactionHash.getBytes(0, 8));
             shortTransactionHashesBuilder.add(shortTransactionHash);
@@ -1130,7 +1130,7 @@ public class BitcoinNode extends Node {
             //  1. The first message should be the MerkleBlock itself.
             //  2. Immediately following should be the any transactions that match the Node's bloomFilter.
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
-            final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>();
+            final MutableList<BitcoinProtocolMessage> messages = new MutableList<>();
 
             final MerkleBlockMessage merkleBlockMessage = new MerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);

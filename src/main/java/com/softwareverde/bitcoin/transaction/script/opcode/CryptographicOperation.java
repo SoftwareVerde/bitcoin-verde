@@ -100,7 +100,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final List<ByteArray> bytesToRemoveFromScript;
         { // NOTE: All instances of the signature should be purged from the signed script...
-            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(1);
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<>(1);
             signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes()));
             bytesToRemoveFromScript = signatureBytesBuilder.build();
         }
@@ -152,7 +152,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final List<PublicKey> publicKeys;
         {
-            final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<PublicKey>();
+            final ImmutableListBuilder<PublicKey> listBuilder = new ImmutableListBuilder<>();
             for (int i = 0; i < publicKeyCount; ++i) {
                 final Value publicKeyValue = stack.pop();
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
@@ -172,8 +172,8 @@ public class CryptographicOperation extends SubTypedOperation {
         final List<ScriptSignature> signatures;
         {
             boolean signaturesAreEmpty = true;
-            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<ByteArray>(signatureCount);
-            final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<ScriptSignature>(signatureCount);
+            final ImmutableListBuilder<ByteArray> signatureBytesBuilder = new ImmutableListBuilder<>(signatureCount);
+            final ImmutableListBuilder<ScriptSignature> listBuilder = new ImmutableListBuilder<>(signatureCount);
             for (int i = 0; i < signatureCount; ++i) {
                 final Value signatureValue = stack.pop();
 

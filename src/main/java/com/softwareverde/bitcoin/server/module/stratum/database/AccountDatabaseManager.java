@@ -173,7 +173,7 @@ public class AccountDatabaseManager {
                 .setParameter(accountId)
         );
 
-        final ImmutableListBuilder<WorkerId> workerIds = new ImmutableListBuilder<WorkerId>(rows.size());
+        final ImmutableListBuilder<WorkerId> workerIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final WorkerId workerId = WorkerId.wrap(row.getLong("id"));
             if (workerId == null) { continue; }

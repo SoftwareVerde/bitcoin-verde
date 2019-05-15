@@ -61,8 +61,8 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
 
             final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
 
-            final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
-            final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getSize());
+            final MutableList<Transaction> pendingTransactions = new MutableList<>(0);
+            final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<>(transactionIds.getSize());
 
             for (final TransactionId transactionId : transactionIds) {
                 final BlockId blockId = transactionDatabaseManager.getBlockId(headChainSegmentId, transactionId);
@@ -73,7 +73,7 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
 
                     MutableList<Transaction> transactions = transactionTimestamps.get(transactionTimestamp);
                     if (transactions == null) {
-                        transactions = new MutableList<Transaction>(1);
+                        transactions = new MutableList<>(1);
                         transactionTimestamps.put(transactionTimestamp, transactions);
                     }
 
@@ -84,9 +84,9 @@ public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
                 }
             }
 
-            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+            final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<>(transactionIds.getSize());
             { // Add the Transactions in descending order by timestamp...
-                final MutableList<Long> timestamps = new MutableList<Long>(transactionTimestamps.keySet());
+                final MutableList<Long> timestamps = new MutableList<>(transactionTimestamps.keySet());
                 timestamps.sort(SortUtil.longComparator.reversed());
 
                 transactions.addAll(pendingTransactions); // Display unconfirmed transactions first...

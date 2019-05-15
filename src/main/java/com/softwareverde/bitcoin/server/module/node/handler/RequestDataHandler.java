@@ -45,9 +45,9 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
+            final MutableList<InventoryItem> notFoundDataHashes = new MutableList<>();
 
-            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getSize());
+            final HashSet<InventoryItem> processedDataHashes = new HashSet<>(dataHashes.getSize());
 
             for (final InventoryItem inventoryItem : dataHashes) {
                 { // Avoid duplicate inventoryItems... This was encountered during the initial block download of an Android SPV wallet.

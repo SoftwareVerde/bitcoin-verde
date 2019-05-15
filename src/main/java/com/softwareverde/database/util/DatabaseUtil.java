@@ -60,7 +60,7 @@ public class DatabaseUtil {
         final Integer itemCount = rows.size();
         if (! Util.areEqual(itemCount, rowOrder.getSize())) { return null; }
 
-        final ImmutableListBuilder<V> lockingScriptsBuilder = new ImmutableListBuilder<V>(itemCount);
+        final ImmutableListBuilder<V> lockingScriptsBuilder = new ImmutableListBuilder<>(itemCount);
         for (final T key : rowOrder) {
             final V value = keyMap.get(key);
             lockingScriptsBuilder.add(value);

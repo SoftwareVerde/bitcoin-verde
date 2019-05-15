@@ -152,7 +152,7 @@ public class BitcoinNodeDatabaseManager {
             final NodeId nodeId = _getNodeId(ip, port);
             if (nodeId == null) { return; }
 
-            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<NodeFeatures.Feature>();
+            final MutableList<NodeFeatures.Feature> disabledFeatures = new MutableList<>();
             final NodeFeatures nodeFeatures = nodeIpAddress.getNodeFeatures();
             for (final NodeFeatures.Feature feature : NodeFeatures.Feature.values()) {
                 if (nodeFeatures.hasFeatureFlagEnabled(feature)) {
@@ -247,7 +247,7 @@ public class BitcoinNodeDatabaseManager {
                 .setParameter(transactionHash)
         );
 
-        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        final HashSet<NodeId> filteredNodes = new HashSet<>(rows.size());
         if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
             for (final NodeId nodeId : nodeIds) {
                 filteredNodes.add(nodeId);
@@ -265,7 +265,7 @@ public class BitcoinNodeDatabaseManager {
             }
         }
 
-        return new ImmutableList<NodeId>(filteredNodes);
+        return new ImmutableList<>(filteredNodes);
     }
 
     public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
@@ -284,7 +284,7 @@ public class BitcoinNodeDatabaseManager {
             pendingBlockTableReadLock.unlock();
         }
 
-        final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
+        final HashSet<NodeId> filteredNodes = new HashSet<>(rows.size());
         if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {
             for (final NodeId nodeId : nodeIds) {
                 filteredNodes.add(nodeId);
@@ -302,7 +302,7 @@ public class BitcoinNodeDatabaseManager {
             }
         }
 
-        return new ImmutableList<NodeId>(filteredNodes);
+        return new ImmutableList<>(filteredNodes);
     }
 
     public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {
@@ -324,7 +324,7 @@ public class BitcoinNodeDatabaseManager {
             new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id INNER JOIN node_features ON nodes.id = node_features.node_id WHERE nodes.last_handshake_timestamp IS NOT NULL AND hosts.is_banned = 0 AND node_features.feature IN (" + inClause + ") ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");
@@ -352,7 +352,7 @@ public class BitcoinNodeDatabaseManager {
             new Query("SELECT nodes.id, hosts.host, nodes.port FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.is_banned = 0 WHERE nodes.last_handshake_timestamp IS NOT NULL ORDER BY nodes.last_handshake_timestamp DESC, nodes.connection_count DESC LIMIT " + maxCount)
         );
 
-        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<BitcoinNodeIpAddress>(rows.size());
+        final MutableList<BitcoinNodeIpAddress> nodeIpAddresses = new MutableList<>(rows.size());
 
         for (final Row row : rows) {
             final Long nodeId = row.getLong("id");

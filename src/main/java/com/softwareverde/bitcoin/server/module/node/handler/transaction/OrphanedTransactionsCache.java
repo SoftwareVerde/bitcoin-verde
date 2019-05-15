@@ -20,9 +20,9 @@ import java.util.Set;
 public class OrphanedTransactionsCache {
     public static final Integer MAX_ORPHANED_TRANSACTION_COUNT = (128 * 1024);
 
-    protected final HashMap<TransactionOutputIdentifier, HashSet<Transaction>> _orphanedTransactions = new HashMap<TransactionOutputIdentifier, HashSet<Transaction>>(MAX_ORPHANED_TRANSACTION_COUNT);
-    protected final HashSet<Transaction> _orphanedTransactionSet = new HashSet<Transaction>();
-    protected final LinkedList<Transaction> _orphanedTransactionsByAge = new LinkedList<Transaction>();
+    protected final HashMap<TransactionOutputIdentifier, HashSet<Transaction>> _orphanedTransactions = new HashMap<>(MAX_ORPHANED_TRANSACTION_COUNT);
+    protected final HashSet<Transaction> _orphanedTransactionSet = new HashSet<>();
+    protected final LinkedList<Transaction> _orphanedTransactionsByAge = new LinkedList<>();
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected void _removeOrphanedTransaction(final Transaction transaction) {
@@ -77,7 +77,7 @@ public class OrphanedTransactionsCache {
             final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.findTransactionOutput(transactionOutputIdentifier);
             if (transactionOutputId == null) {
                 if (! _orphanedTransactions.containsKey(transactionOutputIdentifier)) {
-                    _orphanedTransactions.put(transactionOutputIdentifier, new HashSet<Transaction>());
+                    _orphanedTransactions.put(transactionOutputIdentifier, new HashSet<>());
                 }
 
                 final HashSet<Transaction> queuedTransactions = _orphanedTransactions.get(transactionOutputIdentifier);
@@ -87,7 +87,7 @@ public class OrphanedTransactionsCache {
     }
 
     public synchronized Set<Transaction> onTransactionAdded(final Transaction transaction) {
-        final HashSet<Transaction> possiblyEligibleTransactions = new HashSet<Transaction>();
+        final HashSet<Transaction> possiblyEligibleTransactions = new HashSet<>();
 
         final Sha256Hash transactionHash = transaction.getHash();
 

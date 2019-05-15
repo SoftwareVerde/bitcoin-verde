@@ -18,7 +18,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class AnnouncementsApi implements WebSocketServlet {
     protected static final Object MUTEX = new Object();
-    protected static final HashMap<Long, WebSocket> WEB_SOCKETS = new HashMap<Long, WebSocket>();
+    protected static final HashMap<Long, WebSocket> WEB_SOCKETS = new HashMap<>();
 
     protected static final ReentrantReadWriteLock.ReadLock QUEUE_READ_LOCK;
     protected static final ReentrantReadWriteLock.WriteLock QUEUE_WRITE_LOCK;
@@ -28,8 +28,8 @@ public class AnnouncementsApi implements WebSocketServlet {
         QUEUE_WRITE_LOCK = readWriteLock.writeLock();
     }
 
-    protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<Json>(10);
-    protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<Json>(32);
+    protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<>(10);
+    protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<>(32);
 
     protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
 

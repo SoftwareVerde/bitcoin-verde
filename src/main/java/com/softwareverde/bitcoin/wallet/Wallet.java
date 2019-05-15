@@ -49,12 +49,12 @@ public class Wallet {
         return (long) ((BYTES_PER_TRANSACTION_OUTPUT + BYTES_PER_TRANSACTION_INPUT) * 3D);
     }
 
-    protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<Address, PublicKey>();
-    protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<PublicKey, PrivateKey>();
-    protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<Sha256Hash, Transaction>();
+    protected final HashMap<Address, PublicKey> _publicKeys = new HashMap<>();
+    protected final HashMap<PublicKey, PrivateKey> _privateKeys = new HashMap<>();
+    protected final HashMap<Sha256Hash, Transaction> _transactions = new HashMap<>();
 
-    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
-    protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
+    protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<>();
+    protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<>();
 
     protected Double _satoshisPerByteFee = 1D;
 
@@ -125,7 +125,7 @@ public class Wallet {
         _spentTransactionOutputs.clear();
         _transactionOutputs.clear();
 
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(_transactions.values());
+        final MutableList<Transaction> transactions = new MutableList<>(_transactions.values());
         _transactions.clear();
 
         for (final Transaction transaction : transactions) {
@@ -134,7 +134,7 @@ public class Wallet {
     }
 
     protected Container<Long> _createNewFeeContainer(final Integer newOutputCount) {
-        final Container<Long> feesContainer = new Container<Long>(0L);
+        final Container<Long> feesContainer = new Container<>(0L);
         feesContainer.value += (long) (BYTES_PER_TRANSACTION_HEADER * _satoshisPerByteFee);
 
         final long feeToSpendOneOutput = (long) (BYTES_PER_TRANSACTION_OUTPUT * _satoshisPerByteFee);
@@ -150,9 +150,9 @@ public class Wallet {
         final long feeToSpendOneUncompressedOutput = (long) (BYTES_PER_UNCOMPRESSED_TRANSACTION_INPUT * _satoshisPerByteFee);
 
         long selectedUtxoAmount = 0L;
-        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<SpendableTransactionOutput>();
+        final MutableList<SpendableTransactionOutput> transactionOutputsToSpend = new MutableList<>();
 
-        final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<SpendableTransactionOutput>(_transactionOutputs.size());
+        final MutableList<SpendableTransactionOutput> unspentTransactionOutputs = new MutableList<>(_transactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
 
             { // If this TransactionOutput is one that must be included in this transaction,
@@ -321,7 +321,7 @@ public class Wallet {
         }
 
         final boolean includedChangeOutput;
-        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getSize() + 1);
+        final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<>(paymentAmounts.getSize() + 1);
         {
             paymentAmountsWithChange.addAll(paymentAmounts);
 
@@ -388,11 +388,11 @@ public class Wallet {
 
     public synchronized List<TransactionOutputIdentifier> getOutputsToSpend(final Integer newTransactionOutputCount, final Long desiredSpendAmount) {
         final Container<Long> feesContainer = _createNewFeeContainer(newTransactionOutputCount);
-        final List<TransactionOutputIdentifier> mandatoryOutputs = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> mandatoryOutputs = new MutableList<>(0);
         final List<SpendableTransactionOutput> spendableTransactionOutputs = _getOutputsToSpend(desiredSpendAmount, feesContainer, mandatoryOutputs);
         if (spendableTransactionOutputs == null) { return null; }
 
-        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<TransactionOutputIdentifier>(spendableTransactionOutputs.getSize());
+        final MutableList<TransactionOutputIdentifier> transactionOutputs = new MutableList<>(spendableTransactionOutputs.getSize());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             transactionOutputs.add(spendableTransactionOutput.getIdentifier());
         }
@@ -406,7 +406,7 @@ public class Wallet {
     }
 
     public synchronized Transaction createTransaction(final List<PaymentAmount> paymentAmounts, final Address changeAddress) {
-        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<TransactionOutputIdentifier>(0);
+        final List<TransactionOutputIdentifier> mandatoryTransactionOutputsToSpend = new MutableList<>(0);
         return _createSignedTransaction(paymentAmounts, changeAddress, mandatoryTransactionOutputsToSpend);
     }
 
@@ -449,7 +449,7 @@ public class Wallet {
 
     public synchronized List<SpendableTransactionOutput> getTransactionOutputs() {
         final Collection<? extends SpendableTransactionOutput> spendableTransactionOutputs = _transactionOutputs.values();
-        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<SpendableTransactionOutput>(spendableTransactionOutputs.size());
+        final ImmutableListBuilder<SpendableTransactionOutput> transactionOutputs = new ImmutableListBuilder<>(spendableTransactionOutputs.size());
         for (final SpendableTransactionOutput spendableTransactionOutput : spendableTransactionOutputs) {
             transactionOutputs.add(spendableTransactionOutput);
         }

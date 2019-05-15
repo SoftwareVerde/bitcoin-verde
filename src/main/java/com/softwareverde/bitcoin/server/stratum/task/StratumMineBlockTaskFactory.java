@@ -35,7 +35,7 @@ public class StratumMineBlockTaskFactory {
 
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected final ConcurrentHashMap<Sha256Hash, TransactionWithFee> _transactionsWithFee = new ConcurrentHashMap<Sha256Hash, TransactionWithFee>();
+    protected final ConcurrentHashMap<Sha256Hash, TransactionWithFee> _transactionsWithFee = new ConcurrentHashMap<>();
     protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
     protected final Integer _totalExtraNonceByteCount;
 

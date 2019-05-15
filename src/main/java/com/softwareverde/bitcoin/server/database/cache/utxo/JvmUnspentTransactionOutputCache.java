@@ -17,20 +17,22 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
     protected final ReentrantReadWriteLock.ReadLock _readLock;
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
-    protected final TreeMap<Sha256Hash, Map<Integer, TransactionOutputId>> _transactionOutputs = new TreeMap<Sha256Hash, Map<Integer, TransactionOutputId>>(new Comparator<Sha256Hash>() {
+    protected final TreeMap<Sha256Hash, Map<Integer, TransactionOutputId>> _transactionOutputs = new TreeMap<>(new Comparator<Sha256Hash>() {
         @Override
         public int compare(final Sha256Hash sha256Hash0, final Sha256Hash sha256Hash1) {
             for (int i = (Sha256Hash.BYTE_COUNT - 1); i >= 0; --i) {
                 final byte b0 = sha256Hash0.getByte(i);
                 final byte b1 = sha256Hash1.getByte(i);
                 final int compare = (b0 - b1);
-                if (compare != 0) { return compare; }
+                if (compare != 0) {
+                    return compare;
+                }
             }
             return 0;
         }
     });
 
-    protected final LinkedList<TransactionOutputIdentifier> _invalidatedItems = new LinkedList<TransactionOutputIdentifier>();
+    protected final LinkedList<TransactionOutputIdentifier> _invalidatedItems = new LinkedList<>();
 
     protected UnspentTransactionOutputCache _masterCache = null;
 
@@ -64,7 +66,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
         _writeLock.lock();
         Map<Integer, TransactionOutputId> map = _transactionOutputs.get(transactionHash);
         if (map == null) {
-            map = new TreeMap<Integer, TransactionOutputId>();
+            map = new TreeMap<>();
             _transactionOutputs.put(transactionHash, map);
         }
 
@@ -135,7 +137,7 @@ public class JvmUnspentTransactionOutputCache implements UnspentTransactionOutpu
             final Map<Integer, TransactionOutputId> sourceMap = sourceCache._transactionOutputs.get(transactionHash);
             final Map<Integer, TransactionOutputId> existingMap = _transactionOutputs.get(transactionHash);
             if (existingMap == null) {
-                _transactionOutputs.put(transactionHash, new TreeMap<Integer, TransactionOutputId>(sourceMap));
+                _transactionOutputs.put(transactionHash, new TreeMap<>(sourceMap));
             }
             else {
                 existingMap.putAll(sourceMap);

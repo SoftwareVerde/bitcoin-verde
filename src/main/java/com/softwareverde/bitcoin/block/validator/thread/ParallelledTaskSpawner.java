@@ -30,14 +30,14 @@ public class ParallelledTaskSpawner<T, S> {
         final int threadCount = Math.min(maxThreadCount, Math.max(1, (totalItemCount / maxThreadCount)));
         final int itemsPerThread = (totalItemCount / threadCount);
 
-        final ImmutableListBuilder<ValidationTask<T, S>> listBuilder = new ImmutableListBuilder<ValidationTask<T, S>>(threadCount);
+        final ImmutableListBuilder<ValidationTask<T, S>> listBuilder = new ImmutableListBuilder<>(threadCount);
 
         for (int i = 0; i < threadCount; ++i) {
             final int startIndex = i * itemsPerThread;
             final int remainingItems = (items.getSize() - startIndex);
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
 
-            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_databaseConnectionFactory, _databaseManagerCache, items, _taskHandlerFactory.newInstance());
+            final ValidationTask<T, S> validationTask = new ValidationTask<>(_databaseConnectionFactory, _databaseManagerCache, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
             validationTask.enqueueTo(THREAD_POOL);
@@ -48,7 +48,7 @@ public class ParallelledTaskSpawner<T, S> {
     }
 
     public List<S> waitForResults() {
-        final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<S>();
+        final ImmutableListBuilder<S> listBuilder = new ImmutableListBuilder<>();
 
         for (int i = 0; i < _validationTasks.getSize(); ++i) {
             final ValidationTask<T, S> validationTask = _validationTasks.get(i);

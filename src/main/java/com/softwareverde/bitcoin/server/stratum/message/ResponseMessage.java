@@ -45,7 +45,7 @@ public class ResponseMessage implements Jsonable {
 
     protected final Integer _id;
     protected Json _result = RESULT_FALSE;
-    protected final MutableList<String> _error = new MutableList<String>();
+    protected final MutableList<String> _error = new MutableList<>();
 
     public ResponseMessage(final Integer id) {
         _id = id;

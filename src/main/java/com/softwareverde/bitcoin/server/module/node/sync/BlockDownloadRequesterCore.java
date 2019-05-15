@@ -67,7 +67,7 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 
                 if (searchForBlockHash) {
                     // Use the previousBlockHash (if provided)...
-                    final MutableList<Sha256Hash> blockFinderHashes = new MutableList<Sha256Hash>(1);
+                    final MutableList<Sha256Hash> blockFinderHashes = new MutableList<>(1);
                     if (parentBlockHash != null) {
                         blockFinderHashes.add(parentBlockHash);
                         Logger.log("Broadcasting QueryBlocks with provided BlockHash: " + parentBlockHash);

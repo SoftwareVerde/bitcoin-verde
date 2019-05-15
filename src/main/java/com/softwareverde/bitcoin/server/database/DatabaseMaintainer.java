@@ -11,7 +11,7 @@ public class DatabaseMaintainer {
 
     protected static final List<String> TABLES;
     static {
-        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<String>();
+        final ImmutableListBuilder<String> listBuilder = new ImmutableListBuilder<>();
         listBuilder.add("pending_blocks");
         listBuilder.add("pending_block_data");
         listBuilder.add("pending_transactions");

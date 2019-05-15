@@ -40,7 +40,7 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
             boolean sendBatchContinueInventory = false;
 
             Sha256Hash lastBlockHeaderHash = null;
-            final MutableList<BlockHeader> blockHeaders = new MutableList<BlockHeader>();
+            final MutableList<BlockHeader> blockHeaders = new MutableList<>();
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {

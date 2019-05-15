@@ -43,7 +43,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
      *  The returned list of BlockIds does not include blockId.
      */
     protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final BlockHeaderDatabaseManager blockDatabaseManager) throws DatabaseException {
-        final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
+        final MutableList<BlockId> returnedBlockIds = new MutableList<>();
 
         BlockId nextBlockId = blockId;
         while (true) {

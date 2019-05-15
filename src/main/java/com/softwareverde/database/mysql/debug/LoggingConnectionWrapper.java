@@ -38,8 +38,8 @@ public class LoggingConnectionWrapper extends MysqlDatabaseConnection {
     }
 
     protected static final Object mutex = new Object();
-    protected static final Map<String, Double> queryValues = new HashMap<String, Double>();
-    protected static final Map<String, Long> queryCounts = new HashMap<String, Long>();
+    protected static final Map<String, Double> queryValues = new HashMap<>();
+    protected static final Map<String, Long> queryCounts = new HashMap<>();
     protected static long queryCount = 0L;
 
     protected static void _printLogs() {

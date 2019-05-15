@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ServiceInquisitor implements NodeRpcHandler.ServiceInquisitor {
-    protected final ConcurrentHashMap<String, SleepyService.StatusMonitor> _services = new ConcurrentHashMap<String, SleepyService.StatusMonitor>();
+    protected final ConcurrentHashMap<String, SleepyService.StatusMonitor> _services = new ConcurrentHashMap<>();
 
     public void addService(final String serviceName, final SleepyService.StatusMonitor statusMonitor) {
         _services.put(serviceName, statusMonitor);
@@ -16,7 +16,7 @@ public class ServiceInquisitor implements NodeRpcHandler.ServiceInquisitor {
 
     @Override
     public Map<String, String> getServiceStatuses() {
-        final HashMap<String, String> serviceStatuses = new HashMap<String, String>(_services.size());
+        final HashMap<String, String> serviceStatuses = new HashMap<>(_services.size());
         for (final String serviceName : _services.keySet()) {
             final SleepyService.StatusMonitor statusMonitor = _services.get(serviceName);
             serviceStatuses.put(serviceName, statusMonitor.getStatus().toString());

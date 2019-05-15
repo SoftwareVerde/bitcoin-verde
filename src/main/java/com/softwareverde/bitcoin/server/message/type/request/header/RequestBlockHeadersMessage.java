@@ -17,7 +17,7 @@ public class RequestBlockHeadersMessage extends BitcoinProtocolMessage {
     public static Integer MAX_BLOCK_HEADER_HASH_COUNT = 2000; // NOTE: This value is a "not-to-exceed"...
 
     protected Integer _version;
-    protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<Sha256Hash>();
+    protected final MutableList<Sha256Hash> _blockHeaderHashes = new MutableList<>();
     protected MutableSha256Hash _stopBeforeBlockHash = new MutableSha256Hash();
 
     public RequestBlockHeadersMessage() {

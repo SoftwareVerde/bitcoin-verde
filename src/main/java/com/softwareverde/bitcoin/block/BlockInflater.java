@@ -21,7 +21,7 @@ public class BlockInflater {
         final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (transactionCount > MAX_TRANSACTION_COUNT) { return null; }
 
-        final MutableList<Transaction> transactions = new MutableList<Transaction>(transactionCount);
+        final MutableList<Transaction> transactions = new MutableList<>(transactionCount);
 
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);

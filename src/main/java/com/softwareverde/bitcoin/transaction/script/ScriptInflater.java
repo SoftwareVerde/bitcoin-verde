@@ -13,7 +13,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class ScriptInflater {
     protected MutableList<Operation> _getOperationList(final ByteArray bytes) {
         final OperationInflater operationInflater = new OperationInflater();
-        final MutableList<Operation> mutableList = new MutableList<Operation>();
+        final MutableList<Operation> mutableList = new MutableList<>();
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         while (byteArrayReader.hasBytes()) {
             final int scriptPosition = byteArrayReader.getPosition();

@@ -40,7 +40,7 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
 
-            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<PendingBlockId>(blockHashes.getSize());
+            final ImmutableListBuilder<PendingBlockId> pendingBlockIds = new ImmutableListBuilder<>(blockHashes.getSize());
             Sha256Hash previousBlockHash = null;
             for (final Sha256Hash blockHash : blockHashes) {
                 final Boolean blockExists = blockDatabaseManager.blockHeaderHasTransactions(blockHash);

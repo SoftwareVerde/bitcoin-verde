@@ -54,7 +54,7 @@ public class MainThreadPool implements ThreadPool {
     }
 
     public MainThreadPool(final Integer maxThreadCount, final Long threadKeepAliveMilliseconds) {
-        _queue = new LinkedBlockingQueue<Runnable>();
+        _queue = new LinkedBlockingQueue<>();
         _maxThreadCount = maxThreadCount;
         _threadKeepAliveMilliseconds = threadKeepAliveMilliseconds;
         _executorService = _createExecutorService();

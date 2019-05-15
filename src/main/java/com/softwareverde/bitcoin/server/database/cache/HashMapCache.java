@@ -13,7 +13,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
 
     public final Object MUTEX = new Object();
 
-    protected Cache<KEY, VALUE> _masterCache = new DisabledCache<KEY, VALUE>();
+    protected Cache<KEY, VALUE> _masterCache = new DisabledCache<>();
     protected Boolean _wasMasterCacheInvalidated = false;
 
     protected final String _name;
@@ -36,8 +36,8 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
         _name = name;
         _maxItemCount = cacheSize;
 
-        _cache = new HashMap<KEY, VALUE>(_maxItemCount);
-        _recentHashes = new RecentItemTracker<KEY>(_maxItemCount);
+        _cache = new HashMap<>(_maxItemCount);
+        _recentHashes = new RecentItemTracker<>(_maxItemCount);
     }
 
     @Override
@@ -46,7 +46,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
         _itemCount = 0;
         _recentHashes.clear();
 
-        _masterCache = new DisabledCache<KEY, VALUE>();
+        _masterCache = new DisabledCache<>();
         _wasMasterCacheInvalidated = true;
 
         _resetDebug();
@@ -113,7 +113,7 @@ public class HashMapCache<KEY, VALUE> implements Cache<KEY, VALUE>, MutableCache
     @Override
     public List<KEY> getKeys() {
         synchronized (MUTEX) {
-            return new MutableList<KEY>(_cache.keySet());
+            return new MutableList<>(_cache.keySet());
         }
     }
 

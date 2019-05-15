@@ -42,7 +42,7 @@ public class BlockDownloader extends SleepyService {
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
-    protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<Sha256Hash, MilliTimer>();
+    protected final Map<Sha256Hash, MilliTimer> _currentBlockDownloadSet = new ConcurrentHashMap<>();
     protected final BitcoinNodeManager.DownloadBlockCallback _blockDownloadedCallback;
 
     protected Runnable _newBlockAvailableCallback = null;
@@ -77,7 +77,7 @@ public class BlockDownloader extends SleepyService {
     //  This function should not be necessary, and is a work-around for a bug within the NodeManager that is causing onFailure to not be triggered.
     // TODO: Investigate why onFailure is not being invoked by the BitcoinNodeManager.
     protected void _checkForStalledDownloads() {
-        final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> stalledBlockHashes = new MutableList<>();
         for (final Sha256Hash blockHash : _currentBlockDownloadSet.keySet()) {
             final MilliTimer milliTimer = _currentBlockDownloadSet.get(blockHash);
             if (milliTimer == null) {
@@ -155,10 +155,10 @@ public class BlockDownloader extends SleepyService {
             final List<BitcoinNode> nodes = _bitcoinNodeManager.getNodes();
 
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<NodeId, BitcoinNode>();
+            final HashMap<NodeId, BitcoinNode> nodeMap = new HashMap<>();
             final List<NodeId> nodeIds;
             {
-                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<NodeId>(nodes.getSize());
+                final ImmutableListBuilder<NodeId> listBuilder = new ImmutableListBuilder<>(nodes.getSize());
                 for (final BitcoinNode node : nodes) {
                     final NodeId nodeId = nodeDatabaseManager.getNodeId(node);
                     if (nodeId != null) {

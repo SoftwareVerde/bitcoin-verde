@@ -52,7 +52,7 @@ public class PartialMerkleTree implements Const {
             _cachedMerkleRoot = MutableMerkleRoot.wrap(rootHash.getBytes());
         }
 
-        final MutableList<Sha256Hash> leafNodes = new MutableList<Sha256Hash>();
+        final MutableList<Sha256Hash> leafNodes = new MutableList<>();
         partialMerkleTreeRoot.visit(new PartialMerkleTreeNode.Visitor<Transaction>() {
             @Override
             public void visit(final PartialMerkleTreeNode<Transaction> partialMerkleTreeNode) {

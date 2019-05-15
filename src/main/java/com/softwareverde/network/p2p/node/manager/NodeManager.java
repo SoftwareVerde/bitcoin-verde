@@ -78,17 +78,17 @@ public class NodeManager<NODE extends Node> {
     protected final SystemTime _systemTime;
     protected final NodeFactory<NODE> _nodeFactory;
     protected final ConcurrentHashMap<NodeId, NODE> _nodes;
-    protected ConcurrentHashMap<NodeId, NODE> _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
+    protected ConcurrentHashMap<NodeId, NODE> _pendingNodes = new ConcurrentHashMap<>(); // Nodes that have been added but have not yet completed their handshake...
     protected final ConcurrentHashMap<NodeId, MutableNodeHealth> _nodeHealthMap;
-    protected final ConcurrentLinkedQueue<NodeApiMessage<NODE>> _queuedTransmissions = new ConcurrentLinkedQueue<NodeApiMessage<NODE>>();
+    protected final ConcurrentLinkedQueue<NodeApiMessage<NODE>> _queuedTransmissions = new ConcurrentLinkedQueue<>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
-    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<>();
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
     protected Boolean _isShuttingDown = false;
 
-    protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+    protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<>();
     protected Long _lastAddressBroadcastTimestamp = 0L;
 
     protected void _onAllNodesDisconnected() { }
@@ -106,7 +106,7 @@ public class NodeManager<NODE extends Node> {
 
         { // Cleanup any pending nodes that still haven't completed their handshake...
             final Map<NodeId, NODE> pendingNodes = _pendingNodes;
-            _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(pendingNodes);
+            _pendingNodes = new ConcurrentHashMap<>(pendingNodes);
 
             for (final NODE oldPendingNode : pendingNodes.values()) {
                 final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
@@ -185,7 +185,7 @@ public class NodeManager<NODE extends Node> {
     protected void _broadcastExistingNodesToNewNode(final NODE newNode) {
         final Collection<NODE> nodes = _nodes.values();
 
-        final MutableList<NodeIpAddress> nodeAddresses = new MutableList<NodeIpAddress>(nodes.size());
+        final MutableList<NodeIpAddress> nodeAddresses = new MutableList<>(nodes.size());
         for (final NODE node : nodes) {
             final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
             if (nodeIpAddress == null) { continue; }
@@ -210,7 +210,7 @@ public class NodeManager<NODE extends Node> {
 
     protected void _processQueuedMessages() {
         // Copy the list of queued transactions since _selectNodeForRequest and _sendMessage could potentially requeue the transmission...
-        final MutableList<NodeApiMessage<NODE>> queuedTransmissions = new MutableList<NodeApiMessage<NODE>>(_queuedTransmissions.size());
+        final MutableList<NodeApiMessage<NODE>> queuedTransmissions = new MutableList<>(_queuedTransmissions.size());
         while (! _queuedTransmissions.isEmpty()) {
             final NodeApiMessage<NODE> message = _queuedTransmissions.poll();
             if (message != null) {
@@ -247,7 +247,7 @@ public class NodeManager<NODE extends Node> {
     protected void _initNode(final NODE node) {
         // final Container<Boolean> nodeConnected = new Container<Boolean>(null);
 
-        final Container<Boolean> nodeDidConnect = new Container<Boolean>(null);
+        final Container<Boolean> nodeDidConnect = new Container<>(null);
 
         final Runnable timeoutRunnable = new Runnable() {
             @Override
@@ -301,7 +301,7 @@ public class NodeManager<NODE extends Node> {
 
                 final List<NodeIpAddress> unseenNodeAddresses;
                 {
-                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<NodeIpAddress>(nodeIpAddresses.getSize());
+                    final ImmutableListBuilder<NodeIpAddress> listBuilder = new ImmutableListBuilder<>(nodeIpAddresses.getSize());
                     for (final NodeIpAddress nodeIpAddress : nodeIpAddresses) {
                         final Boolean haveAlreadySeenNode = _nodeAddresses.contains(nodeIpAddress);
                         if (haveAlreadySeenNode) { continue; }
@@ -322,8 +322,8 @@ public class NodeManager<NODE extends Node> {
                     if (msElapsedSinceLastBroadcast >= 30000L) {
                         _lastAddressBroadcastTimestamp = now;
 
-                        final List<NodeIpAddress> newNodeAddresses = new MutableList<NodeIpAddress>(_newNodeAddresses);
-                        _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+                        final List<NodeIpAddress> newNodeAddresses = new MutableList<>(_newNodeAddresses);
+                        _newNodeAddresses = new ConcurrentHashSet<>();
                         _broadcastNewNodesToExistingNodes(newNodeAddresses);
                     }
                 }
@@ -420,7 +420,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected List<NODE> _getInactiveNodes() {
-        final MutableList<NODE> inactiveNodes = new MutableList<NODE>(_nodes.size());
+        final MutableList<NODE> inactiveNodes = new MutableList<>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             if (! node.hasActiveConnection()) {
                 inactiveNodes.add(node);
@@ -430,7 +430,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected List<NODE> _getActiveNodes() {
-        final MutableList<NODE> activeNodes = new MutableList<NODE>(_nodes.size());
+        final MutableList<NODE> activeNodes = new MutableList<>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             if (node.hasActiveConnection()) {
                 activeNodes.add(node);
@@ -446,7 +446,7 @@ public class NodeManager<NODE extends Node> {
         final Integer activeNodeCount = activeNodes.getSize();
         if (activeNodeCount == 0) { return null; }
 
-        final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
+        final MutableList<NodeHealth> nodeHealthList = new MutableList<>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final MutableNodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             if (nodeHealth != null) {
@@ -506,7 +506,7 @@ public class NodeManager<NODE extends Node> {
         final Integer activeNodeCount = activeNodes.getSize();
         if (activeNodeCount == 0) { return null; }
 
-        final MutableList<NodeHealth> nodeHealthList = new MutableList<NodeHealth>(activeNodeCount);
+        final MutableList<NodeHealth> nodeHealthList = new MutableList<>(activeNodeCount);
         for (final NODE activeNode : activeNodes) {
             final NodeHealth nodeHealth = _nodeHealthMap.get(activeNode.getId());
             if (nodeHealth != null) {
@@ -525,7 +525,7 @@ public class NodeManager<NODE extends Node> {
             }
         }
 
-        final MutableList<NODE> selectedNodes = new MutableList<NODE>(nodeCount);
+        final MutableList<NODE> selectedNodes = new MutableList<>(nodeCount);
         for (int i = 0; i < nodeCount; ++i) {
             final int index = (nodeHealthList.getSize() - i - 1);
             if ( (index < 0) || (index >= nodeHealthList.getSize()) ) { continue; }
@@ -545,7 +545,7 @@ public class NodeManager<NODE extends Node> {
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
 
-        final MutableList<NODE> idleNodes = new MutableList<NODE>(_nodes.size());
+        final MutableList<NODE> idleNodes = new MutableList<>(_nodes.size());
         for (final NODE node : _nodes.values()) {
             final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
             final Long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
@@ -587,7 +587,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _removeDisconnectedNodes() {
-        final MutableList<NODE> purgeableNodes = new MutableList<NODE>();
+        final MutableList<NODE> purgeableNodes = new MutableList<>();
 
         for (final NODE node : _nodes.values()) {
             if (! node.isConnected()) {
@@ -605,25 +605,25 @@ public class NodeManager<NODE extends Node> {
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final ThreadPool threadPool) {
         _systemTime = new SystemTime();
-        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+        _nodes = new ConcurrentHashMap<>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
         _networkTime = networkTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _pendingRequestsManager = new PendingRequestsManager<>(_systemTime, threadPool);
         _threadPool = threadPool;
     }
 
     public NodeManager(final Integer maxNodeCount, final NodeFactory<NODE> nodeFactory, final MutableNetworkTime networkTime, final SystemTime systemTime, final ThreadPool threadPool) {
-        _nodes = new ConcurrentHashMap<NodeId, NODE>(maxNodeCount);
-        _nodeHealthMap = new ConcurrentHashMap<NodeId, MutableNodeHealth>(maxNodeCount);
+        _nodes = new ConcurrentHashMap<>(maxNodeCount);
+        _nodeHealthMap = new ConcurrentHashMap<>(maxNodeCount);
 
         _maxNodeCount = maxNodeCount;
         _nodeFactory = nodeFactory;
         _networkTime = networkTime;
         _systemTime = systemTime;
-        _pendingRequestsManager = new PendingRequestsManager<NODE>(_systemTime, threadPool);
+        _pendingRequestsManager = new PendingRequestsManager<>(_systemTime, threadPool);
         _threadPool = threadPool;
     }
 
@@ -731,11 +731,11 @@ public class NodeManager<NODE extends Node> {
     }
 
     public List<NODE> getNodes() {
-        return new MutableList<NODE>(_nodes.values());
+        return new MutableList<>(_nodes.values());
     }
 
     public List<NodeId> getNodeIds() {
-        final ImmutableListBuilder<NodeId> nodeIds = new ImmutableListBuilder<NodeId>(_nodes.size());
+        final ImmutableListBuilder<NodeId> nodeIds = new ImmutableListBuilder<>(_nodes.size());
         nodeIds.addAll(_nodes.keySet());
         return nodeIds.build();
     }
@@ -774,7 +774,7 @@ public class NodeManager<NODE extends Node> {
 
     public void shutdown() {
         _isShuttingDown = true;
-        final MutableList<NODE> nodes = new MutableList<NODE>(_nodes.values());
+        final MutableList<NODE> nodes = new MutableList<>(_nodes.values());
         nodes.addAll(_pendingNodes.values());
         _nodes.clear();
         _pendingNodes.clear();

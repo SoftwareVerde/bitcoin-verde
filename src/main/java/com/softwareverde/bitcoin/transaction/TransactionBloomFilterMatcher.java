@@ -25,7 +25,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
      *  NOTE: An empty list is an indication that a match occurred.
      */
     protected List<ByteArray> _getMatchedItems(final Transaction transaction, final BloomFilter bloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
-        final MutableList<ByteArray> matchedItems = new MutableList<ByteArray>();
+        final MutableList<ByteArray> matchedItems = new MutableList<>();
         if (bloomFilter == null) { return matchedItems; } // TRUE
 
         // From BIP37: https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki

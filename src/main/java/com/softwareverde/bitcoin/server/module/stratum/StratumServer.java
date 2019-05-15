@@ -72,10 +72,10 @@ public class StratumServer {
     protected final ReentrantReadWriteLock.ReadLock _mineBlockTaskReadLock;
     protected StratumMineBlockTaskFactory _stratumMineBlockTaskFactory;
     protected StratumMineBlockTask _currentMineBlockTask = null;
-    protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<Long, StratumMineBlockTask>();
+    protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<>();
 
     protected MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
-    protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<TransactionWithFee>();
+    protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<>();
 
     protected Integer _shareDifficulty = 2048;
 
@@ -87,7 +87,7 @@ public class StratumServer {
     protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
     protected AtomicLong _shareCount = new AtomicLong(0L);
 
-    protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
+    protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<>();
 
     protected void _broadcastNewTask(final Boolean abandonOldJobs) {
         final Iterator<JsonSocket> iterator = _connections.iterator();
@@ -185,7 +185,7 @@ public class StratumServer {
             final Json unconfirmedTransactionsResponseJson = nodeRpcConnection.getUnconfirmedTransactions(true);
             final Json unconfirmedTransactionsJson = unconfirmedTransactionsResponseJson.get("unconfirmedTransactions");
 
-            final ImmutableListBuilder<TransactionWithFee> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<TransactionWithFee>(unconfirmedTransactionsJson.length());
+            final ImmutableListBuilder<TransactionWithFee> unconfirmedTransactionsListBuilder = new ImmutableListBuilder<>(unconfirmedTransactionsJson.length());
 
             for (int i = 0; i < unconfirmedTransactionsJson.length(); ++i) {
                 final Json transactionWithFeeJsonObject = unconfirmedTransactionsJson.get(i);

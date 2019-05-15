@@ -162,7 +162,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
-    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<HookEvent, MutableList<HookListener>>();
+    protected final HashMap<HookEvent, MutableList<HookListener>> _eventHooks = new HashMap<>();
 
     protected SynchronizationStatus _synchronizationStatusHandler = null;
     protected ShutdownHandler _shutdownHandler = null;
@@ -787,7 +787,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return false;
         }
 
-        final HashSet<HookEvent> hookEvents = new HashSet<HookEvent>();
+        final HashSet<HookEvent> hookEvents = new HashSet<>();
         final Json events = parameters.get("events");
         for (int i = 0; i < events.length(); ++i) {
             final String event = events.getString(i);
@@ -807,7 +807,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         synchronized (_eventHooks) {
             for (final HookEvent hookEvent : hookEvents) {
                 if (! _eventHooks.containsKey(hookEvent)) {
-                    _eventHooks.put(hookEvent, new MutableList<HookListener>());
+                    _eventHooks.put(hookEvent, new MutableList<>());
                 }
 
                 final MutableList<HookListener> nodeIpAddresses = _eventHooks.get(hookEvent);

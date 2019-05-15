@@ -15,7 +15,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class QueryAddressBlocksMessage extends BitcoinProtocolMessage {
     public static final Integer MAX_ADDRESS_COUNT = 1024;
 
-    protected final MutableList<Address> _addresses = new MutableList<Address>();
+    protected final MutableList<Address> _addresses = new MutableList<>();
 
     public QueryAddressBlocksMessage() {
         super(MessageType.QUERY_ADDRESS_BLOCKS);

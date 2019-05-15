@@ -40,7 +40,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
-            final HashSet<TransactionId> transactionIds = new HashSet<TransactionId>();
+            final HashSet<TransactionId> transactionIds = new HashSet<>();
             for (final Address address : addresses) {
                 final AddressId addressId = addressDatabaseManager.getAddressId(address);
                 if (addressId == null) { continue; }
@@ -54,7 +54,7 @@ public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallb
 
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
-            final HashSet<BlockId> blockIds = new HashSet<BlockId>(transactionIds.size());
+            final HashSet<BlockId> blockIds = new HashSet<>(transactionIds.size());
             for (final TransactionId transactionId : transactionIds) {
                 final BlockId blockId = transactionDatabaseManager.getBlockId(headBlockchainSegmentId, transactionId);
                 if (blockId == null) { continue; }

@@ -28,7 +28,7 @@ public class RequestExtraThinTransactionsMessageInflater extends BitcoinProtocol
         final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (transactionCount >= BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
 
-        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<ByteArray>(transactionCount);
+        final ImmutableListBuilder<ByteArray> transactionShortHashesListBuilder = new ImmutableListBuilder<>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final ByteArray transactionShortHash = MutableByteArray.wrap(byteArrayReader.readBytes(4, Endian.LITTLE));
             transactionShortHashesListBuilder.add(transactionShortHash);

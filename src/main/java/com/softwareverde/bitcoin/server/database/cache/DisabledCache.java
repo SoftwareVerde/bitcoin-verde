@@ -17,7 +17,7 @@ public class DisabledCache<T, S> implements MutableCache<T, S> {
     public Boolean masterCacheWasInvalidated() { return false; }
 
     @Override
-    public List<T> getKeys() { return new MutableList<T>(0); }
+    public List<T> getKeys() { return new MutableList<>(0); }
 
     @Override
     public S getCachedItem(final T t) { return null; }

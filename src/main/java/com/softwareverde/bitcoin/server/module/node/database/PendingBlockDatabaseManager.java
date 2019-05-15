@@ -58,9 +58,9 @@ public class PendingBlockDatabaseManager {
             new Query("SELECT id FROM pending_blocks WHERE previous_block_hash = ?")
                 .setParameter(blockHash)
         );
-        if (rows.isEmpty()) { return new MutableList<PendingBlockId>(); }
+        if (rows.isEmpty()) { return new MutableList<>(); }
 
-        final ImmutableListBuilder<PendingBlockId> listBuilder = new ImmutableListBuilder<PendingBlockId>(rows.size());
+        final ImmutableListBuilder<PendingBlockId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
             listBuilder.add(pendingBlockId);
@@ -327,7 +327,7 @@ public class PendingBlockDatabaseManager {
                 new Query("SELECT blocks.block_height, pending_blocks.hash FROM pending_blocks LEFT OUTER JOIN pending_block_data ON pending_blocks.id = pending_block_data.pending_block_id LEFT OUTER JOIN node_blocks_inventory ON node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ") LEFT OUTER JOIN blocks ON blocks.hash = pending_blocks.hash WHERE (pending_block_data.id IS NULL) AND (node_blocks_inventory.id IS NULL) ORDER BY pending_blocks.priority ASC, pending_blocks.id ASC LIMIT 500")
             );
 
-            final MutableList<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = new MutableList<Tuple<Sha256Hash, Sha256Hash>>(rows.size());
+            final MutableList<Tuple<Sha256Hash, Sha256Hash>> downloadPlan = new MutableList<>(rows.size());
 
             Tuple<Sha256Hash, Sha256Hash> blockHashStartEnd = null;
             Long tupleStartingBlockHeight = null; // The blockHeight of blockHashStartEnd.first...
@@ -375,7 +375,7 @@ public class PendingBlockDatabaseManager {
                 }
 
                 if (createNewTuple) {
-                    blockHashStartEnd = new Tuple<Sha256Hash, Sha256Hash>();
+                    blockHashStartEnd = new Tuple<>();
                     blockHashStartEnd.first = blockHash;
                     tupleStartingBlockHeight = blockHeight;
                 }
@@ -422,7 +422,7 @@ public class PendingBlockDatabaseManager {
                     .setParameter(minSecondsBetweenDownloadAttempts)
             );
 
-            final HashMap<PendingBlockId, NodeId> downloadPlan = new HashMap<PendingBlockId, NodeId>(rows.size());
+            final HashMap<PendingBlockId, NodeId> downloadPlan = new HashMap<>(rows.size());
             for (final Row row : rows) {
                 final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("pending_block_id"));
@@ -530,7 +530,7 @@ public class PendingBlockDatabaseManager {
                     .setParameter(maxFailedDownloadCount)
             );
 
-            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
+            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<>(rows.size());
             for (final Row row : rows) {
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
                 Logger.log("Deleting Failed Pending Block: " + pendingBlockId);
@@ -559,7 +559,7 @@ public class PendingBlockDatabaseManager {
                 new Query("SELECT pending_blocks.id FROM pending_blocks LEFT OUTER JOIN node_blocks_inventory ON (node_blocks_inventory.pending_block_id = pending_blocks.id AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(connectedNodeIds) + ")) LEFT OUTER JOIN pending_block_data ON (pending_blocks.id = pending_block_data.pending_block_id) WHERE node_blocks_inventory.id IS NULL AND pending_block_data.id IS NULL")
             );
 
-            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<PendingBlockId>(rows.size());
+            final MutableList<PendingBlockId> pendingBlockIds = new MutableList<>(rows.size());
             for (final Row row : rows) {
                 final PendingBlockId pendingBlockId = PendingBlockId.wrap(row.getLong("id"));
                 Logger.log("Deleting Unlocatable Pending Block: " + pendingBlockId);

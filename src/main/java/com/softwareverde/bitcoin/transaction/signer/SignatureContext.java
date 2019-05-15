@@ -17,13 +17,13 @@ public class SignatureContext {
     private final HashType _hashType;
     private final Long _blockHeight;
 
-    private final MutableList<Boolean> _inputScriptsToSign = new MutableList<Boolean>(); // Determines if the script is left intact or replaced with an empty script...
-    private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<TransactionOutput>();
-    private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<Integer>();
+    private final MutableList<Boolean> _inputScriptsToSign = new MutableList<>(); // Determines if the script is left intact or replaced with an empty script...
+    private final MutableList<TransactionOutput> _previousTransactionOutputsBeingSpent = new MutableList<>();
+    private final MutableList<Integer> _codeSeparatorIndexes = new MutableList<>();
 
     private Integer _inputIndexBeingSigned = null;
     private Script _currentScript;
-    private List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
+    private List<ByteArray> _bytesToExcludeFromScript = new MutableList<>();
 
     public SignatureContext(final Transaction transaction, final HashType hashType) {
         this(transaction, hashType, Long.MAX_VALUE);

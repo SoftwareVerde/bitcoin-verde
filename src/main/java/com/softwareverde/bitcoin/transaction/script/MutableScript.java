@@ -28,7 +28,7 @@ public class MutableScript implements Script {
     }
 
     public MutableScript() {
-        _operations = new MutableList<Operation>();
+        _operations = new MutableList<>();
     }
 
     public MutableScript(final ByteArray bytes) {
@@ -37,7 +37,7 @@ public class MutableScript implements Script {
     }
 
     public MutableScript(final Script script) {
-        _operations = new MutableList<Operation>(script.getOperations());
+        _operations = new MutableList<>(script.getOperations());
     }
 
     public void addOperation(final Operation operation) {

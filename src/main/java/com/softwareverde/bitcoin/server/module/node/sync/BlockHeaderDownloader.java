@@ -32,7 +32,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final ThreadPool _threadPool;
     protected final MilliTimer _timer;
     protected final BitcoinNodeManager.DownloadBlockHeadersCallback _downloadBlockHeadersCallback;
-    protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
+    protected final Container<Float> _averageBlockHeadersPerSecond = new Container<>(0F);
 
     protected final Object _headersDownloadedPin = new Object();
     protected final Object _genesisBlockPin = new Object();

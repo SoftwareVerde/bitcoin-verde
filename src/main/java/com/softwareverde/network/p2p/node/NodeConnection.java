@@ -105,7 +105,7 @@ public class NodeConnection {
     protected final Integer _port;
     protected final BinaryPacketFormat _binaryPacketFormat;
 
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _outboundMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _outboundMessageQueue = new ConcurrentLinkedQueue<>();
 
     protected final Object _connectionThreadMutex = new Object();
     protected BinarySocket _binarySocket;

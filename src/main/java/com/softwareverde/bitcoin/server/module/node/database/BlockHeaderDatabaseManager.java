@@ -39,7 +39,7 @@ public class BlockHeaderDatabaseManager {
 
         final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
 
-        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<BlockHeader>(MedianBlockTime.BLOCK_COUNT);
+        final java.util.List<BlockHeader> blockHeadersInDescendingOrder = new java.util.ArrayList<>(MedianBlockTime.BLOCK_COUNT);
 
         Sha256Hash blockHash = headBlockHash;
         for (int i = 0; i < MedianBlockTime.BLOCK_COUNT; ++i) {
@@ -226,7 +226,7 @@ public class BlockHeaderDatabaseManager {
     }
 
     protected List<BlockId> _insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
-        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+        if (blockHeaders.isEmpty()) { return new MutableList<>(0); }
 
         final BlockHeader firstBlockHeader = blockHeaders.get(0);
 
@@ -261,7 +261,7 @@ public class BlockHeaderDatabaseManager {
         final BlockId firstBlockId = BlockId.wrap(_databaseConnection.executeSql(batchedInsertQuery));
         if (firstBlockId == null) { return null; }
 
-        final MutableList<BlockId> blockIds = new MutableList<BlockId>(blockHeaders.getSize());
+        final MutableList<BlockId> blockIds = new MutableList<>(blockHeaders.getSize());
         for (int i = 0; i < blockHeaders.getSize(); ++i) {
             blockIds.add(BlockId.wrap(firstBlockId.longValue() + i));
         }
@@ -451,7 +451,7 @@ public class BlockHeaderDatabaseManager {
      */
     public List<BlockId> insertBlockHeaders(final List<BlockHeader> blockHeaders) throws DatabaseException {
         if (! Thread.holdsLock(MUTEX)) { throw new RuntimeException("Attempting to storeBlockHeader without obtaining lock."); }
-        if (blockHeaders.isEmpty()) { return new MutableList<BlockId>(0); }
+        if (blockHeaders.isEmpty()) { return new MutableList<>(0); }
 
         final List<BlockId> blockIds = _insertBlockHeaders(blockHeaders);
 

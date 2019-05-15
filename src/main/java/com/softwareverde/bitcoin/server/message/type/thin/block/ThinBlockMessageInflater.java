@@ -32,7 +32,7 @@ public class ThinBlockMessageInflater extends BitcoinProtocolMessageInflater {
         final Integer transactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (transactionCount > BlockInflater.MAX_TRANSACTION_COUNT) { return null; }
 
-        final ImmutableListBuilder<Sha256Hash> transactionHashesListBuilder = new ImmutableListBuilder<Sha256Hash>(transactionCount);
+        final ImmutableListBuilder<Sha256Hash> transactionHashesListBuilder = new ImmutableListBuilder<>(transactionCount);
         for (int i = 0; i < transactionCount; ++i) {
             final Sha256Hash transactionHash = MutableSha256Hash.wrap(byteArrayReader.readBytes(32, Endian.LITTLE));
             transactionHashesListBuilder.add(transactionHash);
@@ -42,7 +42,7 @@ public class ThinBlockMessageInflater extends BitcoinProtocolMessageInflater {
         final Integer missingTransactionCount = byteArrayReader.readVariableSizedInteger().intValue();
         if (missingTransactionCount > transactionCount) { return null; }
 
-        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<Transaction>(missingTransactionCount);
+        final ImmutableListBuilder<Transaction> missingTransactionsListBuilder = new ImmutableListBuilder<>(missingTransactionCount);
         for (int i = 0; i < missingTransactionCount; ++i) {
             final Transaction transaction = transactionInflater.fromBytes(byteArrayReader);
             if (transaction == null) { return null; }

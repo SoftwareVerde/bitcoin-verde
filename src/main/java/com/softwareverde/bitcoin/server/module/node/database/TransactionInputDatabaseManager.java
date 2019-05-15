@@ -161,7 +161,7 @@ public class TransactionInputDatabaseManager {
             Logger.log("NOTICE: Error storing TransactionInputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
             return null;
         }
-        if (transactions.isEmpty()) { return new MutableList<TransactionInputId>(0); }
+        if (transactions.isEmpty()) { return new MutableList<>(0); }
 
         // final MilliTimer findPreviousTransactionsTimer = new MilliTimer();
         final NanoTimer findPreviousTxOutputTimer = new NanoTimer();
@@ -177,10 +177,10 @@ public class TransactionInputDatabaseManager {
 
         final Query batchedInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_inputs (transaction_id, previous_transaction_output_id, sequence_number) VALUES (?, ?, ?)");
 
-        final MutableList<UnlockingScript> unlockingScripts = new MutableList<UnlockingScript>(transactionCount * 2);
+        final MutableList<UnlockingScript> unlockingScripts = new MutableList<>(transactionCount * 2);
 
-        final MutableList<TransactionOutputId> newlySpentTransactionOutputIds = new MutableList<TransactionOutputId>(transactionCount * 2);
-        final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<TransactionOutputIdentifier>(transactionCount * 2);
+        final MutableList<TransactionOutputId> newlySpentTransactionOutputIds = new MutableList<>(transactionCount * 2);
+        final MutableList<TransactionOutputIdentifier> newlySpentTransactionOutputIdentifiers = new MutableList<>(transactionCount * 2);
 
 //        findPreviousTxOutputTimer.start();
 //        final Map<TransactionOutputIdentifier, TransactionOutputId> previousTransactionOutputsMap = transactionOutputDatabaseManager.getPreviousTransactionOutputs(transactions);
@@ -244,7 +244,7 @@ public class TransactionInputDatabaseManager {
         }
         insertTxInputTimer.stop();
 
-        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(transactionInputIdCount);
+        final MutableList<TransactionInputId> transactionInputIds = new MutableList<>(transactionInputIdCount);
         for (int i = 0; i < transactionInputIdCount; ++i) {
             final TransactionInputId transactionInputId = TransactionInputId.wrap(firstTransactionInputId + i);
             transactionInputIds.add(transactionInputId);
@@ -359,7 +359,7 @@ public class TransactionInputDatabaseManager {
                 .setParameter(transactionId)
         );
 
-        final ImmutableListBuilder<TransactionInputId> transactionInputIds = new ImmutableListBuilder<TransactionInputId>(rows.size());
+        final ImmutableListBuilder<TransactionInputId> transactionInputIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
             transactionInputIds.add(transactionInputId);
@@ -445,7 +445,7 @@ public class TransactionInputDatabaseManager {
                 .setParameter(transactionOutputId)
         );
 
-        final MutableList<TransactionInputId> transactionInputIds = new MutableList<TransactionInputId>(rows.size());
+        final MutableList<TransactionInputId> transactionInputIds = new MutableList<>(rows.size());
         for (final Row row : rows) {
             final TransactionInputId transactionInputId = TransactionInputId.wrap(row.getLong("id"));
             transactionInputIds.add(transactionInputId);

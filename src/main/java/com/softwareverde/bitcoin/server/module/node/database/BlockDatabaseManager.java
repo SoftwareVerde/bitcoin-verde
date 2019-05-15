@@ -94,7 +94,7 @@ public class BlockDatabaseManager {
                 .setParameter(blockId)
         );
 
-        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<TransactionId>(rows.size());
+        final ImmutableListBuilder<TransactionId> listBuilder = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final TransactionId transactionId = TransactionId.wrap(row.getLong("transaction_id"));
             listBuilder.add(transactionId);
@@ -106,7 +106,7 @@ public class BlockDatabaseManager {
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
-        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
+        final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<>(transactionIds.getSize());
         for (final TransactionId transactionId : transactionIds) {
             final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId, shouldUpdateUnspentOutputCache);
             if (transaction == null) { return null; }
@@ -293,9 +293,9 @@ public class BlockDatabaseManager {
 
         blockHeaderDatabaseManager.updateBlockHeader(blockId, block);
 
-        final Set<Sha256Hash> updatedTransactions = new TreeSet<Sha256Hash>();
+        final Set<Sha256Hash> updatedTransactions = new TreeSet<>();
         { // Remove transactions that do not exist in the updated block, and update ones that do not exist...
-            final HashMap<Sha256Hash, Transaction> existingTransactionHashes = new HashMap<Sha256Hash, Transaction>(block.getTransactionCount());
+            final HashMap<Sha256Hash, Transaction> existingTransactionHashes = new HashMap<>(block.getTransactionCount());
             for (final Transaction transaction : block.getTransactions()) {
                 existingTransactionHashes.put(transaction.getHash(), transaction);
             }

@@ -164,7 +164,7 @@ public class GpuSha256 {
         }
 
         final int inputsCount = inputs.getSize();
-        if (inputsCount == 0) { return new MutableList<Sha256Hash>(); }
+        if (inputsCount == 0) { return new MutableList<>(); }
         final int byteCountPerInput;
         {
             final ByteArray byteArray = inputs.get(0);
@@ -226,7 +226,7 @@ public class GpuSha256 {
             clEnqueueReadBuffer(_commandQueues[commandQueueIndex], _clWriteBuffer, CL_TRUE, 0, Sizeof.cl_uint * writeBuffer.length, Pointer.to(writeBuffer), 0, null, null);
         }
 
-        final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<Sha256Hash>(inputsCount);
+        final ImmutableListBuilder<Sha256Hash> listBuilder = new ImmutableListBuilder<>(inputsCount);
         for (int i=0; i<inputsCount; ++i) {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             for (int j = 0; j < integersPerHash; ++j) {

@@ -16,7 +16,7 @@ import com.softwareverde.util.bytearray.Endian;
 public class ThinTransactionsMessage extends BitcoinProtocolMessage {
 
     protected Sha256Hash _blockHash;
-    protected List<Transaction> _transactions = new MutableList<Transaction>(0);
+    protected List<Transaction> _transactions = new MutableList<>(0);
 
     public ThinTransactionsMessage() {
         super(MessageType.THIN_TRANSACTIONS);

@@ -66,7 +66,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION ID CACHE --------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<ImmutableSha256Hash, TransactionId> _transactionIdCache = new HashMapCache<ImmutableSha256Hash, TransactionId>("TransactionIdCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<ImmutableSha256Hash, TransactionId> _transactionIdCache = new HashMapCache<>("TransactionIdCache", HashMapCache.DEFAULT_CACHE_SIZE);
 
     @Override
     public void cacheTransactionId(final ImmutableSha256Hash transactionHash, final TransactionId transactionId) {
@@ -90,7 +90,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION CACHE -----------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<TransactionId, ImmutableTransaction> _transactionCache = new HashMapCache<TransactionId, ImmutableTransaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<TransactionId, ImmutableTransaction> _transactionCache = new HashMapCache<>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
 
     @Override
     public void cacheTransaction(final TransactionId transactionId, final ImmutableTransaction transaction) {
@@ -113,7 +113,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION OUTPUT ID CACHE -------------------------------------------------------------------------------------
 
-    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
+    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
 
     @Override
     public void cacheTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {
@@ -138,7 +138,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // BLOCK BLOCK CHAIN SEGMENT ID CACHE ------------------------------------------------------------------------------
 
-    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<BlockId, BlockchainSegmentId>("BlockId-BlockchainSegmentId", 1460);
+    protected final HashMapCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache = new HashMapCache<>("BlockId-BlockchainSegmentId", 1460);
 
     @Override
     public void cacheBlockchainSegmentId(final BlockId blockId, final BlockchainSegmentId blockchainSegmentId) {
@@ -161,7 +161,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // ADDRESS ID CACHE ------------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<String, AddressId>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
+    protected final HashMapCache<String, AddressId> _addressIdCache = new HashMapCache<>("AddressId", HashMapCache.DISABLED_CACHE_SIZE);
 
     @Override
     public void cacheAddressId(final String address, final AddressId addressId) {
@@ -184,7 +184,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // BLOCK HEIGHT CACHE ----------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<BlockId, Long>("BlockHeight", 500000);
+    protected final HashMapCache<BlockId, Long> _blockHeightCache = new HashMapCache<>("BlockHeight", 500000);
 
     @Override
     public void cacheBlockHeight(final BlockId blockId, final Long blockHeight) {

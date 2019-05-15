@@ -139,7 +139,7 @@ public class PendingTransactionDatabaseManager {
         if (pendingTransactionId == null) { return; }
 
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
-        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<Sha256Hash>(transactionInputs.getSize());
+        final HashSet<Sha256Hash> requiredTransactionHashes = new HashSet<>(transactionInputs.getSize());
         for (final TransactionInput transactionInput : transactionInputs) {
             final Sha256Hash transactionHash = transactionInput.getPreviousOutputTransactionHash();
             requiredTransactionHashes.add(transactionHash);
@@ -242,7 +242,7 @@ public class PendingTransactionDatabaseManager {
             final Long firstPendingTransactionId = _databaseConnection.executeSql(batchedInsertQuery);
             final Integer newRowCount = _databaseConnection.getRowsAffectedCount();
 
-            final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<PendingTransactionId>(newRowCount);
+            final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<>(newRowCount);
             for (int i = 0; i < newRowCount; ++i) {
                 pendingTransactionIds.add(PendingTransactionId.wrap(firstPendingTransactionId + i));
             }
@@ -297,12 +297,12 @@ public class PendingTransactionDatabaseManager {
                     .setParameter(minSecondsBetweenDownloadAttempts)
             );
 
-            final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<NodeId, MutableList<PendingTransactionId>>();
+            final HashMap<NodeId, MutableList<PendingTransactionId>> downloadPlan = new HashMap<>();
             for (final Row row : rows) {
                 final NodeId nodeId = NodeId.wrap(row.getLong("node_id"));
                 final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("pending_transaction_id"));
                 if (! downloadPlan.containsKey(nodeId)) {
-                    downloadPlan.put(nodeId, new MutableList<PendingTransactionId>());
+                    downloadPlan.put(nodeId, new MutableList<>());
                 }
 
                 final MutableList<PendingTransactionId> list = downloadPlan.get(nodeId);
@@ -324,7 +324,7 @@ public class PendingTransactionDatabaseManager {
                 new Query("SELECT pending_transactions.id, pending_transactions.hash FROM pending_transactions INNER JOIN pending_transaction_data ON pending_transaction_data.pending_transaction_id = pending_transactions.id WHERE NOT EXISTS (SELECT * FROM pending_transactions_dependent_transactions LEFT OUTER JOIN transactions ON transactions.hash = pending_transactions_dependent_transactions.hash WHERE (transactions.id IS NULL) AND (pending_transactions_dependent_transactions.pending_transaction_id = pending_transactions.id))")
             );
 
-            final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<PendingTransactionId>(rows.size());
+            final ImmutableListBuilder<PendingTransactionId> pendingTransactionIds = new ImmutableListBuilder<>(rows.size());
             for (final Row row : rows) {
                 final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
                 pendingTransactionIds.add(pendingTransactionId);
@@ -442,7 +442,7 @@ public class PendingTransactionDatabaseManager {
                     .setParameter(maxFailedDownloadCount)
             );
 
-            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<PendingTransactionId>(rows.size());
+            final MutableList<PendingTransactionId> pendingTransactionIds = new MutableList<>(rows.size());
             for (final Row row : rows) {
                 final PendingTransactionId pendingTransactionId = PendingTransactionId.wrap(row.getLong("id"));
                 Logger.log("Deleting Failed Pending Transaction: " + pendingTransactionId);

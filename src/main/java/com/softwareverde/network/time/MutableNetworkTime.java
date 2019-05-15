@@ -12,7 +12,7 @@ public class MutableNetworkTime implements NetworkTime {
     protected final ReentrantReadWriteLock.WriteLock _writeLock;
 
     protected final SystemTime _systemTime = new SystemTime();
-    protected final List<Long> _networkTimeOffsets = new ArrayList<Long>();
+    protected final List<Long> _networkTimeOffsets = new ArrayList<>();
 
     public MutableNetworkTime() {
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();

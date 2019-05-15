@@ -17,8 +17,8 @@ import com.softwareverde.util.bytearray.Endian;
 public class ExtraThinBlockMessage extends BitcoinProtocolMessage {
 
     protected BlockHeader _blockHeader;
-    protected List<ByteArray> _transactionShortHashes = new MutableList<ByteArray>(0);
-    protected List<Transaction> _missingTransactions = new MutableList<Transaction>(0);
+    protected List<ByteArray> _transactionShortHashes = new MutableList<>(0);
+    protected List<Transaction> _missingTransactions = new MutableList<>(0);
 
     public ExtraThinBlockMessage() {
         super(MessageType.EXTRA_THIN_BLOCK);

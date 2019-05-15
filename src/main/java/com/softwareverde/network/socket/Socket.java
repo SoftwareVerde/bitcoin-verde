@@ -34,7 +34,7 @@ public abstract class Socket {
 
     protected final Long _id;
     protected final java.net.Socket _socket;
-    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<ProtocolMessage>();
+    protected final ConcurrentLinkedQueue<ProtocolMessage> _messages = new ConcurrentLinkedQueue<>();
     protected Boolean _isClosed = false;
 
     protected Runnable _messageReceivedCallback;

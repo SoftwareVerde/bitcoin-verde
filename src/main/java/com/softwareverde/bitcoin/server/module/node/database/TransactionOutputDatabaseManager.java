@@ -325,14 +325,14 @@ public class TransactionOutputDatabaseManager {
             Logger.log("NOTICE: Error storing TransactionOutputs. Parameter mismatch: expected " + transactionIds.size() + ", got " + transactions.getSize());
             return null;
         }
-        if (transactions.isEmpty()) { return new MutableList<TransactionOutputId>(0); }
+        if (transactions.isEmpty()) { return new MutableList<>(0); }
 
         final Integer transactionCount = transactions.getSize();
 
         final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)");
 
-        final MutableList<UnspentTransactionOutputs> unspentTransactionOutputs = new MutableList<UnspentTransactionOutputs>(transactionCount * 2);
-        final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>(transactionCount * 2);
+        final MutableList<UnspentTransactionOutputs> unspentTransactionOutputs = new MutableList<>(transactionCount * 2);
+        final MutableList<LockingScript> lockingScripts = new MutableList<>(transactionCount * 2);
 
         for (int i = 0; i < transactionCount; ++i) {
             final Transaction transaction = transactions.get(i);
@@ -345,7 +345,7 @@ public class TransactionOutputDatabaseManager {
 
             final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
 
-            final ImmutableListBuilder<Integer> unspentTransactionOutputIndicesListBuilder = new ImmutableListBuilder<Integer>(transactionOutputs.getSize());
+            final ImmutableListBuilder<Integer> unspentTransactionOutputIndicesListBuilder = new ImmutableListBuilder<>(transactionOutputs.getSize());
 
             for (final TransactionOutput transactionOutput : transactionOutputs) {
                 final Integer transactionOutputIndex = transactionOutput.getIndex();
@@ -371,7 +371,7 @@ public class TransactionOutputDatabaseManager {
 
         final Integer transactionOutputCount = lockingScripts.getSize();
 
-        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<TransactionOutputId>(transactionOutputCount);
+        final MutableList<TransactionOutputId> transactionOutputIds = new MutableList<>(transactionOutputCount);
         for (int i = 0; i < transactionOutputCount; ++i) {
             final TransactionOutputId transactionOutputId = TransactionOutputId.wrap(firstTransactionOutputId + i);
             transactionOutputIds.add(transactionOutputId);
@@ -486,7 +486,7 @@ public class TransactionOutputDatabaseManager {
 
     public List<LockingScriptId> getLockingScriptsWithUnprocessedTypes(final Integer maxCount) throws DatabaseException {
         final ScriptType[] scriptTypes = ScriptType.values();
-        final HashSet<ScriptTypeId> excludedScriptTypeIds = new HashSet<ScriptTypeId>(scriptTypes.length);
+        final HashSet<ScriptTypeId> excludedScriptTypeIds = new HashSet<>(scriptTypes.length);
         for (final ScriptType scriptType : scriptTypes) {
             if (scriptType != ScriptType.UNKNOWN) {
                 excludedScriptTypeIds.add(scriptType.getScriptTypeId());
@@ -498,7 +498,7 @@ public class TransactionOutputDatabaseManager {
             new Query("SELECT locking_script_id FROM address_processor_queue LIMIT " + Util.coalesce(maxCount, 1))
         );
 
-        final ImmutableListBuilder<LockingScriptId> lockingScriptIds = new ImmutableListBuilder<LockingScriptId>(rows.size());
+        final ImmutableListBuilder<LockingScriptId> lockingScriptIds = new ImmutableListBuilder<>(rows.size());
         for (final Row row : rows) {
             final LockingScriptId lockingScriptId = LockingScriptId.wrap(row.getLong("locking_script_id"));
             lockingScriptIds.add(lockingScriptId);
@@ -560,7 +560,7 @@ public class TransactionOutputDatabaseManager {
 
     public List<LockingScript> getLockingScripts(final List<LockingScriptId> lockingScriptIds) throws DatabaseException {
         final int scriptCount = lockingScriptIds.getSize();
-        final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<LockingScriptId, LockingScript>(scriptCount);
+        final HashMap<LockingScriptId, LockingScript> keyMap = new HashMap<>(scriptCount);
         final java.util.List<Row> rows = _databaseConnection.query(
             new Query("SELECT id, script FROM locking_scripts WHERE id IN (" + DatabaseUtil.createInClause(lockingScriptIds, keyMap) + ")")
         );

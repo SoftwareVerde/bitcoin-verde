@@ -15,7 +15,7 @@ public class Logger {
 
     private static final Integer MAX_BATCH_COUNT = 128;
     private static final Object _messagePin = new Object();
-    private static final ConcurrentLinkedQueue<String> _queuedMessages = new ConcurrentLinkedQueue<String>();
+    private static final ConcurrentLinkedQueue<String> _queuedMessages = new ConcurrentLinkedQueue<>();
 
     private static final Thread _logThread = new Thread(new Runnable() {
         private String _dequeueMessages(final Integer maxMessageCount) {

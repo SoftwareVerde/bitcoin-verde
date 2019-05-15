@@ -16,8 +16,8 @@ import com.softwareverde.util.Util;
 
 public class MutableTransaction implements Transaction {
     protected Long _version = Transaction.VERSION;
-    protected final MutableList<TransactionInput> _transactionInputs = new MutableList<TransactionInput>();
-    protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<TransactionOutput>();
+    protected final MutableList<TransactionInput> _transactionInputs = new MutableList<>();
+    protected final MutableList<TransactionOutput> _transactionOutputs = new MutableList<>();
     protected LockTime _lockTime = new ImmutableLockTime();
 
     protected Integer _cachedHashCode = null;
