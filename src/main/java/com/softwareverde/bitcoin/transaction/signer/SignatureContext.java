@@ -25,6 +25,10 @@ public class SignatureContext {
     private Script _currentScript;
     private List<ByteArray> _bytesToExcludeFromScript = new MutableList<ByteArray>();
 
+    public SignatureContext(final Transaction transaction, final HashType hashType) {
+        this(transaction, hashType, Long.MAX_VALUE);
+    }
+
     public SignatureContext(final Transaction transaction, final HashType hashType, final Long blockHeight) {
         _transaction = transaction;
         _hashType = hashType;

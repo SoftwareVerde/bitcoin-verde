@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.constable.util.ConstUtil;
@@ -114,6 +115,12 @@ public class MutableTransaction implements Transaction {
         }
 
         return totalValue;
+    }
+
+    @Override
+    public Boolean matches(final BloomFilter bloomFilter) {
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        return transactionBloomFilterMatcher.shouldInclude(this);
     }
 
     @Override

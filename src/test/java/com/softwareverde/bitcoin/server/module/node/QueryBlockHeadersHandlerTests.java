@@ -5,105 +5,40 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
+import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
-import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.bitcoin.test.fake.FakeBinarySocket;
+import com.softwareverde.bitcoin.test.fake.FakeBitcoinNode;
+import com.softwareverde.bitcoin.test.fake.FakeSocket;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.node.NodeConnection;
-import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-
 public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
-    public static class FakeSocket extends Socket {
-        public final ByteArrayInputStream inputStream;
-        public final ByteArrayOutputStream outputStream;
-
-        public FakeSocket() {
-            inputStream = new ByteArrayInputStream(new byte[0]);
-            outputStream = new ByteArrayOutputStream();
-        }
-
-        public FakeSocket(final byte[] inputBytes) {
-            inputStream = new ByteArrayInputStream(inputBytes);
-            outputStream = new ByteArrayOutputStream();
-        }
-
+    protected static final LocalNodeFeatures _localNodeFeatures = new LocalNodeFeatures() {
         @Override
-        public InputStream getInputStream() {
-            return this.inputStream;
+        public NodeFeatures getNodeFeatures() {
+            final NodeFeatures nodeFeatures = new NodeFeatures();
+            nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
+            return nodeFeatures;
         }
-
-        @Override
-        public OutputStream getOutputStream() {
-            return this.outputStream;
-        }
-    }
-
-    public static class FakeBinarySocket extends BinarySocket {
-        public final FakeSocket fakeSocket;
-
-        public FakeBinarySocket(final FakeSocket fakeSocket, final ThreadPool threadPool) {
-            super(fakeSocket, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
-            this.fakeSocket = fakeSocket;
-        }
-
-        @Override
-        public String getHost() {
-            return "";
-        }
-
-        @Override
-        public Integer getPort() {
-            return 0;
-        }
-    }
-
-    public static class FakeNodeConnection extends NodeConnection {
-        public final FakeBinarySocket fakeBinarySocket;
-
-        protected final MutableList<ProtocolMessage> _outboundMessageQueue = new MutableList<ProtocolMessage>();
-
-        public FakeNodeConnection(final FakeBinarySocket fakeBinarySocket, final ThreadPool threadPool) {
-            super(fakeBinarySocket, threadPool);
-            this.fakeBinarySocket = fakeBinarySocket;
-        }
-
-        @Override
-        protected void _processOutboundMessageQueue() { }
-
-        @Override
-        protected void _writeOrQueueMessage(final ProtocolMessage message) {
-            _outboundMessageQueue.add(message);
-        }
-
-        public List<ProtocolMessage> getSentMessages() {
-            try { Thread.sleep(500L); } catch (final Exception e) { } // Required to wait for messageQueue...
-
-            return _outboundMessageQueue;
-        }
-    }
+    };
 
     /**
      * Creates the following scenario...
@@ -120,7 +55,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario() throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
 
@@ -154,7 +89,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
@@ -215,20 +150,20 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
+        final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
         final List<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
 
         // Assert
-        final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
+        final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
@@ -241,7 +176,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             i += 1;
         }
 
-        fakeNodeConnection.disconnect();
+        bitcoinNode.disconnect();
     }
 
     @Test
@@ -258,10 +193,10 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
+        final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
         final Integer blockOffset = 0; // The block header/offset that is provided as the last known header...
 
@@ -269,23 +204,23 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
 
         // Assert
-        final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
+        final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
-        fakeNodeConnection.disconnect();
+        bitcoinNode.disconnect();
     }
 
     @Test
@@ -302,10 +237,10 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
+        final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
         final Integer blockOffset = 1; // The block header/offset that is provided as the last known header...
 
@@ -313,23 +248,23 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
 
         // Assert
-        final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
+        final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
-        fakeNodeConnection.disconnect();
+        bitcoinNode.disconnect();
     }
 
     @Test
@@ -346,10 +281,10 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
+        final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
         final Integer blockOffset = 2; // The block header/offset that is provided as the last known header...
 
@@ -357,23 +292,23 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         blockHashes.add(allBlocks[blockOffset].getHash());
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
 
         // Assert
-        final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
+        final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
-        fakeNodeConnection.disconnect();
+        bitcoinNode.disconnect();
     }
 
     @Test
@@ -386,46 +321,45 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             allBlocks = _initScenario2(scenarioBlocks);
         }
 
-        final Block extraChildEPrimeBlock;
-        { // Create an additional child onto block E'...
+        final Block fPrimeBlock;
+        { // Create an additional child onto block E' (F')...
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
-            final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+            final DatabaseConnection databaseConnection = _database.newConnection();
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockDatabaseManager.insertBlock(mutableBlock);
             }
 
-            extraChildEPrimeBlock = mutableBlock;
+            fPrimeBlock = mutableBlock;
         }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
         final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
 
-        final FakeNodeConnection fakeNodeConnection = new FakeNodeConnection(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool);
+        final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
         final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>();
         blockHashes.add(allBlocks[allBlocks.length - 1].getHash()); // Request the forked block (E')...
 
         // Action
-        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), fakeNodeConnection);
+        queryBlocksHandler.run(blockHashes, new ImmutableSha256Hash(), bitcoinNode);
 
         // Assert
-        final List<ProtocolMessage> sentMessages = fakeNodeConnection.getSentMessages();
+        final List<ProtocolMessage> sentMessages = bitcoinNode.getSentMessages();
         Assert.assertEquals(1, sentMessages.getSize());
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(2, dataHashes.getSize());
+        Assert.assertEquals(1, dataHashes.getSize());
 
-        Assert.assertEquals(allBlocks[allBlocks.length - 1].getHash(), dataHashes.get(0).getItemHash());
-        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(1).getItemHash());
+        Assert.assertEquals(fPrimeBlock.getHash(), dataHashes.get(0).getItemHash());
 
-        fakeNodeConnection.disconnect();
+        bitcoinNode.disconnect();
     }
 }

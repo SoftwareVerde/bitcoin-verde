@@ -5,6 +5,10 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.constable.list.List;
 
 public interface MerkleTree<T extends Hashable> {
+    interface Filter<T extends Hashable> {
+        boolean shouldInclude(T item);
+    }
+
     void addItem(T item);
     T getItem(int index);
     List<T> getItems();
@@ -15,4 +19,5 @@ public interface MerkleTree<T extends Hashable> {
 
     MerkleRoot getMerkleRoot();
     List<Sha256Hash> getPartialTree(int transactionIndex);
+    PartialMerkleTree getPartialTree(Filter<T> filter);
 }

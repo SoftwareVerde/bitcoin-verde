@@ -4,14 +4,17 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.pool.MysqlDatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.module.node.database.*;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -19,8 +22,6 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
@@ -39,7 +40,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
     protected final NetworkTime _networkTime;
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
@@ -50,7 +51,7 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
 
@@ -70,7 +71,7 @@ public class BlockProcessor {
         _trustedBlockHeight = trustedBlockHeight;
     }
 
-    protected Long _processBlock(final Block block, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected Long _processBlock(final Block block, final DatabaseConnection databaseConnection) throws DatabaseException {
         try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache)) {
             final Sha256Hash blockHash = block.getHash();
             _processedBlockCount += 1;
@@ -119,9 +120,9 @@ public class BlockProcessor {
                         }
 
                         final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, localDatabaseManagerCache, _networkTime, _medianBlockTime);
-                        final Boolean blockHeaderIsValid = blockHeaderValidator.validateBlockHeader(block);
-                        if (! blockHeaderIsValid) {
-                            Logger.log("Invalid BlockHeader: " + blockHash);
+                        final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
+                        if (! blockHeaderValidationResponse.isValid) {
+                            Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
                             TransactionUtil.rollbackTransaction(databaseConnection);
                             return null;
                         }
@@ -152,13 +153,17 @@ public class BlockProcessor {
                 final Boolean blockIsValid;
 
                 final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_databaseConnectionFactory);
-                try (final MysqlDatabaseConnectionPool readUncommittedDatabaseConnectionPool = new MysqlDatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
+                try (final DatabaseConnectionPool readUncommittedDatabaseConnectionPool = new DatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
                     final BlockValidator blockValidator = new BlockValidator(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
 
                     blockValidationTimer.start();
-                    blockIsValid = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                    final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
+                    if (! blockValidationResult.isValid) {
+                        Logger.log(blockValidationResult.errorMessage);
+                    }
+                    blockIsValid = blockValidationResult.isValid;
                     blockValidationTimer.stop();
 
                     // localDatabaseManagerCache.log();
@@ -252,6 +257,15 @@ public class BlockProcessor {
                     final MutableList<TransactionId> transactionIds = new MutableList<TransactionId>(blockDatabaseManager.getTransactionIds(blockId));
                     transactionIds.remove(0); // Exclude the coinbase (not strictly necessary, but performs slightly better)...
                     transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionIds);
+
+                    // Remove any transactions in the memory pool that are now considered double-spends...
+                    final MutableList<TransactionId> transactionsToRemove = new MutableList<TransactionId>(transactionDatabaseManager.getUnconfirmedTransactionsDependingOnSpentInputsOf(transactionIds));
+                    while (! transactionsToRemove.isEmpty()) {
+                        transactionDatabaseManager.removeFromUnconfirmedTransactions(transactionsToRemove);
+                        final List<TransactionId> chainedInvalidTransactions = transactionDatabaseManager.getUnconfirmedTransactionsDependingOn(transactionsToRemove);
+                        transactionsToRemove.clear();
+                        transactionsToRemove.addAll(chainedInvalidTransactions);
+                    }
                 }
             }
 
@@ -299,7 +313,7 @@ public class BlockProcessor {
     }
 
     public Long processBlock(final Block block) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final Long newBlockHeight = _processBlock(block, databaseConnection);
             final Boolean blockWasValid = (newBlockHeight != null);
             if ((blockWasValid) && (_orphanedTransactionsCache != null)) {

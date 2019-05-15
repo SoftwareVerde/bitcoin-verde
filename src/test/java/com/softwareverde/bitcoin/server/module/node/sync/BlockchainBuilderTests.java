@@ -2,16 +2,19 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.OrphanedTransactionsCache;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -20,8 +23,6 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -30,15 +31,15 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class BlockchainBuilderTests extends IntegrationTest {
-    static class FakeBlockDownloadRequester extends BlockDownloadRequester {
+    static class FakeBlockDownloadRequester implements BlockDownloadRequester {
         @Override
-        protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash previousBlockHash, final Long priority) {
-            // Nothing.
-        }
+        public void requestBlock(final BlockHeader blockHeader) { }
 
-        public FakeBlockDownloadRequester() {
-            super(null, null, null, null);
-        }
+        @Override
+        public void requestBlock(final Sha256Hash blockHash, final Long priority) { }
+
+        @Override
+        public void requestBlock(final Sha256Hash blockHash) { }
     }
 
     @Before
@@ -52,12 +53,12 @@ public class BlockchainBuilderTests extends IntegrationTest {
         final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCache(0L);
         final DatabaseManagerCache databaseCache = new ReadOnlyLocalDatabaseManagerCache(masterCache);
 
-        final MysqlDatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
+        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
 
         final BlockInflater blockInflater = new BlockInflater();
         final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-        final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
+        final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseCache);
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseCache);
 

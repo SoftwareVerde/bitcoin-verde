@@ -16,6 +16,7 @@ public interface BloomFilter extends Constable<ImmutableBloomFilter> {
     Integer getHashFunctionCount();
     ByteArray getBytes();
     Boolean containsItem(ByteArray item);
+    byte getUpdateMode();
 
     /**
      * Calculates the theoretical false positive rate, if were to contain the elementCount elements...
@@ -71,7 +72,7 @@ class BloomFilterCore {
         return ( (float) Math.pow(1.0D - unsetBitCountRatio, hashFunctionCount) );
     }
 
-    public static boolean equals(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final Object object) {
+    public static boolean equals(final ByteArray bytes, final Integer hashFunctionCount, final Long nonce, final byte updateMode, final Object object) {
         if (object == null) { return false; }
         if (! (object instanceof BloomFilter)) { return false; }
 
@@ -82,6 +83,10 @@ class BloomFilterCore {
         }
 
         if (! Util.areEqual(nonce, bloomFilter.getNonce())) {
+            return false;
+        }
+
+        if (updateMode != bloomFilter.getUpdateMode()) {
             return false;
         }
 

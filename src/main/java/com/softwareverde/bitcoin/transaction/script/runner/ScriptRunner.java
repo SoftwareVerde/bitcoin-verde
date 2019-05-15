@@ -3,8 +3,11 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.bip.Bip16;
 import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.bip.HF20181115SV;
+import com.softwareverde.bitcoin.bip.HF20190515;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.transaction.script.ImmutableScript;
 import com.softwareverde.bitcoin.transaction.script.Script;
+import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
@@ -24,6 +27,14 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
+    protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
+
+    protected final MedianBlockTime _medianBlockTime;
+
+    public ScriptRunner(final MedianBlockTime medianBlockTime) {
+        _medianBlockTime = medianBlockTime;
+    }
+
     public Boolean runScript(final LockingScript lockingScript, final UnlockingScript unlockingScript, final Context context) {
         final MutableContext mutableContext = new MutableContext(context);
 
@@ -87,7 +98,16 @@ public class ScriptRunner {
             final Boolean payToScriptHashValidationRulesAreEnabled = Bip16.isEnabled(mutableContext.getBlockHeight());
             final Boolean scriptIsPayToScriptHash = (lockingScript.getScriptType() == ScriptType.PAY_TO_SCRIPT_HASH);
 
-            shouldRunPayToScriptHashScript = ((payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash));
+            if (BITCOIN_ABC_QUIRK_ENABLED) {
+                // NOTE: Bitcoin ABC's 0.19 behavior does not run P2SH Scripts that match the Segwit format...
+                final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
+                shouldRunPayToScriptHashScript = ( (payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash) && (! unlockingScriptIsSegregatedWitnessProgram) );
+            }
+            else {
+                shouldRunPayToScriptHashScript = ( (payToScriptHashValidationRulesAreEnabled) && (scriptIsPayToScriptHash) );
+            }
+
             if (shouldRunPayToScriptHashScript) {
                 final Boolean unlockingScriptContainsNonPushOperations = unlockingScript.containsNonPushOperations();
                 if (unlockingScriptContainsNonPushOperations) { return false; }
@@ -126,9 +146,17 @@ public class ScriptRunner {
 
         if (controlState.isInCodeBlock()) { return false; } // All CodeBlocks must be closed before the end of the script...
 
+        // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
         if ( (HF20181115.isEnabled(context.getBlockHeight())) && (! HF20181115SV.isEnabled(context.getBlockHeight())) ) {
             final Stack stack = (shouldRunPayToScriptHashScript ? payToScriptHashStack : traditionalStack);
-            if (! stack.isEmpty()) { return false; } // Dirty stacks are considered invalid after HF20181115 in order to reduce malleability...
+            if (! stack.isEmpty()) {
+                if (HF20190515.isEnabled(_medianBlockTime)) {
+                    final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+                    final Boolean unlockingScriptIsSegregatedWitnessProgram = scriptPatternMatcher.matchesSegregatedWitnessProgram(unlockingScript);
+                    if (! (shouldRunPayToScriptHashScript && unlockingScriptIsSegregatedWitnessProgram)) { return false; }
+                }
+                else { return false; }
+            }
         }
 
         return true;

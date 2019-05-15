@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
@@ -9,17 +11,15 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class CacheWarmer {
-    public void warmUpCache(final MasterDatabaseManagerCache masterDatabaseManagerCache, final MysqlDatabaseConnectionFactory databaseConnectionFactory) {
+    public void warmUpCache(final MasterDatabaseManagerCache masterDatabaseManagerCache, final DatabaseConnectionFactory databaseConnectionFactory) {
         final Runtime runtime = Runtime.getRuntime();
 
         try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-                final MysqlDatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
 
             { // Warm Up UTXO Cache...
                 final UnspentTransactionOutputCache unspentTransactionOutputCache = localDatabaseManagerCache.getUnspentTransactionOutputCache();

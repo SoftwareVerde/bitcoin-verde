@@ -1,8 +1,10 @@
 package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -13,7 +15,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
@@ -21,11 +22,12 @@ import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashSet;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class BitcoinNodeDatabaseManager {
     public static final Object MUTEX = new Object();
 
-    protected final MysqlDatabaseConnection _databaseConnection;
+    protected final DatabaseConnection _databaseConnection;
     protected final SystemTime _systemTime = new SystemTime();
 
     protected NodeFeatures _inflateNodeFeatures(final Long nodeId) throws DatabaseException {
@@ -55,7 +57,7 @@ public class BitcoinNodeDatabaseManager {
         return NodeId.wrap(row.getLong("id"));
     }
 
-    public BitcoinNodeDatabaseManager(final MysqlDatabaseConnection databaseConnection) {
+    public BitcoinNodeDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
     }
 
@@ -267,10 +269,20 @@ public class BitcoinNodeDatabaseManager {
     }
 
     public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
-            new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
-                .setParameter(blockHash)
-        );
+        final ReentrantReadWriteLock.ReadLock pendingBlockTableReadLock = PendingBlockDatabaseManager.READ_LOCK;
+
+        final java.util.List<Row> rows;
+        try {
+            pendingBlockTableReadLock.lock();
+
+            rows = _databaseConnection.query(
+                new Query("SELECT node_blocks_inventory.node_id FROM node_blocks_inventory INNER JOIN pending_blocks ON pending_blocks.id = node_blocks_inventory.pending_block_id WHERE pending_blocks.hash = ? AND node_blocks_inventory.node_id IN (" + DatabaseUtil.createInClause(nodeIds) + ")")
+                    .setParameter(blockHash)
+            );
+        }
+        finally {
+            pendingBlockTableReadLock.unlock();
+        }
 
         final HashSet<NodeId> filteredNodes = new HashSet<NodeId>(rows.size());
         if (filterType == FilterType.KEEP_NODES_WITHOUT_INVENTORY) {

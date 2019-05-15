@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
@@ -306,13 +307,19 @@ public class TransactionSigner {
         return BitcoinUtil.sha256(BitcoinUtil.sha256(byteArrayBuilder.build()));
     }
 
-    public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
-        final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
-        return Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, bytesForSigning);
-    }
-
-    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+    protected Transaction _signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey, final Boolean useCompressedPublicKey) {
         // NOTE: ensure signatureContext has its lastCodeSeparatorIndex set.
+
+        final PublicKey publicKey;
+        {
+            final PublicKey uncompressedPublicKey = privateKey.getPublicKey();
+            if (useCompressedPublicKey) {
+                publicKey = uncompressedPublicKey.compress();
+            }
+            else {
+                publicKey = uncompressedPublicKey.decompress();
+            }
+        }
 
         final MutableTransaction mutableTransaction = new MutableTransaction(signatureContext.getTransaction());
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
@@ -325,11 +332,31 @@ public class TransactionSigner {
 
             if (signatureContext.shouldInputScriptBeSigned(i)) {
                 final MutableTransactionInput mutableTransactionInput = new MutableTransactionInput(transactionInput);
-                mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, privateKey.getPublicKey()));
+                mutableTransactionInput.setUnlockingScript(ScriptBuilder.unlockPayToAddress(scriptSignature, publicKey));
                 mutableTransaction.setTransactionInput(i, mutableTransactionInput);
             }
         }
 
         return mutableTransaction;
+    }
+
+    public boolean isSignatureValid(final SignatureContext signatureContext, final PublicKey publicKey, final ScriptSignature scriptSignature) {
+        final byte[] bytesForSigning = _getBytesForSigning(signatureContext);
+
+        final Signature signature = scriptSignature.getSignature();
+        if (signature.getType() == Signature.Type.SCHNORR) {
+            return Schnorr.verifySignature(signature, publicKey, bytesForSigning);
+        }
+        else {
+            return Secp256k1.verifySignature(signature, publicKey, bytesForSigning);
+        }
+    }
+
+    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
+        return _signTransaction(signatureContext, privateKey, false);
+    }
+
+    public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey, final Boolean useCompressedPublicKey) {
+        return _signTransaction(signatureContext, privateKey, useCompressedPublicKey);
     }
 }

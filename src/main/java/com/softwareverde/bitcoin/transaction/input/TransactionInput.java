@@ -26,6 +26,8 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         }
 
         final MutableTransactionInput coinbaseTransactionInput = new MutableTransactionInput();
+        coinbaseTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+        coinbaseTransactionInput.setPreviousOutputIndex(-1);
         coinbaseTransactionInput.setUnlockingScript(unlockingScript);
         return coinbaseTransactionInput;
     }
@@ -48,6 +50,8 @@ public interface TransactionInput extends Constable<ImmutableTransactionInput>, 
         }
 
         final MutableTransactionInput coinbaseTransactionInput = new MutableTransactionInput();
+        coinbaseTransactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
+        coinbaseTransactionInput.setPreviousOutputIndex(-1);
         coinbaseTransactionInput.setUnlockingScript(unlockingScript);
         return coinbaseTransactionInput;
     }

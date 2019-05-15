@@ -153,7 +153,7 @@ public class DifficultyTests {
         // Action
         final byte[] encodedBytes = difficulty.encode().getBytes();
         final byte[] rawBytes0 = difficulty.getBytes().getBytes();
-        final byte[] rawBytes1 = ImmutableDifficulty.decode(encodedBytes).getBytes().getBytes();
+        final byte[] rawBytes1 = Difficulty.decode(encodedBytes).getBytes().getBytes();
 
         // Assert
         TestUtil.assertEqual(expectedEncodedBytes, encodedBytes);
@@ -170,9 +170,9 @@ public class DifficultyTests {
         final Difficulty difficulty0, difficulty1;
 
         // Action
-        difficulty0 = ImmutableDifficulty.decode(encodedBaseDifficulty);
+        difficulty0 = Difficulty.decode(encodedBaseDifficulty);
         final byte[] encodedBytes0 = difficulty0.encode().getBytes();
-        difficulty1 = ImmutableDifficulty.decode(encodedBytes0);
+        difficulty1 = Difficulty.decode(encodedBytes0);
 
         final byte[] rawBytes0 = difficulty0.getBytes().getBytes();
         final byte[] rawBytes1 = difficulty1.getBytes().getBytes();
@@ -187,7 +187,7 @@ public class DifficultyTests {
         // Setup
         final String difficultyEncodedString = "18031849"; // Difficulty for Block 0000000000000000019215F45AC2190F5316FF2E4BB6ED300104585384269F93
         final BigDecimal expectedDifficultyRatio = new BigDecimal("355264363497.1042");
-        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray(difficultyEncodedString));
+        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(difficultyEncodedString));
 
         // Action
         final BigDecimal difficultyRatio = difficulty.getDifficultyRatio();
@@ -216,7 +216,7 @@ public class DifficultyTests {
         //  However, when investigating the actual difficulty, it is 1.182899...
         //  Command To Verify: bitcoin-cli getblockhash 32256 | xargs bitcoin-cli getblock
         final Float firstDifficultyAdjustment = 1.0F / 1.182899534312841F;
-        final Difficulty expectedDifficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1D00D86A"));
+        final Difficulty expectedDifficulty = Difficulty.decode(HexUtil.hexStringToByteArray("1D00D86A"));
 
         // Action
         final Difficulty multipliedDifficulty = difficulty.multiplyBy(firstDifficultyAdjustment);
@@ -228,7 +228,7 @@ public class DifficultyTests {
     @Test
     public void higher_difficulty_value_should_be_less_difficult() {
         // Setup
-        final Difficulty difficulty = ImmutableDifficulty.decode(HexUtil.hexStringToByteArray("1D01B304"));
+        final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray("1D01B304"));
         final Difficulty baseDifficulty = Difficulty.BASE_DIFFICULTY;
 
         // Action

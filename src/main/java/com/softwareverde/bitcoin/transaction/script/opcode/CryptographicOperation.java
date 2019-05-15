@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.opcode;
 import com.softwareverde.bitcoin.bip.Buip55;
 import com.softwareverde.bitcoin.bip.HF20171113;
 import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
@@ -117,7 +118,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
             if (scriptSignature != null) {
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
-                signatureIsValid = checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
+                signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
             }
             else {
                 // NOTE: An invalid scriptSignature is permitted, and just simply fails...
@@ -180,11 +181,18 @@ public class CryptographicOperation extends SubTypedOperation {
                     signaturesAreEmpty = false;
                 }
 
-                final ScriptSignature signature = signatureValue.asScriptSignature();
-                // if (signature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails...
+                final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+                // if (scriptSignature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails / pushes a false value...
+                if (scriptSignature != null) {
+                    // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
+                    final Signature signature = scriptSignature.getSignature();
+                    if (signature.getType() == Signature.Type.SCHNORR) {
+                        return false;
+                    }
+                }
 
                 signatureBytesBuilder.add(MutableByteArray.wrap(signatureValue.getBytes())); // NOTE: All instances of the signature should be purged from the signed script...
-                listBuilder.add(signature);
+                listBuilder.add(scriptSignature);
             }
             signatures = listBuilder.build();
             bytesToRemoveFromScript = signatureBytesBuilder.build();
@@ -219,7 +227,7 @@ public class CryptographicOperation extends SubTypedOperation {
                         }
 
                         if (signature != null) {
-                            signatureIsValid = checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
+                            signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
                         }
                         else {
                             signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
@@ -263,9 +271,6 @@ public class CryptographicOperation extends SubTypedOperation {
         final Value signatureValue = stack.pop();
 
         final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
-
-
-
         final byte[] messageHash = BitcoinUtil.sha256(messageValue.getBytes());
 
         final Boolean signatureIsValid;
@@ -273,7 +278,14 @@ public class CryptographicOperation extends SubTypedOperation {
             final PublicKey publicKey = publicKeyValue.asPublicKey();
             if (publicKey == null) { return false; } // The PublicKey must be a valid for OP_CHECKDATASIG...
 
-            signatureIsValid = Secp256k1.verifySignature(scriptSignature.getSignature(), publicKey, messageHash);
+            final Signature signature = scriptSignature.getSignature();
+
+            if (signature.getType() == Signature.Type.SCHNORR) {
+                signatureIsValid = Schnorr.verifySignature(signature, publicKey, messageHash);
+            }
+            else {
+                signatureIsValid = Secp256k1.verifySignature(signature, publicKey, messageHash);
+            }
         }
         else {
             signatureIsValid = false;

@@ -7,11 +7,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -22,7 +23,6 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -30,7 +30,7 @@ import com.softwareverde.util.Util;
 
 public class TransactionTestUtil {
 
-    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final DatabaseConnection databaseConnection) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
@@ -77,11 +77,11 @@ public class TransactionTestUtil {
         return transactionHashes;
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
         createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final MysqlDatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
 
@@ -99,7 +99,7 @@ public class TransactionTestUtil {
             final TransactionId transactionId;
             final java.util.List<Row> transactionRows = databaseConnection.query(new Query("SELECT id FROM transactions WHERE hash = ?").setParameter(previousOutputTransactionHash));
             if (transactionRows.isEmpty()) {
-                Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
+                // Logger.log("TEST: NOTE: Mutating genesis block; adding fake transaction with hash: " + previousOutputTransactionHash);
 
                 transactionId = TransactionId.wrap(databaseConnection.executeSql(
                     new Query("INSERT INTO transactions (hash, version, lock_time) VALUES (?, ?, ?)")
@@ -131,13 +131,13 @@ public class TransactionTestUtil {
 
             final java.util.List<Row> transactionOutputRows = databaseConnection.query(new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? AND `index` = ?").setParameter(transactionId).setParameter(transactionInput.getPreviousOutputIndex()));
             if (transactionOutputRows.isEmpty()) {
-                Logger.log("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
+                // Logger.log("TEST: NOTE: Mutating transaction: " + previousOutputTransactionHash);
 
                 final Long newTransactionOutputId = databaseConnection.executeSql(
                     new Query("INSERT INTO transaction_outputs (transaction_id, `index`, amount) VALUES (?, ?, ?)")
                         .setParameter(transactionId)
                         .setParameter(transactionInput.getPreviousOutputIndex())
-                        .setParameter(Long.MAX_VALUE)
+                        .setParameter(transaction.getTotalOutputValue())
                 );
 
                 databaseConnection.executeSql(

@@ -11,6 +11,7 @@ public class MutableBloomFilter implements BloomFilter {
     protected final MutableByteArray _bytes;
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
+    protected byte _updateMode = 0x01;
 
     protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
@@ -97,6 +98,15 @@ public class MutableBloomFilter implements BloomFilter {
         return BloomFilterCore.containsItem(_bytes, _hashFunctionCount, _nonce, item);
     }
 
+    @Override
+    public byte getUpdateMode() {
+        return _updateMode;
+    }
+
+    public void setUpdateMode(final byte updateMode) {
+        _updateMode = updateMode;
+    }
+
     public void clear() {
         for (int i = 0; i < _bytes.getByteCount(); ++i) {
             _bytes.set(i, (byte) 0x00);
@@ -125,7 +135,7 @@ public class MutableBloomFilter implements BloomFilter {
 
     @Override
     public boolean equals(final Object object) {
-        return BloomFilterCore.equals(_bytes, _hashFunctionCount, _nonce, object);
+        return BloomFilterCore.equals(_bytes, _hashFunctionCount, _nonce, _updateMode, object);
     }
 
     @Override

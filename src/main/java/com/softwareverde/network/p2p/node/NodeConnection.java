@@ -15,7 +15,7 @@ import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeConnection {
-    public static Boolean LOGGING_ENABLED = true;
+    public static Boolean LOGGING_ENABLED = false;
 
     public interface MessageReceivedCallback {
         void onMessageReceived(ProtocolMessage message);
@@ -84,11 +84,18 @@ public class NodeConnection {
 
             if ( (socket != null) && (socket.isConnected()) ) {
                 _binarySocket = new BinarySocket(socket, _binaryPacketFormat, _threadPool);
+                _binarySocket.setOnClosedCallback(new Runnable() {
+                    @Override
+                    public void run() {
+                        _disconnect();
+                    }
+                });
                 _onSocketConnected();
             }
             else {
-                if (_onConnectFailureCallback != null) {
-                    _onConnectFailureCallback.run();
+                final Runnable onConnectFailureCallback = _onConnectFailureCallback;
+                if (onConnectFailureCallback != null) {
+                    _threadPool.execute(onConnectFailureCallback);
                 }
             }
         }
@@ -199,6 +206,35 @@ public class NodeConnection {
         // Nothing.
     }
 
+    protected void _disconnect() {
+        Logger.log("DISCONNECT: " + this.getIp() + ":" + this.getPort());
+        final Runnable onDisconnectCallback = _onDisconnectCallback;
+
+        _messageReceivedCallback = null;
+        _onDisconnectCallback = null;
+        _onReconnectCallback = null;
+        _onConnectCallback = null;
+        _onConnectFailureCallback = null;
+
+        synchronized (_connectionThreadMutex) {
+            if (_connectionThread != null) {
+                _shutdownConnectionThread();
+            }
+        }
+
+        final BinarySocket binarySocket = _binarySocket;
+        _binarySocket = null;
+        if (binarySocket != null) {
+            binarySocket.setMessageReceivedCallback(null);
+            binarySocket.setOnClosedCallback(null);
+            binarySocket.close();
+        }
+
+        if (onDisconnectCallback != null) {
+            (new Thread(onDisconnectCallback)).start();
+        }
+    }
+
     protected void _processOutboundMessageQueue() {
         ProtocolMessage message;
         while ((message = _outboundMessageQueue.poll()) != null) {
@@ -259,6 +295,10 @@ public class NodeConnection {
         _threadPool = threadPool;
     }
 
+    /**
+     * Starts the connection process.
+     *  NodeConnection::connect is safe to call multiple times.
+     */
     public void connect() {
         synchronized (_connectionThreadMutex) {
             { // Shutdown the existing connection thread, if it exists...
@@ -307,30 +347,7 @@ public class NodeConnection {
     }
 
     public void disconnect() {
-        final Runnable onDisconnectCallback = _onDisconnectCallback;
-
-        _messageReceivedCallback = null;
-        _onDisconnectCallback = null;
-        _onReconnectCallback = null;
-        _onConnectCallback = null;
-        _onConnectFailureCallback = null;
-
-        synchronized (_connectionThreadMutex) {
-            if (_connectionThread != null) {
-                _shutdownConnectionThread();
-            }
-        }
-
-        final BinarySocket binarySocket = _binarySocket;
-        _binarySocket = null;
-        if (binarySocket != null) {
-            binarySocket.setMessageReceivedCallback(null);
-            binarySocket.close();
-        }
-
-        if (onDisconnectCallback != null) {
-            (new Thread(onDisconnectCallback)).start();
-        }
+        _disconnect();
     }
 
     public void queueMessage(final ProtocolMessage message) {
@@ -340,12 +357,17 @@ public class NodeConnection {
             }
         }
 
-        _threadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                _writeOrQueueMessage(message);
-            }
-        });
+        // NOTE: Queuing the message into the ThreadPool can cause significant memory usage for large message if the message
+        //  remains in the queue for its duration.
+        //  This could be mediated by pushing the write to the front of the queue...
+        _writeOrQueueMessage(message);
+
+        // _threadPool.execute(new Runnable() {
+        //     @Override
+        //     public void run() {
+        //         _writeOrQueueMessage(message);
+        //     }
+        // });
     }
 
     public void setMessageReceivedCallback(final MessageReceivedCallback messageReceivedCallback) {

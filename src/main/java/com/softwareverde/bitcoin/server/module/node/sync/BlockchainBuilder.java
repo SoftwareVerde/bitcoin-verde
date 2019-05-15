@@ -7,12 +7,14 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlock;
@@ -22,8 +24,6 @@ import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
@@ -35,7 +35,7 @@ public class BlockchainBuilder extends SleepyService {
 
     protected final ThreadPool _threadPool;
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseCache;
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
@@ -76,7 +76,7 @@ public class BlockchainBuilder extends SleepyService {
         }
     }
 
-    protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final MysqlDatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
+    protected Boolean _processGenesisBlock(final PendingBlockId pendingBlockId, final DatabaseConnection databaseConnection, final PendingBlockDatabaseManager pendingBlockDatabaseManager) throws DatabaseException {
         final PendingBlock pendingBlock = pendingBlockDatabaseManager.getPendingBlock(pendingBlockId);
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
@@ -112,7 +112,7 @@ public class BlockchainBuilder extends SleepyService {
     public Boolean _run() {
         final Thread thread = Thread.currentThread();
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
             pendingBlockDatabaseManager.purgeFailedPendingBlocks(BlockDownloader.MAX_DOWNLOAD_FAILURE_COUNT);
 
@@ -211,7 +211,7 @@ public class BlockchainBuilder extends SleepyService {
     protected void _onSleep() {
         final Status downloadStatus = _downloadStatusMonitor.getStatus();
         if (downloadStatus != Status.ACTIVE) {
-            try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
                 final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
                 _bitcoinNodeManager.broadcastBlockFinder(blockFinderHashes);
@@ -222,7 +222,7 @@ public class BlockchainBuilder extends SleepyService {
         }
     }
 
-    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseCache, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseCache = databaseCache;
@@ -231,7 +231,7 @@ public class BlockchainBuilder extends SleepyService {
         _blockDownloadRequester = blockDownloadRequester;
         _threadPool = threadPool;
 
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseCache);
             _hasGenesisBlock = blockDatabaseManager.blockHeaderHasTransactions(BlockHeader.GENESIS_BLOCK_HASH);
         }

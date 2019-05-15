@@ -38,7 +38,7 @@ public class AddressInflater {
     }
 
     public Address fromBytes(final ByteArray bytes) {
-        if (bytes.getByteCount() != 20) { return null; }
+        if (bytes.getByteCount() != Address.BYTE_COUNT) { return null; }
         return new Address(bytes.getBytes());
     }
 

@@ -8,8 +8,9 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -31,7 +32,6 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -39,7 +39,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class TransactionValidator {
-    public static final Long COINBASE_MATURITY = 100L;
+    public static final Long COINBASE_MATURITY = 100L; // Number of Blocks before a coinbase transaction may be spent.
 
     protected static final Object LOG_INVALID_TRANSACTION_MUTEX = new Object();
 
@@ -71,15 +71,15 @@ public class TransactionValidator {
         synchronized (LOG_INVALID_TRANSACTION_MUTEX) {
             // NOTE: These logging statements are synchronized since Transaction validation is multithreaded, and it is possible to have these log statements intermingle if multiple errors are found...
             Logger.log("\n------------");
-            Logger.log("Tx Hash:\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
-            Logger.log("Tx Bytes:\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
-            Logger.log("Tx Input:\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
-            Logger.log("Tx Output:\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
+            Logger.log("Tx Hash:\t\t\t" + transaction.getHash() + ((transactionInputIndex != null) ? ("_" + transactionInputIndex) : ("")));
+            Logger.log("Tx Bytes:\t\t\t" + HexUtil.toHexString(transactionDeflater.toBytes(transaction).getBytes()));
+            Logger.log("Tx Input:\t\t\t" + (transactionInput != null ? transactionInputDeflater.toBytes(transactionInput) : null));
+            Logger.log("Tx Output:\t\t\t" + ((outputToSpend != null) ? (outputToSpend.getIndex() + " " + transactionOutputDeflater.toBytes(outputToSpend)) : (null)));
             Logger.log("Block Height:\t\t" + context.getBlockHeight());
             Logger.log("Tx Input Index\t\t" + transactionInputIndex);
             Logger.log("Locking Script:\t\t" + lockingScript);
-            Logger.log("Unlocking Script:\t" + unlockingScript);
-            Logger.log("Median Block Time:\t" + _medianBlockTime.getCurrentTimeInSeconds());
+            Logger.log("Unlocking Script:\t\t" + unlockingScript);
+            Logger.log("Median Block Time:\t\t" + _medianBlockTime.getCurrentTimeInSeconds());
             Logger.log("Network Time:\t\t" + _networkTime.getCurrentTimeInSeconds());
             Logger.log("\n------------\n");
         }
@@ -123,7 +123,7 @@ public class TransactionValidator {
         return true;
     }
 
-    protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight) throws DatabaseException {
+    protected Boolean _validateSequenceNumbers(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final Long blockHeight, final Boolean validateForMemoryPool) throws DatabaseException {
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
 
             final SequenceNumber sequenceNumber = transactionInput.getSequenceNumber();
@@ -165,7 +165,7 @@ public class TransactionValidator {
                 }
                 else {
                     final Long blockHeightContainingOutputBeingSpent = _blockHeaderDatabaseManager.getBlockHeight(blockIdContainingOutputBeingSpent);
-                    final Long blockCount = (blockHeight - blockHeightContainingOutputBeingSpent);
+                    final Long blockCount = ( (blockHeight - blockHeightContainingOutputBeingSpent) + (validateForMemoryPool ? 1 : 0) );
                     final Long requiredBlockCount = sequenceNumber.asBlockCount();
 
                     final Boolean sequenceNumberIsValid = (blockCount >= requiredBlockCount);
@@ -237,7 +237,7 @@ public class TransactionValidator {
         return minedCount;
     }
 
-    public TransactionValidator(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    public TransactionValidator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
         _blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
         _transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
@@ -258,7 +258,7 @@ public class TransactionValidator {
     public Boolean validateTransaction(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final Transaction transaction, final Boolean validateForMemoryPool) {
         final Sha256Hash transactionHash = transaction.getHash();
 
-        final ScriptRunner scriptRunner = new ScriptRunner();
+        final ScriptRunner scriptRunner = new ScriptRunner(_medianBlockTime);
 
         final MutableContext context = new MutableContext();
         context.setBlockHeight(blockHeight);
@@ -295,7 +295,7 @@ public class TransactionValidator {
         if (Bip68.isEnabled(blockHeight)) { // Validate Relative SequenceNumber
             if (transaction.getVersion() >= 2L) {
                 try {
-                    final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockchainSegmentId, transaction, blockHeight);
+                    final Boolean sequenceNumbersAreValid = _validateSequenceNumbers(blockchainSegmentId, transaction, blockHeight, validateForMemoryPool);
                     if (! sequenceNumbersAreValid) {
                         if (_shouldLogInvalidTransactions) {
                             Logger.log("Transaction SequenceNumber validation failed.");
@@ -311,8 +311,6 @@ public class TransactionValidator {
                 }
             }
         }
-
-        // TODO: Consider enforcing Canonical Transaction Order (HF20181115)...
 
         final Long totalTransactionInputValue;
         try {
@@ -423,12 +421,21 @@ public class TransactionValidator {
             final Long totalTransactionOutputValue;
             {
                 long totalOutputValue = 0L;
+                final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                if (transactionOutputs.isEmpty()) {
+                    Logger.log("Transaction contains no outputs: " + transaction.getHash());
+                    return false;
+                }
+
                 for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-                    totalOutputValue += transactionOutput.getAmount();
+                    final Long transactionOutputAmount = transactionOutput.getAmount();
+                    if (transactionOutputAmount < 0L) {
+                        Logger.log("TransactionOutput has negative amount: " + transaction.getHash());
+                        return false;
+                    }
+                    totalOutputValue += transactionOutputAmount;
 
                     // TODO: Validate that the output indices are sequential and start at 0... (Must check reference client if it does the same.)
-                    // TODO: Validate the output count is not zero...
-                    // TODO: Validate the output value isn't negative... (Unknown if zero is allowed.)
                 }
                 totalTransactionOutputValue = totalOutputValue;
             }

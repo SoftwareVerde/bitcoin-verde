@@ -417,7 +417,6 @@ public class MerkleTreeTests {
 
     @Test
     public void should_get_items_in_order() {
-        // Setup
         final MerkleTreeNode<Item> merkleTree = new MerkleTreeNode<Item>();
         for (int i = 0; i < 100; ++i) {
             merkleTree.addItem(new Item(i));
@@ -427,9 +426,5 @@ public class MerkleTreeTests {
                 Assert.assertEquals(new Item(j).getHash(), item.getHash());
             }
         }
-
-        // Action
-
-        // Assert
     }
 }

@@ -5,21 +5,24 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlockHeadersHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
+import com.softwareverde.bitcoin.server.module.node.handler.transaction.QueryUnconfirmedTransactionsHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.transaction.TransactionInventoryMessageHandlerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -32,9 +35,6 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 
@@ -75,17 +75,17 @@ public class RepairModule {
         }
         _blockHashes = blockHashesBuilder.build();
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
         }
         Logger.log("[Database Online]");
 
-        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(maxUtxoCacheByteCount);
         _environment = new Environment(database, masterDatabaseManagerCache);
 
@@ -101,14 +101,17 @@ public class RepairModule {
         };
 
         { // Initialize NodeInitializer...
-            final MysqlDatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
-            final SynchronizationStatus synchronizationStatusHandler = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
-            final BitcoinNode.QueryBlocksCallback queryBlocksHandler = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
-            final BitcoinNode.QueryBlockHeadersCallback queryBlockHeadersHandler = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
-            final BitcoinNode.RequestDataCallback requestDataHandler = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
-            final TransactionInventoryMessageHandlerFactory transactionInventoryMessageHandlerFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
-            final BitcoinNode.BlockInventoryMessageCallback inventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
-            final BitcoinNode.RequestPeersHandler requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
+            final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+
+            final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
+            nodeInitializerProperties.synchronizationStatus = new SynchronizationStatusHandler(databaseConnectionFactory, databaseManagerCache);
+            nodeInitializerProperties.queryBlocksCallback = QueryBlocksHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.queryBlockHeadersCallback = QueryBlockHeadersHandler.IGNORES_REQUESTS_HANDLER;
+            nodeInitializerProperties.requestDataCallback = RequestDataHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.transactionsAnnouncementCallbackFactory = TransactionInventoryMessageHandlerFactory.IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY;
+            nodeInitializerProperties.blockInventoryMessageHandler = BlockInventoryMessageHandler.IGNORE_INVENTORY_HANDLER;
+            nodeInitializerProperties.queryUnconfirmedTransactionsCallback = QueryUnconfirmedTransactionsHandler.IGNORE_REQUESTS_HANDLER;
+            nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
                 public List<BitcoinNodeIpAddress> getConnectedPeers() {
                     return new MutableList<BitcoinNodeIpAddress>(0);
@@ -118,25 +121,28 @@ public class RepairModule {
             final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
                 @Override
                 public ThreadPool newThreadPool() {
-                    return new ThreadPoolThrottle(serverProperties.getMaxMessagesPerSecond(), _threadPool);
+                    return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
                 }
             };
 
-            _nodeInitializer = new NodeInitializer(synchronizationStatusHandler, inventoryMessageHandler, transactionInventoryMessageHandlerFactory, queryBlocksHandler, queryBlockHeadersHandler, requestDataHandler, threadPoolFactory, localNodeFeatures, requestPeersHandler);
+            nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
+            nodeInitializerProperties.localNodeFeatures = localNodeFeatures;
+
+            _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
     }
 
     public void run() {
-        final MysqlDatabase database = _environment.getDatabase();
+        final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         final DatabaseManagerCache databaseManagerCache = new ReadOnlyLocalDatabaseManagerCache(masterDatabaseManagerCache);
 
         final List<BitcoinNode> bitcoinNodes;
         {
-            final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+            final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
             final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<BitcoinNode>();
-            for (final Configuration.SeedNodeProperties seedNodeProperties : serverProperties.getSeedNodeProperties()) {
+            for (final Configuration.SeedNodeProperties seedNodeProperties : bitcoinProperties.getSeedNodeProperties()) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
 
@@ -158,7 +164,7 @@ public class RepairModule {
             bitcoinNode.requestBlock(blockHash, new BitcoinNode.DownloadBlockCallback() {
                 @Override
                 public void onResult(final Block block) {
-                    try (final MysqlDatabaseConnection databaseConnection = database.newConnection()) {
+                    try (final DatabaseConnection databaseConnection = database.newConnection()) {
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
                         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
 

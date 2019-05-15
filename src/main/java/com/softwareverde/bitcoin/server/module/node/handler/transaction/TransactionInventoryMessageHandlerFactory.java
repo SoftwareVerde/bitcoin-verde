@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 
 public class TransactionInventoryMessageHandlerFactory implements NodeInitializer.TransactionsAnnouncementCallbackFactory {
     public static final TransactionInventoryMessageHandlerFactory IGNORE_NEW_TRANSACTIONS_HANDLER_FACTORY = new TransactionInventoryMessageHandlerFactory(null, null, null) {
@@ -13,11 +13,11 @@ public class TransactionInventoryMessageHandlerFactory implements NodeInitialize
         }
     };
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
     protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandlerFactory(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
+    public TransactionInventoryMessageHandlerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
         _newInventoryCallback = newInventoryCallback;

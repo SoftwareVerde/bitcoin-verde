@@ -70,15 +70,21 @@ public class TransactionInflater {
     }
 
     public MutableTransaction fromBytes(final ByteArrayReader byteArrayReader) {
+        if (byteArrayReader == null) { return null; }
+
         return _fromByteArrayReader(byteArrayReader);
     }
 
     public MutableTransaction fromBytes(final byte[] bytes) {
+        if (bytes == null) { return null; }
+
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }
 
     public MutableTransaction fromBytes(final ByteArray bytes) {
+        if (bytes == null) { return null; }
+
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }

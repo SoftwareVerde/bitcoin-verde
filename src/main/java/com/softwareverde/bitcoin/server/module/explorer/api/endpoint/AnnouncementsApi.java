@@ -1,39 +1,67 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.http.server.servlet.WebSocketServlet;
+import com.softwareverde.http.server.servlet.request.WebSocketRequest;
+import com.softwareverde.http.server.servlet.response.WebSocketResponse;
+import com.softwareverde.http.websocket.WebSocket;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
-import com.softwareverde.network.socket.JsonProtocolMessage;
 import com.softwareverde.network.socket.JsonSocket;
-import com.softwareverde.servlet.WebSocketServlet;
-import com.softwareverde.servlet.request.WebSocketRequest;
-import com.softwareverde.servlet.response.WebSocketResponse;
-import com.softwareverde.servlet.socket.WebSocket;
 import com.softwareverde.util.RotatingQueue;
 
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class AnnouncementsApi implements WebSocketServlet {
     protected static final Object MUTEX = new Object();
     protected static final HashMap<Long, WebSocket> WEB_SOCKETS = new HashMap<Long, WebSocket>();
 
+    protected static final ReentrantReadWriteLock.ReadLock QUEUE_READ_LOCK;
+    protected static final ReentrantReadWriteLock.WriteLock QUEUE_WRITE_LOCK;
+    static {
+        final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        QUEUE_READ_LOCK = readWriteLock.readLock();
+        QUEUE_WRITE_LOCK = readWriteLock.writeLock();
+    }
+
     protected static final RotatingQueue<Json> BLOCK_HEADERS = new RotatingQueue<Json>(10);
     protected static final RotatingQueue<Json> TRANSACTIONS = new RotatingQueue<Json>(32);
 
-    protected final AtomicLong _nextSocketId = new AtomicLong(1L);
+    protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
+
     protected final Configuration.ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected Boolean _isShuttingDown = false;
     protected JsonSocket _socketConnection = null;
+
+    protected final NodeJsonRpcConnection.AnnouncementHookCallback _announcementHookCallback = new NodeJsonRpcConnection.AnnouncementHookCallback() {
+        @Override
+        public void onNewBlockHeader(final Json blockJson) {
+            _onNewBlock(blockJson);
+        }
+
+        @Override
+        public void onNewTransaction(final Json transactionJson) {
+            _onNewTransaction(transactionJson);
+        }
+    };
 
     protected Json _wrapObject(final String objectType, final Json object) {
         final Json json = new Json();
         json.put("objectType", objectType);
         json.put("object", object);
         return json;
+    }
+
+    // NOTE: A light JSON message is sent instead of the whole Transaction Json in order to keep WebSocket._maxPacketByteCount small...
+    protected Json _transactionJsonToTransactionHashJson(final Json transactionJson) {
+        final Json transactionHashJson = new Json(false);
+        transactionHashJson.put("hash", transactionJson.getString("hash"));
+        return transactionHashJson;
     }
 
     protected void _checkRpcConnection() {
@@ -59,52 +87,10 @@ public class AnnouncementsApi implements WebSocketServlet {
             _socketConnection = null;
 
             try {
-                final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
-                if (socket.isConnected()) {
-                    final JsonSocket jsonSocket = new JsonSocket(socket, _threadPool);
-
-                    jsonSocket.setMessageReceivedCallback(new Runnable() {
-                        @Override
-                        public void run() {
-                            final JsonProtocolMessage message = jsonSocket.popMessage();
-                            final Json json = message.getMessage();
-
-                            final String objectType = json.getString("objectType");
-                            final Json object = json.get("object");
-                            switch (objectType) {
-                                case "BLOCK": {
-                                    _onNewBlock(object);
-                                } break;
-
-                                case "TRANSACTION": {
-                                    _onNewTransaction(object);
-                                } break;
-
-                                default: { } break;
-                            }
-                        }
-                    });
-
-                    final Json registerHookRpcJson = new Json();
-                    {
-                        registerHookRpcJson.put("method", "POST");
-                        registerHookRpcJson.put("query", "ADD_HOOK");
-
-                        final Json eventTypesJson = new Json(true);
-                        eventTypesJson.add("NEW_BLOCK");
-                        eventTypesJson.add("NEW_TRANSACTION");
-
-                        final Json parametersJson = new Json();
-                        parametersJson.put("events", eventTypesJson);
-
-                        registerHookRpcJson.put("parameters", parametersJson);
-                    }
-
-                    final JsonProtocolMessage jsonProtocolMessage = new JsonProtocolMessage(registerHookRpcJson);
-                    jsonSocket.write(jsonProtocolMessage);
-                    _socketConnection = jsonSocket;
-
-                    jsonSocket.beginListening();
+                final NodeJsonRpcConnection nodeJsonRpcConnection = new NodeJsonRpcConnection(bitcoinRpcUrl, bitcoinRpcPort, _threadPool);
+                final Boolean wasSuccessful = nodeJsonRpcConnection.upgradeToAnnouncementHook(_announcementHookCallback);
+                if (wasSuccessful) {
+                    _socketConnection = nodeJsonRpcConnection.getJsonSocket();
                 }
             }
             catch (final Exception exception) {
@@ -136,7 +122,8 @@ public class AnnouncementsApi implements WebSocketServlet {
     protected void _broadcastNewTransaction(final Json transactionJson) {
         final String message;
         {
-            final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+            final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
+            final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
             message = messageJson.toString();
         }
 
@@ -148,16 +135,26 @@ public class AnnouncementsApi implements WebSocketServlet {
     }
 
     protected void _onNewBlock(final Json blockJson) {
-        synchronized (MUTEX) {
+        try {
+            QUEUE_WRITE_LOCK.lock();
+
             BLOCK_HEADERS.add(blockJson);
+        }
+        finally {
+            QUEUE_WRITE_LOCK.unlock();
         }
 
         _broadcastNewBlockHeader(blockJson);
     }
 
     protected void _onNewTransaction(final Json transactionJson) {
-        synchronized (MUTEX) {
+        try {
+            QUEUE_WRITE_LOCK.lock();
+
             TRANSACTIONS.add(transactionJson);
+        }
+        finally {
+            QUEUE_WRITE_LOCK.unlock();
         }
 
         _broadcastNewTransaction(transactionJson);
@@ -198,7 +195,6 @@ public class AnnouncementsApi implements WebSocketServlet {
         webSocket.setConnectionClosedCallback(new WebSocket.ConnectionClosedCallback() {
             @Override
             public void onClose(final int code, final String message) {
-                Logger.log("WebSocket Closed: " + code + " " + message + " " + webSocket.toString());
                 synchronized (MUTEX) {
                     WEB_SOCKETS.remove(webSocketId);
                 }
@@ -207,18 +203,24 @@ public class AnnouncementsApi implements WebSocketServlet {
 
         // webSocket.startListening();
 
-        synchronized (MUTEX) {
-            for (final Json transactionJson : BLOCK_HEADERS) {
-                final Json messageJson = _wrapObject("BLOCK", transactionJson);
+        try {
+            QUEUE_READ_LOCK.lock();
+
+            for (final Json blockHeaderJson : BLOCK_HEADERS) {
+                final Json messageJson = _wrapObject("BLOCK", blockHeaderJson);
                 final String message = messageJson.toString();
                 webSocket.sendMessage(message);
             }
 
             for (final Json transactionJson : TRANSACTIONS) {
-                final Json messageJson = _wrapObject("TRANSACTION", transactionJson);
+                final Json trimmedTransactionJson = _transactionJsonToTransactionHashJson(transactionJson);
+                final Json messageJson = _wrapObject("TRANSACTION_HASH", trimmedTransactionJson);
                 final String message = messageJson.toString();
                 webSocket.sendMessage(message);
             }
+        }
+        finally {
+            QUEUE_READ_LOCK.unlock();
         }
     }
 

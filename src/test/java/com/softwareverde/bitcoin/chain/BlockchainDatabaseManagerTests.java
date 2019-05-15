@@ -8,10 +8,11 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockRelationship;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -34,7 +35,6 @@ import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Before;
@@ -42,7 +42,7 @@ import org.junit.Test;
 
 public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
-    protected void assertBlockSegmentBlockCount(final BlockchainSegmentId blockchainSegmentId, final Integer expectedValue, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected void assertBlockSegmentBlockCount(final BlockchainSegmentId blockchainSegmentId, final Integer expectedValue, final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT COUNT(*) AS count FROM blocks WHERE blockchain_segment_id = ?")
                 .setParameter(blockchainSegmentId)
@@ -53,7 +53,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
         Assert.assertEquals(expectedValue, blockCount);
     }
 
-    protected void assertBlockSegmentBlockHeight(final BlockchainSegmentId blockchainSegmentId, final Integer expectedValue, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected void assertBlockSegmentBlockHeight(final BlockchainSegmentId blockchainSegmentId, final Integer expectedValue, final DatabaseConnection databaseConnection) throws DatabaseException {
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT MAX(block_height) AS block_height FROM blocks WHERE blockchain_segment_id = ?")
                 .setParameter(blockchainSegmentId)
@@ -85,7 +85,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -133,7 +133,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -193,7 +193,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -254,7 +254,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -343,7 +343,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -445,7 +445,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -602,7 +602,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -756,7 +756,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -891,7 +891,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
     protected Long _nonce = 0L;
     protected Sha256Hash _insertBlock(final Sha256Hash parentBlockHash) throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
 
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -911,7 +911,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
     }
 
     protected void _assertBlockchainSegments(final Long expectedBlockchainSegmentId, final Sha256Hash[] blockHashes) throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
             for (final Sha256Hash blockHash : blockHashes) {
@@ -923,7 +923,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
     }
 
     protected void _assertIsParent(final Sha256Hash parentHash, final Sha256Hash childHash) throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
 
@@ -961,7 +961,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -1036,7 +1036,7 @@ public class BlockchainDatabaseManagerTests extends IntegrationTest {
 
          */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -1178,7 +1178,7 @@ class Void {
             context.setBlockHeight(6L);
             context.setTransactionOutputBeingSpent(outputBeingSpent);
             context.setCurrentScriptLastCodeSeparatorIndex(0);
-            final ScriptRunner scriptRunner = new ScriptRunner();
+            final ScriptRunner scriptRunner = new ScriptRunner(null);
             final Boolean outputIsUnlocked = scriptRunner.runScript(outputBeingSpent.getLockingScript(), transactionInput.getUnlockingScript(), context);
             Assert.assertTrue(outputIsUnlocked);
 

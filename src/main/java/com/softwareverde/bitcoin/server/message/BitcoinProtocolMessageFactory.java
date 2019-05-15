@@ -3,6 +3,9 @@ package com.softwareverde.bitcoin.server.message;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTransactionBloomFilterMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.bloomfilter.update.UpdateTransactionBloomFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.compact.EnableCompactBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.error.ErrorMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.address.NodeIpAddressMessageInflater;
@@ -11,10 +14,13 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHe
 import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.BlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.block.header.BlockHeadersMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.response.block.merkle.MerkleBlockMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.request.RequestDataMessageInflater;
@@ -46,11 +52,13 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.REQUEST_BLOCK_HEADERS, new RequestBlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, new QueryUnconfirmedTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(MessageType.NOT_FOUND, new NotFoundResponseMessageInflater());
         _commandInflaterMap.put(MessageType.INVENTORY, new InventoryMessageInflater());
         _commandInflaterMap.put(MessageType.BLOCK, new BlockMessageInflater());
         _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater());
+        _commandInflaterMap.put(MessageType.MERKLE_BLOCK, new MerkleBlockMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_COMPACT_BLOCKS, new EnableCompactBlocksMessageInflater());
@@ -60,6 +68,10 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.THIN_TRANSACTIONS, new ThinTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.FEE_FILTER, new FeeFilterMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_PEERS, new RequestPeersMessageInflater());
+        _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater());
     }
 
     @Override

@@ -4,11 +4,14 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -21,26 +24,25 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 
-public class MetadataHandler implements JsonRpcSocketServerHandler.MetadataHandler {
+public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+    protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
 
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
 
         { // Include Extra Block Metadata...
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            final Integer transactionCount = transactionDatabaseManager.getTransactionCount(blockId);
+            final Integer transactionCount = blockDatabaseManager.getTransactionCount(blockId);
 
             blockJson.put("height", blockHeight);
             blockJson.put("reward", BlockHeader.calculateBlockReward(blockHeight));
@@ -49,7 +51,7 @@ public class MetadataHandler implements JsonRpcSocketServerHandler.MetadataHandl
         }
     }
 
-    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
         final String transactionHashString = transactionHash.toString();
 
@@ -152,14 +154,14 @@ public class MetadataHandler implements JsonRpcSocketServerHandler.MetadataHandl
         transactionJson.put("fee", transactionFee);
     }
 
-    public MetadataHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public MetadataHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
     public void applyMetadataToBlockHeader(final Sha256Hash blockHash, final Json blockJson) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             _addMetadataForBlockHeaderToJson(blockHash, blockJson, databaseConnection, _databaseManagerCache);
         }
         catch (final DatabaseException exception) {
@@ -169,7 +171,7 @@ public class MetadataHandler implements JsonRpcSocketServerHandler.MetadataHandl
 
     @Override
     public void applyMetadataToTransaction(final Transaction transaction, final Json transactionJson) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             _addMetadataForTransactionToJson(transaction, transactionJson, databaseConnection, _databaseManagerCache);
         }
         catch (final DatabaseException exception) {

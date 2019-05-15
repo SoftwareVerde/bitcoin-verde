@@ -10,9 +10,11 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -29,12 +31,12 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
+import com.softwareverde.bitcoin.wallet.PaymentAmount;
+import com.softwareverde.bitcoin.wallet.Wallet;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -52,8 +54,18 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
     }
 
+    public static class TestBlockDatabaseManager extends BlockDatabaseManager {
+        public TestBlockDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+            super(databaseConnection, databaseManagerCache);
+        }
+
+        public void associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
+            _associateTransactionToBlock(transactionId, blockId);
+        }
+    }
+
     protected StoredBlock _storeBlock(final String blockBytes) throws DatabaseException {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
@@ -99,7 +111,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         return mutableTransaction;
     }
 
-    public static Long _calculateBlockHeight(final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    public static Long _calculateBlockHeight(final DatabaseConnection databaseConnection) throws DatabaseException {
         return databaseConnection.query(new Query("SELECT COUNT(*) AS block_height FROM blocks")).get(0).getLong("block_height");
     }
 
@@ -112,10 +124,11 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_validate_valid_transaction() throws Exception {
         // Setup
         final TransactionInflater transactionInflater = new TransactionInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
 
         final BlockchainSegmentId blockchainSegmentId;
@@ -127,7 +140,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final Transaction previousTransaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E7FCF39EE6B86F1595C55B16B60BF4F297988CB9519F5D42597E7FB721E591C6010000008B483045022100AC572B43E78089851202CFD9386750B08AFC175318C537F04EB364BF5A0070D402203F0E829D4BAEA982FEAF987CB9F14C85097D2FBE89FBA3F283F6925B3214A97E0141048922FA4DC891F9BB39F315635C03E60E019FF9EC1559C8B581324B4C3B7589A57550F9B0B80BC72D0F959FDDF6CA65F07223C37A8499076BD7027AE5C325FAC5FFFFFFFF0140420F00000000001976A914C4EB47ECFDCF609A1848EE79ACC2FA49D3CAAD7088AC00000000"));
             TransactionTestUtil.createRequiredTransactionInputs(blockchainSegmentId, previousTransaction, databaseConnection);
             final TransactionId transactionId = transactionDatabaseManager.storeTransaction(previousTransaction);
-            transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+            blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
         }
 
         final byte[] transactionBytes = HexUtil.hexStringToByteArray("01000000010B6072B386D4A773235237F64C1126AC3B240C84B917A3909BA1C43DED5F51F4000000008C493046022100BB1AD26DF930A51CCE110CF44F7A48C3C561FD977500B1AE5D6B6FD13D0B3F4A022100C5B42951ACEDFF14ABBA2736FD574BDB465F3E6F8DA12E2C5303954ACA7F78F3014104A7135BFE824C97ECC01EC7D7E336185C81E2AA2C41AB175407C09484CE9694B44953FCB751206564A9C24DD094D42FDBFDD5AAD3E063CE6AF4CFAAEA4EA14FBBFFFFFFFF0140420F00000000001976A91439AA3D569E06A1D7926DC4BE1193C99BF2EB9EE088AC00000000");
@@ -145,7 +158,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_create_signed_transaction_and_unlock_it() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -160,6 +173,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Store the transaction in the database so that our validator can access it.
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             _storeBlock(BlockData.MainChain.GENESIS_BLOCK);
@@ -167,7 +181,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-        transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+        blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
@@ -175,8 +189,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
         transactionDatabaseManager.storeTransaction(signedTransaction);
@@ -192,7 +208,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_detect_an_address_attempting_to_spend_an_output_it_cannot_unlock() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -207,6 +223,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Store the transaction in the database so that our validator can access it.
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             _storeBlock(BlockData.MainChain.GENESIS_BLOCK);
@@ -214,7 +231,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-        transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+        blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
@@ -222,8 +239,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction with our key that does not match the address given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -238,7 +257,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_detect_an_address_attempting_to_spend_an_output_with_the_incorrect_signature() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -253,6 +272,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Store the transaction in the database so that our validator can access it.
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             _storeBlock(BlockData.MainChain.GENESIS_BLOCK);
@@ -260,7 +280,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-        transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+        blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final Transaction unsignedTransaction = _createTransactionContaining(
@@ -268,8 +288,10 @@ public class TransactionValidatorTests extends IntegrationTest {
             _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
         );
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction with our key that does not match the signature given to transactionToSpend.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, PrivateKey.createNewKey());
 
@@ -284,7 +306,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     public void should_not_validate_transaction_whose_inputs_spend_the_same_output() throws Exception {
         // Setup
         final AddressInflater addressInflater = new AddressInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final TransactionSigner transactionSigner = new TransactionSigner();
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
@@ -299,6 +321,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Store the transaction in the database so that our validator can access it.
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final StoredBlock storedBlock;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             _storeBlock(BlockData.MainChain.GENESIS_BLOCK);
@@ -306,7 +329,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         }
         final BlockchainSegmentId blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(storedBlock.blockId);
         final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transactionToSpend);
-        transactionDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
+        blockDatabaseManager.associateTransactionToBlock(transactionId, storedBlock.blockId);
 
         // Create an unsigned transaction that spends our previous transaction, and send our payment to an irrelevant address.
         final MutableTransaction unsignedTransaction = _createTransactionContaining(
@@ -317,8 +340,10 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Mutate the transaction so that it attempts to spend the same output twice...
         unsignedTransaction.addTransactionInput(unsignedTransaction.getTransactionInputs().get(0));
 
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
         // Sign the unsigned transaction.
-        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+        final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
         final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
         final Transaction signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -343,7 +368,7 @@ public class TransactionValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_transaction_that_spends_the_same_input_twice() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -397,8 +422,10 @@ public class TransactionValidatorTests extends IntegrationTest {
                 _createTransactionOutput(addressInflater.fromBase58Check("1HrXm9WZF7LBm3HCwCBgVS3siDbk5DYCuW"), 50L * Transaction.SATOSHIS_PER_BITCOIN)
             );
 
+            final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
+
             // Sign the unsigned transaction.
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -410,5 +437,66 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         // Assert
         Assert.assertFalse(isValid);
+    }
+
+    @Test
+    public void should_not_accept_transaction_that_double_spends_output_into_mempool() throws Exception {
+        // Setup
+        final DatabaseConnection databaseConnection = _database.newConnection();
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final BlockInflater blockInflater = new BlockInflater();
+        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionSigner transactionSigner = new TransactionSigner();
+        final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.ForkChain2.BLOCK_1 }) {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+            }
+            lastBlock = block;
+
+        }
+        Assert.assertNotNull(lastBlock);
+        Assert.assertNotNull(lastBlockId);
+
+        final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
+
+        final Wallet wallet = new Wallet();
+        wallet.addPrivateKey(privateKey);
+        wallet.setSatoshisPerByteFee(0D);
+        wallet.addTransaction(lastBlock.getCoinbaseTransaction());
+
+        final Transaction signedTransaction;
+        {
+            final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
+            paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("1HPPterRZy2Thr8kEtd4SAennyaFFEAngV"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+            signedTransaction = wallet.createTransaction(paymentAmounts, null);
+        }
+
+        final Transaction doubleSpendingSignedTransaction;
+        {
+            final MutableList<PaymentAmount> paymentAmounts = new MutableList<PaymentAmount>();
+            paymentAmounts.add(new PaymentAmount(addressInflater.fromBase58Check("149uLAy8vkn1Gm68t5NoLQtUqBtngjySLF"), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+            doubleSpendingSignedTransaction = wallet.createTransaction(paymentAmounts, null);
+        }
+
+        final TransactionId signedTransactionId = transactionDatabaseManager.storeTransaction(signedTransaction);
+
+        final Boolean firstTransactionIsValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), Long.MAX_VALUE, signedTransaction, true);
+        Assert.assertTrue(firstTransactionIsValid);
+
+        transactionDatabaseManager.addToUnconfirmedTransactions(signedTransactionId);
+
+        final TransactionId doubleSpendingTransactionId = transactionDatabaseManager.storeTransaction(doubleSpendingSignedTransaction);
+
+        // Action
+        final Boolean doubleSpendIsValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), Long.MAX_VALUE, doubleSpendingSignedTransaction, true);
+
+        // Assert
+        Assert.assertFalse(doubleSpendIsValid);
     }
 }

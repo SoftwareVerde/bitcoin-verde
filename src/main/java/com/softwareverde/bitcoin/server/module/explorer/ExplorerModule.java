@@ -3,12 +3,14 @@ package com.softwareverde.bitcoin.server.module.explorer;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
-import com.softwareverde.httpserver.DirectoryServlet;
-import com.softwareverde.httpserver.HttpServer;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.server.HttpServer;
+import com.softwareverde.http.server.endpoint.Endpoint;
+import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
+import com.softwareverde.http.server.servlet.DirectoryServlet;
+import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.io.Logger;
-import com.softwareverde.servlet.Endpoint;
-import com.softwareverde.servlet.Servlet;
-import com.softwareverde.servlet.WebSocketEndpoint;
 
 import java.io.File;
 
@@ -21,6 +23,7 @@ public class ExplorerModule {
     }
 
     protected final HttpServer _apiServer = new HttpServer();
+    protected final ThreadPool _threadPool = new MainThreadPool(512, 1000L);
     protected final Configuration.ExplorerProperties _explorerProperties;
     protected final AnnouncementsApi _announcementsApi;
 
@@ -52,19 +55,20 @@ public class ExplorerModule {
             _apiServer.setTlsPort(_explorerProperties.getTlsPort());
             _apiServer.setCertificate(_explorerProperties.getTlsCertificateFile(), _explorerProperties.getTlsKeyFile());
             _apiServer.enableEncryption(true);
-            _apiServer.redirectToTls(false); // Disabled due to a bug in HttpServer...
+            _apiServer.redirectToTls(false);
         }
 
         _apiServer.setPort(_explorerProperties.getPort());
 
         _announcementsApi = new AnnouncementsApi(_explorerProperties);
 
-        { // Account Api
-            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties));
-            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties));
-            _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties));
-            _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties));
-            _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties));
+        { // Api Endpoints
+            _assignEndpoint("/api/v1/search", new SearchApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/blocks", new BlocksApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/transactions", new TransactionsApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/status", new StatusApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/nodes", new NodesApi(_explorerProperties, _threadPool));
+            _assignEndpoint("/api/v1/blockchain", new BlockchainApi(_explorerProperties, _threadPool));
         }
 
         { // WebSocket

@@ -2,22 +2,23 @@ package com.softwareverde.bitcoin.server.stratum.socket;
 
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.io.Logger;
-import com.softwareverde.socket.SocketConnection;
+import com.softwareverde.network.socket.JsonSocket;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 public class StratumServerSocket {
     public interface SocketEventCallback {
-        void onConnect(SocketConnection socketConnection);
-        void onDisconnect(SocketConnection socketConnection);
+        void onConnect(JsonSocket socketConnection);
+        void onDisconnect(JsonSocket socketConnection);
     }
 
     protected final Integer _port;
     protected java.net.ServerSocket _socket;
 
-    protected final List<SocketConnection> _connections = new ArrayList<SocketConnection>();
+    protected final List<JsonSocket> _connections = new ArrayList<JsonSocket>();
 
     protected Long _nextConnectionId = 0L;
     protected volatile Boolean _shouldContinue = true;
@@ -30,20 +31,22 @@ public class StratumServerSocket {
     protected static final Long _purgeEveryCount = 20L;
     protected void _purgeDisconnectedConnections() {
         synchronized (_connections) {
-            Integer i = 0;
-            for (final SocketConnection connection : _connections) {
+            final Iterator<JsonSocket> iterator = _connections.iterator();
+            while (iterator.hasNext()) {
+                final JsonSocket connection = iterator.next();
+                if (connection == null) { continue; }
+
                 if (! connection.isConnected()) {
-                    _connections.remove(i.intValue());
-                    System.out.println("Purging disconnected stratum socket: " + i);
+                    iterator.remove();
+                    Logger.log("Purging disconnected stratum socket: " + connection.getIp() + ":" + connection.getPort());
 
                     _onDisconnect(connection);
                 }
-                i += 1;
             }
         }
     }
 
-    protected void _onConnect(final SocketConnection socketConnection) {
+    protected void _onConnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -55,7 +58,7 @@ public class StratumServerSocket {
         }
     }
 
-    protected void _onDisconnect(final SocketConnection socketConnection) {
+    protected void _onDisconnect(final JsonSocket socketConnection) {
         final SocketEventCallback socketEventCallback = _socketEventCallback;
         if (socketEventCallback != null) {
             _threadPool.execute(new Runnable() {
@@ -89,7 +92,7 @@ public class StratumServerSocket {
                         while (_shouldContinue) {
                             if (_socket == null) { return; }
 
-                            final SocketConnection connection = new SocketConnection(_socket.accept());
+                            final JsonSocket connection = new JsonSocket(_socket.accept(), _threadPool);
 
                             final Boolean shouldPurgeConnections = (_nextConnectionId % _purgeEveryCount == 0L);
                             if (shouldPurgeConnections) {
@@ -127,7 +130,7 @@ public class StratumServerSocket {
 
         try {
             if (_serverThread != null) {
-                _serverThread.join();
+                _serverThread.join(30000L);
             }
         }
         catch (final Exception exception) { }

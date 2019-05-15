@@ -4,36 +4,36 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
-import com.softwareverde.bitcoin.server.database.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.SortUtil;
 
 import java.util.HashMap;
 
-public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddressHandler {
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected DatabaseManagerCache _databaseManagerCache;
 
-    public QueryAddressHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryAddressHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
     }
 
     @Override
     public Long getBalance(final Address address) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockchainSegmentId headChainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
 
@@ -50,7 +50,7 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
 
     @Override
     public List<Transaction> getAddressTransactions(final Address address) {
-        try (final MysqlDatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -62,7 +62,6 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
             final List<TransactionId> transactionIds = addressDatabaseManager.getTransactionIds(headChainSegmentId, addressId, true);
 
             final MutableList<Transaction> pendingTransactions = new MutableList<Transaction>(0);
-            final MutableList<Long> timestamps = new MutableList<Long>(transactionIds.getSize());
             final HashMap<Long, MutableList<Transaction>> transactionTimestamps = new HashMap<Long, MutableList<Transaction>>(transactionIds.getSize());
 
             for (final TransactionId transactionId : transactionIds) {
@@ -79,7 +78,6 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
                     }
 
                     transactions.add(transaction);
-                    timestamps.add(transactionTimestamp);
                 }
                 else {
                     pendingTransactions.add(transaction);
@@ -87,14 +85,15 @@ public class QueryAddressHandler implements JsonRpcSocketServerHandler.QueryAddr
             }
 
             final ImmutableListBuilder<Transaction> transactions = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
-            { // Add the Transactions in ascending order by timestamp...
-                timestamps.sort(SortUtil.longComparator);
+            { // Add the Transactions in descending order by timestamp...
+                final MutableList<Long> timestamps = new MutableList<Long>(transactionTimestamps.keySet());
+                timestamps.sort(SortUtil.longComparator.reversed());
+
+                transactions.addAll(pendingTransactions); // Display unconfirmed transactions first...
 
                 for (final Long timestamp : timestamps) {
                     transactions.addAll(transactionTimestamps.get(timestamp));
                 }
-
-                transactions.addAll(pendingTransactions);
             }
 
             return transactions.build();

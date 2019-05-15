@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.block.header;
 
-import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
@@ -27,7 +27,7 @@ public class BlockHeaderInflater {
         blockHeader._timestamp = byteArrayReader.readLong(4, Endian.LITTLE);
 
         final byte[] difficultyBytes = byteArrayReader.readBytes(4, Endian.LITTLE);
-        blockHeader._difficulty = ImmutableDifficulty.decode(difficultyBytes);
+        blockHeader._difficulty = Difficulty.decode(difficultyBytes);
         blockHeader._nonce = byteArrayReader.readLong(4, Endian.LITTLE);
         // blockHeader._transactionCount = byteArrayReader.readVariableSizedInteger().intValue(); // Always 0 for Block Headers...
 
@@ -37,15 +37,21 @@ public class BlockHeaderInflater {
     }
 
     public MutableBlockHeader fromBytes(final ByteArrayReader byteArrayReader) {
+        if (byteArrayReader == null) { return null; }
+
         return _fromByteArrayReader(byteArrayReader);
     }
 
     public MutableBlockHeader fromBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
+
         final ByteArrayReader byteArrayReader = new ByteArrayReader(byteArray.getBytes());
         return _fromByteArrayReader(byteArrayReader);
     }
 
     public MutableBlockHeader fromBytes(final byte[] bytes) {
+        if (bytes == null) { return null; }
+
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }

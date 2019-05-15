@@ -3,7 +3,12 @@ package com.softwareverde.bitcoin.transaction.output.identifier;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
+import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import com.softwareverde.util.bytearray.Endian;
 
 public class TransactionOutputIdentifier implements Const {
     public static TransactionOutputIdentifier fromTransactionInput(final TransactionInput transactionInput) {
@@ -40,5 +45,20 @@ public class TransactionOutputIdentifier implements Const {
     @Override
     public int hashCode() {
         return (_transactionHash.hashCode() + _outputIndex.hashCode());
+    }
+
+    @Override
+    public String toString() {
+        return (_transactionHash + ":" + _outputIndex);
+    }
+
+    /**
+     * Serializes the TransactionOutputIdentifier as (TransactionHash | OutputIndex), as LittleEndian.  The reference client refers to this as a COutPoint.
+     */
+    public ByteArray toBytes() {
+        final ByteArrayBuilder cOutPointBuilder = new ByteArrayBuilder();
+        cOutPointBuilder.appendBytes(_transactionHash.getBytes(), Endian.LITTLE);
+        cOutPointBuilder.appendBytes(ByteUtil.integerToBytes(_outputIndex), Endian.LITTLE);
+        return MutableByteArray.wrap(cOutPointBuilder.build());
     }
 }

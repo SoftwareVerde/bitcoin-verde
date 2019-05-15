@@ -2,20 +2,53 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
+import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
-public class TransactionValidationTaskHandler implements TaskHandler<Transaction, Boolean> {
-    private final BlockchainSegmentId _blockchainSegmentId;
-    private final Long _blockHeight;
-    private final NetworkTime _networkTime;
-    private final MedianBlockTime _medianBlockTime;
-    private TransactionValidator _transactionValidator;
-    private boolean _allInputsAreUnlocked = true;
+public class TransactionValidationTaskHandler implements TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> {
+    public static class TransactionValidationResult {
+        public static TransactionValidationResult invalid(final Transaction invalidTransaction) {
+            final ImmutableListBuilder<Sha256Hash> invalidTransactions = new ImmutableListBuilder<Sha256Hash>(1);
+            invalidTransactions.add(invalidTransaction.getHash());
+            return new TransactionValidationResult(false, invalidTransactions.build());
+        }
+
+        public static TransactionValidationResult invalid(final List<Transaction> invalidTransactions) {
+            final ImmutableListBuilder<Sha256Hash> invalidTransactionHashes = new ImmutableListBuilder<Sha256Hash>(1);
+            for (final Transaction transaction : invalidTransactions) {
+                invalidTransactionHashes.add(transaction.getHash());
+            }
+            return new TransactionValidationResult(false, invalidTransactionHashes.build());
+        }
+
+        public static TransactionValidationResult valid() {
+            return new TransactionValidationResult(true, null);
+        }
+
+        public final Boolean isValid;
+        public final List<Sha256Hash> invalidTransactions;
+
+        public TransactionValidationResult(final Boolean isValid, final List<Sha256Hash> invalidTransactions) {
+            this.isValid = isValid;
+            this.invalidTransactions = ConstUtil.asConstOrNull(invalidTransactions);
+        }
+    }
+
+    protected final BlockchainSegmentId _blockchainSegmentId;
+    protected final Long _blockHeight;
+    protected final NetworkTime _networkTime;
+    protected final MedianBlockTime _medianBlockTime;
+    protected TransactionValidator _transactionValidator;
+    protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
     public TransactionValidationTaskHandler(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainSegmentId = blockchainSegmentId;
@@ -25,17 +58,17 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     @Override
-    public void init(final MysqlDatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public void init(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _transactionValidator = new TransactionValidator(databaseConnection, databaseManagerCache, _networkTime, _medianBlockTime);
     }
 
     @Override
     public void executeTask(final Transaction transaction) {
-        if (! _allInputsAreUnlocked) { return; }
+        if (! _invalidTransactions.isEmpty()) { return; }
 
-        final boolean transactionInputsAreUnlocked;
+        final Boolean transactionInputsAreUnlocked;
         {
-            boolean inputsAreUnlocked = false;
+            Boolean inputsAreUnlocked = false;
             try {
                 inputsAreUnlocked = _transactionValidator.validateTransaction(_blockchainSegmentId, _blockHeight, transaction, false);
             }
@@ -44,12 +77,16 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
         }
 
         if (! transactionInputsAreUnlocked) {
-            _allInputsAreUnlocked = false;
+            _invalidTransactions.add(transaction);
         }
     }
 
     @Override
-    public Boolean getResult() {
-        return _allInputsAreUnlocked;
+    public TransactionValidationResult getResult() {
+        if (! _invalidTransactions.isEmpty()) {
+            return TransactionValidationResult.invalid(_invalidTransactions);
+        }
+
+        return TransactionValidationResult.valid();
     }
 }

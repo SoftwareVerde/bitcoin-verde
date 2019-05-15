@@ -1,0 +1,488 @@
+.block {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.transaction,
+.block {
+    border: solid 1px rgba(0, 0, 0, 0.05);
+
+    box-sizing: border-box;
+    margin-top: 2em;
+    margin-left: 2em;
+    margin-right: 2em;
+    padding-left: 2em;
+    padding-right: 2em;
+    padding-bottom: 2em;
+}
+
+#main > .block .block-header > div {
+    transition: all 500ms ease;
+    box-sizing: border-box;
+    height: 3.5em;
+}
+
+#main > .block .block-header > div.difficulty,
+#main > .block .block-header > div.double {
+    height: calc(7em + 0.5em);
+}
+
+.transaction > div {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+.transaction > div > div {
+    flex-grow: 1;
+}
+
+.transaction .io .transaction-inputs::before,
+.transaction .io .transaction-outputs::before,
+.transaction::before,
+.block::before {
+    content: 'Block';
+    color: #404040;
+    font-weight: bold;
+    font-size: 1.0em;
+    margin-left: -1em;
+    position: relative;
+    top: 0.25em;
+}
+
+.transaction::before {
+    content: 'Transaction';
+    color: #404040;
+    transition: all 500ms ease;
+}
+.transaction .io .transaction-inputs::before {
+    content: 'Transaction Inputs';
+    margin-left: 0px;
+    transition: all 500ms ease;
+}
+.transaction .io .transaction-outputs::before {
+    content: 'Transaction Outputs';
+    margin-left: 0px;
+    transition: all 500ms ease;
+}
+
+.transaction .io {
+    clear: both;
+    width: calc(100% - 0.5em);
+    position: relative;
+    padding-bottom: 0.5em;
+}
+
+.transaction .io .transaction-inputs,
+.transaction .io .transaction-outputs {
+    margin-top: 0.25em;
+    overflow: auto;
+    float: left;
+    width: calc(48.5% - 0.5em);
+    cursor: default;
+}
+.transaction .io .transaction-outputs {
+    margin-left: calc(5% - 1.5em);
+}
+.transaction .io img.tx-arrow {
+    width: 2em;
+    opacity: 0.75;
+    position: absolute;
+    top: calc(50% - 0.5em);
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.transaction .io .transaction-inputs > div,
+.transaction .io .transaction-outputs > div {
+    margin-top: 0.5em;
+    margin-left: 1em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.025);
+    box-sizing: border-box;
+    transition: all 500ms ease;
+}
+
+.transaction .io .transaction-input > .label,
+.transaction .io .transaction-output > .label {
+    border: solid 1px rgba(0, 0, 0, 0.2);
+    background-color: #EEEEEE;
+    overflow: auto;
+    padding: 0.5em;
+    line-height: 2em;
+    padding-left: 1em;
+    padding-right: 1em;
+    margin: 0.5em;
+    font-size: 0.75em;
+    cursor: pointer;
+}
+
+.transaction .io .transaction-input > div:not(:first-child),
+.transaction .io .transaction-output> div:not(:first-child) {
+    display: none;
+    margin-bottom: 0.25em;
+    margin-top: 0.25em;
+    margin-left: 1em;
+    margin-right: 0.5em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 0.5em;
+}
+
+.transaction .io .transaction-input > div:last-child:not(:first-child),
+.transaction .io .transaction-output > div:last-child:not(:first-child) {
+    margin-bottom: 1em;
+}
+
+
+.transaction .io .transaction-input .unlocking-script .script .script-operation > .value,
+.transaction .io .transaction-output .locking-script .script .script-operation > .value {
+    font-size: 0.8em;
+    word-wrap: break-word;
+    margin-left: 0.5em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.25);
+    padding: 0.5em;
+    margin-right: 0.5em;
+
+    padding-left: 1.5em;
+    text-indent: -0.75em;
+
+    display: block;
+    word-break: break-word;
+}
+
+.transaction .io .transaction-input > .label .address,
+.transaction .io .transaction-output > .label .address {
+    float: left;
+    color: #262626;
+    font-size: 1.0em;
+}
+
+.transaction .io .transaction-input > .label .amount,
+.transaction .io .transaction-output > .label .amount {
+    float: right;
+    color: #505050
+}
+
+.transaction > div,
+.block .block-header {
+    box-sizing: border-box;
+    overflow: auto;
+    margin-top: 0.25em;
+}
+
+.transaction > div > div,
+.block .block-header > div {
+    padding: 0.25em;
+    margin: 0.25em;
+    border: solid 1px rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.025);
+    float: left;
+    width: calc(50% - 0.5em);
+    box-sizing: border-box;
+}
+
+.transaction div > label,
+.block .block-header div label {
+    display: inline-block;
+    box-sizing: border-box;
+    font-size: 0.75em;
+    font-weight: bold;
+    color: #404040;
+}
+
+.transaction > div > div .value,
+.block .block-header div .value {
+    display: table; /* Formerly block; table facilitates hash-resizing while still on a newline from its label. */
+    box-sizing: border-box;
+    padding-left: 1em;
+    margin-top: 0.25em;
+}
+
+.block .block-header div.timestamp .value::after {
+    /* content: '(UTC)'; */
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.block .block-header div.reward .value::after {
+    content: '(bitcoin)';
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.transaction div div.fee .value::after,
+.transaction div div.byte-count .value::after,
+.block .block-header div.byte-count .value::after {
+    content: '(bytes)';
+    font-size: 0.75em;
+    color: rgba(0, 0, 0, 0.4);
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.transaction div div.fee .value::after {
+    content: '(satoshis)';
+}
+
+.transaction div div.block-hashes {
+    min-height: 6.5em;
+}
+
+.transaction div div.lock-time div {
+}
+
+.transaction div div.block-hashes div.value span {
+    display: block;
+}
+
+.block .block-header div.difficulty {
+    float: right;
+}
+
+.script > .value {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+.transaction .io .transaction-input .unlocking-script > div > label,
+.transaction .io .transaction-output .locking-script > div > label,
+.transaction-input div.unlocking-script div label,
+.transaction-input div.sequence-number div label,
+.transaction div div.lock-time div label,
+.block .block-header div.difficulty div label {
+    margin-left: 0.5em;
+    color: rgba(0, 0, 0, 0.5);
+    margin-top: 0.2em;
+}
+
+.block .block-header div.transaction-count {
+    display: none;
+}
+
+.transaction .io .unlocking-script > div > .value,
+.transaction .io .locking-script > div > .value {
+    margin-left: 0.5em;
+}
+
+.is-disabled span.value,
+.type span.value {
+    font-style: italic;
+    font-weight: bold;
+    font-size: 0.75em;
+}
+
+.transaction {
+    transition: all 500ms ease;
+    transition: opacity 500ms ease;
+}
+
+.transaction.collapsed {
+    padding-bottom: 0px;
+    background-color: initial;
+    cursor: pointer;
+    border: none;
+}
+
+.transaction.collapsed .hash .value {
+    font-size: 1em;
+}
+
+.transaction.collapsed .io .transaction-outputs::before, 
+.transaction.collapsed .io .transaction-inputs::before,
+.transaction.collapsed::before {
+    opacity: 0;
+    position: absolute;
+}
+
+.transaction.collapsed > div > div {
+    width: calc(100% - 0.5em);
+}
+
+.transaction.collapsed .hash span.value::before {
+    content: 'Transaction:';
+    font-size: 0.75em;
+    color: #404040 !important;
+    font-weight: bold;
+    margin-right: 0.5em;
+    font-family: sans-serif;
+    transition: all 500ms ease;
+}
+
+.transaction.collapsed > div > div {
+    border: none;
+    background-color: initial;
+}
+
+.transaction.collapsed .io .transaction-inputs,
+.transaction.collapsed .io .transaction-outputs,
+.transaction.collapsed .io .transaction-inputs > div,
+.transaction.collapsed .io .transaction-outputs > div {
+    margin-top: 0px;
+}
+
+.transaction.collapsed .io {
+    margin-top: 0.5em;
+}
+
+.transaction.collapsed .io {
+    padding-bottom: 1em;
+    border-bottom: solid 1px #AAA;
+    box-shadow: -1px 5px 5px 0px #000000;
+}
+
+.transaction.collapsed > div > div {
+    padding: 0px;
+    margin: 0px;
+}
+
+.block .transactions .transaction:hover {
+    box-shadow: 0px 0px 2px #00B512;
+}
+
+.transaction-output > .label.highlight {
+    border-color: #1BAB1B !important;
+}
+.transaction-output .address.highlight {
+    color: #1BAB1B !important;
+}
+
+.transaction-input > .label.highlight {
+    border-color: #AB1B1B !important;
+}
+.transaction-input .address.highlight {
+    color: #AB1B1B !important;
+}
+
+.address .address-metadata {
+    margin-top: 1em;
+    padding: 1em;
+    padding-left: 3em;
+    padding-right: 3em;
+    border: solid 1px #AAA;
+    margin: 1em;
+    background-color: #FFFFFF;
+}
+
+.address-metadata .address {
+    font-size: 125%;
+    font-weight: bold;
+    display: block;
+}
+
+.address-metadata .address-balance {
+    margin-top: 0.5em;
+    display: block;
+}
+.address-metadata .address-balance::before {
+    content: 'Balance:';
+    color: #BBBBBB;
+    font-size: 0.95em;
+    margin-right: 0.5em;
+    display: inline-block;
+    font-weight: bold;
+}
+
+.address-metadata .address-balance::after {
+    content: '(satoshis)';
+    font-size: 0.75em;
+    color: #BBBBBB;
+    margin-left: 0.5em;
+    font-style: italic;
+}
+
+.address-metadata .qr-code {
+    float: right;
+}
+
+@media only screen and (max-width: 1100px) {
+    .block,
+    .transaction {
+        margin-left: 0;
+        margin-right: 0;
+
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .transaction .io .transaction-inputs::before,
+    .transaction .io .transaction-outputs::before,
+    .transaction::before, .block::before {
+        margin-left: 0;
+    }
+}
+
+@media only screen and (max-width: 960px) {
+    .block .block-header > div {
+        width: calc(100% - 0.5em);
+    }
+}
+
+@media only screen and (max-width: 800px) {
+    .transaction .io {
+        text-align: center;
+    }
+
+    .transaction .io img.tx-arrow {
+        position: initial;
+        transform: initial;
+        top: initial;
+        margin: auto;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
+        float: initial;
+        transform: rotateZ(90deg);
+    }
+
+    .transaction .io .transaction-inputs,
+    .transaction .io .transaction-outputs {
+        float: none;
+        margin: 0;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .transaction .io .transaction-inputs .transaction-input,
+    .transaction .io .transaction-outputs .transaction-output {
+        margin-bottom: 1px;
+    }
+}
+
+@media only screen and (max-width: 700px) {
+    .address .address-metadata {
+        text-align: center;
+        padding: 0;
+        padding-top: 1em;
+        padding-bottom: 1em;
+    }
+
+    .address .address-metadata .address {
+        font-size: 100%;
+    }
+
+    .address-metadata .qr-code {
+        float: none;
+        margin-bottom: 1em;
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .transaction > div > div .value,
+    .block .block-header div .value {
+        margin: auto;
+    }
+
+    .transaction > div > div,
+    .block .block-header > div {
+        width: auto;
+        float: none !important;
+        overflow-x: hidden;
+    }
+}
+

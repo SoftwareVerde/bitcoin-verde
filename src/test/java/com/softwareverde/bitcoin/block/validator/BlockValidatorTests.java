@@ -10,41 +10,39 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.ImmutableDifficulty;
+import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTimeTests;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
-import com.softwareverde.bitcoin.transaction.script.opcode.OperationInflater;
-import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
-import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.DateUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -52,28 +50,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.sql.Connection;
 import java.util.TimeZone;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class BlockValidatorTests extends IntegrationTest {
     final PrivateKey _privateKey = PrivateKey.fromHexString("2F9DFE0F574973D008DA9A98D1D39422D044154E2008E195643AD026F1B2B554");
-
-    public static class FakeNetworkTime extends MutableNetworkTime {
-        private final Long _fakeTime;
-
-        public FakeNetworkTime(final Long fakeTime) {
-            _fakeTime = fakeTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInSeconds() {
-            return _fakeTime;
-        }
-
-        @Override
-        public Long getCurrentTimeInMilliSeconds() {
-            return _fakeTime;
-        }
-    }
 
     public static class FakeMedianBlockTime implements MedianBlockTimeWithBlocks {
 
@@ -104,7 +86,7 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
-        try (final MysqlDatabaseConnection databaseConnection = _database.newConnection()) {
+        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
             final BlockInflater blockInflater = new BlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -139,12 +121,13 @@ public class BlockValidatorTests extends IntegrationTest {
     @Before
     public void setup() {
         _resetDatabase();
+        MonitoredDatabaseConnection.databaseConnectionCount.set(0);
     }
 
     @Test
     public void should_validate_block_that_contains_transaction_that_spends_outputs_in_same_block() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -186,13 +169,19 @@ public class BlockValidatorTests extends IntegrationTest {
 
             // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
             final Block prerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000F5790162A682DDD5086265D254F7F59023D35D07DF7C95DC9779942D00000000193028D8B78007269D52B2A1068E32EDD21D0772C2C157954F7174761B78A51A30CE6E49FFFF001D3A2E34480201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027C05FFFFFFFF0100F2052A01000000434104B43BB206B71F34E2FAB9359B156FF683BED889021A06C315722A7C936B9743AD88A8882DC13EECAFCDAD4F082D2D0CC54AA177204F79DC7305F1F4857B7B8802AC00000000010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
-            TransactionTestUtil.createRequiredTransactionInputs(firstBlockchainSegmentId, prerequisiteBlock.getTransactions().get(1), databaseConnection);
+            boolean isCoinbase = true;
+            for (final Transaction transaction : prerequisiteBlock.getTransactions()) {
+                if (! isCoinbase) {
+                    TransactionTestUtil.createRequiredTransactionInputs(firstBlockchainSegmentId, transaction, databaseConnection);
+                }
+                isCoinbase = false;
+            }
             final BlockId prerequisiteBlockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 prerequisiteBlockId = blockDatabaseManager.insertBlock(prerequisiteBlock);
             }
-            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlockId, prerequisiteBlock);
-            Assert.assertFalse(prerequisiteBlockIsValid); // Should fail because its dependent transactions are not inserted.  Asserting for clarity and sanity.
+            final Boolean prerequisiteBlockIsValid = blockValidator.validateBlock(prerequisiteBlockId, prerequisiteBlock).isValid;
+            Assert.assertTrue(prerequisiteBlockIsValid);
         }
 
         // Block Hash: 000000005A4DED781E667E06CEEFAFB71410B511FE0D5ADC3E5A27ECBEC34AE6
@@ -203,42 +192,47 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block).isValid;
 
         // Assert
         Assert.assertTrue(blockIsValid);
     }
 
-    @Test
-    public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
-        // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
-
-        // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
-
-        final BlockInflater blockInflater = new BlockInflater();
-        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
-        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
-        }
-
-        final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
-        final BlockId blockId;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockId = blockDatabaseManager.insertBlock(block);
-        }
-
-        // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
-
-        // Assert
-        Assert.assertTrue(blockIsValid);
-    }
+    // Test disabled on 2019-02-16.
+    //   The following Test is disabled because the test block (ForkChain4.BLOCK_1) was mined with an invalid coinbase TransactionInput (prevoutIndex is 0, not -1).
+    //   To re-enable this test, a block must be mined that spends its own coinbase.
+    //   Mining this custom block cannot be done via Stratum since Stratum mutates the coinbase transaction hash via extraNonce2.  Instead, the CPU miner
+    //   must be used.
+//    @Test
+//    public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
+//        // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
+//
+//        // Setup
+//        final DatabaseConnection databaseConnection = _database.newConnection();
+//
+//        final BlockInflater blockInflater = new BlockInflater();
+//        final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+//        final BlockValidator blockValidator = new BlockValidator(connectionFactory, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+//        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+//        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+//
+//        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+//        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+//            final BlockId genesisBlockId = blockDatabaseManager.insertBlock(genesisBlock);
+//        }
+//
+//        final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
+//        final BlockId blockId;
+//        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+//            blockId = blockDatabaseManager.insertBlock(block);
+//        }
+//
+//        // Action
+//        final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+//
+//        // Assert
+//        Assert.assertTrue(blockIsValid);
+//    }
 
     @Test
     public void block_should_be_invalid_if_its_input_only_exists_within_a_different_chain() throws Exception {
@@ -257,7 +251,7 @@ public class BlockValidatorTests extends IntegrationTest {
             //
         */
 
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -268,10 +262,10 @@ public class BlockValidatorTests extends IntegrationTest {
         final Block block1Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1Prime.getPreviousBlockHash());
 
-        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000A0725312AADE7F12764C47F9A8B54C4924EE12940C697782AE31F52300000000A66A6AAC381ACE8514F527B6324F72F8ADFBC9B853350675E5309B18E2256E9BA165A45AFFFF001D580D16B802010000000100000000000000000000000000000000000000000000000000000000000000000000000019184D696E65642076696120426974636F696E2D56657264652EFFFFFFFF0100F2052A010000001976A914B8E012A1EC221C31F69AA2895129C02C90AAE2C588AC0000000001000000011D1E1A5147E3170CB7B8DF8B234794CC61B798144B532EEE9C3A62CF9F5A4EBF000000008B483045022100CD4556EFF98614498B736E7894446F82B92638B40512B95C3C64FA06682F68A702200C02B594C919046E6D1EC951745D51778575BDBDB46DCB9793AAC3D0714AAAD10141044B1F57CD308E8AE8AADA38AA8183A348E1F12C107898760A11324E1B0288C49DE1AB5E1DA16F649B7375046E165FD2CF143F08989F1092A7ED6FED183107B236FFFFFFFF0100F2052A010000001976A91476B5CB4E5D485BDD6B6DD7A2AAAEC6F01FFA7DD488AC00000000")); // Spends a transaction within block1DoublePrime...
+        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain2.INVALID_BLOCK_2)); // Spends a transaction within block1DoublePrime...
         Assert.assertEquals(block1Prime.getHash(), block2Prime.getPreviousBlockHash());
 
-        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain4.BLOCK_1));
+        final Block block1DoublePrime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain5.BLOCK_1));
         Assert.assertEquals(genesisBlock.getHash(), block1DoublePrime.getPreviousBlockHash());
 
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
@@ -289,30 +283,34 @@ public class BlockValidatorTests extends IntegrationTest {
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1PrimeId = blockDatabaseManager.insertBlock(block1Prime);
-            Assert.assertTrue(blockValidator.validateBlock(block1PrimeId, block1Prime));
+            Assert.assertTrue(blockValidator.validateBlock(block1PrimeId, block1Prime).isValid);
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
             final BlockId block1DoublePrimeId = blockDatabaseManager.insertBlock(block1DoublePrime);
-            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime));
+            Assert.assertTrue(blockValidator.validateBlock(block1DoublePrimeId, block1DoublePrime).isValid);
         }
 
-        // TransactionInput 0:BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D should exist within the database,
-        //  however, it should exist only within a separate chain...
+        // TransactionInput 0:4A23572C0048299E956AE25262B3C3E75D984A0CCE36B9C60E9A741E14E099F7 should exist within the database, however, it should exist only within a separate chain...
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT transaction_outputs.id FROM transaction_outputs INNER JOIN transactions ON transactions.id = transaction_outputs.transaction_id WHERE transactions.hash = ? AND transaction_outputs.`index` = ?")
-                .setParameter("BF4E5A9FCF623A9CEE2E534B1498B761CC9447238BDFB8B70C17E347511A1E1D")
+                .setParameter("4A23572C0048299E956AE25262B3C3E75D984A0CCE36B9C60E9A741E14E099F7")
                 .setParameter("0")
         );
         Assert.assertTrue(rows.size() > 0);
 
-        final BlockId block2Id;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            block2Id = blockDatabaseManager.insertBlock(block2Prime);
-        }
-
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime);
+        Boolean block2PrimeIsValid;
+        try {
+            final BlockId block2Id;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                block2Id = blockDatabaseManager.insertBlock(block2Prime);
+            }
+            block2PrimeIsValid = blockValidator.validateBlock(block2Id, block2Prime).isValid;
+        }
+        catch (final DatabaseException exception) {
+            block2PrimeIsValid = false;
+        }
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -327,7 +325,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final Long genesisBlockTimestamp = (DateUtil.datetimeToTimestamp("2009-01-03 18:15:05", timeZone) / 1000L);
 
         final BlockInflater blockInflater = new BlockInflater();
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final ReadUncommittedDatabaseConnectionFactory connectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
@@ -338,7 +336,13 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            _storeBlocks(2015, genesisBlockTimestamp + 1L);
+            // _storeBlocks(2015, genesisBlockTimestamp + 1L);
+            _storeBlocks(1, genesisBlockTimestamp + 1L);
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET block_height = ? WHERE id = ?")
+                    .setParameter(2015)
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
         { // Store the block that is 2016 blocks before the firstBlockWithDifficultyAdjustment
@@ -347,8 +351,14 @@ public class BlockValidatorTests extends IntegrationTest {
             // Timestamp: B1512B4B
             // NOTE: This block is the block referenced when calculating the elapsed time since the previous update...
             final String blockData = IoUtil.getResource("/blocks/000000000FA8BFA0F0DD32F956B874B2C7F1772C5FBEDCB1B35E03335C7FB0A8");
-            final MutableBlock block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            block30240.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            final Block block30240 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(block30240.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
+
             final BlockId blockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.insertBlock(block30240);
@@ -359,16 +369,29 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            // _storeBlocks(2014, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            _storeBlocks(1, (DateUtil.datetimeToTimestamp("2009-12-18 09:56:01", timeZone) / 1000L) + 1);
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET block_height = ? WHERE id = ?")
+                    .setParameter(4030)
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
-        final Sha256Hash previousBlockHash;
         // Timestamp: 23EC3A4B
+        // Block Height: 4031
+        // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B
         { // Store the previous block so the firstBlockWithDifficultyAdjustment has the correct hash...
-            // Block Hash: 00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B -> AFB816727FE415551ADBE28BCAF2E3D8ECEE4799B4B07735613B40ED8EAD01BA
             final String blockData = IoUtil.getResource("/blocks/00000000984F962134A7291E3693075AE03E521F0EE33378EC30A334D860034B");
-            final MutableBlock previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            final Block previousBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+
+            // previousBlock.setPreviousBlockHash(blockDatabaseManager.getHeadBlockHash()); // Modify this (real) block so that it is on the same chain as the previous (faked) blocks.
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(previousBlock.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
+
             final BlockId blockId;
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockId = blockDatabaseManager.insertBlock(previousBlock);
@@ -376,8 +399,6 @@ public class BlockValidatorTests extends IntegrationTest {
             final Difficulty blockDifficulty = previousBlock.getDifficulty();
             Assert.assertEquals(Difficulty.BASE_DIFFICULTY, blockDifficulty);
             Assert.assertEquals((blockHeight - 1), blockHeaderDatabaseManager.getBlockHeight(blockId).longValue());
-
-            previousBlockHash = previousBlock.getHash();
         }
 
         final Difficulty expectedDifficulty = new ImmutableDifficulty(HexUtil.hexStringToByteArray("00D86A"), Difficulty.BASE_DIFFICULTY_EXPONENT);
@@ -387,34 +408,27 @@ public class BlockValidatorTests extends IntegrationTest {
         final String blockData = IoUtil.getResource("/blocks/000000004F2886A170ADB7204CB0C7A824217DD24D11A74423D564C4E0904967");
 
         final Block firstBlockWithDifficultyIncrease;
-        { // Modify the real block to set the the previousBlockHash to our custom block...
-            // This block's is intended to only have its previousBlockHash rewritten while still having a suitable Block Hash.
-            //  To accomplish this, this block was re-mined with a nonce and extra-nonce.  Instead of using the bytes directly, the
-            //  modified fields are set programmatically to more easily determine what exactly was/wasn't modified.
-            final MutableBlock mutableBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+        {
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
 
-            mutableBlock.setPreviousBlockHash(previousBlockHash);
-
-            mutableBlock.setNonce(1978210639L);
-
-            { // Append extra nonce to coinbase transaction...
-                final CoinbaseTransaction coinbaseTransaction = mutableBlock.getCoinbaseTransaction();
-                final MutableCoinbaseTransaction modifiedCoinbaseTransaction = new MutableCoinbaseTransaction(coinbaseTransaction);
-                final MutableUnlockingScript mutableCoinbaseScript = new MutableUnlockingScript(modifiedCoinbaseTransaction.getCoinbaseScript());
-                final OperationInflater operationInflater = new OperationInflater();
-                final Operation operation = operationInflater.fromBytes(MutableByteArray.wrap(HexUtil.hexStringToByteArray("053333313134")));
-                mutableCoinbaseScript.addOperation(operation);
-                modifiedCoinbaseTransaction.setCoinbaseScript(mutableCoinbaseScript);
-                mutableBlock.replaceTransaction(0, modifiedCoinbaseTransaction);
-            }
-
-            firstBlockWithDifficultyIncrease = mutableBlock;
+            firstBlockWithDifficultyIncrease = block;
             System.out.println(firstBlockWithDifficultyIncrease.getHash());
+
+            // Hack the hash of the block before this so firstBlockWithDifficultyIncrease can be inserted...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE id = ?")
+                    .setParameter(block.getPreviousBlockHash())
+                    .setParameter(blockHeaderDatabaseManager.getHeadBlockHeaderId())
+            );
         }
 
         final Difficulty blockDifficulty = firstBlockWithDifficultyIncrease.getDifficulty();
         Assert.assertEquals(expectedDifficulty, blockDifficulty);
         Assert.assertEquals(expectedDifficultyRatio, blockDifficulty.getDifficultyRatio().floatValue(), 0.005);
+
+        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
+        final Difficulty calculatedNextDifficulty = difficultyCalculator.calculateRequiredDifficulty();
+        Assert.assertEquals(expectedDifficulty, calculatedNextDifficulty);
 
         final BlockId blockId;
         synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -423,30 +437,16 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, firstBlockWithDifficultyIncrease);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, firstBlockWithDifficultyIncrease).isValid;
 
         // Assert
         Assert.assertTrue(blockIsValid);
     }
 
-    public static class BlockWithFakeMerkleRoot extends MutableBlock {
-        private final MerkleRoot _merkleRoot;
-
-        public BlockWithFakeMerkleRoot(final Block block, final MerkleRoot merkleRoot) {
-            super(block);
-            _merkleRoot = merkleRoot;
-        }
-
-        @Override
-        public MerkleRoot getMerkleRoot() {
-            return _merkleRoot;
-        }
-    }
-
     @Test
     public void should_not_validate_transaction_when_transaction_output_is_only_found_on_separate_fork() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
 
         final BlockInflater blockInflater = new BlockInflater();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
@@ -478,7 +478,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean block2PrimeIsValid = blockValidator.validateBlock(blockId, invalidBlock6);
+        final Boolean block2PrimeIsValid = blockValidator.validateBlock(blockId, invalidBlock6).isValid;
 
         // Assert
         Assert.assertFalse(block2PrimeIsValid);
@@ -487,7 +487,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -495,6 +495,8 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Block lastBlock = null;
         BlockId lastBlockId = null;
@@ -552,7 +554,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransaction = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -578,7 +580,7 @@ public class BlockValidatorTests extends IntegrationTest {
         }
 
         // Action
-        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+        final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
 
         // Assert
         Assert.assertFalse(blockIsValid);
@@ -612,7 +614,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_allowed_to_spent_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -620,6 +622,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -664,7 +667,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block3
                 lastBlockHash = blockWithDuplicateTxId.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -677,7 +680,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -709,7 +712,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -720,7 +723,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithDuplicateTxId); // Block5
                 lastBlockHash = blockWithDuplicateTxId.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithDuplicateTxId).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -749,7 +752,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block6
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -774,7 +777,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block7
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertFalse(blockIsValid);
             }
         }
@@ -783,7 +786,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
         // Setup
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -791,6 +794,7 @@ public class BlockValidatorTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -835,7 +839,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
                 lastBlockHash = blockWithSpendableCoinbase.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -848,7 +852,7 @@ public class BlockValidatorTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             signedTransactionSpendingDuplicateCoinbase = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -880,7 +884,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -905,9 +909,108 @@ public class BlockValidatorTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(mutableBlock); // Block4Prime
                 lastBlockHash = mutableBlock.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, mutableBlock).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
+    }
+
+    @Test
+    public void block_validator_should_close_all_database_connections_when_multithreaded_validation_is_executed() throws Exception {
+        // This test stores a "big block" (1,000+ Txns) and then validates it multiple times with a DatabaseConnectionPool, a DatabaseCache, and a varying number of validation threads.
+        // The Block should be validated correctly and all of its transactions should closed after closing the pool (no DatabaseConnections were leaked).
+        // The DatabaseConnectionPool is configured to provide less DatabaseConnections (16) than is required for the BlockValidator with 32 threads.  This tests that the Validator
+        //  properly waits for a connection to become available.  Alternatively, the DeadlockTimeout property of the DatabaseConnectionPool can be configured to surpass the maximum connection count.
+
+        // Setup
+        final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(1048576L);
+        final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+
+        final BlockInflater blockInflater = new BlockInflater();
+        final DatabaseConnection databaseConnection = _database.newConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
+        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+        final ReadUncommittedDatabaseConnectionFactory coreDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
+        final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory(coreDatabaseConnectionFactory) {
+            @Override
+            public DatabaseConnection newConnection() throws DatabaseException {
+                // Logger.log(" ***** NEW CONNECTION *****");
+                return new DatabaseConnectionWrapper(new MonitoredDatabaseConnection(coreDatabaseConnectionFactory.newConnection().getRawConnection()));
+            }
+        };
+        final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
+
+        final BlockValidator blockValidator = new BlockValidator(databaseConnectionPool, databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
+        blockValidator.setMaxThreadCount(8);
+
+        final String bigBlockPreRequisite = IoUtil.getResource("/blocks/0000000000000000013C4F15DDF9040B6210DC86DFBE7371417EF83EA7BFBA34");
+        final String bigBlock = IoUtil.getResource("/blocks/00000000000000000051CFB8C9B8191EC4EF14F8F44F3E2290D67A8A0A29DD05");
+
+        Block lastBlock = null;
+        BlockId lastBlockId = null;
+        int i = 0;
+        for (final String blockData : new String[] { BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, bigBlockPreRequisite, bigBlock }) {
+            final MutableBlock block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                if (i == 3) {
+                    databaseConnection.executeSql(new Query("UPDATE blocks SET hash = ? WHERE id = ?").setParameter(block.getPreviousBlockHash()).setParameter(lastBlockId));
+
+                    lastBlockId = blockHeaderDatabaseManager.storeBlockHeader(block);
+                    lastBlock = block;
+                    i += 1;
+                    continue;
+                }
+                else if (i == 4) {
+                    boolean isCoinbase = true;
+                    for (final Transaction transaction : block.getTransactions()) {
+                        if (! isCoinbase) {
+                            TransactionTestUtil.createRequiredTransactionInputs(BlockchainSegmentId.wrap(1L), transaction, databaseConnection);
+                        }
+                        isCoinbase = false;
+                    }
+                }
+                lastBlockId = blockDatabaseManager.storeBlock(block);
+                lastBlock = block;
+                i += 1;
+            }
+        }
+
+        for (int j = 0; j < 6; ++j) {
+            final int threadCount = (int) Math.pow(2, j);
+            Logger.log("");
+            Logger.log("Validating Block w/ " + threadCount + " threads.");
+            blockValidator.setMaxThreadCount(threadCount);
+            blockValidator.validateBlock(lastBlockId, lastBlock);
+
+            Logger.log("Alive Connections Count: " + databaseConnectionPool.getAliveConnectionCount());
+            Logger.log("Buffered Connections Count: " + databaseConnectionPool.getCurrentPoolSize());
+            Logger.log("In-Use Connections Count: " + databaseConnectionPool.getInUseConnectionCount());
+            Assert.assertEquals(Integer.valueOf(0), databaseConnectionPool.getInUseConnectionCount());
+        }
+
+        // Action
+        final BlockValidationResult blockValidationResult = blockValidator.validateBlock(lastBlockId, lastBlock);
+        final Boolean blockIsValid = blockValidationResult.isValid;
+
+        // Assert
+        Assert.assertTrue(blockIsValid);
+
+        databaseConnectionPool.close();
+        Assert.assertEquals(0, MonitoredDatabaseConnection.databaseConnectionCount.get());
+    }
+}
+
+class MonitoredDatabaseConnection extends MysqlDatabaseConnection {
+    public static final AtomicInteger databaseConnectionCount = new AtomicInteger(0);
+
+    public MonitoredDatabaseConnection(final Connection rawConnection) {
+        super(rawConnection);
+        databaseConnectionCount.incrementAndGet();
+    }
+
+    @Override
+    public void close() throws DatabaseException {
+        databaseConnectionCount.decrementAndGet();
+        super.close();
     }
 }

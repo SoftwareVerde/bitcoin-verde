@@ -3,23 +3,28 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.*;
+import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
+import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabase;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
@@ -53,10 +58,10 @@ public class ChainValidationModule {
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
-        final Configuration.DatabaseProperties databaseProperties = _configuration.getDatabaseProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
+        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
 
-        final MysqlDatabase database = Database.newInstance(_configuration, null);
+        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
         if (database == null) {
             Logger.log("Error initializing database.");
             BitcoinUtil.exitFailure();
@@ -74,20 +79,20 @@ public class ChainValidationModule {
         }
 
 
-        final Long maxUtxoCacheByteCount = serverProperties.getMaxUtxoCacheByteCount();
+        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
         _environment = new Environment(database, new MasterDatabaseManagerCache(maxUtxoCacheByteCount));
     }
 
     public void run() {
-        final MysqlDatabase database = _environment.getDatabase();
+        final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
         final UnspentTransactionOutputCache unspentTransactionOutputCache = masterDatabaseManagerCache.getUnspentTransactionOutputCache();
 
-        final Configuration.ServerProperties serverProperties = _configuration.getServerProperties();
+        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final MysqlDatabaseConnection databaseConnection = database.newConnection();
-                final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
+        try (final DatabaseConnection databaseConnection = database.newConnection();
+             final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
 
             final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
@@ -99,7 +104,7 @@ public class ChainValidationModule {
             final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
 
             final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, databaseManagerCache, networkTime, medianBlockTime);
-            blockValidator.setMaxThreadCount(serverProperties.getMaxThreadCount());
+            blockValidator.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
 
@@ -136,11 +141,11 @@ public class ChainValidationModule {
 
                 final Block block = blockDatabaseManager.getBlock(blockId, true);
 
-                validatedTransactionCount += transactionDatabaseManager.getTransactionCount(blockId);
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, block);
+                validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
+                final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
 
-                if (! blockIsValid) {
-                    Logger.error("Invalid block found: " + blockHash);
+                if (! blockValidationResult.isValid) {
+                    Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");
                     break;
                 }
 

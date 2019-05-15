@@ -23,7 +23,8 @@ public class TransactionInputDeflater {
 
         final ByteArray unlockingScriptBytes = transactionInput.getUnlockingScript().getBytes();
 
-        headBytes.appendBytes(transactionInput.getPreviousOutputTransactionHash().getBytes(), Endian.LITTLE);
+        final Sha256Hash previousOutputTransactionHash = transactionInput.getPreviousOutputTransactionHash();
+        headBytes.appendBytes(previousOutputTransactionHash.getBytes(), Endian.LITTLE);
         headBytes.appendBytes(indexBytes, Endian.LITTLE);
         headBytes.appendBytes(ByteUtil.variableLengthIntegerToBytes(unlockingScriptBytes.getByteCount()), Endian.BIG);
         headBytes.appendBytes(unlockingScriptBytes, Endian.BIG);

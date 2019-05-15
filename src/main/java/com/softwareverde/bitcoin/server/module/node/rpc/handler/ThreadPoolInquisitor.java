@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
-import com.softwareverde.bitcoin.server.module.node.rpc.JsonRpcSocketServerHandler;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 
-public class ThreadPoolInquisitor implements JsonRpcSocketServerHandler.ThreadPoolInquisitor {
+public class ThreadPoolInquisitor implements NodeRpcHandler.ThreadPoolInquisitor {
     protected final MainThreadPool _threadPool;
 
     public ThreadPoolInquisitor(final MainThreadPool threadPool) {

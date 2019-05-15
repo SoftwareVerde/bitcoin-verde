@@ -3,15 +3,20 @@ package com.softwareverde.bitcoin.block;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.merkleroot.MerkleTreeNode;
+import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.Util;
 
 public class MutableBlock implements Block {
     protected Long _version;
@@ -58,6 +63,17 @@ public class MutableBlock implements Block {
         _initTransactions(transactions);
     }
 
+    @Override
+    public Boolean hasTransaction(final Transaction transaction) {
+        for (final Transaction existingTransaction : _transactions) {
+            if (Util.areEqual(transaction, existingTransaction)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void addTransaction(final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         _transactions.add(constTransaction);
@@ -70,6 +86,21 @@ public class MutableBlock implements Block {
         _transactions.set(index, constTransaction);
         _merkleTree.replaceItem(index, constTransaction);
         _cachedHashCode = null;
+    }
+
+    public void removeTransaction(final Sha256Hash transactionHashToRemove) {
+        _merkleTree.clear();
+        _cachedHashCode = null;
+
+        final MutableList<Transaction> oldTransactions = _transactions;
+        _transactions = new MutableList<Transaction>(_transactions.getSize());
+        for (final Transaction transaction : oldTransactions) {
+            final Sha256Hash transactionHash = transaction.getHash();
+            if (! Util.areEqual(transactionHashToRemove, transactionHash)) {
+                _transactions.add(transaction);
+                _merkleTree.addItem(transaction);
+            }
+        }
     }
 
     public void clearTransactions() {
@@ -142,6 +173,17 @@ public class MutableBlock implements Block {
     }
 
     @Override
+    public List<Transaction> getTransactions(final BloomFilter bloomFilter) {
+        final ImmutableListBuilder<Transaction> matchedTransactions = new ImmutableListBuilder<Transaction>();
+        for (final Transaction transaction : _transactions) {
+            if (transaction.matches(bloomFilter)) {
+                matchedTransactions.add(transaction);
+            }
+        }
+        return matchedTransactions.build();
+    }
+
+    @Override
     public CoinbaseTransaction getCoinbaseTransaction() {
         if (_transactions.isEmpty()) { return null; }
 
@@ -150,9 +192,15 @@ public class MutableBlock implements Block {
     }
 
     @Override
-    public List<Sha256Hash> getPartialMerkleTree(final int transactionIndex) {
+    public List<Sha256Hash> getPartialMerkleTree(final Integer transactionIndex) {
         if (_merkleTree.isEmpty()) { return new MutableList<Sha256Hash>(); }
         return _merkleTree.getPartialTree(transactionIndex);
+    }
+
+    @Override
+    public PartialMerkleTree getPartialMerkleTree(final BloomFilter bloomFilter) {
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        return _merkleTree.getPartialTree(transactionBloomFilterMatcher);
     }
 
     @Override

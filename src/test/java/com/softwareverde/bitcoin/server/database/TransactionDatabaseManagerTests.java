@@ -11,17 +11,17 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContext;
-import com.softwareverde.bitcoin.transaction.signer.SignatureContextGenerator;
-import com.softwareverde.bitcoin.transaction.signer.TransactionSigner;
+import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
@@ -42,7 +42,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void transaction_spending_output_spent_by_other_mempool_tx_should_be_invalid() throws Exception {
-        final MysqlDatabaseConnection databaseConnection = _database.newConnection();
+        final DatabaseConnection databaseConnection = _database.newConnection();
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockInflater blockInflater = new BlockInflater();
         final AddressInflater addressInflater = new AddressInflater();
@@ -50,6 +50,8 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
         final TransactionValidator transactionValidator = new TransactionValidator(databaseConnection, _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
         final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockValidator blockValidator = new BlockValidator(_database.getDatabaseConnectionFactory(), _databaseManagerCache, new ImmutableNetworkTime(Long.MAX_VALUE), new BlockValidatorTests.FakeMedianBlockTime());
+
+        final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseConnection, _databaseManagerCache);
 
         Sha256Hash lastBlockHash = null;
         Block lastBlock = null;
@@ -94,7 +96,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
                 final BlockId blockId = blockDatabaseManager.storeBlock(blockWithSpendableCoinbase); // Block3
                 lastBlockHash = blockWithSpendableCoinbase.getHash();
 
-                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase);
+                final Boolean blockIsValid = blockValidator.validateBlock(blockId, blockWithSpendableCoinbase).isValid;
                 Assert.assertTrue(blockIsValid);
             }
         }
@@ -108,7 +110,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             transaction0 = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -124,7 +126,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             );
 
             // Sign the transaction..
-            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(databaseConnection, _databaseManagerCache);
+            final SignatureContextGenerator signatureContextGenerator = new SignatureContextGenerator(transactionOutputRepository);
             final SignatureContext signatureContext = signatureContextGenerator.createContextForEntireTransaction(unsignedTransaction, false);
             transaction1 = transactionSigner.signTransaction(signatureContext, privateKey);
 
@@ -142,7 +144,7 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
         }
 
         // Action
-        transactionDatabaseManager.addToUnconfirmedTransaction(transactionId0);
+        transactionDatabaseManager.addToUnconfirmedTransactions(transactionId0);
 
         // Assert
         final Boolean isValid = transactionValidator.validateTransaction(BlockchainSegmentId.wrap(1L), TransactionValidatorTests._calculateBlockHeight(databaseConnection), transaction1, true);

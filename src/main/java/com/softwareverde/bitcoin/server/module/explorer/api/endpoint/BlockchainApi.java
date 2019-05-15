@@ -1,20 +1,17 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
 import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.module.explorer.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.api.ApiResult;
+import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
+import com.softwareverde.concurrent.pool.ThreadPool;
+import com.softwareverde.http.querystring.GetParameters;
+import com.softwareverde.http.querystring.PostParameters;
+import com.softwareverde.http.server.servlet.request.Request;
+import com.softwareverde.http.server.servlet.response.JsonResponse;
+import com.softwareverde.http.server.servlet.response.Response;
 import com.softwareverde.json.Json;
-import com.softwareverde.servlet.GetParameters;
-import com.softwareverde.servlet.PostParameters;
-import com.softwareverde.servlet.request.Request;
-import com.softwareverde.servlet.response.JsonResponse;
-import com.softwareverde.servlet.response.Response;
-import com.softwareverde.socket.SocketConnection;
-
-import static com.softwareverde.servlet.response.Response.ResponseCodes;
 
 public class BlockchainApi extends ExplorerApiEndpoint {
-    public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
-
     private static class BlockchainResult extends ApiResult {
         private Json _blockchainJson = new Json();
 
@@ -30,8 +27,8 @@ public class BlockchainApi extends ExplorerApiEndpoint {
         }
     }
 
-    public BlockchainApi(final Configuration.ExplorerProperties explorerProperties) {
-        super(explorerProperties);
+    public BlockchainApi(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+        super(explorerProperties, threadPool);
     }
 
     @Override
@@ -39,37 +36,27 @@ public class BlockchainApi extends ExplorerApiEndpoint {
         final GetParameters getParameters = request.getGetParameters();
         final PostParameters postParameters = request.getPostParameters();
 
-        {   // GET BLOCKCHAIN TREE
+        {   // GET BLOCKCHAIN METADATA
             // Requires GET:
             // Requires POST:
-            try (final SocketConnection socketConnection = _newRpcConnection()) {
-                if (socketConnection == null) {
+            try (final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection()) {
+                if (nodeJsonRpcConnection == null) {
                     final BlockchainResult result = new BlockchainResult();
                     result.setWasSuccess(false);
-                    return new JsonResponse(ResponseCodes.SERVER_ERROR, result);
+                    result.setErrorMessage("Unable to connect to node.");
+                    return new JsonResponse(Response.Codes.SERVER_ERROR, result);
                 }
 
                 final Json blockchainJson;
                 {
-                    final Json rpcRequestJson = new Json();
-                    {
-                        final Json rpcParametersJson = new Json();
-                        rpcRequestJson.put("method", "GET");
-                        rpcRequestJson.put("query", "BLOCKCHAIN");
-                        rpcRequestJson.put("parameters", rpcParametersJson);
+                    final Json rpcResponseJson = nodeJsonRpcConnection.getBlockchainMetadata();
+                    if (rpcResponseJson == null) {
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
                     }
 
-                    socketConnection.write(rpcRequestJson.toString());
-
-                    final String rpcResponseString = socketConnection.waitForMessage(RPC_DURATION_TIMEOUT_MS);
-                    if (rpcResponseString == null) {
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, "Request timed out."));
-                    }
-
-                    final Json rpcResponseJson = Json.parse(rpcResponseString);
                     if (! rpcResponseJson.getBoolean("wasSuccess")) {
-                        final String errorMessage = rpcRequestJson.getString("errorMessage");
-                        return new JsonResponse(Response.ResponseCodes.SERVER_ERROR, new ApiResult(false, errorMessage));
+                        final String errorMessage = rpcResponseJson.getString("errorMessage");
+                        return new JsonResponse(Response.Codes.SERVER_ERROR, new ApiResult(false, errorMessage));
                     }
 
                     blockchainJson = rpcResponseJson.get("blockchainMetadata");
@@ -78,7 +65,7 @@ public class BlockchainApi extends ExplorerApiEndpoint {
                 final BlockchainResult blockchainResult = new BlockchainResult();
                 blockchainResult.setWasSuccess(true);
                 blockchainResult.setBlockchainMetadataJson(blockchainJson);
-                return new JsonResponse(ResponseCodes.OK, blockchainResult);
+                return new JsonResponse(Response.Codes.OK, blockchainResult);
             }
         }
     }

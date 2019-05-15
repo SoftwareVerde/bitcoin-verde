@@ -4,37 +4,44 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.database.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 
 public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     protected static class StartingBlock {
         public final BlockchainSegmentId selectedBlockchainSegmentId;
         public final BlockId startingBlockId;
+        public final Boolean matchWasFound;
 
-        public StartingBlock(final BlockchainSegmentId blockchainSegmentId, final BlockId startingBlockId) {
+        public StartingBlock(final BlockchainSegmentId blockchainSegmentId, final BlockId startingBlockId, final Boolean matchWasFound) {
             this.selectedBlockchainSegmentId = blockchainSegmentId;
             this.startingBlockId = startingBlockId;
+            this.matchWasFound = matchWasFound;
         }
     }
 
-    protected final MysqlDatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected AbstractQueryBlocksHandler(final MysqlDatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    protected AbstractQueryBlocksHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = databaseManagerCache;
     }
 
+    /**
+     * Returns the children BlockIds of the provided blockId, until either maxCount is reached or desiredBlockHash is reached.
+     *  The returned list of BlockIds does not include blockId.
+     */
     protected List<BlockId> _findBlockChildrenIds(final BlockId blockId, final Sha256Hash desiredBlockHash, final BlockchainSegmentId blockchainSegmentId, final Integer maxCount, final BlockHeaderDatabaseManager blockDatabaseManager) throws DatabaseException {
         final MutableList<BlockId> returnedBlockIds = new MutableList<BlockId>();
 
@@ -43,7 +50,9 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             final Sha256Hash addedBlockHash = blockDatabaseManager.getBlockHash(nextBlockId);
             if (addedBlockHash == null) { break; }
 
-            returnedBlockIds.add(nextBlockId);
+            if (! Util.areEqual(blockId, nextBlockId)) {
+                returnedBlockIds.add(nextBlockId);
+            }
 
             if (addedBlockHash.equals(desiredBlockHash)) { break; }
             if (returnedBlockIds.getSize() >= maxCount) { break; }
@@ -55,11 +64,12 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         return returnedBlockIds;
     }
 
-    protected StartingBlock _getStartingBlock(final List<Sha256Hash> blockHashes, final Boolean matchedHeaderMustHaveTransactions, final Sha256Hash desiredBlockHash, final MysqlDatabaseConnection databaseConnection) throws DatabaseException {
+    protected StartingBlock _getStartingBlock(final List<Sha256Hash> blockHashes, final Boolean matchedHeaderMustHaveTransactions, final Sha256Hash desiredBlockHash, final DatabaseConnection databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
 
+        final boolean matchWasFound;
         final BlockchainSegmentId blockchainSegmentId;
         final BlockId startingBlockId;
         {
@@ -79,6 +89,8 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
                     }
                 }
             }
+
+            matchWasFound = (foundBlockId != null);
 
             if (foundBlockId != null) {
                 final BlockId desiredBlockId = blockHeaderDatabaseManager.getBlockHeaderId(desiredBlockHash);
@@ -111,6 +123,6 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             return null;
         }
 
-        return new StartingBlock(blockchainSegmentId, startingBlockId);
+        return new StartingBlock(blockchainSegmentId, startingBlockId, matchWasFound);
     }
 }

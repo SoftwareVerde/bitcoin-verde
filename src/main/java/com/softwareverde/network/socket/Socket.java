@@ -28,6 +28,7 @@ public abstract class Socket {
         void setCallback(Callback callback);
         void interrupt();
         void join() throws InterruptedException;
+        void join(long timeout) throws InterruptedException;
         void start();
     }
 
@@ -37,6 +38,8 @@ public abstract class Socket {
     protected Boolean _isClosed = false;
 
     protected Runnable _messageReceivedCallback;
+    protected Runnable _socketClosedCallback;
+    protected Boolean _isListening = false;
     protected final ReadThread _readThread;
 
     protected final OutputStream _rawOutputStream;
@@ -99,7 +102,7 @@ public abstract class Socket {
         catch (final Exception exception) { }
 
         try {
-            _readThread.join();
+            _readThread.join(5000L);
         }
         catch (final Exception exception) { }
 
@@ -107,6 +110,13 @@ public abstract class Socket {
             _socket.close();
         }
         catch (final Exception exception) { }
+
+        final Runnable onCloseCallback = _socketClosedCallback;
+        _socketClosedCallback = null;
+
+        if (onCloseCallback != null) {
+            _threadPool.execute(onCloseCallback);
+        }
 
         if (! wasClosed) {
             _onSocketClosed();
@@ -153,12 +163,19 @@ public abstract class Socket {
         _threadPool = threadPool;
     }
 
-    public void beginListening() {
+    public synchronized void beginListening() {
+        if (_isListening) { return; }
+
+        _isListening = true;
         _readThread.start();
     }
 
     public void setMessageReceivedCallback(final Runnable callback) {
         _messageReceivedCallback = callback;
+    }
+
+    public void setOnClosedCallback(final Runnable callback) {
+        _socketClosedCallback = callback;
     }
 
     public void write(final ProtocolMessage outboundMessage) {
@@ -210,7 +227,7 @@ public abstract class Socket {
      * Returns false if this instance has had its close() function invoked or the socket is no longer connected.
      */
     public Boolean isConnected() {
-        return (! (_isClosed || _socket.isClosed()));
+        return ( (! _isClosed) && (! _socket.isClosed()) );
     }
 
     @Override
