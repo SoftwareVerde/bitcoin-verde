@@ -74,18 +74,18 @@ public class StratumServer {
     protected StratumMineBlockTask _currentMineBlockTask = null;
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<>();
 
-    protected MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
+    protected final MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
     protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<>();
 
-    protected Integer _shareDifficulty = 2048;
+    protected final Integer _shareDifficulty = 2048;
 
     protected Boolean _validatePrototypeBlockBeforeMining = true;
 
-    protected Thread _rebuildTaskThread;
+    protected final Thread _rebuildTaskThread;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
     protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
-    protected AtomicLong _shareCount = new AtomicLong(0L);
+    protected final AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<>();
 
