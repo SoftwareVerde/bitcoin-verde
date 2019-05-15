@@ -184,9 +184,7 @@ public class Main {
 
                 final String configurationFile = _arguments[1];
                 final String[] blockHashes = new String[_arguments.length - 2];
-                for (int i = 0; i < blockHashes.length; ++i) {
-                    blockHashes[i] = _arguments[2 + i];
-                }
+                System.arraycopy(_arguments, 2, blockHashes, 0, blockHashes.length);
                 RepairModule.execute(configurationFile, blockHashes);
             } break;
 

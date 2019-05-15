@@ -94,9 +94,7 @@ public class StringOperation extends SubTypedOperation {
 
                 ByteUtil.setBytes(bytes0, valueBytes);
 
-                for (int i = 0; i < bytes1ByteCount; ++i) {
-                    bytes1[i] = valueBytes[index + i];
-                }
+                System.arraycopy(valueBytes, index + 0, bytes1, 0, bytes1ByteCount);
 
                 stack.push(Value.fromBytes(bytes0));
                 stack.push(Value.fromBytes(bytes1));

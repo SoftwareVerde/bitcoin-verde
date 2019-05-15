@@ -13,9 +13,7 @@ public class Ipv6 implements Ip {
         final byte[] ipv4Bytes = ipv4.getBytes();
         ipSegmentBytes[10] = (byte) 0xFF;
         ipSegmentBytes[11] = (byte) 0xFF;
-        for (int i=0; i<ipv4Bytes.length; ++i) {
-            ipSegmentBytes[12 + i] = ipv4Bytes[i];
-        }
+        System.arraycopy(ipv4Bytes, 0, ipSegmentBytes, 12, ipv4Bytes.length);
         return ipSegmentBytes;
     }
 
@@ -57,9 +55,7 @@ public class Ipv6 implements Ip {
                     final Boolean containsTooManySegments = ((firstHalfSegments.length + secondHalfSegments.length) >= 8);
                     if (containsTooManySegments) { return null; }
 
-                    for (int i=0; i < firstHalfSegments.length; ++i) {
-                        ipSegmentStrings[i] = firstHalfSegments[i];
-                    }
+                    System.arraycopy(firstHalfSegments, 0, ipSegmentStrings, 0, firstHalfSegments.length);
 
                     for (int i=0; i < (8 - firstHalfSegments.length - secondHalfSegments.length); ++i) {
                         ipSegmentStrings[firstHalfSegments.length + i] = "0";
@@ -73,9 +69,7 @@ public class Ipv6 implements Ip {
             else {
                 final String[] splitIpSegments = strippedIpString.split(":");
                 if (splitIpSegments.length != 8) { return null; }
-                for (int i=0; i<8; ++i) {
-                    ipSegmentStrings[i] = splitIpSegments[i];
-                }
+                System.arraycopy(splitIpSegments, 0, ipSegmentStrings, 0, 8);
             }
         }
 
@@ -117,18 +111,14 @@ public class Ipv6 implements Ip {
         if (segments == null) { return null; }
 
         final Ipv6 ipv6 = new Ipv6();
-        for (int i=0; i<segments.length; ++i) {
-            ipv6._bytes[i] = segments[i];
-        }
+        System.arraycopy(segments, 0, ipv6._bytes, 0, segments.length);
         return ipv6;
     }
 
     public static Ipv6 createIpv4CompatibleIpv6(final Ipv4 ipv4) {
         final Ipv6 ipv6 = new Ipv6();
         final byte[] bytes = _createIpv4CompatibleIpv6(ipv4);
-        for (int i=0; i<bytes.length; ++i) {
-            ipv6._bytes[i] = bytes[i];
-        }
+        System.arraycopy(bytes, 0, ipv6._bytes, 0, bytes.length);
         return ipv6;
     }
 
@@ -137,18 +127,14 @@ public class Ipv6 implements Ip {
     @Override
     public byte[] getBytes() {
         final byte[] bytes = new byte[16];
-        for (int i = 0; i< _bytes.length; ++i) {
-            bytes[i] = _bytes[i];
-        }
+        System.arraycopy(_bytes, 0, bytes, 0, _bytes.length);
         return bytes;
     }
 
     @Override
     public Ip copy() {
         final Ipv6 ipv6 = new Ipv6();
-        for (int i=0; i<_bytes.length; ++i) {
-            ipv6._bytes[i] = _bytes[i];
-        }
+        System.arraycopy(_bytes, 0, ipv6._bytes, 0, _bytes.length);
         return ipv6;
     }
 

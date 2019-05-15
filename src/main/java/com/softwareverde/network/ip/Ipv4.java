@@ -41,9 +41,7 @@ public class Ipv4 implements Ip {
         if (segments.length != 4) { return null; }
 
         final Ipv4 ipv4 = new Ipv4();
-        for (int i=0; i<segments.length; ++i) {
-            ipv4._bytes[i] = segments[i];
-        }
+        System.arraycopy(segments, 0, ipv4._bytes, 0, segments.length);
         return ipv4;
     }
 
@@ -53,27 +51,21 @@ public class Ipv4 implements Ip {
 
     public Ipv4(final byte[] ipByteSegments) {
         if (ipByteSegments.length == _bytes.length) {
-            for (int i = 0; i< _bytes.length; ++i) {
-                _bytes[i] = ipByteSegments[i];
-            }
+            System.arraycopy(ipByteSegments, 0, _bytes, 0, _bytes.length);
         }
     }
 
     @Override
     public byte[] getBytes() {
         final byte[] bytes = new byte[4];
-        for (int i = 0; i< _bytes.length; ++i) {
-            bytes[i] = _bytes[i];
-        }
+        System.arraycopy(_bytes, 0, bytes, 0, _bytes.length);
         return bytes;
     }
 
     @Override
     public Ip copy() {
         final Ipv4 ipv4 = new Ipv4();
-        for (int i = 0; i< _bytes.length; ++i) {
-            ipv4._bytes[i] = _bytes[i];
-        }
+        System.arraycopy(_bytes, 0, ipv4._bytes, 0, _bytes.length);
         return ipv4;
     }
 
