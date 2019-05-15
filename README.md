@@ -1,8 +1,18 @@
 
-# Bitcoin Verde v1.0.2
+# Bitcoin Verde v1.1.0
 
 
 ## Updates
+
+**v1.1.0**
+
+- HF20190515 rules are now supported. (Schnorr Signatures)
+- Headers are now bootstrapped during initial sync.
+- SPV Bloom Filters are supported.
+- Improved DOS defences against malicious nodes.
+- Adding ASIC Mining module.
+- Misc. Explorer improvements.
+
 
 **v1.0.2**
 
@@ -26,16 +36,16 @@
 ## Description
 
 
-Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is a
-full node, blockchain explorer, and library.
+Bitcoin-Verde is a ground-up implementation of the Bitcoin (Cash) (BCH) protocol.  This project is an
+indexing full node, blockchain explorer, and library.
 
 
 ## Purpose
 
 
-Bitcoin (Core) (BTC) is the sole group responsible for development on BTC's client.  In the past, lack of
+Bitcoin Core (BTC) is the primary group responsible for development on BTC's client.  In the past, lack of
 a diversified development team and node implementation, have caused bugs to become a part of the protocol.
-BCH currently has roughly three full-node implementations (Bitcoin ABC, Bitcoin XT, Bitcoin Unlimited).
+BCH currently has roughly two popular full-node implementations (Bitcoin ABC and Bitcoin Unlimited).
 However, these implementations are forked versions of Bitcoin Core, which means they may share the same
 (undiscovered) bugs.  With a diverse network of nodes, bugs in the implementation of the protocol will
 result in incompatible blocks, causing a temporary fork.  This situation is healthy for the network in
@@ -46,8 +56,8 @@ the consensus.
 ## Disclaimer
 
 
-Bitcoin Verde has gone through weeks of testing, but v1.0.0 is still considered a Beta release.  Please
-use this software with discretion.  As v1.0.0, the Bitcoin Verde node validates the entirety of the BCH
+Bitcoin Verde has gone through weeks of testing, but v1.1.0 is still considered a Beta release.  Please
+use this software with discretion.  As v1.1.0, the Bitcoin Verde node validates the entirety of the BCH
 blockchain, relays new blocks and transactions, and can process upwards of 4,000 transactions per second;
 however this implementation does not have the bitcoind tests run against it yet, so there may still be
 implementation differences between this implementation and the reference client's derivatives.
@@ -56,7 +66,7 @@ implementation differences between this implementation and the reference client'
 Windows Users: Bitcoin Verde has been tested heavily on Linux and OS X.  On Windows, there may be many
 issues.  On Windows, expect your node to not run as quickly due to `secp256k1` and `utxo-cache` libraries
 not being cross-compiled for Windows.  Furthermore, the Windows build may not even complete its initial
-block download.  If you are kind enough to run this implementation on windows, please report any problems.
+block download.  If you are kind enough to run this implementation on Windows, please report any problems.
 
 ## Getting Started
 
@@ -71,6 +81,13 @@ This command will run the gradle command to download dependencies and build the 
 configuration, and run-scripts, located within the `out` directory.
 
 
+To enable and compile the btree-utxocache, configure your environment to compile C++ code; on linux
+installing the 'build-essential' package should suffice. Then cd into `jni/utxo-cache` and run
+`./scripts/make.sh`, and `./scripts/copy-bin.sh`.  (NOTE: These scripts are located at
+`jni/utxo-cache/scripts`, not the project root).  After the build completes, cd into the project
+root, and rebuild the project via `./scripts/make.sh`.
+
+
 To run the node, you may `cd` into `out` and execute one of the `run-*` scripts. Or from the project
 directory, run `./scripts/run.sh`, `./scripts/run-node.sh`, `./scripts/run-database.sh` etc.
 
@@ -80,6 +97,15 @@ will be semi-permanent across builds, while changes made to `out/conf/server.con
 
 
 For more more detailed instructions, please refer to http://bitcoinverde.org/documentation/
+
+
+## Upgrading from 1.0.x
+
+
+IMPORTANT: the `make.sh` script will completely remove the `out` directory, which is where blocks
+are stored.  Running this command to upgrade will cause your node to re-sync from scratch.  To
+upgrade, checkout `v1.1.0` and run `./scripts/make-jar.sh`.  Restart your node via
+`./scripts/rpc-shutdown.sh` and `./scripts/rpc/run-node.sh`.
 
 
 ## Contributions
@@ -94,4 +120,5 @@ resolving bugs preferrably be accepted along with a test proving their existence
 
 
 Feel free to contact Software Verde, LLC at any appropriate softwareverde.com email address.
-Generic enquiries may be directed at bitcoin-verde@softwareverde.com
+Generic enquiries may be directed to bitcoin-verde@softwareverde.com
+
