@@ -50,7 +50,7 @@ public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transact
                     }
                     else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
                         final ScriptType scriptType = lockingScript.getScriptType();
-                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH)) {
+                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) ) {
                             shouldUpdateBloomFilter = true;
                         }
                     }

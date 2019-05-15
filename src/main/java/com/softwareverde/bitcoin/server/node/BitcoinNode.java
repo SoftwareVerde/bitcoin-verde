@@ -263,7 +263,6 @@ public class BitcoinNode extends Node {
 
     protected Boolean _transactionRelayIsEnabled = true;
 
-    protected UpdateBloomFilterMode _updateBloomFilterMode = UpdateBloomFilterMode.READ_ONLY; // TODO: Should be set by client.  UPDATE_ALL and P2PK_P2MS are potentially broken...
     protected MutableBloomFilter _bloomFilter = null;
     protected Sha256Hash _batchContinueHash = null; // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
 
@@ -1143,7 +1142,9 @@ public class BitcoinNode extends Node {
             //      matching the filter should also be sent in separate tx messages after the merkleblock is sent. This
             //      avoids a slow roundtrip that would otherwise be required (receive hashes, didn't see some of these
             //      transactions yet, ask for them)."
-            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, _updateBloomFilterMode);
+
+            final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
+            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
             final List<Transaction> transactions = block.getTransactions();
             for (final Transaction transaction : transactions) {
                 final Boolean transactionMatches = transactionBloomFilterMatcher.shouldInclude(transaction);
@@ -1256,7 +1257,11 @@ public class BitcoinNode extends Node {
      *  The BitcoinNode's BloomFilter is updated as necessary, as specified by the peer.
      */
     public Boolean matchesFilter(final Transaction transaction) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(_bloomFilter, _updateBloomFilterMode);
+        final MutableBloomFilter bloomFilter = _bloomFilter;
+        if (bloomFilter == null) { return true; }
+
+        final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
         return transactionBloomFilterMatcher.shouldInclude(transaction);
     }
 
