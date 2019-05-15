@@ -63,7 +63,8 @@ public class Configuration {
         private Long _trustedBlockHeight;
         private Boolean _shouldSkipNetworking;
         private Long _maxUtxoCacheByteCount;
-        private Boolean _useTransactionBloomFilter;
+        private Boolean _transactionBloomFilterIsEnabled;
+        private Boolean _bootstrapIsEnabled;
         private Boolean _shouldTrimBlocks;
         private Integer _maxMessagesPerSecond;
 
@@ -77,9 +78,10 @@ public class Configuration {
         public Long getTrustedBlockHeight() { return _trustedBlockHeight; }
         public Boolean skipNetworking() { return _shouldSkipNetworking; }
         public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
-        public Boolean shouldUseTransactionBloomFilter() { return _useTransactionBloomFilter; }
+        public Boolean isTransactionBloomFilterEnabled() { return _transactionBloomFilterIsEnabled; }
         public Boolean shouldTrimBlocks() { return _shouldTrimBlocks; }
         public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
+        public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
 
         public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     }
@@ -231,7 +233,8 @@ public class Configuration {
         _bitcoinProperties._trustedBlockHeight = Util.parseLong(_properties.getProperty("bitcoin.trustedBlockHeight", "0"));
         _bitcoinProperties._shouldSkipNetworking = Util.parseBool(_properties.getProperty("bitcoin.skipNetworking", "0"));
         _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
-        _bitcoinProperties._useTransactionBloomFilter = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
+        _bitcoinProperties._transactionBloomFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
+        _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
         _bitcoinProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
 

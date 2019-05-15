@@ -35,6 +35,7 @@ import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.handler.*;
 import com.softwareverde.bitcoin.server.module.node.sync.*;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
+import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootstrapper;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -212,7 +213,7 @@ public class NodeModule {
         _socketServer.stop();
 
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
-        if (bitcoinProperties.shouldUseTransactionBloomFilter()) {
+        if (bitcoinProperties.isTransactionBloomFilterEnabled()) {
             Logger.log("[Saving Tx Bloom Filter]");
             TransactionDatabaseManager.saveBloomFilter(_transactionBloomFilterFilename);
         }
@@ -732,7 +733,7 @@ public class NodeModule {
 
         final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
 
-        if (bitcoinProperties.shouldUseTransactionBloomFilter()) {
+        if (bitcoinProperties.isTransactionBloomFilterEnabled()) {
             Logger.log("[Loading Tx Bloom Filter]");
             final Database database = _environment.getDatabase();
             try (final DatabaseConnection databaseConnection = database.newConnection()) {
@@ -741,6 +742,12 @@ public class NodeModule {
             catch (final DatabaseException exception) {
                 Logger.log(exception);
             }
+        }
+
+        if (bitcoinProperties.isBootstrapEnabled()) {
+            Logger.log("[Bootstrapping Headers]");
+            final HeadersBootstrapper headersBootstrapper = new HeadersBootstrapper(_databaseConnectionPool);
+            headersBootstrapper.run();
         }
 
         if (! bitcoinProperties.skipNetworking()) {
