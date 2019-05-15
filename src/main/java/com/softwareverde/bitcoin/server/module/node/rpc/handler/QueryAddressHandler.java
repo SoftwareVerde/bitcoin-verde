@@ -24,7 +24,7 @@ import java.util.HashMap;
 
 public class QueryAddressHandler implements NodeRpcHandler.QueryAddressHandler {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected DatabaseManagerCache _databaseManagerCache;
+    protected final DatabaseManagerCache _databaseManagerCache;
 
     public QueryAddressHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
