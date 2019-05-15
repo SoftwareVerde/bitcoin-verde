@@ -13,7 +13,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
-    public static Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+    private static final Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
 
     // NOTE: Bitcoin uses "MPI" encoding for its numeric values on the stack.
     //  This fact and/or a specification for how MPI is encoded is not on the wiki (...of course).
