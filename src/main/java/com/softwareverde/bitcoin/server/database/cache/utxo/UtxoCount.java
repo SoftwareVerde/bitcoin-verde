@@ -8,7 +8,7 @@ import com.softwareverde.util.Util;
  *  Typically, this wrapper is used to prevent the value from being confused with a byte count or other ambiguous unit.
  */
 public class UtxoCount implements Const, Comparable<UtxoCount> {
-    public static final UtxoCount wrap(final Long value) {
+    public static UtxoCount wrap(final Long value) {
         if (value == null) { return null; }
 
         return new UtxoCount(value);
