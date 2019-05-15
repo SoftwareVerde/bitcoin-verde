@@ -10,6 +10,7 @@ import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.softwareverde.bitcoin.transaction.script.opcode.Opcode.*;
@@ -49,9 +50,7 @@ public abstract class Operation implements Const {
 
         public List<Opcode> getSubtypes() {
             final List<Opcode> opcodes = new ArrayList<>(_opcodes.length);
-            for (final Opcode opcode : _opcodes) {
-                opcodes.add(opcode);
-            }
+            opcodes.addAll(Arrays.asList(_opcodes));
             return opcodes;
         }
 
