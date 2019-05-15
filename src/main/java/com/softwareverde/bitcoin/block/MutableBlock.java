@@ -24,7 +24,7 @@ public class MutableBlock implements Block {
     protected Long _timestamp;
     protected Difficulty _difficulty;
     protected Long _nonce;
-    protected MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<>();
+    final MerkleTreeNode<Transaction> _merkleTree = new MerkleTreeNode<>();
     protected MutableList<Transaction> _transactions = new MutableList<>();
 
     protected Integer _cachedHashCode = null;
