@@ -1,8 +1,11 @@
 package com.softwareverde.network.ip;
 
+import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
+
 import java.net.*;
 
-public interface Ip {
+public interface Ip extends Const {
     static Ip fromSocket(final Socket socket) {
         final SocketAddress socketAddress = socket.getRemoteSocketAddress();
         if (socketAddress instanceof InetSocketAddress) {
@@ -50,8 +53,7 @@ public interface Ip {
         return null;
     }
 
-    byte[] getBytes();
-    Ip copy();
+    ByteArray getBytes();
 
     @Override
     String toString();

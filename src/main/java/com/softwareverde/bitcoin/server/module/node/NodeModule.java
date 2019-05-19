@@ -402,11 +402,7 @@ public class NodeModule {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
                     final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
-                        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
-                        final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
-
-                        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
-                        bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
+                        final BitcoinNodeIpAddress bitcoinNodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
                         nodeIpAddresses.add(bitcoinNodeIpAddress);
                     }
                     return nodeIpAddresses.build();

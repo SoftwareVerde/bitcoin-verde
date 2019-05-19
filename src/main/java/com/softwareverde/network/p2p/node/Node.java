@@ -433,16 +433,30 @@ public abstract class Node {
         return ((ip != null ? ip.toString() : _connection.getHost()) + ":" + _connection.getPort());
     }
 
+    /**
+     * Returns a NodeIpAddress consisting of the Ip and Port for the connection.
+     *  If the connection string was provided as a domain name, it will attempted to be resolved.
+     *  If the domain cannot be resolved, then null is returned.
+     */
     public NodeIpAddress getRemoteNodeIpAddress() {
         final Ip ip;
         {
             final Ip connectionIp = _connection.getIp();
-            ip = (connectionIp != null ? connectionIp : Ip.fromString(_connection.getHost()));
+            if (connectionIp != null) {
+                ip = connectionIp;
+            }
+            else {
+                final String hostName = _connection.getHost();
+                final Ip ipFromString = Ip.fromString(hostName);
+                if (ipFromString != null) {
+                    ip = ipFromString;
+                }
+                else {
+                    ip = Ip.fromHostName(hostName);
+                }
+            }
         }
-
-        if (ip == null) {
-            return null;
-        }
+        if (ip == null) { return null; }
 
         return new NodeIpAddress(ip, _connection.getPort());
     }

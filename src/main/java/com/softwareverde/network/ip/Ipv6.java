@@ -1,20 +1,25 @@
 package com.softwareverde.network.ip;
 
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
-
-import java.util.Arrays;
+import com.softwareverde.util.Util;
 
 public class Ipv6 implements Ip {
+    public static final Integer BYTE_COUNT = 16;
 
     protected static byte[] _createIpv4CompatibleIpv6(final Ipv4 ipv4) {
-        final byte[] ipSegmentBytes = new byte[16];
-        final byte[] ipv4Bytes = ipv4.getBytes();
+        final byte[] ipSegmentBytes = new byte[BYTE_COUNT];
+        final ByteArray ipv4Bytes = ipv4.getBytes();
         ipSegmentBytes[10] = (byte) 0xFF;
         ipSegmentBytes[11] = (byte) 0xFF;
-        for (int i=0; i<ipv4Bytes.length; ++i) {
-            ipSegmentBytes[12 + i] = ipv4Bytes[i];
+
+        final int offset = (BYTE_COUNT - Ipv4.BYTE_COUNT);
+        for (int i = 0; i < ipv4Bytes.getByteCount(); ++i) {
+            ipSegmentBytes[offset + i] = ipv4Bytes.getByte(i);
         }
         return ipSegmentBytes;
     }
@@ -73,27 +78,28 @@ public class Ipv6 implements Ip {
             else {
                 final String[] splitIpSegments = strippedIpString.split(":");
                 if (splitIpSegments.length != 8) { return null; }
-                for (int i=0; i<8; ++i) {
+
+                for (int i = 0; i < 8; ++i) {
                     ipSegmentStrings[i] = splitIpSegments[i];
                 }
             }
         }
 
-        final byte[] ipSegmentBytes = new byte[16];
-        for (int i=0; i<8; ++i) {
+        final byte[] ipSegmentBytes = new byte[BYTE_COUNT];
+        for (int i = 0; i < ipSegmentStrings.length; ++i) {
             final String ipSegmentString;
             {
                 final String originalIpSegmentString = ipSegmentStrings[i];
                 final Integer availableCharCount = originalIpSegmentString.length();
                 final char[] charArray = new char[4];
-                for (int j=0; j<charArray.length; ++j) {
+                for (int j = 0; j < charArray.length; ++j) {
                     final char c = (j < availableCharCount ? originalIpSegmentString.charAt((availableCharCount - j) - 1) : '0');
                     charArray[(charArray.length - j) - 1] = c;
                 }
                 ipSegmentString = new String(charArray);
             }
             final byte[] segmentBytes = HexUtil.hexStringToByteArray(ipSegmentString);
-            if ((segmentBytes == null) || (segmentBytes.length != 2)) {
+            if ( (segmentBytes == null) || (segmentBytes.length != 2) ) {
                 return null;
             }
 
@@ -104,62 +110,57 @@ public class Ipv6 implements Ip {
     }
 
     public static Ipv6 fromBytes(final byte[] bytes) {
-        if (bytes.length == 4) { return createIpv4CompatibleIpv6(Ipv4.fromBytes(bytes)); }
-        if (bytes.length != 16) { return null; }
+        if (bytes.length == Ipv4.BYTE_COUNT) { return Ipv6.createIpv4CompatibleIpv6(Ipv4.fromBytes(bytes)); }
+        if (bytes.length != BYTE_COUNT) { return null; }
 
-        final Ipv6 ipv6 = new Ipv6();
-        ByteUtil.setBytes(ipv6._bytes, bytes);
-        return ipv6;
+        return new Ipv6(bytes);
     }
 
     public static Ipv6 parse(final String string) {
         final byte[] segments = _parse(string);
         if (segments == null) { return null; }
 
-        final Ipv6 ipv6 = new Ipv6();
-        for (int i=0; i<segments.length; ++i) {
-            ipv6._bytes[i] = segments[i];
-        }
-        return ipv6;
+        return new Ipv6(segments);
     }
 
     public static Ipv6 createIpv4CompatibleIpv6(final Ipv4 ipv4) {
-        final Ipv6 ipv6 = new Ipv6();
         final byte[] bytes = _createIpv4CompatibleIpv6(ipv4);
-        for (int i=0; i<bytes.length; ++i) {
-            ipv6._bytes[i] = bytes[i];
-        }
-        return ipv6;
+        return new Ipv6(bytes);
     }
 
-    private final byte[] _bytes = new byte[16];
+    private final ByteArray _bytes;
 
-    @Override
-    public byte[] getBytes() {
-        final byte[] bytes = new byte[16];
-        for (int i = 0; i< _bytes.length; ++i) {
-            bytes[i] = _bytes[i];
+    public Ipv6() {
+        _bytes = new MutableByteArray(BYTE_COUNT);
+    }
+
+    public Ipv6(final byte[] bytes) {
+        if (bytes.length == 16) {
+            _bytes = new ImmutableByteArray(bytes);
         }
-        return bytes;
+        else {
+            _bytes = new MutableByteArray(16);
+        }
     }
 
     @Override
-    public Ip copy() {
-        final Ipv6 ipv6 = new Ipv6();
-        for (int i=0; i<_bytes.length; ++i) {
-            ipv6._bytes[i] = _bytes[i];
-        }
-        return ipv6;
+    public ByteArray getBytes() {
+        return _bytes;
     }
 
     @Override
     public String toString() {
         final StringBuilder stringBuilder = new StringBuilder();
-        for (final byte b : _bytes) {
-            stringBuilder.append(ByteUtil.byteToInteger(b));
-            stringBuilder.append(":");
+        String separator = "";
+        for (int i = 0; i < BYTE_COUNT; i += 2) {
+            final byte[] segmentBytes = _bytes.getBytes(i, 2);
+            final String segmentString = HexUtil.toHexString(segmentBytes);
+
+            stringBuilder.append(separator);
+            stringBuilder.append(segmentString);
+
+            separator = ":";
         }
-        stringBuilder.deleteCharAt(stringBuilder.length() - 1); // Remove the last colon...
         return stringBuilder.toString();
     }
 
@@ -168,11 +169,11 @@ public class Ipv6 implements Ip {
         if (object == null) { return false; }
         if (! (object instanceof Ipv6)) { return false; }
         final Ipv6 ipv6 = (Ipv6) object;
-        return ByteUtil.areEqual(_bytes, ipv6._bytes);
+        return Util.areEqual(_bytes, ipv6._bytes);
     }
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(_bytes);
+        return _bytes.hashCode();
     }
 }
