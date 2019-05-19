@@ -152,7 +152,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _initNode(final BitcoinNode node) {
-        node.setTransactionRelayIsEnabled(_transactionRelayIsEnabled);
+        node.enableTransactionRelay(_transactionRelayIsEnabled);
 
         super._initNode(node);
         _nodeInitializer.initializeNode(node);
@@ -811,7 +811,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
 
         for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            bitcoinNode.setTransactionRelayIsEnabled(transactionRelayIsEnabled);
+            bitcoinNode.enableTransactionRelay(transactionRelayIsEnabled);
         }
     }
 

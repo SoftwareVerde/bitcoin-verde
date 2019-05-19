@@ -1230,14 +1230,20 @@ public class BitcoinNode extends Node {
         return nodeFeatures.hasFeatureFlagEnabled(feature);
     }
 
-    public void setTransactionRelayIsEnabled(final Boolean transactionRelayIsEnabled) {
+    /**
+     * Tells the remote peer to not send new transactions to this node.
+     *  This function must be set before the handshake is started in order to have an affect.
+     */
+    public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
         // TODO: Consider initializing a new handshake to update the relay preference...
     }
 
+    /**
+     * Returns if the remote peer has enabled transaction relay.
+     *  If the node has not completed its handshake, null is returned.
+     */
     public Boolean isTransactionRelayEnabled() {
-        if (! _transactionRelayIsEnabled) { return false; }
-
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = _synchronizeVersionMessage;
         if (synchronizeVersionMessage == null) { return null; }
 
