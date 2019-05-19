@@ -55,6 +55,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.network.socket.BinarySocketServer;
 import com.softwareverde.network.socket.JsonSocketServer;
@@ -401,7 +402,12 @@ public class NodeModule {
                     final List<BitcoinNode> connectedNodes = _bitcoinNodeManager.getNodes();
                     final ImmutableListBuilder<BitcoinNodeIpAddress> nodeIpAddresses = new ImmutableListBuilder<BitcoinNodeIpAddress>(connectedNodes.getSize());
                     for (final BitcoinNode bitcoinNode : connectedNodes) {
-                        nodeIpAddresses.add(bitcoinNode.getRemoteNodeIpAddress());
+                        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
+                        final NodeFeatures nodeFeatures = bitcoinNode.getNodeFeatures();
+
+                        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
+                        bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
+                        nodeIpAddresses.add(bitcoinNodeIpAddress);
                     }
                     return nodeIpAddresses.build();
                 }

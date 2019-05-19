@@ -64,7 +64,6 @@ import com.softwareverde.network.p2p.message.type.PongMessage;
 import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
-import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -1309,18 +1308,8 @@ public class BitcoinNode extends Node {
         return ((BitcoinNodeIpAddress) _localNodeIpAddress).copy();
     }
 
-    @Override
-    public BitcoinNodeIpAddress getRemoteNodeIpAddress() {
-        final NodeIpAddress nodeIpAddress = super.getRemoteNodeIpAddress();
-        if (nodeIpAddress == null) { return null; }
+    public NodeFeatures getNodeFeatures() {
         if (_synchronizeVersionMessage == null) { return null; }
-
-        final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-
-        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress();
-        bitcoinNodeIpAddress.setIp(nodeIpAddress.getIp());
-        bitcoinNodeIpAddress.setPort(nodeIpAddress.getPort());
-        bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
-        return bitcoinNodeIpAddress;
+        return _synchronizeVersionMessage.getNodeFeatures();
     }
 }

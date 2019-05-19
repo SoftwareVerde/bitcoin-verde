@@ -54,6 +54,19 @@ public class BitcoinNodeIpAddress extends NodeIpAddress {
         _port = 0x0000;
     }
 
+    public BitcoinNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _timestamp = (System.currentTimeMillis() / 1000L);
+        _ip = nodeIpAddress.getIp();
+        _port = nodeIpAddress.getPort();
+
+        if (nodeIpAddress instanceof BitcoinNodeIpAddress) {
+            _nodeFeatures = ((BitcoinNodeIpAddress) nodeIpAddress).getNodeFeatures();
+        }
+        else {
+            _nodeFeatures = new NodeFeatures();
+        }
+    }
+
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {
         _nodeFeatures.setFeaturesFlags(nodeFeatures);
     }
