@@ -9,7 +9,7 @@ public class SchnorrSignature implements Signature {
     public static final Integer BYTE_COUNT = 64;
 
     public static SchnorrSignature fromBytes(final ByteArray byteArray) {
-        if (byteArray.getByteCount() != BYTE_COUNT) { return null; }
+        if (byteArray.getByteCount() < BYTE_COUNT) { return null; } // byteArray's byte count may include an extra byte for the hashType...
 
         final MutableByteArray rBytes = MutableByteArray.wrap(byteArray.getBytes(0, 32));
         final MutableByteArray sBytes = MutableByteArray.wrap(byteArray.getBytes(32, 32));
