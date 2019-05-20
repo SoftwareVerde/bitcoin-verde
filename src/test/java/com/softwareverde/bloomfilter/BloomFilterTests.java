@@ -70,6 +70,7 @@ public class BloomFilterTests {
         // Setup
         final BloomFilterDeflater bloomFilterDeflater = new BloomFilterDeflater();
         final MutableBloomFilter bloomFilter = new MutableBloomFilter(3L, 0.01D, 0L);
+        bloomFilter.setUpdateMode(UpdateBloomFilterMode.UPDATE_ALL.getValue());
 
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("99108AD8ED9BB6274D3980BAB5A85C048F0950C8")));
         bloomFilter.addItem(MutableByteArray.wrap(HexUtil.hexStringToByteArray("B5A2C786D9EF4658287CED5914B37A1B4AA32EEE")));
