@@ -946,7 +946,11 @@ public class BitcoinNode extends Node {
     protected void _requestMerkleBlock(final Sha256Hash blockHash) {
         final RequestDataMessage requestDataMessage = new RequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
-        _queueMessage(requestDataMessage);
+
+        final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>(2);
+        messages.add(requestDataMessage);
+        messages.add(new BitcoinPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message to close out the MerkleBlockMessage transmission.
+        _queueMessages(messages);
     }
 
     protected void _requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
