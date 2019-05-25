@@ -6,6 +6,10 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.SystemUtil;
 
 public class DatabaseConfigurer {
+    protected static Long toNearestMegabyte(final Long byteCount) {
+        return ((byteCount / ByteUtil.Unit.MEGABYTES) * ByteUtil.Unit.MEGABYTES);
+    }
+
     public static void configureCommandLineArguments(final DatabaseCommandLineArguments commandLineArguments, final Integer maxDatabaseThreadCount, final Configuration.DatabaseProperties databaseProperties) {
         if (SystemUtil.isWindowsOperatingSystem()) {
             // MariaDb4j currently only supports 32 bit on Windows, so the log file and memory settings must be less than 2 GB...
@@ -15,10 +19,16 @@ public class DatabaseConfigurer {
             commandLineArguments.addArgument("--max-connections=" + maxDatabaseThreadCount);
         }
         else {
-            commandLineArguments.setInnoDbBufferPoolByteCount(databaseProperties.getMaxMemoryByteCount());
-            commandLineArguments.setInnoDbBufferPoolInstanceCount(4);
+            final Long maxDatabaseMemory = databaseProperties.getMaxMemoryByteCount();
 
-            commandLineArguments.setInnoDbLogBufferByteCount(ByteUtil.Unit.GIGABYTES);
+            final Long logBufferByteCount = DatabaseConfigurer.toNearestMegabyte(Math.min((1L * ByteUtil.Unit.GIGABYTES), (maxDatabaseMemory / 4L))); // 1/4th of the max memory, rounded to the nearest Megabyte, but no greater than 1 GB.
+            final Long bufferPoolByteCount = DatabaseConfigurer.toNearestMegabyte(maxDatabaseMemory - logBufferByteCount);
+            final Integer bufferPoolInstanceCount = Math.max(1, (int) (bufferPoolByteCount / (4L * ByteUtil.Unit.GIGABYTES)));
+
+            commandLineArguments.setInnoDbBufferPoolByteCount(bufferPoolByteCount);
+            commandLineArguments.setInnoDbBufferPoolInstanceCount(bufferPoolInstanceCount);
+
+            commandLineArguments.setInnoDbLogBufferByteCount(logBufferByteCount);
 
             commandLineArguments.addArgument("--innodb-flush-log-at-trx-commit=0");
             commandLineArguments.addArgument("--innodb-flush-method=O_DIRECT");
@@ -43,4 +53,6 @@ public class DatabaseConfigurer {
             // commandLineArguments.addArgument("--general_log=1");
         }
     }
+
+    protected DatabaseConfigurer() { }
 }
