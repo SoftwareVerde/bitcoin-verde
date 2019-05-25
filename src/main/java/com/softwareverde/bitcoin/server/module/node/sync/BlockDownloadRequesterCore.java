@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBl
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.node.NodeId;
 import com.softwareverde.util.type.time.SystemTime;
@@ -44,8 +45,11 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) {
         try (final DatabaseConnection databaseConnection = _connectionFactory.newConnection()) {
             final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+
+            TransactionUtil.startTransaction(databaseConnection);
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
             pendingBlockDatabaseManager.setPriority(pendingBlockId, priority);
+            TransactionUtil.commitTransaction(databaseConnection);
 
             if (priority < 256) { // Check if any peers have the requested block if it is of high priority...
                 // If none of the nodes have the block in their known inventory, ask the peers specifically for the block.

@@ -946,7 +946,11 @@ public class BitcoinNode extends Node {
     protected void _requestMerkleBlock(final Sha256Hash blockHash) {
         final RequestDataMessage requestDataMessage = new RequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
-        _queueMessage(requestDataMessage);
+
+        final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>(2);
+        messages.add(requestDataMessage);
+        messages.add(new BitcoinPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message to close out the MerkleBlockMessage transmission.
+        _queueMessages(messages);
     }
 
     protected void _requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
@@ -1230,14 +1234,20 @@ public class BitcoinNode extends Node {
         return nodeFeatures.hasFeatureFlagEnabled(feature);
     }
 
-    public void setTransactionRelayIsEnabled(final Boolean transactionRelayIsEnabled) {
+    /**
+     * Tells the remote peer to not send new transactions to this node.
+     *  This function must be set before the handshake is started in order to have an affect.
+     */
+    public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
         // TODO: Consider initializing a new handshake to update the relay preference...
     }
 
+    /**
+     * Returns if the remote peer has enabled transaction relay.
+     *  If the node has not completed its handshake, null is returned.
+     */
     public Boolean isTransactionRelayEnabled() {
-        if (! _transactionRelayIsEnabled) { return false; }
-
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = _synchronizeVersionMessage;
         if (synchronizeVersionMessage == null) { return null; }
 
@@ -1306,15 +1316,16 @@ public class BitcoinNode extends Node {
     @Override
     public BitcoinNodeIpAddress getRemoteNodeIpAddress() {
         final NodeIpAddress nodeIpAddress = super.getRemoteNodeIpAddress();
-        if (nodeIpAddress == null) { return null; }
-        if (_synchronizeVersionMessage == null) { return null; }
+        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress(nodeIpAddress);
+        if (_synchronizeVersionMessage != null) {
+            bitcoinNodeIpAddress.setNodeFeatures(_synchronizeVersionMessage.getNodeFeatures());
+        }
 
-        final NodeFeatures nodeFeatures = _synchronizeVersionMessage.getNodeFeatures();
-
-        final BitcoinNodeIpAddress bitcoinNodeIpAddress = new BitcoinNodeIpAddress();
-        bitcoinNodeIpAddress.setIp(nodeIpAddress.getIp());
-        bitcoinNodeIpAddress.setPort(nodeIpAddress.getPort());
-        bitcoinNodeIpAddress.setNodeFeatures(nodeFeatures);
         return bitcoinNodeIpAddress;
+    }
+
+    public NodeFeatures getNodeFeatures() {
+        if (_synchronizeVersionMessage == null) { return null; }
+        return _synchronizeVersionMessage.getNodeFeatures();
     }
 }

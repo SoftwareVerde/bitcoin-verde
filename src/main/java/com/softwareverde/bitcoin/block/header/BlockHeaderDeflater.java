@@ -64,10 +64,6 @@ public class BlockHeaderDeflater {
         return _serializeByteData(blockHeaderByteData);
     }
 
-    public BlockHeaderByteData toByteData( final BlockHeader blockHeader) {
-        return _createByteData(blockHeader);
-    }
-
     public Json toJson(final BlockHeader blockHeader) {
         final Json json = new Json();
 

@@ -6,6 +6,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
+import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeFactory;
 import com.softwareverde.network.p2p.node.NodeId;
@@ -19,7 +20,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.Collection;
-import java.util.Map;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -77,48 +78,70 @@ public class NodeManager<NODE extends Node> {
     // protected final Object _mutex = new Object();
     protected final SystemTime _systemTime;
     protected final NodeFactory<NODE> _nodeFactory;
+
     protected final ConcurrentHashMap<NodeId, NODE> _nodes;
-    protected ConcurrentHashMap<NodeId, NODE> _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake...
+    protected ConcurrentHashMap<NodeId, NODE> _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(); // Nodes that have been added but have not yet completed their handshake.
+
+    // _connectedNodeAddresses contains NodeIpAddresses that are either currently-connected, are pending handshake, or are about to be connected to.
+    // All methods about to connect to a node should ensure the node will not be a duplicate by checking _connectedNodeAddresses for an existing entry.
+    protected final ConcurrentHashSet<NodeIpAddress> _connectedNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+
     protected final ConcurrentHashMap<NodeId, MutableNodeHealth> _nodeHealthMap;
     protected final ConcurrentLinkedQueue<NodeApiMessage<NODE>> _queuedTransmissions = new ConcurrentLinkedQueue<NodeApiMessage<NODE>>();
     protected final PendingRequestsManager<NODE> _pendingRequestsManager;
-    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+    protected final ConcurrentHashSet<NodeIpAddress> _nodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The list of all node addresses advertised by peers.
     protected final Thread _nodeMaintenanceThread = new NodeMaintenanceThread();
     protected final Integer _maxNodeCount;
     protected final MutableNetworkTime _networkTime;
     protected Boolean _isShuttingDown = false;
 
-    protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>();
+    protected ConcurrentHashSet<NodeIpAddress> _newNodeAddresses = new ConcurrentHashSet<NodeIpAddress>(); // The current batch of new addresses advertised by peers that have not yet been seen.
     protected Long _lastAddressBroadcastTimestamp = 0L;
 
     protected void _onAllNodesDisconnected() { }
     protected void _onNodeHandshakeComplete(final NODE node) { }
     protected void _onNodeConnected(final NODE node) { }
 
+    protected void _cleanupNotHandshakedNodes() {
+        final Long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
+
+        { // Cleanup any pending nodes that still haven't completed their handshake...
+            final Iterator<NODE> pendingNodesIterator = _pendingNodes.values().iterator();
+            while (pendingNodesIterator.hasNext()) {
+                final NODE oldPendingNode = pendingNodesIterator.next();
+
+                final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
+                if ((nowInMilliseconds - pendingSinceTimeMilliseconds) >= 30000L) {
+                    final NodeIpAddress nodeIpAddress = oldPendingNode.getRemoteNodeIpAddress();
+
+                    pendingNodesIterator.remove();
+                    oldPendingNode.disconnect();
+                    if (nodeIpAddress != null) {
+                        _connectedNodeAddresses.remove(nodeIpAddress);
+                    }
+                }
+            }
+        }
+    }
+
     protected void _addHandshakedNode(final NODE node) {
+        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
         final NodeId newNodeId = node.getId();
+
+        if (nodeIpAddress != null) {
+            _connectedNodeAddresses.add(nodeIpAddress);
+        }
         _nodes.put(newNodeId, node);
         _nodeHealthMap.put(newNodeId, new MutableNodeHealth(newNodeId, _systemTime));
     }
 
     protected void _addNotHandshakedNode(final NODE node) {
-        final Long nowInMilliseconds = _systemTime.getCurrentTimeInMilliSeconds();
+        _cleanupNotHandshakedNodes();
 
-        { // Cleanup any pending nodes that still haven't completed their handshake...
-            final Map<NodeId, NODE> pendingNodes = _pendingNodes;
-            _pendingNodes = new ConcurrentHashMap<NodeId, NODE>(pendingNodes);
-
-            for (final NODE oldPendingNode : pendingNodes.values()) {
-                final Long pendingSinceTimeMilliseconds = oldPendingNode.getInitializationTimestamp();
-                if (nowInMilliseconds - pendingSinceTimeMilliseconds < 30000L) {
-                    _pendingNodes.put(oldPendingNode.getId(), oldPendingNode);
-                }
-                else {
-                    oldPendingNode.disconnect();
-                }
-            }
+        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+        if (nodeIpAddress != null) {
+            _connectedNodeAddresses.add(nodeIpAddress);
         }
-
         _pendingNodes.put(node.getId(), node);
     }
 
@@ -130,9 +153,14 @@ public class NodeManager<NODE extends Node> {
             Logger.log("P2P: Dropped Node: " + node.getConnectionString() + " - " + (nodeHealth != null ? nodeHealth.getHealth() : "??? ") +  "hp");
         }
 
+        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+
         _nodes.remove(nodeId);
         _pendingNodes.remove(nodeId);
         _nodeHealthMap.remove(nodeId);
+        if (nodeIpAddress != null) {
+            _connectedNodeAddresses.remove(nodeIpAddress);
+        }
 
         node.setNodeDisconnectedCallback(null);
         node.setNodeHandshakeCompleteCallback(null);
@@ -233,20 +261,21 @@ public class NodeManager<NODE extends Node> {
         });
     }
 
+    /**
+     * Return true if the nodeIpAddress will not be a duplicate connection.
+     *  If the node is not a duplicate, it will be added as a to-be-connected node, which will prevents other threads from creating connections to the same address.
+     */
+    protected Boolean _markAddressForConnecting(final NodeIpAddress nodeIpAddress) {
+        if (nodeIpAddress == null) { return false; }
+        return (! _connectedNodeAddresses.add(nodeIpAddress));
+    }
+
     protected Boolean _isConnectedToNode(final NodeIpAddress nodeIpAddress) {
-        for (final NODE existingNode : _nodes.values()) {
-            final NodeIpAddress existingNodeIpAddress = existingNode.getRemoteNodeIpAddress();
-
-            final Boolean isAlreadyConnectedToNode = (Util.areEqual(nodeIpAddress, existingNodeIpAddress));
-            if (isAlreadyConnectedToNode) { return true; }
-        }
-
-        return false;
+        if (nodeIpAddress == null) { return false; }
+        return _connectedNodeAddresses.contains(nodeIpAddress);
     }
 
     protected void _initNode(final NODE node) {
-        // final Container<Boolean> nodeConnected = new Container<Boolean>(null);
-
         final Container<Boolean> nodeDidConnect = new Container<Boolean>(null);
 
         final Runnable timeoutRunnable = new Runnable() {
@@ -270,7 +299,12 @@ public class NodeManager<NODE extends Node> {
                             Logger.log("P2P: Node failed to connect. Purging node.");
                         }
 
+                        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+
                         _pendingNodes.remove(node.getId());
+                        if (nodeIpAddress != null) {
+                            _connectedNodeAddresses.remove(nodeIpAddress);
+                        }
 
                         node.disconnect();
 
@@ -333,13 +367,13 @@ public class NodeManager<NODE extends Node> {
                     final Integer healthyNodeCount = _countNodesAboveHealth(50);
                     if (healthyNodeCount >= _maxNodeCount) { break; }
 
-                    final String address = nodeIpAddress.getIp().toString();
+                    final Ip ip = nodeIpAddress.getIp();
                     final Integer port = nodeIpAddress.getPort();
 
-                    final Boolean isAlreadyConnectedToNode = _isConnectedToNode(nodeIpAddress);
+                    final Boolean isAlreadyConnectedToNode = _markAddressForConnecting(nodeIpAddress);
                     if (isAlreadyConnectedToNode) { continue; }
 
-                    final NODE newNode = _nodeFactory.newNode(address, port);
+                    final NODE newNode = _nodeFactory.newNode(ip.toString(), port);
 
                     _initNode(newNode);
 
@@ -628,7 +662,21 @@ public class NodeManager<NODE extends Node> {
     }
 
     public void addNode(final NODE node) {
-        if (_isShuttingDown) { return; }
+        if (_isShuttingDown) {
+            node.disconnect();
+            return;
+        }
+
+        final NodeIpAddress nodeIpAddress = node.getRemoteNodeIpAddress();
+        final boolean isAlreadyConnectedToNode = _markAddressForConnecting(nodeIpAddress);
+        if (isAlreadyConnectedToNode) {
+            final NodeId nodeId = node.getId();
+            final boolean isConnectedToIdenticalInstance = ( (_nodes.containsKey(nodeId)) || (_pendingNodes.containsKey(nodeId)) );
+            if (! isConnectedToIdenticalInstance) {
+                node.disconnect();
+            }
+            return;
+        }
 
         _initNode(node);
 
@@ -746,6 +794,13 @@ public class NodeManager<NODE extends Node> {
 
     public NODE getNode(final NodeFilter<NODE> nodeFilter) {
         return _selectBestNode(nodeFilter);
+    }
+
+    /**
+     * Returns true if the NodeManager is connected, or is connecting, to a node at the provided Ip and port.
+     */
+    public Boolean isConnectedToNode(final NodeIpAddress nodeIpAddress) {
+        return _isConnectedToNode(nodeIpAddress);
     }
 
     public Long getNodeHealth(final NodeId nodeId) {

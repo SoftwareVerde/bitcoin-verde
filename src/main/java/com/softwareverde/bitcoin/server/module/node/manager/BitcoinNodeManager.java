@@ -35,6 +35,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.NodeId;
+import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.p2p.node.manager.NodeManager;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Tuple;
@@ -117,8 +118,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
                         final String host = ip.toString();
                         final Integer port = bitcoinNodeIpAddress.getPort();
-                        final BitcoinNode node = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
-                        BitcoinNodeManager.this.addNode(node); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
+                        final BitcoinNode bitcoinNode = new BitcoinNode(host, port, _threadPoolFactory.newThreadPool(), _localNodeFeatures);
+
+                        BitcoinNodeManager.this.addNode(bitcoinNode); // NOTE: _addNotHandshakedNode(BitcoinNode) is not the same as addNode(BitcoinNode)...
 
                         Logger.log("All nodes disconnected.  Falling back on previously-seen node: " + host + ":" + ip);
                     }
@@ -152,7 +154,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _initNode(final BitcoinNode node) {
-        node.setTransactionRelayIsEnabled(_transactionRelayIsEnabled);
+        node.enableTransactionRelay(_transactionRelayIsEnabled);
 
         super._initNode(node);
         _nodeInitializer.initializeNode(node);
@@ -217,24 +219,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _addHandshakedNode(final BitcoinNode node) {
-        final Ip ip = node.getIp();
-        final Integer port = node.getPort();
-
         if (_isShuttingDown) {
             node.disconnect();
             return;
-        }
-
-        final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
-        allNodes.addAll(_nodes.values());
-
-        for (final BitcoinNode bitcoinNode : allNodes) {
-            final Ip existingNodeIp = bitcoinNode.getIp();
-            final Integer existingNodePort = bitcoinNode.getPort();
-
-            if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
-                return; // Duplicate Node...
-            }
         }
 
         final Boolean blockchainIsEnabled = node.hasFeatureEnabled(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -252,42 +239,24 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     @Override
-    protected void _addNotHandshakedNode(final BitcoinNode node) {
-        final Ip ip = node.getIp();
-        final Integer port = node.getPort();
+    protected void _addNotHandshakedNode(final BitcoinNode bitcoinNode) {
+        final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
 
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
-            if (isBanned) {
-                _nodes.remove(node.getId());
-                _pendingNodes.remove(node.getId());
-                node.disconnect();
+            final Boolean isBanned = nodeDatabaseManager.isBanned(nodeIpAddress.getIp());
+            if ( (_isShuttingDown) || (isBanned) ) {
+                final NodeId nodeId = bitcoinNode.getId();
+                _nodes.remove(nodeId);
+                _pendingNodes.remove(nodeId);
+                _connectedNodeAddresses.remove(nodeIpAddress);
+                bitcoinNode.disconnect();
                 return;
             }
 
-            if (_isShuttingDown) {
-                _nodes.remove(node.getId());
-                _pendingNodes.remove(node.getId());
-                node.disconnect();
-                return;
-            }
+            super._addNotHandshakedNode(bitcoinNode);
 
-            final MutableList<BitcoinNode> allNodes = new MutableList<BitcoinNode>(_pendingNodes.values());
-            allNodes.addAll(_nodes.values());
-
-            for (final BitcoinNode bitcoinNode : allNodes) {
-                final Ip existingNodeIp = bitcoinNode.getIp();
-                final Integer existingNodePort = bitcoinNode.getPort();
-
-                if (Util.areEqual(ip, existingNodeIp) && Util.areEqual(port, existingNodePort)) {
-                    return; // Duplicate Node...
-                }
-            }
-
-            super._addNotHandshakedNode(node);
-
-            nodeDatabaseManager.storeNode(node);
+            nodeDatabaseManager.storeNode(bitcoinNode);
         }
         catch (final DatabaseException databaseException) {
             Logger.log(databaseException);
@@ -811,7 +780,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
 
         for (final BitcoinNode bitcoinNode : _nodes.values()) {
-            bitcoinNode.setTransactionRelayIsEnabled(transactionRelayIsEnabled);
+            bitcoinNode.enableTransactionRelay(transactionRelayIsEnabled);
         }
     }
 

@@ -19,11 +19,11 @@ public class NodeIpAddress {
     }
 
     public void setIp(final Ip ip) {
-        _ip = ( (ip != null) ? ip.copy() : new Ipv4());
+        _ip = ip;
     }
 
     public Ip getIp() {
-        return _ip.copy();
+        return _ip;
     }
 
     public void setPort(final Integer port) { _port = port; }
@@ -32,7 +32,7 @@ public class NodeIpAddress {
     public NodeIpAddress copy() {
         final NodeIpAddress nodeIpAddress = new NodeIpAddress();
 
-        nodeIpAddress._ip = _ip.copy();
+        nodeIpAddress._ip = _ip;
         nodeIpAddress._port = _port;
 
         return nodeIpAddress;
