@@ -228,7 +228,10 @@ public class BlockDownloader extends SleepyService {
             Logger.log("Searching for Unlocatable Pending Blocks...");
             try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                 final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+
+                TransactionUtil.startTransaction(databaseConnection);
                 pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
+                TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);

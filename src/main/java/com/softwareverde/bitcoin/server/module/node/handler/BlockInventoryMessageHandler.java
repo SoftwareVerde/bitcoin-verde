@@ -67,7 +67,10 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
 
             try {
                 final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+
+                TransactionUtil.startTransaction(databaseConnection);
                 storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+                TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException databaseException) {
                 Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
