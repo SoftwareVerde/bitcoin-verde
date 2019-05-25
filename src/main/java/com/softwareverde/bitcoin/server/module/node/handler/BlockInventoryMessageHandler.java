@@ -65,15 +65,31 @@ public class BlockInventoryMessageHandler implements BitcoinNode.BlockInventoryM
                 previousBlockHash = blockHash;
             }
 
-            try {
-                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+            final int maxRetryCount = 3;
+            int retryCount = 0;
+            while (retryCount < maxRetryCount) {
+                try {
+                    final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
 
-                TransactionUtil.startTransaction(databaseConnection);
-                storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
-                TransactionUtil.commitTransaction(databaseConnection);
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+                    TransactionUtil.startTransaction(databaseConnection);
+                    storeBlockHashesResult.nodeInventoryWasUpdated = nodeDatabaseManager.updateBlockInventory(bitcoinNode, pendingBlockIds.build());
+                    TransactionUtil.commitTransaction(databaseConnection);
+                    break;
+                }
+                catch (final DatabaseException databaseException) {
+                    Logger.log("Deadlock encountered while trying to update BlockInventory for host: " + bitcoinNode.getConnectionString());
+                    try {
+                        Thread.sleep(50L);
+                    }
+                    catch (final InterruptedException exception) {
+                        final Thread currentThread = Thread.currentThread();
+                        currentThread.interrupt();
+                        break;
+                    }
+                }
+                finally {
+                    retryCount += 1;
+                }
             }
         }
         catch (final DatabaseException exception) {
