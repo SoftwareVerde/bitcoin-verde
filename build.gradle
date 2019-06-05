@@ -13,9 +13,10 @@ repositories {
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
 
-    compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
+    compile     group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
+
     compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
-    compile     (group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2') { force = true }
+    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
@@ -80,6 +81,11 @@ task copyDependencies(type: Copy) {
     into "$buildDir/libs/libs"
 }
 
+test {
+    minHeapSize = "512m"
+    maxHeapSize = "2024m"
+}
+
 tasks.withType(Test) {
     testLogging {
         // set options for log level LIFECYCLE
@@ -88,6 +94,7 @@ tasks.withType(Test) {
         exceptionFormat "full"
         showCauses true
         showStackTraces true
+        showStandardStreams false
 
         // set options for log level DEBUG and INFO
         debug {

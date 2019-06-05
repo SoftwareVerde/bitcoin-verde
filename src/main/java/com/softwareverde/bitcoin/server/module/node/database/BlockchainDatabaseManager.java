@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.database;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -205,6 +206,19 @@ public class BlockchainDatabaseManager {
     public BlockchainDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = databaseManagerCache;
+    }
+
+    public BlockchainSegment getBlockchainSegment(final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final java.util.List<Row> rows = _databaseConnection.query(
+            new Query("SELECT * FROM blockchain_segments WHERE id = ?")
+                .setParameter(blockchainSegmentId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long nestedSetLeft = row.getLong("nested_set_left");
+        final Long nestedSetRight = row.getLong("nested_set_right");
+        return new BlockchainSegment(blockchainSegmentId, nestedSetLeft, nestedSetRight);
     }
 
     public BlockchainSegmentId updateBlockchainsForNewBlock(final BlockId blockId) throws DatabaseException {

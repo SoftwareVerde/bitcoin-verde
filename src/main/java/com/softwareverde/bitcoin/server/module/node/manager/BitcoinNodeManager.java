@@ -649,6 +649,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void requestMerkleBlock(final Sha256Hash blockHash, final DownloadMerkleBlockCallback callback) {
+        if (_bloomFilter == null) {
+            Logger.log("WARNING: Requesting MerkleBlock without a BloomFilter.");
+        }
+
         _requestMerkleBlock(blockHash, callback);
     }
 
@@ -722,6 +726,10 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _selectNodeForRequest(selectedNode, _createRequestTransactionsRequest(transactionHashes, callback));
     }
 
+    public Boolean hasBloomFilter() {
+        return (_bloomFilter != null);
+    }
+
     public void setBloomFilter(final MutableBloomFilter bloomFilter) {
         _bloomFilter = bloomFilter;
 
@@ -776,7 +784,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         _onNodeListChanged = callback;
     }
 
-    public void setTransactionRelayIsEnabled(final Boolean transactionRelayIsEnabled) {
+    public void enableTransactionRelay(final Boolean transactionRelayIsEnabled) {
         _transactionRelayIsEnabled = transactionRelayIsEnabled;
 
         for (final BitcoinNode bitcoinNode : _nodes.values()) {

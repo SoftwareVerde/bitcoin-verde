@@ -146,7 +146,7 @@ public class SocketServer<T extends Socket> {
             try {
                 _socket.close();
             }
-            catch (final IOException e) { }
+            catch (final IOException exception) { }
         }
 
         _socket = null;

@@ -44,4 +44,7 @@ public class TestDatabase extends Database {
     public MysqlDatabaseConnectionFactory getMysqlDatabaseConnectionFactory() {
         return ((MysqlTestDatabase) _core).getDatabaseConnectionFactory();
     }
+
+    @Override
+    public void close() { }
 }

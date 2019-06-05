@@ -41,4 +41,7 @@ public class ReadUncommittedDatabaseConnectionFactory extends DatabaseConnection
             }
         }
     }
+
+    @Override
+    public void close() { }
 }

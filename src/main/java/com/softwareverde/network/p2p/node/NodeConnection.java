@@ -72,7 +72,7 @@ public class NodeConnection {
                     }
                     break;
                 }
-                catch (final IOException e) { }
+                catch (final IOException exception) { }
 
                 if ( (socket == null) || (! socket.isConnected()) ) {
                     if (LOGGING_ENABLED) {
@@ -351,15 +351,9 @@ public class NodeConnection {
     }
 
     public void queueMessage(final ProtocolMessage message) {
-        if (message instanceof BitcoinProtocolMessage) {
-            if (LOGGING_ENABLED) {
-                Logger.log("Queuing: " + (((BitcoinProtocolMessage) message).getCommand()) + " " + _toString());
-            }
-        }
-
         // NOTE: Queuing the message into the ThreadPool can cause significant memory usage for large message if the message
         //  remains in the queue for its duration.
-        //  This could be mediated by pushing the write to the front of the queue...
+        //  This could be mitigated by pushing the write to the front of the queue...
         _writeOrQueueMessage(message);
 
         // _threadPool.execute(new Runnable() {

@@ -107,6 +107,9 @@ public class BitcoinVerdeDatabase extends Database {
     }
 
     @Override
+    public void close() { }
+
+    @Override
     public DatabaseConnectionFactory newConnectionFactory() {
         return new DatabaseConnectionFactoryWrapper(((MysqlDatabase) _core).newConnectionFactory());
     }

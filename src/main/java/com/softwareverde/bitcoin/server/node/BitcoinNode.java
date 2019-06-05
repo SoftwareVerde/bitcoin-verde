@@ -306,15 +306,44 @@ public class BitcoinNode extends Node {
             _spvBlockInventoryMessageCallback = null;
         }
 
-        synchronized (_downloadBlockRequests) { _downloadBlockRequests.clear(); }
-        synchronized (_downloadMerkleBlockRequests) { _downloadMerkleBlockRequests.clear(); }
+        super._disconnect();
+
+        synchronized (_downloadBlockRequests) {
+            for (final Sha256Hash sha256Hash : _downloadBlockRequests.keySet()) {
+                for (final DownloadBlockCallback callback : _downloadBlockRequests.get(sha256Hash)) {
+                    callback.onFailure(sha256Hash);
+                }
+            }
+            _downloadBlockRequests.clear();
+        }
+
+        synchronized (_downloadMerkleBlockRequests) {
+            for (final Sha256Hash sha256Hash : _downloadMerkleBlockRequests.keySet()) {
+                for (final DownloadMerkleBlockCallback callback : _downloadMerkleBlockRequests.get(sha256Hash)) {
+                    callback.onFailure(sha256Hash);
+                }
+            }
+
+            _downloadMerkleBlockRequests.clear();
+        }
+
+        synchronized (_downloadTransactionRequests) {
+            for (final Sha256Hash sha256Hash : _downloadTransactionRequests.keySet()) {
+                final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(1);
+                transactionHashes.add(sha256Hash);
+
+                for (final DownloadTransactionCallback callback : _downloadTransactionRequests.get(sha256Hash)) {
+                    callback.onFailure(transactionHashes);
+                }
+            }
+
+            _downloadTransactionRequests.clear();
+        }
+
         synchronized (_downloadBlockHeadersRequests) { _downloadBlockHeadersRequests.clear(); }
-        synchronized (_downloadTransactionRequests) { _downloadTransactionRequests.clear(); }
         synchronized (_downloadThinBlockRequests) { _downloadThinBlockRequests.clear(); }
         synchronized (_downloadExtraThinBlockRequests) { _downloadExtraThinBlockRequests.clear(); }
         synchronized (_downloadThinTransactionsRequests) { _downloadThinTransactionsRequests.clear(); }
-
-        super._disconnect();
     }
 
     @Override
@@ -662,7 +691,15 @@ public class BitcoinNode extends Node {
         final Sha256Hash blockHash = merkleBlock.getHash();
 
         if (! merkleBlockIsValid) {
-            _executeAndClearCallbacks(_downloadMerkleBlockRequests, blockHash, null, _threadPool);
+            final Set<DownloadMerkleBlockCallback> callbacks;
+            synchronized (_downloadMerkleBlockRequests) {
+                callbacks = _downloadMerkleBlockRequests.remove(blockHash);
+            }
+            if (callbacks != null) {
+                for (final DownloadMerkleBlockCallback callback : callbacks) {
+                    callback.onFailure(blockHash);
+                }
+            }
             return;
         }
 
@@ -903,16 +940,19 @@ public class BitcoinNode extends Node {
 
     protected void _onSetTransactionBloomFilterMessageReceived(final SetTransactionBloomFilterMessage setTransactionBloomFilterMessage) {
         _bloomFilter = MutableBloomFilter.copyOf(setTransactionBloomFilterMessage.getBloomFilter());
+        _transactionRelayIsEnabled = true;
     }
 
     protected void _onUpdateTransactionBloomFilterMessageReceived(final UpdateTransactionBloomFilterMessage updateTransactionBloomFilterMessage) {
         if (_bloomFilter != null) {
             _bloomFilter.addItem(updateTransactionBloomFilterMessage.getItem());
+            _transactionRelayIsEnabled = true;
         }
     }
 
     protected void _onClearTransactionBloomFilterMessageReceived(final ClearTransactionBloomFilterMessage clearTransactionBloomFilterMessage) {
         _bloomFilter = null;
+        _transactionRelayIsEnabled = true; // NOTE: This behavior mimics Bitcoin Unlimited...
     }
 
     protected void _onQueryAddressBlocks(final QueryAddressBlocksMessage queryAddressBlocksMessage) {
@@ -949,7 +989,7 @@ public class BitcoinNode extends Node {
 
         final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>(2);
         messages.add(requestDataMessage);
-        messages.add(new BitcoinPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message to close out the MerkleBlockMessage transmission.
+        messages.add(new BitcoinPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
         _queueMessages(messages);
     }
 
