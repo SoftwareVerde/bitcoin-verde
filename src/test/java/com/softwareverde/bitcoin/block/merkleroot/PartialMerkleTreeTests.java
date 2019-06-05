@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -19,6 +20,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -72,7 +74,7 @@ public class PartialMerkleTreeTests {
     }
 
     @Test
-    public void should_inflate_full_partial_merkle_tree() {
+    public void should_inflate_partial_merkle_tree() {
         // Block: 0000000000000000012F011B29194439757A67186A54C2614978F0D6192570F2
         // t0, t1, t2, t3, t4, t5   (1111111111110000)
         // 069511B719C8BDAFF18994EE682A0F62DAAECFFC0F7E0EB1D61367A81B3C4DA5, 82E98803F0148138DCCBDE3720BA407249EA269D4BEF3E0AC86294EB35EFAF48, 840A2056D8BB045FB9025C8ABC8813ADFCE443B6F4E63AF02E41EE2DA4FB76A1, 9F8FCFFDA780929FE069B445BA302064EB2BC30CCEA0C8B3D46FB37D1A2FB487, BF8DC762675906E5C862CF607886573E600FD4A7B244D49515C12558CAFD213A, E73CB816E35F15D1391D7FD27650511A9AF6879EA8F01AA44ED29C08CDCC388F : FFF0 (1111111111110000)
@@ -143,6 +145,24 @@ public class PartialMerkleTreeTests {
         Assert.assertEquals(block.getMerkleRoot(), reinflatedPartialMerkleTree.getMerkleRoot());
     }
 
+    @Test
+    public void should_calculate_merkle_root_hash_with_only_two_items() {
+        // Setup
+        final MerkleRoot expectedMerkleRoot = MutableMerkleRoot.fromHexString("352144A8F453171A9024C0B23979D521B0C98A03DB6D08E4BC5B0B9554FCEAFA");
+
+        final MutableList<Sha256Hash> transactionHashes = new MutableList<Sha256Hash>(2);
+        transactionHashes.add(Sha256Hash.fromHexString("1D04683045280CC3046880153EB0CDD9B352A2E110409A3302363218F1628DCA"));
+        transactionHashes.add(Sha256Hash.fromHexString("BF80D99DE8E1801C5EC93DCA35E03586151691C461229301EF4C3F278079CBB1"));
+
+        final PartialMerkleTree partialMerkleTree = new PartialMerkleTree(2, transactionHashes, ByteArray.fromHexString("A0"));
+
+        // Action
+        final MerkleRoot merkleRoot = partialMerkleTree.getMerkleRoot();
+
+        // Assert
+        Assert.assertEquals(expectedMerkleRoot, merkleRoot);
+    }
+
     // @Test
     public void downloadPartialMerkleTreeAndTest() throws Exception {
         // Setup
@@ -183,8 +203,8 @@ public class PartialMerkleTreeTests {
         Thread.sleep(1000L);
         bitcoinNode.requestMerkleBlock(block.getHash(), new BitcoinNode.DownloadMerkleBlockCallback() {
             @Override
-            public void onResult(final MerkleBlock merkleBlock) {
-                merkleBlockContainer.value = merkleBlock;
+            public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
+                merkleBlockContainer.value = merkleBlockParameters.getMerkleBlock();
             }
         });
         Thread.sleep(3000L);

@@ -195,19 +195,19 @@ public class BlockDownloader extends SleepyService {
                 final BitcoinNode bitcoinNode = nodeMap.get(nodeId);
 
                 final MilliTimer timer = new MilliTimer();
-                _currentBlockDownloadSet.put(blockHash, timer);
-
-                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
-
                 timer.start();
 
-//                if (bitcoinNode.supportsExtraThinBlocks() && _synchronizationStatus.isReadyForTransactions()) {
-//                    _bitcoinNodeManager.requestThinBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
-//                }
-//                else {
-//                    _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
-//                }
+                _currentBlockDownloadSet.put(blockHash, timer);
+
+                // if (bitcoinNode.supportsExtraThinBlocks() && _synchronizationStatus.isReadyForTransactions()) {
+                //     _bitcoinNodeManager.requestThinBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+                // }
+                // else {
+                //     _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+                // }
                 _bitcoinNodeManager.requestBlock(bitcoinNode, blockHash, _blockDownloadedCallback);
+
+                pendingBlockDatabaseManager.updateLastDownloadAttemptTime(pendingBlockId);
             }
         }
         catch (final DatabaseException exception) {
@@ -225,14 +225,22 @@ public class BlockDownloader extends SleepyService {
 
             _bitcoinNodeManager.findNodeInventory();
 
-            Logger.log("Searching for Unlocatable Pending Blocks...");
-            try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
-                pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
-            }
-            catch (final DatabaseException exception) {
-                Logger.log(exception);
-            }
+            // TODO: Re-enable and move purge logic to somewhere more appropriate.
+            // Purging unlocatable blocks is disabled due to it preventing NodeInventory from being recorded.
+            //  The purge should be performed, but BlockDownloader sleeps too frequently.
+            //  Particularly, the purge deletes the unlocatable (but desired) entry recorded by the BlockRequester.
+
+            // Logger.log("Searching for Unlocatable Pending Blocks...");
+            // try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            //     final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+            //
+            //     TransactionUtil.startTransaction(databaseConnection);
+            //     pendingBlockDatabaseManager.purgeUnlocatablePendingBlocks(connectedNodeIds);
+            //     TransactionUtil.commitTransaction(databaseConnection);
+            // }
+            // catch (final DatabaseException exception) {
+            //     Logger.log(exception);
+            // }
         }
     }
 

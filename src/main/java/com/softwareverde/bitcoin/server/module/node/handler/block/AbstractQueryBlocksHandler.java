@@ -21,10 +21,12 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
     protected static class StartingBlock {
         public final BlockchainSegmentId selectedBlockchainSegmentId;
         public final BlockId startingBlockId;
+        public final Boolean matchWasFound;
 
-        public StartingBlock(final BlockchainSegmentId blockchainSegmentId, final BlockId startingBlockId) {
+        public StartingBlock(final BlockchainSegmentId blockchainSegmentId, final BlockId startingBlockId, final Boolean matchWasFound) {
             this.selectedBlockchainSegmentId = blockchainSegmentId;
             this.startingBlockId = startingBlockId;
+            this.matchWasFound = matchWasFound;
         }
     }
 
@@ -67,6 +69,7 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
         final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
         final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, _databaseManagerCache);
 
+        final boolean matchWasFound;
         final BlockchainSegmentId blockchainSegmentId;
         final BlockId startingBlockId;
         {
@@ -86,6 +89,8 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
                     }
                 }
             }
+
+            matchWasFound = (foundBlockId != null);
 
             if (foundBlockId != null) {
                 final BlockId desiredBlockId = blockHeaderDatabaseManager.getBlockHeaderId(desiredBlockHash);
@@ -118,6 +123,6 @@ public abstract class AbstractQueryBlocksHandler implements BitcoinNode.QueryBlo
             return null;
         }
 
-        return new StartingBlock(blockchainSegmentId, startingBlockId);
+        return new StartingBlock(blockchainSegmentId, startingBlockId, matchWasFound);
     }
 }

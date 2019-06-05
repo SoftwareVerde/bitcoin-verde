@@ -12,6 +12,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 
 public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler implements BitcoinNode.QueryBlockHeadersCallback {
     public static final BitcoinNode.QueryBlockHeadersCallback IGNORES_REQUESTS_HANDLER = new BitcoinNode.QueryBlockHeadersCallback() {
@@ -35,13 +36,33 @@ public class QueryBlockHeadersHandler extends AbstractQueryBlocksHandler impleme
                 return;
             }
 
+            final Sha256Hash batchContinueHash = bitcoinNode.getBatchContinueHash();
+            boolean sendBatchContinueInventory = false;
+
+            Sha256Hash lastBlockHeaderHash = null;
             final MutableList<BlockHeader> blockHeaders = new MutableList<BlockHeader>();
             {
                 final List<BlockId> childrenBlockIds = _findBlockChildrenIds(startingBlock.startingBlockId, desiredBlockHash, startingBlock.selectedBlockchainSegmentId, RequestBlockHeadersMessage.MAX_BLOCK_HEADER_HASH_COUNT, blockHeaderDatabaseManager);
                 for (final BlockId blockId : childrenBlockIds) {
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
+                    final Sha256Hash blockHash = blockHeader.getHash();
+
                     blockHeaders.add(blockHeader);
+                    lastBlockHeaderHash = blockHash;
+
+                    if (Util.areEqual(batchContinueHash, blockHash)) {
+                        sendBatchContinueInventory = true;
+                    }
                 }
+            }
+
+            if (sendBatchContinueInventory) {
+                final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                bitcoinNode.transmitBatchContinueHash(headBlockHash);
+            }
+
+            if (lastBlockHeaderHash != null) {
+                bitcoinNode.setBatchContinueHash(lastBlockHeaderHash);
             }
 
             bitcoinNode.transmitBlockHeaders(blockHeaders);

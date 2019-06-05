@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.node.address;
 
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.network.ip.Ipv4;
 import com.softwareverde.network.ip.Ipv6;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -28,13 +29,13 @@ public class BitcoinNodeIpAddress extends NodeIpAddress {
         ByteUtil.setBytes(byteData.nodeFeatureFlags, ByteUtil.longToBytes(_nodeFeatures.getFeatureFlags()));
 
         {
-            final byte[] ipBytes = _ip.getBytes();
-            if (ipBytes.length < 16) {
-                final byte[] paddedBytes = Ipv6.createIpv4CompatibleIpv6(new Ipv4(ipBytes)).getBytes();
-                ByteUtil.setBytes(byteData.ip, paddedBytes);
+            if (_ip instanceof Ipv4) {
+                final ByteArray paddedBytes = Ipv6.createIpv4CompatibleIpv6((Ipv4) _ip).getBytes();
+                ByteUtil.setBytes(byteData.ip, paddedBytes.getBytes());
             }
             else {
-                ByteUtil.setBytes(byteData.ip, ipBytes);
+                final ByteArray ipBytes = _ip.getBytes();
+                ByteUtil.setBytes(byteData.ip, ipBytes.getBytes());
             }
         }
 
@@ -52,6 +53,26 @@ public class BitcoinNodeIpAddress extends NodeIpAddress {
         _nodeFeatures = new NodeFeatures();
         _ip = new Ipv4();
         _port = 0x0000;
+    }
+
+    public BitcoinNodeIpAddress(final NodeIpAddress nodeIpAddress) {
+        _timestamp = (System.currentTimeMillis() / 1000L);
+
+        if (nodeIpAddress != null) {
+            _ip = nodeIpAddress.getIp();
+            _port = nodeIpAddress.getPort();
+        }
+        else {
+            _ip = new Ipv4();
+            _port = 0;
+        }
+
+        if (nodeIpAddress instanceof BitcoinNodeIpAddress) {
+            _nodeFeatures = ((BitcoinNodeIpAddress) nodeIpAddress).getNodeFeatures();
+        }
+        else {
+            _nodeFeatures = new NodeFeatures();
+        }
     }
 
     public void setNodeFeatures(final NodeFeatures nodeFeatures) {
@@ -88,7 +109,7 @@ public class BitcoinNodeIpAddress extends NodeIpAddress {
 
         nodeIpAddress._timestamp = _timestamp;
         nodeIpAddress._nodeFeatures.setFeaturesFlags(_nodeFeatures);
-        nodeIpAddress._ip = _ip.copy();
+        nodeIpAddress._ip = _ip;
         nodeIpAddress._port = _port;
 
         return nodeIpAddress;

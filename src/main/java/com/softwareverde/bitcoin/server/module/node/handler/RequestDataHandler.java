@@ -9,7 +9,6 @@ import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.message.type.query.response.transaction.TransactionMessage;
 import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
@@ -20,7 +19,10 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
+
+import java.util.HashSet;
 
 public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     public static final BitcoinNode.RequestDataCallback IGNORE_REQUESTS_HANDLER = new BitcoinNode.RequestDataCallback() {
@@ -45,7 +47,16 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 
+            final HashSet<InventoryItem> processedDataHashes = new HashSet<InventoryItem>(dataHashes.getSize());
+
             for (final InventoryItem inventoryItem : dataHashes) {
+                { // Avoid duplicate inventoryItems... This was encountered during the initial block download of an Android SPV wallet.
+                    if (processedDataHashes.contains(inventoryItem)) { continue; }
+                    processedDataHashes.add(inventoryItem);
+                }
+
+                if (! bitcoinNode.isConnected()) { break; }
+
                 switch (inventoryItem.getItemType()) {
 
                     case MERKLE_BLOCK:
@@ -76,6 +87,12 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
 
                         getBlockDataTimer.stop();
                         Logger.log("GetBlockData: " + blockHash + " "  + bitcoinNode.getRemoteNodeIpAddress() + " " + getBlockDataTimer.getMillisecondsElapsed() + "ms");
+
+                        final Sha256Hash batchContinueHash = bitcoinNode.getBatchContinueHash();
+                        if (Util.areEqual(batchContinueHash, blockHash)) {
+                            final Sha256Hash headBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
+                            bitcoinNode.transmitBatchContinueHash(headBlockHash);
+                        }
                     } break;
 
                     case TRANSACTION: {
@@ -96,9 +113,7 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final TransactionMessage transactionMessage = new TransactionMessage();
-                        transactionMessage.setTransaction(transaction);
-                        bitcoinNode.queueMessage(transactionMessage);
+                        bitcoinNode.transmitTransaction(transaction);
 
                         getTransactionTimer.stop();
                         Logger.log("GetTransactionData: " + transactionHash + " to " + bitcoinNode.getRemoteNodeIpAddress() + " " + getTransactionTimer.getMillisecondsElapsed() + "ms");

@@ -10,6 +10,7 @@ import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
+import com.softwareverde.util.CircleBuffer;
 import com.softwareverde.util.RotatingQueue;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -17,6 +18,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public abstract class Node {
     public interface NodeAddressesReceivedCallback { void onNewNodeAddresses(List<NodeIpAddress> nodeIpAddress); }
@@ -53,7 +55,7 @@ public abstract class Node {
     protected Long _lastMessageReceivedTimestamp = 0L;
     protected final ConcurrentLinkedQueue<ProtocolMessage> _postHandshakeMessageQueue = new ConcurrentLinkedQueue<ProtocolMessage>();
     protected Long _networkTimeOffset; // This field is an offset (in milliseconds) that should be added to the local time in order to adjust local SystemTime to this node's NetworkTime...
-    protected Boolean _hasBeenDisconnected = false;
+    protected final AtomicBoolean _hasBeenDisconnected = new AtomicBoolean(false);
 
     protected final ConcurrentHashMap<Long, PingRequest> _pingRequests = new ConcurrentHashMap<Long, PingRequest>();
 
@@ -66,24 +68,66 @@ public abstract class Node {
 
     protected final ThreadPool _threadPool;
 
+    protected final CircleBuffer<Long> _latencies = new CircleBuffer<Long>(32);
+
     protected abstract PingMessage _createPingMessage();
     protected abstract PongMessage _createPongMessage(final PingMessage pingMessage);
     protected abstract SynchronizeVersionMessage _createSynchronizeVersionMessage();
     protected abstract AcknowledgeVersionMessage _createAcknowledgeVersionMessage(SynchronizeVersionMessage synchronizeVersionMessage);
     protected abstract NodeIpAddressMessage _createNodeIpAddressMessage();
 
+    protected final ReentrantReadWriteLock.ReadLock _sendSingleMessageLock;
+    protected final ReentrantReadWriteLock.WriteLock _sendMultiMessageLock;
+
     protected void _queueMessage(final ProtocolMessage message) {
-        if (_handshakeIsComplete) {
-            _connection.queueMessage(message);
+        try {
+            _sendSingleMessageLock.lockInterruptibly();
         }
-        else {
-            _postHandshakeMessageQueue.offer(message);
+        catch (final InterruptedException exception) { return; }
+
+        try {
+            if (_handshakeIsComplete) {
+                _connection.queueMessage(message);
+            }
+            else {
+                _postHandshakeMessageQueue.offer(message);
+            }
+        }
+        finally {
+            _sendSingleMessageLock.unlock();
+        }
+    }
+
+    /**
+     * Guarantees that the messages are queued in the order provided, and that no other messages are sent between them.
+     */
+    protected void _queueMessages(final List<? extends ProtocolMessage> messages) {
+        try {
+            _sendMultiMessageLock.lockInterruptibly();
+        }
+        catch (final InterruptedException exception) { return; }
+
+        try {
+            if (_handshakeIsComplete) {
+                for (final ProtocolMessage message : messages) {
+                    _connection.queueMessage(message);
+                }
+            }
+            else {
+                for (final ProtocolMessage message : messages) {
+                    _postHandshakeMessageQueue.offer(message);
+                }
+            }
+        }
+        finally {
+            _sendMultiMessageLock.unlock();
         }
     }
 
     protected void _disconnect() {
-        if (_hasBeenDisconnected) { return; }
-        _hasBeenDisconnected = true;
+        if (_hasBeenDisconnected.getAndSet(true)) { return; }
+
+        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         final NodeDisconnectedCallback nodeDisconnectedCallback = _nodeDisconnectedCallback;
 
@@ -101,10 +145,9 @@ public abstract class Node {
             ((ThreadPoolThrottle) _threadPool).stop();
         }
 
-        _connection.setOnDisconnectCallback(null); // Intentionally avoid triggering the normal socket disconnect callback...
+        _connection.setOnDisconnectCallback(null); // Prevent any disconnect callbacks from repeating...
+        _connection.cancelConnecting();
         _connection.disconnect();
-
-        Logger.log("Socket disconnected. " + "(" + this.getConnectionString() + ")");
 
         if (nodeDisconnectedCallback != null) {
             // Intentionally not using the thread pool since it has been shutdown...
@@ -177,6 +220,15 @@ public abstract class Node {
         }
     }
 
+    protected void _ping(final PingCallback pingCallback) {
+        final PingMessage pingMessage = _createPingMessage();
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final PingRequest pingRequest = new PingRequest(pingCallback, now);
+        _pingRequests.put(pingMessage.getNonce(), pingRequest);
+        _queueMessage(pingMessage);
+    }
+
     protected void _onPingReceived(final PingMessage pingMessage) {
         final PongMessage pongMessage = _createPongMessage(pingMessage);
         _queueMessage(pongMessage);
@@ -188,10 +240,19 @@ public abstract class Node {
         if (pingRequest == null) { return; }
 
         final PingCallback pingCallback = pingRequest.pingCallback;
+
+        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
+        final Long msElapsed = (now - pingRequest.timestamp);
+
+        _latencies.pushItem(msElapsed);
+
         if (pingCallback != null) {
-            final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-            final Long msElapsed = (now - pingRequest.timestamp);
-            pingCallback.onResult(msElapsed);
+            _threadPool.execute(new Runnable() {
+                @Override
+                public void run() {
+                    pingCallback.onResult(msElapsed);
+                }
+            });
         }
     }
 
@@ -298,6 +359,10 @@ public abstract class Node {
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
 
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
+
         _initConnection();
     }
 
@@ -312,6 +377,10 @@ public abstract class Node {
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
 
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
+
         _initConnection();
     }
 
@@ -325,6 +394,10 @@ public abstract class Node {
         _connection = new NodeConnection(binarySocket, threadPool);
         _initializationTime = _systemTime.getCurrentTimeInMilliSeconds();
         _threadPool = threadPool;
+
+        final ReentrantReadWriteLock queueMessageLock = new ReentrantReadWriteLock();
+        _sendSingleMessageLock = queueMessageLock.readLock();
+        _sendMultiMessageLock = queueMessageLock.writeLock();
 
         _initConnection();
     }
@@ -360,16 +433,30 @@ public abstract class Node {
         return ((ip != null ? ip.toString() : _connection.getHost()) + ":" + _connection.getPort());
     }
 
+    /**
+     * Returns a NodeIpAddress consisting of the Ip and Port for the connection.
+     *  If the connection string was provided as a domain name, it will attempted to be resolved.
+     *  If the domain cannot be resolved, then null is returned.
+     */
     public NodeIpAddress getRemoteNodeIpAddress() {
         final Ip ip;
         {
             final Ip connectionIp = _connection.getIp();
-            ip = (connectionIp != null ? connectionIp : Ip.fromString(_connection.getHost()));
+            if (connectionIp != null) {
+                ip = connectionIp;
+            }
+            else {
+                final String hostName = _connection.getHost();
+                final Ip ipFromString = Ip.fromString(hostName);
+                if (ipFromString != null) {
+                    ip = ipFromString;
+                }
+                else {
+                    ip = Ip.fromHostName(hostName);
+                }
+            }
         }
-
-        if (ip == null) {
-            return null;
-        }
+        if (ip == null) { return null; }
 
         return new NodeIpAddress(ip, _connection.getPort());
     }
@@ -404,12 +491,7 @@ public abstract class Node {
     }
 
     public void ping(final PingCallback pingCallback) {
-        final PingMessage pingMessage = _createPingMessage();
-
-        final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-        final PingRequest pingRequest = new PingRequest(pingCallback, now);
-        _pingRequests.put(pingMessage.getNonce(), pingRequest);
-        _queueMessage(pingMessage);
+        _ping(pingCallback);
     }
 
     public void broadcastNodeAddress(final NodeIpAddress nodeIpAddress) {
@@ -459,5 +541,32 @@ public abstract class Node {
     @Override
     public String toString() {
         return _connection.toString();
+    }
+
+    @Override
+    public int hashCode() {
+        return _id.hashCode();
+    }
+
+    @Override
+    public boolean equals(final Object object) {
+        if (! (object instanceof Node)) { return false; }
+        return Util.areEqual(_id, ((Node) object)._id);
+    }
+
+    public Long getAveragePing() {
+        final int itemCount = _latencies.getItemCount();
+        long sum = 0L;
+        long count = 0L;
+        for (int i = 0; i < itemCount; ++i) {
+            final Long value = _latencies.get(i);
+            if (value == null) { continue; }
+
+            sum += value;
+            count += 1L;
+        }
+        if (count == 0L) { return Long.MAX_VALUE; }
+
+        return (sum / count);
     }
 }

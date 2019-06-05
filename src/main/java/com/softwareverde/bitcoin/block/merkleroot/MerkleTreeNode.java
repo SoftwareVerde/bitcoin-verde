@@ -408,7 +408,7 @@ public class MerkleTreeNode<T extends Hashable> implements MerkleTree<T> {
         final ByteArray flags;
         if (hashes.isEmpty()) {
             final MerkleRoot merkleRoot = _getMerkleRoot();
-            hashes.add(merkleRoot.toReversedEndian());
+            hashes.add(merkleRoot);
             flags = new MutableByteArray(1);
         }
         else {

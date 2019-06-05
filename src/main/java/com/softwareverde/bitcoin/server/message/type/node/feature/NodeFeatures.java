@@ -10,7 +10,8 @@ public class NodeFeatures {
         BLOOM_CONNECTIONS_ENABLED                       ((long) (0x01 << 0x02)),
         UNUSED                                          ((long) (0x01 << 0x03)),
         XTHIN_PROTOCOL_ENABLED                          ((long) (0x01 << 0x04)),
-        BITCOIN_CASH_ENABLED                            ((long) (0x01 << 0x05));
+        BITCOIN_CASH_ENABLED                            ((long) (0x01 << 0x05)),
+        BLOCKCHAIN_INDEX_ENABLED                        ((long) (0x01 << 0x07)); // BitcoinVerde 2019-05-20
 
         public final Long value;
 

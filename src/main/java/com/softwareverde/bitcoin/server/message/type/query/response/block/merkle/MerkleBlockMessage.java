@@ -1,19 +1,15 @@
 package com.softwareverde.bitcoin.server.message.type.query.response.block.merkle;
 
 import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
-import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeDeflater;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
-import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.constable.list.List;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.Endian;
 
 public class MerkleBlockMessage extends BitcoinProtocolMessage {
 
@@ -24,7 +20,7 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         super(MessageType.MERKLE_BLOCK);
     }
 
-    public BlockHeader getBlockHeader() {
+    public BlockHeaderWithTransactionCount getBlockHeader() {
         return _blockHeader;
     }
 
@@ -50,17 +46,12 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(_blockHeader));
 
-        byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_blockHeader.getTransactionCount()), Endian.LITTLE);
+        // NOTE: TransactionCount is handled by the PartialMerkleTreeDeflater...
+        // byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_blockHeader.getTransactionCount()), Endian.LITTLE);
 
-        final List<Sha256Hash> hashes = _partialMerkleTree.getHashes();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(hashes.getSize()));
-        for (final Sha256Hash hash : hashes) {
-            byteArrayBuilder.appendBytes(hash);
-        }
-
-        final ByteArray flags = _partialMerkleTree.getFlags();
-        byteArrayBuilder.appendBytes(ByteUtil.variableLengthIntegerToBytes(flags.getByteCount()));
-        byteArrayBuilder.appendBytes(flags, Endian.LITTLE);
+        final PartialMerkleTreeDeflater partialMerkleTreeDeflater = new PartialMerkleTreeDeflater();
+        final ByteArray partialMerkleTreeBytes = partialMerkleTreeDeflater.toBytes(_partialMerkleTree);
+        byteArrayBuilder.appendBytes(partialMerkleTreeBytes);
 
         return MutableByteArray.wrap(byteArrayBuilder.build());
     }

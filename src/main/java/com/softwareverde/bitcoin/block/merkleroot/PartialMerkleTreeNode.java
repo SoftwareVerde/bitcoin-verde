@@ -10,12 +10,13 @@ public class PartialMerkleTreeNode<T> {
     }
 
     public static int calculateMaxDepth(final int itemCount) {
-        return (BitcoinUtil.log2(itemCount) + 1);
+        if (itemCount < 1) { return 1; }
+        return (BitcoinUtil.log2(itemCount - 1) + 1);
     }
 
-    public static PartialMerkleTreeNode newRootNode(final int itemCount) {
+    public static <T> PartialMerkleTreeNode<T> newRootNode(final int itemCount) {
         final int maxDepth = PartialMerkleTreeNode.calculateMaxDepth(itemCount);
-        return new PartialMerkleTreeNode(0, maxDepth);
+        return new PartialMerkleTreeNode<T>(0, maxDepth);
     }
 
     protected PartialMerkleTreeNode(final int depth, final int maxDepth) {

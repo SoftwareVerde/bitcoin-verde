@@ -8,6 +8,9 @@ import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.stack.Value;
+import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
@@ -278,5 +281,33 @@ public class ScriptPatternMatcher {
         }
 
         return ScriptType.CUSTOM_SCRIPT;
+    }
+
+    // https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/2019-05-15-segwit-recovery.md
+    public Boolean matchesSegregatedWitnessProgram(final UnlockingScript unlockingScript) {
+        final List<Operation> operations = unlockingScript.getOperations();
+        if (operations.getSize() != 1) { return false; }
+
+        final Operation operation = operations.get(0);
+        if (operation.getType() != Operation.Type.OP_PUSH) { return false; }
+
+        final PushOperation pushOperation = (PushOperation) operation;
+        final Value value = pushOperation.getValue();
+
+        // Total script length must be between 4 and 42, inclusive, in order to be a segwit program...
+        final Integer valueByteCount = value.getByteCount();
+        if ( (valueByteCount < 4 || valueByteCount > 42) ) { return false; }
+
+        // First byte must push a static value to the stack in order to be a segwit program...
+        final byte firstByte = value.getByte(0);
+        if ( (firstByte != 0x00) && (! (firstByte >= 0x51 && firstByte <= 0x60)) ) { return false; }
+
+        // The second byte must be a integer value, that is equal to the length of the remaining p2sh script...
+        // Considering the total length of the script must be between 4 and 42 bytes, the only possible opcodes that
+        // that could be provided are push-data operations; these push operations also must consume the rest of the
+        // script, leaving no room for other opcode types. (2 <= secondByteIntegerValue <= 40)
+        final byte secondByte = value.getByte(1);
+        final int secondByteIntegerValue = ByteUtil.byteToInteger(secondByte);
+        return ((value.getByteCount() - 2) == secondByteIntegerValue);
     }
 }

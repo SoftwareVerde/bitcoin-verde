@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.block.merkleroot.MerkleTree;
 import com.softwareverde.bitcoin.bloomfilter.UpdateBloomFilterMode;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -16,7 +17,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 
-public class TransactionBloomFilterMatcher {
+public class TransactionBloomFilterMatcher implements MerkleTree.Filter<Transaction> {
     /**
      * Returns null if no parts of the transaction matched the BloomFilter.
      * Otherwise, returns the list of ByteArrays that matched the BloomFilter.
@@ -49,7 +50,7 @@ public class TransactionBloomFilterMatcher {
                     }
                     else if (updateBloomFilterMode == UpdateBloomFilterMode.P2PK_P2MS) {
                         final ScriptType scriptType = lockingScript.getScriptType();
-                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH)) {
+                        if ( (scriptType == ScriptType.PAY_TO_PUBLIC_KEY_HASH) || (scriptType == ScriptType.PAY_TO_SCRIPT_HASH) ) {
                             shouldUpdateBloomFilter = true;
                         }
                     }
@@ -90,11 +91,30 @@ public class TransactionBloomFilterMatcher {
         return (didMatch ? matchedItems : null);
     }
 
-    public Boolean matchesFilter(final Transaction transaction, final BloomFilter bloomFilter) {
-        return (_getMatchedItems(transaction, bloomFilter, UpdateBloomFilterMode.READ_ONLY) != null);
+    protected final BloomFilter _bloomFilter;
+    protected final UpdateBloomFilterMode _updateBloomFilterMode;
+
+    public TransactionBloomFilterMatcher(final BloomFilter bloomFilter) {
+        _bloomFilter = bloomFilter.asConst();
+        _updateBloomFilterMode = UpdateBloomFilterMode.READ_ONLY;
     }
 
-    public Boolean matchesFilterAndUpdate(final Transaction transaction, final MutableBloomFilter bloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
-        return (_getMatchedItems(transaction, bloomFilter, updateBloomFilterMode) != null);
+    public TransactionBloomFilterMatcher(final MutableBloomFilter mutableBloomFilter, final UpdateBloomFilterMode updateBloomFilterMode) {
+        _bloomFilter = mutableBloomFilter;
+        _updateBloomFilterMode = updateBloomFilterMode;
+    }
+
+    @Override
+    public boolean shouldInclude(final Transaction transaction) {
+        final List<ByteArray> items = _getMatchedItems(transaction, _bloomFilter, _updateBloomFilterMode);
+        if (items == null) { return false; }
+
+        if (_updateBloomFilterMode != UpdateBloomFilterMode.READ_ONLY) {
+            final MutableBloomFilter mutableBloomFilter = (MutableBloomFilter) _bloomFilter;
+            for (final ByteArray item : items) {
+                mutableBloomFilter.addItem(item);
+            }
+        }
+        return true;
     }
 }

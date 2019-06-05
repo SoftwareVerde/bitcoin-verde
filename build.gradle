@@ -1,5 +1,5 @@
 group 'com.softwareverde'
-version '1.1.0'
+version '1.1.1'
 
 apply plugin: 'java'
 
@@ -15,7 +15,7 @@ dependencies {
 
     compile     group: 'org.bouncycastle',          name: 'bcprov-jdk16',           version: '1.46'
     compile     group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
-    compile     group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.1'
+    compile     (group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2') { force = true }
     compile     group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
     compile     group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'

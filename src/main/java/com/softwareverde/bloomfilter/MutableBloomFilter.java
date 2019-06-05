@@ -11,7 +11,7 @@ public class MutableBloomFilter implements BloomFilter {
     protected final MutableByteArray _bytes;
     protected final Long _nonce;
     protected final Integer _hashFunctionCount;
-    protected byte _updateMode = 0x01;
+    protected byte _updateMode = 0x00;
 
     protected static Integer _calculateByteCount(final Long maxItemCount, final Double falsePositiveRate) {
         final Integer byteCount = (int) ( (-1.0D / LN_2_SQUARED * maxItemCount * Math.log(falsePositiveRate)) / 8D );
@@ -40,8 +40,16 @@ public class MutableBloomFilter implements BloomFilter {
         return new MutableBloomFilter(new MutableByteArray(byteArray), hashFunctionCount, nonce);
     }
 
+    public static MutableBloomFilter newInstance(final ByteArray byteArray, final Integer hashFunctionCount, final Long nonce, final byte updateMode) {
+        final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(new MutableByteArray(byteArray), hashFunctionCount, nonce);
+        mutableBloomFilter.setUpdateMode(updateMode);
+        return mutableBloomFilter;
+    }
+
     public static MutableBloomFilter copyOf(final BloomFilter bloomFilter) {
-        return new MutableBloomFilter(new MutableByteArray(bloomFilter.getBytes()), bloomFilter.getHashFunctionCount(), bloomFilter.getNonce());
+        final MutableBloomFilter mutableBloomFilter = new MutableBloomFilter(new MutableByteArray(bloomFilter.getBytes()), bloomFilter.getHashFunctionCount(), bloomFilter.getNonce());
+        mutableBloomFilter.setUpdateMode(bloomFilter.getUpdateMode());
+        return mutableBloomFilter;
     }
 
     public static MutableBloomFilter wrap(final MutableByteArray byteArray, final Integer hashFunctionCount, final Long nonce) {

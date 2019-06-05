@@ -71,19 +71,18 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
     }
 
     @Override
-    public Integer getCurrentBlockHeight() {
+    public Long getCurrentBlockHeight() {
         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
             final BlockId blockId = blockDatabaseManager.getHeadBlockId();
-            if (blockId == null) { return 0; }
+            if (blockId == null) { return 0L; }
 
-            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
-            return blockHeight.intValue();
+            return blockHeaderDatabaseManager.getBlockHeight(blockId);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
-            return 0;
+            return 0L;
         }
     }
 }

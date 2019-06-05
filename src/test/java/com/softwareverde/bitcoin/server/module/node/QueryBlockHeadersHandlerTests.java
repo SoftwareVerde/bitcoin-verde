@@ -212,11 +212,11 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -256,11 +256,11 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -300,11 +300,11 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(bestChainHeight - blockOffset, dataHashes.getSize());
+        Assert.assertEquals(bestChainHeight - blockOffset - 1, dataHashes.getSize());
 
         int i = blockOffset;
         for (final InventoryItem inventoryItem : dataHashes) {
-            Assert.assertEquals(mainChainBlocks[i].getHash(), inventoryItem.getItemHash());
+            Assert.assertEquals(mainChainBlocks[i + 1].getHash(), inventoryItem.getItemHash());
             i += 1;
         }
 
@@ -321,8 +321,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             allBlocks = _initScenario2(scenarioBlocks);
         }
 
-        final Block extraChildEPrimeBlock;
-        { // Create an additional child onto block E'...
+        final Block fPrimeBlock;
+        { // Create an additional child onto block E' (F')...
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
@@ -332,7 +332,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
                 blockDatabaseManager.insertBlock(mutableBlock);
             }
 
-            extraChildEPrimeBlock = mutableBlock;
+            fPrimeBlock = mutableBlock;
         }
 
         final Integer bestChainHeight = scenarioBlocks.length + 1;
@@ -356,10 +356,9 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
 
         final InventoryMessage inventoryMessage = (InventoryMessage) (sentMessages.get(0));
         final List<InventoryItem> dataHashes = inventoryMessage.getInventoryItems();
-        Assert.assertEquals(2, dataHashes.getSize());
+        Assert.assertEquals(1, dataHashes.getSize());
 
-        Assert.assertEquals(allBlocks[allBlocks.length - 1].getHash(), dataHashes.get(0).getItemHash());
-        Assert.assertEquals(extraChildEPrimeBlock.getHash(), dataHashes.get(1).getItemHash());
+        Assert.assertEquals(fPrimeBlock.getHash(), dataHashes.get(0).getItemHash());
 
         bitcoinNode.disconnect();
     }

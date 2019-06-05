@@ -19,7 +19,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -37,7 +37,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -55,7 +55,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -73,7 +73,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -175,7 +175,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -193,7 +193,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -211,7 +211,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test
@@ -277,7 +277,7 @@ public class Ipv6Tests {
         final Ipv6 ipv6 = Ipv6.parse(ipString);
 
         // Assert
-        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes());
+        Assert.assertArrayEquals(expectedBytes, ipv6.getBytes().getBytes());
     }
 
     @Test

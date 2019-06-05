@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NewBlocksViaHe
 import com.softwareverde.bitcoin.server.message.type.node.feefilter.FeeFilterMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.ping.BitcoinPingMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.node.pong.BitcoinPongMessageInflater;
+import com.softwareverde.bitcoin.server.message.type.query.address.QueryAddressBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.mempool.QueryUnconfirmedTransactionsMessageInflater;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessageInflater;
@@ -70,6 +71,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.SET_TRANSACTION_BLOOM_FILTER, new SetTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER, new UpdateTransactionBloomFilterMessageInflater());
         _commandInflaterMap.put(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, new ClearTransactionBloomFilterMessageInflater());
+        _commandInflaterMap.put(MessageType.QUERY_ADDRESS_BLOCKS, new QueryAddressBlocksMessageInflater());
     }
 
     @Override

@@ -128,7 +128,7 @@ public abstract class SleepyService {
         if (thread != null) {
             thread.interrupt();
             try {
-                thread.join();
+                thread.join(10000L);
             }
             catch (final InterruptedException exception) { }
         }

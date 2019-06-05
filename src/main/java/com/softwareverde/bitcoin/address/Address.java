@@ -6,6 +6,7 @@ import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class Address extends ImmutableByteArray {
+    public static final Integer BYTE_COUNT = 20;
     public static final byte PREFIX = 0x00;
 
     protected static final Integer PREFIX_BYTE_COUNT = 1;

@@ -207,13 +207,13 @@ public class BlockchainDatabaseManager {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public void updateBlockchainsForNewBlock(final BlockId blockId) throws DatabaseException {
+    public BlockchainSegmentId updateBlockchainsForNewBlock(final BlockId blockId) throws DatabaseException {
         if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to updateBlockchainsForNewBlock without obtaining lock."); }
 
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         final BlockchainSegmentId existingBlockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
-        if (existingBlockchainSegmentId != null) { return; }
+        if (existingBlockchainSegmentId != null) { return existingBlockchainSegmentId; }
 
         final BlockchainSegmentId blockchainSegmentId = _calculateBlockchainSegment(blockId);
         if (blockchainSegmentId == null) {
@@ -224,6 +224,8 @@ public class BlockchainDatabaseManager {
         blockHeaderDatabaseManager.setBlockchainSegmentId(blockId, blockchainSegmentId);
 
         _renumberBlockchainSegments();
+
+        return blockchainSegmentId;
     }
 
     public BlockchainSegmentId getHeadBlockchainSegmentId() throws DatabaseException {

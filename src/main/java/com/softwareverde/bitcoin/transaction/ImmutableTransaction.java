@@ -66,8 +66,8 @@ public class ImmutableTransaction implements Transaction, Const {
 
     @Override
     public Boolean matches(final BloomFilter bloomFilter) {
-        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher();
-        return transactionBloomFilterMatcher.matchesFilter(this, bloomFilter);
+        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
+        return transactionBloomFilterMatcher.shouldInclude(this);
     }
 
     @Override
