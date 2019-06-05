@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.HexUtil;
 import org.bouncycastle.crypto.params.ECDomainParameters;
 import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.ECPublicKeyParameters;
@@ -21,6 +22,8 @@ import java.math.BigInteger;
 import java.security.Security;
 
 public class Secp256k1 {
+    public static final ByteArray CURVE_P;
+
     protected static final ECCurve CURVE;
     protected static final ECPoint CURVE_POINT_G;
     public static final ECDomainParameters CURVE_DOMAIN;
@@ -28,10 +31,13 @@ public class Secp256k1 {
     static {
         Security.addProvider(new BouncyCastleProvider());
 
-        final ECNamedCurveParameterSpec curveParameterSpec = ECNamedCurveTable.getParameterSpec("secp256k1");
+        final String SECP256K1 = "secp256k1";
+        final ECNamedCurveParameterSpec curveParameterSpec = ECNamedCurveTable.getParameterSpec(SECP256K1);
         CURVE_POINT_G = curveParameterSpec.getG();
         CURVE = curveParameterSpec.getCurve();
-        CURVE_DOMAIN =  new ECDomainParameters(CURVE, CURVE_POINT_G, curveParameterSpec.getN());
+        CURVE_DOMAIN =  new ECDomainParameters(Secp256k1.CURVE, Secp256k1.CURVE_POINT_G, curveParameterSpec.getN());
+
+        CURVE_P = ByteArray.fromHexString("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
     }
 
     public static byte[] getPublicKeyPoint(final byte[] privateKeyBytes) {
@@ -69,8 +75,8 @@ public class Secp256k1 {
         try {
             return NativeSecp256k1.verify(message, signature.asCanonical().encode().getBytes(), publicKey.getBytes());
         }
-        catch (Exception e) {
-            Logger.log(e);
+        catch (final Exception exception) {
+            Logger.log(exception);
             return false;
         }
     }
@@ -125,10 +131,11 @@ public class Secp256k1 {
     public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
         final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
 
-        final BigInteger x = decodedPoint.getX().toBigInteger();
-        final BigInteger y = decodedPoint.getY().toBigInteger();
-        final ECPoint decompressedPoint = CURVE.createPoint(x, y, false);
-        return decompressedPoint.getEncoded();
+        final ECPoint normalizedPoint = decodedPoint.normalize();
+        final BigInteger x = normalizedPoint.getXCoord().toBigInteger();
+        final BigInteger y = normalizedPoint.getYCoord().toBigInteger();
+        final ECPoint decompressedPoint = CURVE.createPoint(x, y);
+        return decompressedPoint.getEncoded(false);
     }
 
     protected Secp256k1() { }

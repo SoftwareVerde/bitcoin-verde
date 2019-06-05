@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
@@ -22,7 +23,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class BlockHeaderDownloader extends SleepyService {
-    public static final Long MAX_TIMEOUT_MS = 60000L;
+    public static final Long MAX_TIMEOUT_MS = 300000L;
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
@@ -37,6 +38,8 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final Object _headersDownloadedPin = new Object();
     protected final Object _genesisBlockPin = new Object();
     protected Boolean _hasGenesisBlock = false;
+
+    protected Integer _maxHeaderBatchSize = 2000;
 
     protected Long _blockHeight = 0L;
     protected Sha256Hash _lastBlockHash = Block.GENESIS_BLOCK_HASH;
@@ -199,11 +202,36 @@ public class BlockHeaderDownloader extends SleepyService {
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
             public void onResult(final List<BlockHeader> blockHeaders) {
-                _processBlockHeaders(blockHeaders);
+                final int blockHeadersCount = blockHeaders.getSize();
 
-                final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
-                if (newBlockHeaderAvailableCallback != null) {
-                    _threadPool.execute(newBlockHeaderAvailableCallback);
+                int lastBatchIndex = 0;
+                while (lastBatchIndex < blockHeadersCount) {
+
+                    final List<BlockHeader> blockHeadersBatch;
+                    {
+                        if (_maxHeaderBatchSize >= blockHeadersCount) {
+                            blockHeadersBatch = blockHeaders;
+                            lastBatchIndex = blockHeadersCount;
+                        }
+                        else {
+                            final MutableList<BlockHeader> batch = new MutableList<BlockHeader>(_maxHeaderBatchSize);
+                            for (int i = 0; i < _maxHeaderBatchSize; ++i) {
+                                if (lastBatchIndex >= blockHeadersCount) { break; }
+
+                                final BlockHeader blockHeader = blockHeaders.get(lastBatchIndex);
+                                batch.add(blockHeader);
+                                lastBatchIndex += 1;
+                            }
+                            blockHeadersBatch = batch;
+                        }
+                    }
+
+                    _processBlockHeaders(blockHeadersBatch);
+
+                    final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
+                    if (newBlockHeaderAvailableCallback != null) {
+                        _threadPool.execute(newBlockHeaderAvailableCallback);
+                    }
                 }
 
                 synchronized (_headersDownloadedPin) {
@@ -285,5 +313,19 @@ public class BlockHeaderDownloader extends SleepyService {
 
     public Long getBlockHeight() {
         return _blockHeight;
+    }
+
+    /**
+     * When headers are received, they are processed as a batch.
+     *  After each batch completes, the NewBlockHeaderAvailableCallback is invoked.
+     *  This setting controls the size of the batch.
+     *  The default value is 2000.
+     */
+    public void setMaxHeaderBatchSize(final Integer batchSize) {
+        _maxHeaderBatchSize = batchSize;
+    }
+
+    public Integer getMaxHeaderBatchSize() {
+        return _maxHeaderBatchSize;
     }
 }

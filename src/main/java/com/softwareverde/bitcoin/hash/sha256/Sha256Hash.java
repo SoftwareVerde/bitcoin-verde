@@ -22,7 +22,7 @@ public interface Sha256Hash extends Hash, Comparable<Sha256Hash> {
         }
     };
 
-    static ImmutableSha256Hash fromHexString(final String hexString) {
+    static Sha256Hash fromHexString(final String hexString) {
         if (hexString == null) { return null; }
 
         final byte[] hashBytes = HexUtil.hexStringToByteArray(hexString);
@@ -35,7 +35,8 @@ public interface Sha256Hash extends Hash, Comparable<Sha256Hash> {
         return new ImmutableSha256Hash(hashBytes);
     }
 
-    static ImmutableSha256Hash copyOf(final byte[] bytes) {
+    static Sha256Hash copyOf(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) { return null; }
         return new ImmutableSha256Hash(bytes);
     }
 

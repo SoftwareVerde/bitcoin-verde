@@ -8,12 +8,14 @@ import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
     public static Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
+    public static final Value ZERO = Value.fromInteger(0L);
 
     // NOTE: Bitcoin uses "MPI" encoding for its numeric values on the stack.
     //  This fact and/or a specification for how MPI is encoded is not on the wiki (...of course).
@@ -57,6 +59,11 @@ public class Value extends ImmutableByteArray implements Const {
     public static Value fromBytes(final byte[] bytes) {
         if (bytes.length > MAX_BYTE_COUNT) { return null; }
         return new Value(bytes);
+    }
+
+    public static Value fromBytes(final ByteArray bytes) {
+        if (bytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
+        return new Value(bytes.getBytes());
     }
 
     protected static boolean _isNegativeNumber(final byte[] bytes) {

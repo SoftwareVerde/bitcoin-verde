@@ -18,6 +18,8 @@ public class PushOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_PUSH;
     public static final Integer VALUE_MAX_BYTE_COUNT = 520; // NOTE: Values should not be larger than 520 bytes in size. https://github.com/bitcoin/bitcoin/blob/v0.10.0rc3/src/script/script.h#L18
 
+    public static final PushOperation PUSH_ZERO = new PushOperation(Opcode.PUSH_ZERO.getValue(), Opcode.PUSH_ZERO, new Payload(false, null, Value.fromInteger(0L)));
+
     protected static class Payload {
         public final Boolean shouldBeSerialized;
         public final Integer valueByteCountLength; // The number of bytes that should be used when serializing the number of bytes within the Value. (Ex. 0x0001 -> 2, vs 0x00000001 -> 4)
@@ -131,6 +133,43 @@ public class PushOperation extends SubTypedOperation {
         if (byteArrayReader.didOverflow()) { return null; }
 
         return new PushOperation(opcodeByte, opcode, payload);
+    }
+
+    public static PushOperation pushBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
+
+        final int byteCount = byteArray.getByteCount();
+        if (byteCount > VALUE_MAX_BYTE_COUNT) { return null; }
+
+        if (byteCount == 0) {
+            // Use <0x4C 0x00> to support SLP.  If not using SLP, consider PushOperation.PUSH_ZERO.
+            final Payload payload = new Payload(true, 1, Value.ZERO);
+            return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
+        }
+        else if (byteCount <= Opcode.PUSH_DATA.getMaxValue()) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, null, value);
+            return new PushOperation((byte) byteCount, Opcode.PUSH_DATA, payload);
+        }
+        else if (byteCount <= (1 << 8)) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 1, value);
+            return new PushOperation(Opcode.PUSH_DATA_BYTE.getValue(), Opcode.PUSH_DATA_BYTE, payload);
+        }
+        else if (byteCount <= (1 << 16)) {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 2, value);
+            return new PushOperation(Opcode.PUSH_DATA_SHORT.getValue(), Opcode.PUSH_DATA_SHORT, payload);
+        }
+        else {
+            final Value value = Value.fromBytes(byteArray);
+            final Payload payload = new Payload(true, 4, value);
+            return new PushOperation(Opcode.PUSH_DATA_INTEGER.getValue(), Opcode.PUSH_DATA_INTEGER, payload);
+        }
+    }
+
+    public static PushOperation pushValue(final Value value) {
+        return PushOperation.pushBytes(value);
     }
 
     protected final Payload _payload;

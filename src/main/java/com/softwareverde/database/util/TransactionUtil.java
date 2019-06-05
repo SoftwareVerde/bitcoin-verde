@@ -4,7 +4,6 @@ import com.softwareverde.database.DatabaseConnection;
 import com.softwareverde.database.DatabaseException;
 
 import java.sql.Connection;
-import java.sql.SQLException;
 
 public class TransactionUtil {
     public static void startTransaction(final DatabaseConnection<Connection> databaseConnection) throws DatabaseException {
@@ -12,7 +11,7 @@ public class TransactionUtil {
             final Connection rawConnection = databaseConnection.getRawConnection();
             rawConnection.setAutoCommit(false);
         }
-        catch (final SQLException exception) {
+        catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
     }
@@ -23,7 +22,7 @@ public class TransactionUtil {
             rawConnection.commit();
             rawConnection.setAutoCommit(true);
         }
-        catch (final SQLException exception) {
+        catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
     }
@@ -34,7 +33,7 @@ public class TransactionUtil {
             rawConnection.rollback();
             rawConnection.setAutoCommit(true);
         }
-        catch (final SQLException exception) {
+        catch (final Exception exception) {
             throw new DatabaseException(exception);
         }
     }

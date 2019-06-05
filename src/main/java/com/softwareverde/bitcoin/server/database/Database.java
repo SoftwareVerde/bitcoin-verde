@@ -2,13 +2,12 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.database.DatabaseException;
 
+import java.io.Closeable;
 import java.sql.Connection;
 
-public abstract class Database implements com.softwareverde.database.Database<Connection> {
-    protected final com.softwareverde.database.Database _core;
-
-    protected Database(final com.softwareverde.database.Database core) {
-        _core = core;
+public abstract class Database extends DatabaseConnectionFactory implements com.softwareverde.database.Database<Connection>, Closeable {
+    protected Database(final com.softwareverde.database.Database<Connection> core) {
+        super(core);
     }
 
     @Override

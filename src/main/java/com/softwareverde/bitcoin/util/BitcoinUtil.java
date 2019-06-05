@@ -5,7 +5,9 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.murmur.MurmurHashUtil;
+import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
+
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
 import java.security.MessageDigest;
@@ -18,8 +20,8 @@ public class BitcoinUtil {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-1");
             return messageDigest.digest(data);
         }
-        catch (final NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+        catch (final NoSuchAlgorithmException exception) {
+            throw new RuntimeException(exception);
         }
     }
 
@@ -32,8 +34,8 @@ public class BitcoinUtil {
             final MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
             return messageDigest.digest(data);
         }
-        catch (final NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
+        catch (final NoSuchAlgorithmException exception) {
+            throw new RuntimeException(exception);
         }
     }
 
@@ -55,6 +57,14 @@ public class BitcoinUtil {
 
     public static byte[] base58StringToBytes(final String base58String) {
         return Base58Util.base58StringToByteArray(base58String);
+    }
+
+    public static String toBase32String(final byte[] bytes) {
+        return Base32Util.toBase32String(bytes);
+    }
+
+    public static byte[] base32StringToBytes(final String base58String) {
+        return Base32Util.base32StringToByteArray(base58String);
     }
 
     public static String reverseEndianString(final String string) {

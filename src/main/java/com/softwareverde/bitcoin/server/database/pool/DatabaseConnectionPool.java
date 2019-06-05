@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.database.pool;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.MilliTimer;
 
@@ -18,7 +19,8 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
     protected static boolean isConnectionAlive(final CachedDatabaseConnection cachedDatabaseConnection) {
         try {
             final DatabaseConnection unwrappedConnection = cachedDatabaseConnection.unwrap(); // Must use the unwrapped connection since the cached connection may be in the disabled state.
-            unwrappedConnection.query("SELECT 1", null);
+            final java.util.List<Row> rows = unwrappedConnection.query("SELECT 1", null);
+            if (rows.isEmpty()) { return false; }
             return true;
         }
         catch (final Exception exception) {
@@ -28,7 +30,10 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
 
     protected static void resetConnectionState(final Connection rawConnection) throws SQLException {
         if (! rawConnection.getAutoCommit()) {
-            rawConnection.rollback();
+            try {
+                rawConnection.rollback();
+            }
+            catch (final Exception exception) { }
             rawConnection.setAutoCommit(true);
         }
         rawConnection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ); // "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ"
@@ -57,7 +62,7 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
             DatabaseConnectionPool.resetConnectionState(cachedDatabaseConnection.getRawConnection());
         }
         catch (final Exception exception) {
-            Logger.log(exception);
+            _discardCachedConnection(cachedDatabaseConnection);
             return;
         }
 
@@ -104,6 +109,11 @@ public class DatabaseConnectionPool extends DatabaseConnectionFactory implements
         _inUseConnectionCount.decrementAndGet();
 
         if (_aliveConnectionCount.get() > _maxConnectionCount) {
+            _discardCachedConnection(cachedDatabaseConnection);
+            return;
+        }
+
+        if (! isConnectionAlive(cachedDatabaseConnection)) {
             _discardCachedConnection(cachedDatabaseConnection);
             return;
         }

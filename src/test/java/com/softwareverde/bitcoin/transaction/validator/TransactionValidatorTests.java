@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -465,7 +466,7 @@ public class TransactionValidatorTests extends IntegrationTest {
 
         final PrivateKey privateKey = PrivateKey.fromHexString("697D9CCCD7A09A31ED41C1D1BFF35E2481098FB03B4E73FAB7D4C15CF01FADCC");
 
-        final Wallet wallet = new Wallet();
+        final Wallet wallet = new Wallet(new MutableMedianBlockTime());
         wallet.addPrivateKey(privateKey);
         wallet.setSatoshisPerByteFee(0D);
         wallet.addTransaction(lastBlock.getCoinbaseTransaction());
