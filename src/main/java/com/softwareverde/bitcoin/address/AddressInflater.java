@@ -16,6 +16,10 @@ public class AddressInflater {
         return BitcoinUtil.ripemd160(BitcoinUtil.sha256(publicKey.getBytes()));
     }
 
+    /**
+     * Returns the preImage for the provided prefix/version/hash provided.
+     *  The preImage is returned as an array of 5-bit integers.
+     */
     public static ByteArray buildBase32ChecksumPreImage(final String prefix, final Byte version, final ByteArray hash) {
         final ByteArrayBuilder checksumPayload = new ByteArrayBuilder();
         for (final char c : prefix.toCharArray()) {
@@ -58,6 +62,10 @@ public class AddressInflater {
         return MutableByteArray.wrap(checksumPayload.build());
     }
 
+    /**
+     * Creates a checksum as 5-bit integers for byteArray.
+     *  byteArray should be formatted as an array of 5-bit integers.
+     */
     public static ByteArray calculateBase32Checksum(final ByteArray byteArray) {
         long c = 0x01;
         for (int i = 0; i < byteArray.getByteCount(); ++i) {

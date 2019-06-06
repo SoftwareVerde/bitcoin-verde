@@ -561,6 +561,10 @@ public class Wallet {
         return signedTransaction;
     }
 
+    public Wallet() {
+        _medianBlockTime = null; // Only necessary for instances near impending hard forks...
+    }
+
     public Wallet(final MedianBlockTime medianBlockTime) {
         _medianBlockTime = medianBlockTime;
     }

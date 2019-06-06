@@ -4,10 +4,11 @@ import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
-import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
+import com.softwareverde.bitcoin.transaction.script.opcode.*;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
@@ -46,6 +47,14 @@ public class ScriptBuilder {
         scriptBuilder.pushSignature(signature);
         scriptBuilder.pushBytes(publicKey);
         return scriptBuilder.buildUnlockingScript();
+    }
+
+    public static LockingScript payToScriptHash(final Script payToScript) {
+        final ScriptBuilder scriptBuilder = new ScriptBuilder();
+        scriptBuilder.pushOperation(CryptographicOperation.SHA_256_THEN_RIPEMD_160);
+        scriptBuilder.pushOperation(PushOperation.pushBytes(BitcoinUtil.ripemd160(BitcoinUtil.sha256(payToScript.getBytes()))));
+        scriptBuilder.pushOperation(ComparisonOperation.IS_EQUAL);
+        return scriptBuilder.buildLockingScript();
     }
 
     protected void _pushBytes(final ByteArray bytes) {
@@ -129,6 +138,12 @@ public class ScriptBuilder {
         byteArrayBuilder.appendBytes(scriptSignature.getSignature().encode());
         byteArrayBuilder.appendByte(scriptSignature.getHashType().toByte());
         _pushBytes(MutableByteArray.wrap(byteArrayBuilder.build()));
+
+        return this;
+    }
+
+    public ScriptBuilder pushOperation(final Operation operation) {
+        _byteArrayBuilder.appendBytes(operation.getBytes());
 
         return this;
     }

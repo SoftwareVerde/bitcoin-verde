@@ -352,6 +352,12 @@ public class TransactionSigner {
         }
     }
 
+    public ScriptSignature createSignature(final SignatureContext signatureContext, final PrivateKey privateKey) {
+        final byte[] bytesToSign = _getBytesForSigning(signatureContext);
+        final Signature signature = Secp256k1.sign(privateKey.getBytes(), bytesToSign);
+        return new ScriptSignature(signature, signatureContext.getHashType());
+    }
+
     public Transaction signTransaction(final SignatureContext signatureContext, final PrivateKey privateKey) {
         return _signTransaction(signatureContext, privateKey, false);
     }

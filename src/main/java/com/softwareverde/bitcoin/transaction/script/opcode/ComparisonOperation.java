@@ -14,6 +14,20 @@ public class ComparisonOperation extends SubTypedOperation {
 
     public static final Type TYPE = Type.OP_COMPARISON;
 
+    public static final ComparisonOperation IS_EQUAL                            = new ComparisonOperation(Opcode.IS_EQUAL.getValue(),                           Opcode.IS_EQUAL);
+    public static final ComparisonOperation IS_EQUAL_THEN_VERIFY                = new ComparisonOperation(Opcode.IS_EQUAL_THEN_VERIFY.getValue(),               Opcode.IS_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_TRUE                             = new ComparisonOperation(Opcode.IS_TRUE.getValue(),                            Opcode.IS_TRUE);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL                = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL.getValue(),               Opcode.IS_NUMERICALLY_EQUAL);
+    public static final ComparisonOperation IS_NUMERICALLY_EQUAL_THEN_VERIFY    = new ComparisonOperation(Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY.getValue(),   Opcode.IS_NUMERICALLY_EQUAL_THEN_VERIFY);
+    public static final ComparisonOperation IS_NUMERICALLY_NOT_EQUAL            = new ComparisonOperation(Opcode.IS_NUMERICALLY_NOT_EQUAL.getValue(),           Opcode.IS_NUMERICALLY_NOT_EQUAL);
+    public static final ComparisonOperation IS_LESS_THAN                        = new ComparisonOperation(Opcode.IS_LESS_THAN.getValue(),                       Opcode.IS_LESS_THAN);
+    public static final ComparisonOperation IS_GREATER_THAN                     = new ComparisonOperation(Opcode.IS_GREATER_THAN.getValue(),                    Opcode.IS_GREATER_THAN);
+    public static final ComparisonOperation IS_LESS_THAN_OR_EQUAL               = new ComparisonOperation(Opcode.IS_LESS_THAN_OR_EQUAL.getValue(),              Opcode.IS_LESS_THAN_OR_EQUAL);
+    public static final ComparisonOperation IS_GREATER_THAN_OR_EQUAL            = new ComparisonOperation(Opcode.IS_GREATER_THAN_OR_EQUAL.getValue(),           Opcode.IS_GREATER_THAN_OR_EQUAL);
+    public static final ComparisonOperation INTEGER_AND                         = new ComparisonOperation(Opcode.INTEGER_AND.getValue(),                        Opcode.INTEGER_AND);
+    public static final ComparisonOperation INTEGER_OR                          = new ComparisonOperation(Opcode.INTEGER_OR.getValue(),                         Opcode.INTEGER_OR);
+    public static final ComparisonOperation IS_WITHIN_RANGE                     = new ComparisonOperation(Opcode.IS_WITHIN_RANGE.getValue(),                    Opcode.IS_WITHIN_RANGE);
+
     protected static ComparisonOperation fromBytes(final ByteArrayReader byteArrayReader) {
         if (! byteArrayReader.hasBytes()) { return null; }
 

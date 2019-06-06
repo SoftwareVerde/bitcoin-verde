@@ -3,11 +3,11 @@ package com.softwareverde.bitcoin.util;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.murmur.MurmurHashUtil;
 import com.softwareverde.util.Base32Util;
 import com.softwareverde.util.Base58Util;
-
 import org.bouncycastle.crypto.digests.RIPEMD160Digest;
 
 import java.security.MessageDigest;
@@ -26,7 +26,7 @@ public class BitcoinUtil {
     }
 
     public static Sha256Hash sha256(final ByteArray data) {
-        return MutableSha256Hash.wrap(sha256(data.getBytes()));
+        return MutableSha256Hash.wrap(BitcoinUtil.sha256(data.getBytes()));
     }
 
     public static byte[] sha256(final byte[] data) {
@@ -45,6 +45,10 @@ public class BitcoinUtil {
         final byte[] output = new byte[ripemd160Digest.getDigestSize()];
         ripemd160Digest.doFinal(output, 0);
         return output;
+    }
+
+    public static ByteArray ripemd160(final ByteArray data) {
+        return MutableByteArray.wrap(BitcoinUtil.ripemd160(data.getBytes()));
     }
 
     public static Long murmurHash(final Long nonce, final Integer functionIdentifier, final ByteArray bytes) {
