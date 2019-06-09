@@ -5,25 +5,22 @@ import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 public class SynchronizationStatusHandler implements SynchronizationStatus {
     protected final SystemTime _systemTime = new SystemTime();
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final DatabaseManagerFactory _databaseManagerFactory;
 
     protected State _state = State.ONLINE;
 
-    public SynchronizationStatusHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public SynchronizationStatusHandler(final DatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void setState(final State state) {
@@ -43,25 +40,25 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
 
     @Override
     public Boolean isReadyForTransactions() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final Long blockTimestampInSeconds;
             {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 final BlockId headBlockId = blockDatabaseManager.getHeadBlockId();
                 if (headBlockId == null) {
                     blockTimestampInSeconds = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
                 }
                 else {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(headBlockId);
                     blockTimestampInSeconds = blockHeader.getTimestamp();
                 }
             }
 
-            final Long secondsBehind = (_systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
+            final long secondsBehind = (_systemTime.getCurrentTimeInSeconds() - blockTimestampInSeconds);
 
-            final Integer secondsInAnHour = (60 * 60);
+            final int secondsInAnHour = (60 * 60);
             return (secondsBehind < (24 * secondsInAnHour));
         }
         catch (final DatabaseException exception) {
@@ -72,9 +69,10 @@ public class SynchronizationStatusHandler implements SynchronizationStatus {
 
     @Override
     public Long getCurrentBlockHeight() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
             final BlockId blockId = blockDatabaseManager.getHeadBlockId();
             if (blockId == null) { return 0L; }
 

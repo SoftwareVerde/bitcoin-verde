@@ -2,6 +2,8 @@ package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.conscientious.ConscientiousUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.memory.MemoryStatus;
+import com.softwareverde.bitcoin.server.memory.SystemMemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -12,14 +14,25 @@ import com.softwareverde.util.jni.NativeUtil;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._cacheUnspentTransactionOutputId;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._commit;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._createCache;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._deleteCache;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._destroy;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._getCachedUnspentTransactionOutputId;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._init;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._invalidateUnspentTransactionOutputId;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._loadUnspentTransactionOutputId;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._pruneHalf;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._setMasterCache;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._setMaxItemCount;
 
 public class NativeUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
     public static Long DEFAULT_MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
 
     public static UtxoCount calculateMaxUtxoCountFromMemoryUsage(final Long maxByteCount) {
         // B-Tree UTXO Cache Memory Usage: https://docs.google.com/spreadsheets/d/1cB_BbJ1Tg6AuV4Ge3yVG081WXUJ-T9YFwYN95I6VcoI
-        final Double megabyteCount = (maxByteCount / 1024D / 1024D);
+        final double megabyteCount = (maxByteCount / 1024D / 1024D);
 
         // utxoCount = -1.03E6 + 9330 * megabytes - 1.43 * megabytes^2 + 1.48E-4 * megabytes^3
         // utxoCount = -1030000.0 + 9330 * megabytes - 1.43 * megabytes^2 + 0.000148 * megabytes^3
@@ -71,6 +84,8 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         }
     }
 
+    protected final MemoryStatus _memoryStatus = new SystemMemoryStatus();
+    protected final UtxoCount _maxUtxoCount;
     protected Integer _cacheId;
 
     protected NativeUnspentTransactionOutputCache _unwrapCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
@@ -100,6 +115,8 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         synchronized (MASTER_MUTEX) {
             _cacheId = _createCache();
         }
+
+        _maxUtxoCount = maxUtxoCount;
 
         if (_cacheId < 0) {
             _cacheId = null;
@@ -212,6 +229,11 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
     }
 
     @Override
+    public MemoryStatus getMemoryStatus() {
+        return _memoryStatus;
+    }
+
+    @Override
     public void pruneHalf() {
         if (_cacheId == null) { return; }
 
@@ -241,5 +263,10 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
         writeLock.lock();
         _loadUnspentTransactionOutputId(_cacheId, insertId, transactionHash.getBytes(), transactionOutputIndex, transactionOutputId.longValue());
         writeLock.unlock();
+    }
+
+    @Override
+    public UtxoCount getMaxUtxoCount() {
+        return _maxUtxoCount;
     }
 }

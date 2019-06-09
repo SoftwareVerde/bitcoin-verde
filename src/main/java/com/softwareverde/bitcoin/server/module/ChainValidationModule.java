@@ -10,18 +10,17 @@ import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
-import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
@@ -31,80 +30,43 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
 
-import java.io.File;
-
 public class ChainValidationModule {
-    public static void execute(final String configurationFileName, final String startingBlockHash) {
-        final ChainValidationModule chainValidationModule = new ChainValidationModule(configurationFileName, startingBlockHash);
-        chainValidationModule.run();
-    }
-
-    protected final Configuration _configuration;
+    protected final Configuration.BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
 
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            Logger.error("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
-
-    protected ChainValidationModule(final String configurationFilename, final String startingBlockHash) {
-        _configuration = _loadConfigurationFile(configurationFilename);
+    public ChainValidationModule(final Configuration.BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
+        _bitcoinProperties = bitcoinProperties;
+        _environment = environment;
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
-
-        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
-        final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
-
-        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
-        if (database == null) {
-            Logger.log("Error initializing database.");
-            BitcoinUtil.exitFailure();
-        }
-        Logger.log("[Database Online]");
-
-        { // Initialize the NativeUnspentTransactionOutputCache...
-            final Boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-            if (nativeCacheIsEnabled) {
-                NativeUnspentTransactionOutputCache.init();
-            }
-            else {
-                Logger.log("NOTICE: NativeUtxoCache not enabled.");
-            }
-        }
-
-
-        final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-        _environment = new Environment(database, new MasterDatabaseManagerCache(maxUtxoCacheByteCount));
     }
 
     public void run() {
         final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
-        final UnspentTransactionOutputCache unspentTransactionOutputCache = masterDatabaseManagerCache.getUnspentTransactionOutputCache();
-
-        final Configuration.BitcoinProperties bitcoinProperties = _configuration.getBitcoinProperties();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
-        try (final DatabaseConnection databaseConnection = database.newConnection();
-             final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)) {
+        try (
+            final DatabaseConnection databaseConnection = database.newConnection();
+            final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)
+        ) {
 
-            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(databaseConnection, databaseManagerCache);
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, databaseManagerCache);
+            final CoreDatabaseManager databaseManager = new CoreDatabaseManager(databaseConnection, databaseManagerCache);
 
-            final ReadUncommittedDatabaseConnectionFactory databaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(database.newConnectionFactory());
+            final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
             final NetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = blockHeaderDatabaseManager.initializeMedianBlockTime();
 
-            final BlockValidator blockValidator = new BlockValidator(databaseConnectionFactory, databaseManagerCache, networkTime, medianBlockTime);
-            blockValidator.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
+            final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
+            final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(databaseConnectionFactory);
+            final CoreDatabaseManagerFactory databaseManagerFactory = new CoreDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
+
+            final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, networkTime, medianBlockTime);
+            blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
 
@@ -121,7 +83,7 @@ public class ChainValidationModule {
                 final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(nextBlockHash);
                 final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-                final Integer percentComplete = (int) ((blockHeight * 100) / maxBlockHeight.floatValue());
+                final int percentComplete = (int) ((blockHeight * 100) / maxBlockHeight.floatValue());
 
                 if (blockHeight % (maxBlockHeight / 100) == 0) {
                     final Integer secondsElapsed;

@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.handler;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bloomfilter.BloomFilter;
@@ -15,18 +15,16 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 
 public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
 
-    public MemoryPoolEnquirerHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public MemoryPoolEnquirerHandler(final CoreDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public BloomFilter getBloomFilter(final Sha256Hash blockHash) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
             final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance((long) transactionIds.getSize(), 0.01D);
@@ -47,8 +45,8 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
 
     @Override
     public Integer getMemoryPoolTransactionCount() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             return transactionDatabaseManager.getUnconfirmedTransactionCount();
         }
         catch (final DatabaseException exception) {
@@ -60,8 +58,8 @@ public class MemoryPoolEnquirerHandler implements MemoryPoolEnquirer {
 
     @Override
     public Transaction getTransaction(final Sha256Hash transactionHash) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionId transactionId = transactionDatabaseManager.getTransactionId(transactionHash);
             if (transactionId == null) { return null; }
 

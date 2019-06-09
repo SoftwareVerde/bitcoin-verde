@@ -9,8 +9,10 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.database.DatabaseException;
@@ -21,8 +23,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class DifficultyCalculatorTests extends IntegrationTest {
-    protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+    protected BlockHeader[] _initBlocks(final Long stopBeforeBlockHeight, final DatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
         final BlockHeader block478550 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("020000202C76152C65B451734851B81FFBB3E2636DD5A1EE1C74B8000000000000000000A7FCE3FCC48CE39A71FAC02F29AE3842F35F3B6C1F302A88B08050AA2AADFE68C566805935470118490B9728"));
@@ -114,9 +117,10 @@ public class DifficultyCalculatorTests extends IntegrationTest {
         return returnedBlockHeaders;
     }
 
-    protected BlockHeader[] _initBlocks2(final Long stopBeforeBlockHeight, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+    protected BlockHeader[] _initBlocks2(final Long stopBeforeBlockHeight, final CoreDatabaseManager databaseManager) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
@@ -247,611 +251,628 @@ public class DifficultyCalculatorTests extends IntegrationTest {
     @Test
     public void should_return_default_difficulty_for_block_0() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockInflater blockInflater = new BlockInflater();
+            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-        final BlockInflater blockInflater = new BlockInflater();
-        final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockDatabaseManager.storeBlock(block);
+            }
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockDatabaseManager.storeBlock(block);
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(block);
+
+            // Assert
+            Assert.assertEquals(Difficulty.BASE_DIFFICULTY, difficulty);
         }
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(block);
-
-        // Assert
-        Assert.assertEquals(Difficulty.BASE_DIFFICULTY, difficulty);
     }
 
     @Test
     public void should_return_bitcoin_cash_adjusted_difficulty() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeader[] blockHeaders;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaders = _initBlocks(478577L, databaseConnection);
+            final BlockHeader[] blockHeaders;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaders = _initBlocks(478577L, databaseManager);
+            }
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020FA4F8E791184C0CEE158961A0AC6F4299898F872F06A410100000000000000003EC6D34403E8B74BFE9711CE053468EFB269D87422B18DB202C3FA6CB7E503754598825902990118BE67E71E")); // 478577
+
+            Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
+            Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
+
+            /*
+                2017-08-01 17:39:21 *
+                2017-08-01 19:38:29 **
+                2017-08-01 21:07:01 ***
+                2017-08-01 22:51:49 ****
+                2017-08-01 23:15:01 *****       (blockTipMinus6)
+                2017-08-02 12:20:19 ******      (blockMedianTimePast)
+                2017-08-02 12:36:31 *****
+                2017-08-02 14:01:34 ****
+                2017-08-02 14:38:19 ***
+                2017-08-02 22:03:51 **
+                2017-08-02 22:27:40 *           (blockTip)
+
+                2017-08-02 23:28:05             (blockHeader)
+
+                If blockTip - blockTipMinusSix is greater than 12 hours, the difficulty emergency difficulty adjustment is activated...
+             */
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478577L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18019902")), difficulty);
         }
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020FA4F8E791184C0CEE158961A0AC6F4299898F872F06A410100000000000000003EC6D34403E8B74BFE9711CE053468EFB269D87422B18DB202C3FA6CB7E503754598825902990118BE67E71E")); // 478577
-
-        Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
-        Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
-
-        /*
-            2017-08-01 17:39:21 *
-            2017-08-01 19:38:29 **
-            2017-08-01 21:07:01 ***
-            2017-08-01 22:51:49 ****
-            2017-08-01 23:15:01 *****       (blockTipMinus6)
-            2017-08-02 12:20:19 ******      (blockMedianTimePast)
-            2017-08-02 12:36:31 *****
-            2017-08-02 14:01:34 ****
-            2017-08-02 14:38:19 ***
-            2017-08-02 22:03:51 **
-            2017-08-02 22:27:40 *           (blockTip)
-
-            2017-08-02 23:28:05             (blockHeader)
-
-            If blockTip - blockTipMinusSix is greater than 12 hours, the difficulty emergency difficulty adjustment is activated...
-         */
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478577L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18019902")), difficulty);
     }
 
     @Test
     public void should_calculate_difficulty_for_block_000000000000000000A818C2894CBBECF77DA16CA526E3D59929CE5AFD8F0644() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeader[] blockHeaders;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaders = _initBlocks(478573L, databaseConnection);
+            final BlockHeader[] blockHeaders;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaders = _initBlocks(478573L, databaseManager);
+            }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020774F568005A00BF4FFED76B52E3A7E5E5140A5371834A00000000000000000009F5DB27969FECC0EF71503279069B2DF981BA545592A7B425F353B5060E77F3E7E13825935470118DA70378E"));
+
+            Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
+            Assert.assertEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478573L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18014735")), difficulty);
         }
-
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020774F568005A00BF4FFED76B52E3A7E5E5140A5371834A00000000000000000009F5DB27969FECC0EF71503279069B2DF981BA545592A7B425F353B5060E77F3E7E13825935470118DA70378E"));
-
-        Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
-        Assert.assertEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(478573L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18014735")), difficulty);
     }
 
     @Test
     public void should_calculate_difficulty_for_block_000000000000000002CF5C8BE76F5EF40196B8D1A63E0FF138F9FB1DF907E315() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeader[] blockHeaders;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaders = _initBlocks2(479808L, databaseConnection);
+            final BlockHeader[] blockHeaders;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaders = _initBlocks2(479808L, databaseManager);
+            }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020C5F04B072B446E02EFE3231190BFE67E1883BDB3D58B5A00000000000000000063AF62061B439138245E2ED248100E0EF7B25E9192FCF2DC550209D0F3F9D715AF069959CC1D101846ADA54C"));
+
+            Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
+            Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(479808L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
         }
-
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020C5F04B072B446E02EFE3231190BFE67E1883BDB3D58B5A00000000000000000063AF62061B439138245E2ED248100E0EF7B25E9192FCF2DC550209D0F3F9D715AF069959CC1D101846ADA54C"));
-
-        Assert.assertEquals(blockHeaders[blockHeaders.length - 1].getHash(), blockHeader.getPreviousBlockHash());
-        Assert.assertNotEquals(blockHeaders[0].getDifficulty(), blockHeader.getDifficulty());
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(479808L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("18101DCC")), difficulty);
     }
 
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_00000000000000000343E9875012F2062554C8752929892C82A0C0743AC7DCFD() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            {
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.insertBlock(block);
+                }
 
-        {
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockDatabaseManager.insertBlock(block);
-            }
-
-            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter("00000000000000000435BC5750DAF2D9840D6CC670CC539D67B565B3F175EF40")
-                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-            );
-        }
-
-        final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
-        // ChainWork: 0000000000000000000000000000000000000000007C9252468D6FC7AA51E743
-        final BlockHeader block503885 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002062B205D7E0CA90FBA87B1FC30AC413E7AE2033886DFB760700000000000000003C99B667F880E4FCE0E40EB746FC10F5B20564928B8216AC440A3AB0932E76042684085AF56A08187B499EE6"));
-        // ChainWork: 0000000000000000000000000000000000000000007C9270AFF5719E18D2C3AF
-        final BlockHeader block503886 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DAEC9B14A439C371137E769989ED1913249040A122403804000000000000000041476811D6EFA21523EBAE504A391A94F980995C96C53E7AE5270FD6520520E86B84085AF56A081824CB2663"));
-        // ChainWork: 0000000000000000000000000000000000000000007C928F195D73748753A01B
-        final BlockHeader block503887 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D0BC02429848A7F73FF340D51E2275B9481750F61E3A810500000000000000004305BA203D4CA21D4D151AE054A8C490B16A571631CD28B0643B2BF3E61C7B4DD484085AF56A08181669B1F4"));
-        // ChainWork: 0000000000000000000000000000000000000000007C92AD82C5754AF5D47C87
-        final BlockHeader block503888 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020989C05B9643A1F7F23583BC2523BC9CBFBBE14D2AC46000200000000000000003C66B23AC172D7E59ECFB831230C5B8AFB1FEA79EFADDABC52CCDF1F2129800B0B85085AF56A08184A7FC95A"));
-        // ChainWork: 0000000000000000000000000000000000000000007C92CBEC2D7721645558F3
-
-        Assert.assertEquals(block503884.getHash(), block503885.getPreviousBlockHash());
-        Assert.assertEquals(block503885.getHash(), block503886.getPreviousBlockHash());
-        Assert.assertEquals(block503886.getHash(), block503887.getPreviousBlockHash());
-        Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
-
-        long blockHeight = 503884L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 503884L) {
+                // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
-                        .setParameter(blockHeader.getHash())
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter("00000000000000000435BC5750DAF2D9840D6CC670CC539D67B565B3F175EF40")
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
+            final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
+            // ChainWork: 0000000000000000000000000000000000000000007C9252468D6FC7AA51E743
+            final BlockHeader block503885 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002062B205D7E0CA90FBA87B1FC30AC413E7AE2033886DFB760700000000000000003C99B667F880E4FCE0E40EB746FC10F5B20564928B8216AC440A3AB0932E76042684085AF56A08187B499EE6"));
+            // ChainWork: 0000000000000000000000000000000000000000007C9270AFF5719E18D2C3AF
+            final BlockHeader block503886 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DAEC9B14A439C371137E769989ED1913249040A122403804000000000000000041476811D6EFA21523EBAE504A391A94F980995C96C53E7AE5270FD6520520E86B84085AF56A081824CB2663"));
+            // ChainWork: 0000000000000000000000000000000000000000007C928F195D73748753A01B
+            final BlockHeader block503887 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D0BC02429848A7F73FF340D51E2275B9481750F61E3A810500000000000000004305BA203D4CA21D4D151AE054A8C490B16A571631CD28B0643B2BF3E61C7B4DD484085AF56A08181669B1F4"));
+            // ChainWork: 0000000000000000000000000000000000000000007C92AD82C5754AF5D47C87
+            final BlockHeader block503888 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020989C05B9643A1F7F23583BC2523BC9CBFBBE14D2AC46000200000000000000003C66B23AC172D7E59ECFB831230C5B8AFB1FEA79EFADDABC52CCDF1F2129800B0B85085AF56A08184A7FC95A"));
+            // ChainWork: 0000000000000000000000000000000000000000007C92CBEC2D7721645558F3
 
-            blockHeight += 1L;
-        }
+            Assert.assertEquals(block503884.getHash(), block503885.getPreviousBlockHash());
+            Assert.assertEquals(block503885.getHash(), block503886.getPreviousBlockHash());
+            Assert.assertEquals(block503886.getHash(), block503887.getPreviousBlockHash());
+            Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
 
-        {
-            final BlockHeader block = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203BEDAF10775BF4DAEA20C0CD14DFB1305643750B78ED5A03000000000000000052B2D71F8917516C6A61CF4FF70149B22337138F174971A341B9729C33D4FE8F9385085AF56A08182A6E5437"));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.insertBlockHeader(block);
-            }
+            long blockHeight = 503884L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
 
-            // Hack the block so that its hash looks like the next block's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter("0000000000000000004AB6CD0EC46F050566B7CA9E556CA6825039078E5CC4D3")
-                    .setParameter("000000000000000007C927A6A203FB2CCCA31D3AFA56EA54429576925CE07995")
-            );
-        }
+                if (blockHeight == 503884L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
 
-        final BlockHeader block504028 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3C45C8E07395082A66C559ECAB76605056FC40ECDB64A000000000000000000DEBD79522F23890A23DDC97CE239F2760BCB23BE4274AA33EE40B99693159E694EF9095ABD1A021896DEFE6B"));
-        // ChainWork: 0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3
-        final BlockHeader block504029 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000202FC1F2AB4B3B63C8217422E5E6385D5A9E28E001FEFB9401000000000000000066A022B0F05F4DF670D4105719004714509C009ED924BE9DA7486AF832B4666E89FB095ABD1A0218ECCA3FAB"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAE3D0AB8A8B7D8E0FE4F
-        final BlockHeader block504030 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002088B635DDA8E9441A7AB80D084DC34AD28ACA42F6AA3A5F010000000000000000D2E58AD82664E61A249F1ED829FA2D52CCF77D41AF12EDD3230314C99E011DE8CCFC095ABD1A021828F4EA08"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAEB6B06723926608DCCB
-        final BlockHeader block504031 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DE1EFF50CF57B6903D5FC8C4D72A35B798DA483FD688800000000000000000007EEBC424B078D2FC05CD8B49AC1E628B1A7D69B39B4F0F497AD1F310F1D73DAB60070A5ABD1A0218651C93E1"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAF3056159E6CF330BB47
-
-        Assert.assertEquals(block504028.getHash(), block504029.getPreviousBlockHash());
-        Assert.assertEquals(block504029.getHash(), block504030.getPreviousBlockHash());
-        Assert.assertEquals(block504030.getHash(), block504031.getPreviousBlockHash());
-
-        blockHeight = 504028L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block504028, block504029, block504030, block504031 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 504028L) {
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
                         .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            {
+                final BlockHeader block = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203BEDAF10775BF4DAEA20C0CD14DFB1305643750B78ED5A03000000000000000052B2D71F8917516C6A61CF4FF70149B22337138F174971A341B9729C33D4FE8F9385085AF56A08182A6E5437"));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.insertBlockHeader(block);
+                }
+
+                // Hack the block so that its hash looks like the next block's previousBlockHash...
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter("0000000000000000004AB6CD0EC46F050566B7CA9E556CA6825039078E5CC4D3")
+                        .setParameter("000000000000000007C927A6A203FB2CCCA31D3AFA56EA54429576925CE07995")
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
+            final BlockHeader block504028 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3C45C8E07395082A66C559ECAB76605056FC40ECDB64A000000000000000000DEBD79522F23890A23DDC97CE239F2760BCB23BE4274AA33EE40B99693159E694EF9095ABD1A021896DEFE6B"));
+            // ChainWork: 0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3
+            final BlockHeader block504029 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000202FC1F2AB4B3B63C8217422E5E6385D5A9E28E001FEFB9401000000000000000066A022B0F05F4DF670D4105719004714509C009ED924BE9DA7486AF832B4666E89FB095ABD1A0218ECCA3FAB"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAE3D0AB8A8B7D8E0FE4F
+            final BlockHeader block504030 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002088B635DDA8E9441A7AB80D084DC34AD28ACA42F6AA3A5F010000000000000000D2E58AD82664E61A249F1ED829FA2D52CCF77D41AF12EDD3230314C99E011DE8CCFC095ABD1A021828F4EA08"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAEB6B06723926608DCCB
+            final BlockHeader block504031 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DE1EFF50CF57B6903D5FC8C4D72A35B798DA483FD688800000000000000000007EEBC424B078D2FC05CD8B49AC1E628B1A7D69B39B4F0F497AD1F310F1D73DAB60070A5ABD1A0218651C93E1"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAF3056159E6CF330BB47
 
-            blockHeight += 1L;
+            Assert.assertEquals(block504028.getHash(), block504029.getPreviousBlockHash());
+            Assert.assertEquals(block504029.getHash(), block504030.getPreviousBlockHash());
+            Assert.assertEquals(block504030.getHash(), block504031.getPreviousBlockHash());
+
+            blockHeight = 504028L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block504028, block504029, block504030, block504031 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
+
+                if (blockHeight == 504028L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
+
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
+                        .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209CABB6EE1B1A4C3B659D70BE75810BE83D0A0DB665BF1E010000000000000000EE1BE69B11EF6D4B6B15E007628C3AF5563B967F35155FAF0ABAB1D87921BF8E93080A5A2BB40518462F5110"));
+
+            Assert.assertEquals(block504031.getHash(), blockHeader.getPreviousBlockHash());
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504032L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805B42B")), difficulty);
         }
-
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209CABB6EE1B1A4C3B659D70BE75810BE83D0A0DB665BF1E010000000000000000EE1BE69B11EF6D4B6B15E007628C3AF5563B967F35155FAF0ABAB1D87921BF8E93080A5A2BB40518462F5110"));
-
-        Assert.assertEquals(block504031.getHash(), blockHeader.getPreviousBlockHash());
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504032L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805B42B")), difficulty);
     }
 
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_000000000000000002173D0AC7B3A30F2AAC302449778D72386C785D2C370429() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
+            // ChainWork: 0000000000000000000000000000000000000000007C9252468D6FC7AA51E743
+            final BlockHeader block503885 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002062B205D7E0CA90FBA87B1FC30AC413E7AE2033886DFB760700000000000000003C99B667F880E4FCE0E40EB746FC10F5B20564928B8216AC440A3AB0932E76042684085AF56A08187B499EE6"));
+            // ChainWork: 0000000000000000000000000000000000000000007C9270AFF5719E18D2C3AF
+            final BlockHeader block503886 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DAEC9B14A439C371137E769989ED1913249040A122403804000000000000000041476811D6EFA21523EBAE504A391A94F980995C96C53E7AE5270FD6520520E86B84085AF56A081824CB2663"));
+            // ChainWork: 0000000000000000000000000000000000000000007C928F195D73748753A01B
+            final BlockHeader block503887 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D0BC02429848A7F73FF340D51E2275B9481750F61E3A810500000000000000004305BA203D4CA21D4D151AE054A8C490B16A571631CD28B0643B2BF3E61C7B4DD484085AF56A08181669B1F4"));
+            // ChainWork: 0000000000000000000000000000000000000000007C92AD82C5754AF5D47C87
+            final BlockHeader block503888 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020989C05B9643A1F7F23583BC2523BC9CBFBBE14D2AC46000200000000000000003C66B23AC172D7E59ECFB831230C5B8AFB1FEA79EFADDABC52CCDF1F2129800B0B85085AF56A08184A7FC95A"));
+            // ChainWork: 0000000000000000000000000000000000000000007C92CBEC2D7721645558F3
+            final BlockHeader block503889 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203BEDAF10775BF4DAEA20C0CD14DFB1305643750B78ED5A03000000000000000052B2D71F8917516C6A61CF4FF70149B22337138F174971A341B9729C33D4FE8F9385085AF56A08182A6E5437"));
+            // ChainWork: 0000000000000000000000000000000000000000007C92EA559578F7D2D6355F
 
-        final BlockHeader block503884 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002040EF75F1B365B5679D53CC70C66C0D84D9F2DA5057BC3504000000000000000064BE673E5FFCAE00F3E9543B6A29D9D9BFD99D917815E00F5DACDE20AD7EE759EE83085AF56A0818E6D5820C"));
-        // ChainWork: 0000000000000000000000000000000000000000007C9252468D6FC7AA51E743
-        final BlockHeader block503885 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002062B205D7E0CA90FBA87B1FC30AC413E7AE2033886DFB760700000000000000003C99B667F880E4FCE0E40EB746FC10F5B20564928B8216AC440A3AB0932E76042684085AF56A08187B499EE6"));
-        // ChainWork: 0000000000000000000000000000000000000000007C9270AFF5719E18D2C3AF
-        final BlockHeader block503886 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DAEC9B14A439C371137E769989ED1913249040A122403804000000000000000041476811D6EFA21523EBAE504A391A94F980995C96C53E7AE5270FD6520520E86B84085AF56A081824CB2663"));
-        // ChainWork: 0000000000000000000000000000000000000000007C928F195D73748753A01B
-        final BlockHeader block503887 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D0BC02429848A7F73FF340D51E2275B9481750F61E3A810500000000000000004305BA203D4CA21D4D151AE054A8C490B16A571631CD28B0643B2BF3E61C7B4DD484085AF56A08181669B1F4"));
-        // ChainWork: 0000000000000000000000000000000000000000007C92AD82C5754AF5D47C87
-        final BlockHeader block503888 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020989C05B9643A1F7F23583BC2523BC9CBFBBE14D2AC46000200000000000000003C66B23AC172D7E59ECFB831230C5B8AFB1FEA79EFADDABC52CCDF1F2129800B0B85085AF56A08184A7FC95A"));
-        // ChainWork: 0000000000000000000000000000000000000000007C92CBEC2D7721645558F3
-        final BlockHeader block503889 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203BEDAF10775BF4DAEA20C0CD14DFB1305643750B78ED5A03000000000000000052B2D71F8917516C6A61CF4FF70149B22337138F174971A341B9729C33D4FE8F9385085AF56A08182A6E5437"));
-        // ChainWork: 0000000000000000000000000000000000000000007C92EA559578F7D2D6355F
+            Assert.assertEquals(block503884.getHash(), block503885.getPreviousBlockHash());
+            Assert.assertEquals(block503885.getHash(), block503886.getPreviousBlockHash());
+            Assert.assertEquals(block503886.getHash(), block503887.getPreviousBlockHash());
+            Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
+            Assert.assertEquals(block503888.getHash(), block503889.getPreviousBlockHash());
 
-        Assert.assertEquals(block503884.getHash(), block503885.getPreviousBlockHash());
-        Assert.assertEquals(block503885.getHash(), block503886.getPreviousBlockHash());
-        Assert.assertEquals(block503886.getHash(), block503887.getPreviousBlockHash());
-        Assert.assertEquals(block503887.getHash(), block503888.getPreviousBlockHash());
-        Assert.assertEquals(block503888.getHash(), block503889.getPreviousBlockHash());
+            {
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.storeBlock(genesisBlock);
+                }
 
-        {
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockDatabaseManager.storeBlock(genesisBlock);
-            }
-
-            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter(block503884.getPreviousBlockHash())
-                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-            );
-        }
-
-
-        long blockHeight = 503884L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888, block503889 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 503884L) {
+                // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
-                        .setParameter(blockHeader.getHash())
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter(block503884.getPreviousBlockHash())
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
 
-            blockHeight += 1L;
-        }
+            long blockHeight = 503884L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block503884, block503885, block503886, block503887, block503888, block503889 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
 
-        final BlockHeader block504028 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3C45C8E07395082A66C559ECAB76605056FC40ECDB64A000000000000000000DEBD79522F23890A23DDC97CE239F2760BCB23BE4274AA33EE40B99693159E694EF9095ABD1A021896DEFE6B"));
-        // ChainWork: 0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3
-        final BlockHeader block504029 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000202FC1F2AB4B3B63C8217422E5E6385D5A9E28E001FEFB9401000000000000000066A022B0F05F4DF670D4105719004714509C009ED924BE9DA7486AF832B4666E89FB095ABD1A0218ECCA3FAB"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAE3D0AB8A8B7D8E0FE4F
-        final BlockHeader block504030 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002088B635DDA8E9441A7AB80D084DC34AD28ACA42F6AA3A5F010000000000000000D2E58AD82664E61A249F1ED829FA2D52CCF77D41AF12EDD3230314C99E011DE8CCFC095ABD1A021828F4EA08"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAEB6B06723926608DCCB
-        final BlockHeader block504031 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DE1EFF50CF57B6903D5FC8C4D72A35B798DA483FD688800000000000000000007EEBC424B078D2FC05CD8B49AC1E628B1A7D69B39B4F0F497AD1F310F1D73DAB60070A5ABD1A0218651C93E1"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAF3056159E6CF330BB47
-        final BlockHeader block504032 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209CABB6EE1B1A4C3B659D70BE75810BE83D0A0DB665BF1E010000000000000000EE1BE69B11EF6D4B6B15E007628C3AF5563B967F35155FAF0ABAB1D87921BF8E93080A5A2BB40518462F5110"));
-        // ChainWork: 0000000000000000000000000000000000000000007CAF5D3801A392AC1E2266
+                if (blockHeight == 503884L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007C9252468D6FC7AA51E743")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
 
-        Assert.assertEquals(block504028.getHash(), block504029.getPreviousBlockHash());
-        Assert.assertEquals(block504029.getHash(), block504030.getPreviousBlockHash());
-        Assert.assertEquals(block504030.getHash(), block504031.getPreviousBlockHash());
-        Assert.assertEquals(block504031.getHash(), block504032.getPreviousBlockHash());
-
-        {
-            final BlockHeader block503890 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209579E05C9276954254EA56FA3A1DA3CC2CFB03A2A627C90700000000000000000041850165F77D5CDBEF74DCA7FB492328BA575B9708202C094D0D19F6EAC5121586085AF56A08186C37472D"));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(block503890);
-            }
-
-            // Hack the block so that its hash looks like the block503884's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter(block504028.getPreviousBlockHash())
-                    .setParameter(block503890.getHash())
-            );
-        }
-
-        blockHeight = 504028L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block504028, block504029, block504030, block504031, block504032 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 504028L) {
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
                         .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            final BlockHeader block504028 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3C45C8E07395082A66C559ECAB76605056FC40ECDB64A000000000000000000DEBD79522F23890A23DDC97CE239F2760BCB23BE4274AA33EE40B99693159E694EF9095ABD1A021896DEFE6B"));
+            // ChainWork: 0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3
+            final BlockHeader block504029 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000202FC1F2AB4B3B63C8217422E5E6385D5A9E28E001FEFB9401000000000000000066A022B0F05F4DF670D4105719004714509C009ED924BE9DA7486AF832B4666E89FB095ABD1A0218ECCA3FAB"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAE3D0AB8A8B7D8E0FE4F
+            final BlockHeader block504030 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002088B635DDA8E9441A7AB80D084DC34AD28ACA42F6AA3A5F010000000000000000D2E58AD82664E61A249F1ED829FA2D52CCF77D41AF12EDD3230314C99E011DE8CCFC095ABD1A021828F4EA08"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAEB6B06723926608DCCB
+            final BlockHeader block504031 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DE1EFF50CF57B6903D5FC8C4D72A35B798DA483FD688800000000000000000007EEBC424B078D2FC05CD8B49AC1E628B1A7D69B39B4F0F497AD1F310F1D73DAB60070A5ABD1A0218651C93E1"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAF3056159E6CF330BB47
+            final BlockHeader block504032 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209CABB6EE1B1A4C3B659D70BE75810BE83D0A0DB665BF1E010000000000000000EE1BE69B11EF6D4B6B15E007628C3AF5563B967F35155FAF0ABAB1D87921BF8E93080A5A2BB40518462F5110"));
+            // ChainWork: 0000000000000000000000000000000000000000007CAF5D3801A392AC1E2266
+
+            Assert.assertEquals(block504028.getHash(), block504029.getPreviousBlockHash());
+            Assert.assertEquals(block504029.getHash(), block504030.getPreviousBlockHash());
+            Assert.assertEquals(block504030.getHash(), block504031.getPreviousBlockHash());
+            Assert.assertEquals(block504031.getHash(), block504032.getPreviousBlockHash());
+
+            {
+                final BlockHeader block503890 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209579E05C9276954254EA56FA3A1DA3CC2CFB03A2A627C90700000000000000000041850165F77D5CDBEF74DCA7FB492328BA575B9708202C094D0D19F6EAC5121586085AF56A08186C37472D"));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(block503890);
+                }
+
+                // Hack the block so that its hash looks like the block503884's previousBlockHash...
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter(block504028.getPreviousBlockHash())
+                        .setParameter(block503890.getHash())
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
+            blockHeight = 504028L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block504028, block504029, block504030, block504031, block504032 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
 
-            blockHeight += 1L;
+                if (blockHeight == 504028L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007CADC3650A2DDD4BB91FD3")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
+
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
+                        .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020FDDCC73A74C0A0822C89292975C8542506F2125087E9430300000000000000009B7A863829AD082CAF6D81DFFEDC5B964049BB7A0032FE4D363CD62A8E7E36A356090A5ADFC805181AD77B05"));
+
+            Assert.assertEquals(block504032.getHash(), blockHeader.getPreviousBlockHash());
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504033L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805C8DF")), difficulty);
         }
-
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020FDDCC73A74C0A0822C89292975C8542506F2125087E9430300000000000000009B7A863829AD082CAF6D81DFFEDC5B964049BB7A0032FE4D363CD62A8E7E36A356090A5ADFC805181AD77B05"));
-
-        Assert.assertEquals(block504032.getHash(), blockHeader.getPreviousBlockHash());
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(504033L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1805C8DF")), difficulty);
     }
 
     @Test
     public void should_calculate_bitcoin_cash_difficulty_for_block_0000000000000000044B32C9A65C643A5B7EA4C38C5A34E6E1203998D3B38392() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        final BlockHeader block504940 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207F96BFA443BB1ED083E8091972AE62EE4656B1D34A741A0100000000000000005D96B2D6A485A654581DE98D0650DA22839288172F050BE7A081AD414E6D6D8F0F68125A10160618008E4ADB"));
-        final BlockHeader block504941 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002020A6CED7518848CB69807B1F2624F841FFAAEE8049A8BD0200000000000000007D6EFA12553307585EE114A500BC30B1E7643015510DE35BB3A179E31F141F382269125A5A1F06184B2B7352"));
-        final BlockHeader block504942 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000208A41A4051838F915CF42935089C7DF12AD43C3A43357DF000000000000000000617E0D1924695F4A7128C5683630DCC68EACB6434B349DFE9BE578CAC6E0058B4B70125ABE320618051C314F"));
-        final BlockHeader block504943 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000208D1B5B05073A755C35AE763E8F25050332587576D51C3A040000000000000000CAD3CB19DE59BE7ABE0383C413A13F97DAD9EE2AB7E78D24C4F25AE56258DBAE6273125AB32206185D7A6BEF"));
-        final BlockHeader block504944 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020BF669B2EA52778AF6358EA5C056ACD8F770AA989B69DE0000000000000000000D11F3CEA5955AC2DCEEB92644418F887A7F7CBEE8FB371F9169EA297314CB4067777125AFF0606180D7C6143"));
-        final BlockHeader block504945 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020B22EB7086713B1034D43F3E34B59F353B040548C0A96B8030000000000000000444B1A283242A592AE0C88C47E1464BA675EF5C5ACCA62D02A46A58DEE9B21B8E279125A971606187B744418"));
+            final BlockHeader block504940 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207F96BFA443BB1ED083E8091972AE62EE4656B1D34A741A0100000000000000005D96B2D6A485A654581DE98D0650DA22839288172F050BE7A081AD414E6D6D8F0F68125A10160618008E4ADB"));
+            final BlockHeader block504941 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002020A6CED7518848CB69807B1F2624F841FFAAEE8049A8BD0200000000000000007D6EFA12553307585EE114A500BC30B1E7643015510DE35BB3A179E31F141F382269125A5A1F06184B2B7352"));
+            final BlockHeader block504942 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000208A41A4051838F915CF42935089C7DF12AD43C3A43357DF000000000000000000617E0D1924695F4A7128C5683630DCC68EACB6434B349DFE9BE578CAC6E0058B4B70125ABE320618051C314F"));
+            final BlockHeader block504943 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000208D1B5B05073A755C35AE763E8F25050332587576D51C3A040000000000000000CAD3CB19DE59BE7ABE0383C413A13F97DAD9EE2AB7E78D24C4F25AE56258DBAE6273125AB32206185D7A6BEF"));
+            final BlockHeader block504944 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020BF669B2EA52778AF6358EA5C056ACD8F770AA989B69DE0000000000000000000D11F3CEA5955AC2DCEEB92644418F887A7F7CBEE8FB371F9169EA297314CB4067777125AFF0606180D7C6143"));
+            final BlockHeader block504945 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020B22EB7086713B1034D43F3E34B59F353B040548C0A96B8030000000000000000444B1A283242A592AE0C88C47E1464BA675EF5C5ACCA62D02A46A58DEE9B21B8E279125A971606187B744418"));
 
-        Assert.assertEquals(block504940.getHash(), block504941.getPreviousBlockHash());
-        Assert.assertEquals(block504941.getHash(), block504942.getPreviousBlockHash());
-        Assert.assertEquals(block504942.getHash(), block504943.getPreviousBlockHash());
-        Assert.assertEquals(block504943.getHash(), block504944.getPreviousBlockHash());
-        Assert.assertEquals(block504944.getHash(), block504945.getPreviousBlockHash());
+            Assert.assertEquals(block504940.getHash(), block504941.getPreviousBlockHash());
+            Assert.assertEquals(block504941.getHash(), block504942.getPreviousBlockHash());
+            Assert.assertEquals(block504942.getHash(), block504943.getPreviousBlockHash());
+            Assert.assertEquals(block504943.getHash(), block504944.getPreviousBlockHash());
+            Assert.assertEquals(block504944.getHash(), block504945.getPreviousBlockHash());
 
-        {
-            final BlockInflater blockInflater = new BlockInflater();
-            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockDatabaseManager.storeBlock(genesisBlock);
-            }
+            {
+                final BlockInflater blockInflater = new BlockInflater();
+                final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.storeBlock(genesisBlock);
+                }
 
-            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter(block504940.getPreviousBlockHash())
-                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-            );
-        }
-
-        long blockHeight = 504940L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block504940, block504941, block504942, block504943, block504944, block504945 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 504940L) {
+                // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007D3EACCB1F141B6BA962F8")
-                        .setParameter(blockHeader.getHash())
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter(block504940.getPreviousBlockHash())
+                        .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
+            long blockHeight = 504940L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block504940, block504941, block504942, block504943, block504944, block504945 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
 
-            blockHeight += 1L;
-        }
+                if (blockHeight == 504940L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007D3EACCB1F141B6BA962F8")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
 
-        final BlockHeader block505085 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203700A49D88CA61917F366F82879055E38638AC69DE8B240200000000000000006073A21BB91119A3566A7E868294675F72AFB4310829E89BF129816722531240FBC5135AC4CE06189B23C6B7"));
-        final BlockHeader block505086 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207C5E37326104F6BC8C63F5205F2E80C5BE0550F0575FB0060000000000000000F3F80EA9626D20070C60C0BF164FBD5EC19F8EC44E6E2BE745CA487679E5C1D2A6CB135A26B40618D9ED4EAC"));
-        final BlockHeader block505087 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020A661F15246670FE26DE06CD6B96D0B6196C7C1E6DDD1350100000000000000000181AB574205822742D399856350124B67CF2A62765C1546CF32EAB21EEF3D9A0ECC135A7BC00618A704BBC7"));
-        final BlockHeader block505088 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002078387A4DEEE4C5969EC34284350A848B8BC9663A7A676705000000000000000084CFC4F095B2FFFA55368260BB82E319CA36D8F4CB68A061925CDC7D95EABFC33ACF135A0ABA0618B4DA2FC2"));
-        final BlockHeader block505089 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002076DE30BC9F3B3F449668F1E23349FC365073E745F40481050000000000000000B768DED6A1F7EED9A2859FE80855D099AA16492EFE7D81055BEF515948662BF33ACF135AE3AD061885DE69B2"));
-
-        Assert.assertEquals(block505085.getHash(), block505086.getPreviousBlockHash());
-        Assert.assertEquals(block505086.getHash(), block505087.getPreviousBlockHash());
-        Assert.assertEquals(block505087.getHash(), block505088.getPreviousBlockHash());
-        Assert.assertEquals(block505088.getHash(), block505089.getPreviousBlockHash());
-
-        {
-            final BlockHeader block504946 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000205EDDCB2C5994B16FD9F0155836404CD3BCDBD1D2D6ABF2010000000000000000A85C491190D7DF041B6D8301B9DC61469A6D3450E95E03B57159F7F8A70914CFFB79125AD927061849AD94C2"));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(block504946);
-            }
-
-            // Hack the block so that its hash looks like the block505085's previousBlockHash...
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                    .setParameter(block505085.getPreviousBlockHash())
-                    .setParameter(block504946.getHash())
-            );
-        }
-
-        blockHeight = 505085L;
-        for (final BlockHeader blockHeader : new BlockHeader[] { block505085, block505086, block505087, block505088, block505089 }) {
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-            }
-
-            if (blockHeight == 505085L) {
                 databaseConnection.executeSql(
-                    new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
-                        .setParameter("0000000000000000000000000000000000000000007D54E1FD313DB21DF0DE08")
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
                         .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            final BlockHeader block505085 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000203700A49D88CA61917F366F82879055E38638AC69DE8B240200000000000000006073A21BB91119A3566A7E868294675F72AFB4310829E89BF129816722531240FBC5135AC4CE06189B23C6B7"));
+            final BlockHeader block505086 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000207C5E37326104F6BC8C63F5205F2E80C5BE0550F0575FB0060000000000000000F3F80EA9626D20070C60C0BF164FBD5EC19F8EC44E6E2BE745CA487679E5C1D2A6CB135A26B40618D9ED4EAC"));
+            final BlockHeader block505087 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020A661F15246670FE26DE06CD6B96D0B6196C7C1E6DDD1350100000000000000000181AB574205822742D399856350124B67CF2A62765C1546CF32EAB21EEF3D9A0ECC135A7BC00618A704BBC7"));
+            final BlockHeader block505088 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002078387A4DEEE4C5969EC34284350A848B8BC9663A7A676705000000000000000084CFC4F095B2FFFA55368260BB82E319CA36D8F4CB68A061925CDC7D95EABFC33ACF135A0ABA0618B4DA2FC2"));
+            final BlockHeader block505089 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002076DE30BC9F3B3F449668F1E23349FC365073E745F40481050000000000000000B768DED6A1F7EED9A2859FE80855D099AA16492EFE7D81055BEF515948662BF33ACF135AE3AD061885DE69B2"));
+
+            Assert.assertEquals(block505085.getHash(), block505086.getPreviousBlockHash());
+            Assert.assertEquals(block505086.getHash(), block505087.getPreviousBlockHash());
+            Assert.assertEquals(block505087.getHash(), block505088.getPreviousBlockHash());
+            Assert.assertEquals(block505088.getHash(), block505089.getPreviousBlockHash());
+
+            {
+                final BlockHeader block504946 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000205EDDCB2C5994B16FD9F0155836404CD3BCDBD1D2D6ABF2010000000000000000A85C491190D7DF041B6D8301B9DC61469A6D3450E95E03B57159F7F8A70914CFFB79125AD927061849AD94C2"));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(block504946);
+                }
+
+                // Hack the block so that its hash looks like the block505085's previousBlockHash...
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                        .setParameter(block505085.getPreviousBlockHash())
+                        .setParameter(block504946.getHash())
                 );
             }
 
-            databaseConnection.executeSql(
-                new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
-                    .setParameter(blockHeight)
-                    .setParameter(blockHeader.getHash())
-            );
+            blockHeight = 505085L;
+            for (final BlockHeader blockHeader : new BlockHeader[] { block505085, block505086, block505087, block505088, block505089 }) {
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+                }
 
-            blockHeight += 1L;
+                if (blockHeight == 505085L) {
+                    databaseConnection.executeSql(
+                        new Query("UPDATE blocks SET chain_work = ? WHERE hash = ?")
+                            .setParameter("0000000000000000000000000000000000000000007D54E1FD313DB21DF0DE08")
+                            .setParameter(blockHeader.getHash())
+                    );
+                }
+
+                databaseConnection.executeSql(
+                    new Query("UPDATE blocks SET block_height = ? WHERE hash = ?")
+                        .setParameter(blockHeight)
+                        .setParameter(blockHeader.getHash())
+                );
+
+                blockHeight += 1L;
+            }
+
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3DB5B631E21D35F11BD907E80714D6CFC49F8E32EDE8A030000000000000000ABEC7E29315F8A7CAB8AD87F65BB7EB178E0FBB1EFCE61766A2C97A31820E3C9E4CF135AB6AA0618A53BC16C"));
+
+            Assert.assertEquals(block505089.getHash(), blockHeader.getPreviousBlockHash());
+
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
+            databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(505090L).setParameter(blockHeader.getHash()));
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
         }
-
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020D3DB5B631E21D35F11BD907E80714D6CFC49F8E32EDE8A030000000000000000ABEC7E29315F8A7CAB8AD87F65BB7EB178E0FBB1EFCE61766A2C97A31820E3C9E4CF135AB6AA0618A53BC16C"));
-
-        Assert.assertEquals(block505089.getHash(), blockHeader.getPreviousBlockHash());
-
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-
-        databaseConnection.executeSql(new Query("UPDATE blocks SET block_height = ? WHERE hash = ?").setParameter(505090L).setParameter(blockHeader.getHash()));
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        Assert.assertEquals(Difficulty.decode(HexUtil.hexStringToByteArray("1806AAB6")), difficulty);
     }
 
     @Test
     public void should_calculate_difficulty_for_block_000000000000000001D49711B252E3C8DDAEFEC6A668B3104E4C4EE63908A587() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseConnection, _databaseManagerCache);
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
 
-        final Long blockHeight = 547204L;
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(databaseManager);
+            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
-        // Fake Pre-Block
-        final BlockHeader preBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            final Long blockHeight = 547204L;
 
-        // Starting Blocks (547057 through 547059)
-        final BlockHeader block547057 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020B5FBB21B15194519A93E89B3C9E4DCDE7A30E3378065540000000000000000002307AE41F518AB7B1ADCEC650A66DFA6D2805C0C583D5D74A9A6E4D8C71B52B4309A945B211902181E80E9F6"));
-        final BlockHeader block547058 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002087D4725EF111A4C59AD8F4324A41C034AA089B0268D733010000000000000000CD99207673166CF38726CED59FD0902802935C6C6B67B80E17A976009340DFCC4C9C945B88180218867927A5"));
-        final BlockHeader block547059 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020F54AF12DFB380656BF448C8AE3A20151C56A312B9DE9790100000000000000008F9A5ABD96F5D9731CCDEDBC978169378178557031E8F0BD0F3AE87070848EFF499D945B7F2102180C04F854"));
+            // Fake Pre-Block
+            final BlockHeader preBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
-        // Fake Transition Block
-        final BlockHeader transitionBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020E5E9CA253DEB603C1BBFA40C3905F598C38737502E61A5010000000000000000C7E8374831FD345C38A008E6EF456DA791C7118AA3AD912A6648E1CE8362C7D3E29F945B852302184B0E186E")); // 547060
+            // Starting Blocks (547057 through 547059)
+            final BlockHeader block547057 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020B5FBB21B15194519A93E89B3C9E4DCDE7A30E3378065540000000000000000002307AE41F518AB7B1ADCEC650A66DFA6D2805C0C583D5D74A9A6E4D8C71B52B4309A945B211902181E80E9F6"));
+            final BlockHeader block547058 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002087D4725EF111A4C59AD8F4324A41C034AA089B0268D733010000000000000000CD99207673166CF38726CED59FD0902802935C6C6B67B80E17A976009340DFCC4C9C945B88180218867927A5"));
+            final BlockHeader block547059 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020F54AF12DFB380656BF448C8AE3A20151C56A312B9DE9790100000000000000008F9A5ABD96F5D9731CCDEDBC978169378178557031E8F0BD0F3AE87070848EFF499D945B7F2102180C04F854"));
 
-        // Ending Blocks (547201 through 547203)
-        final BlockHeader block547201 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DEBBC302DBED222D0FF299D1FDFC2667ED9CB5DCAC3B040100000000000000000DBFBF361ADC14E26962F130A465AF6E4D68746AF94F38F2E783ACC8C094DE651EFA955B982302189EC47A14"));
-        final BlockHeader block547202 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002030C831E27B35C498552F087186351E8A55DC1F1D83CF49010000000000000000CD7611E790C1051D5FC2E024EEAFD7A691DD3B92167211BEAFAE161FAC030D972DFC955B0F240218F86BB4D6"));
-        final BlockHeader block547203 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000201F8D5E668DAA58B04FE17C1AA448FA143E64F01D9177030200000000000000001030F6AF6ED57728388DDBC309B0D690E70AA60E9EECE501AF2B50C3A1DE5594D6FD955B231D02181541C84F"));
+            // Fake Transition Block
+            final BlockHeader transitionBlock = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020E5E9CA253DEB603C1BBFA40C3905F598C38737502E61A5010000000000000000C7E8374831FD345C38A008E6EF456DA791C7118AA3AD912A6648E1CE8362C7D3E29F945B852302184B0E186E")); // 547060
 
-        // Block To Test...
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209C40E748F5BADA0670EE1F67EE0E3D9F48CE1D0753538E01000000000000000016C1FA95946D658E7F79DF9420EAF862F320A95630217EDED426114C46C1F5F88B01965B221D02186548ACB8"));
+            // Ending Blocks (547201 through 547203)
+            final BlockHeader block547201 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("00000020DEBBC302DBED222D0FF299D1FDFC2667ED9CB5DCAC3B040100000000000000000DBFBF361ADC14E26962F130A465AF6E4D68746AF94F38F2E783ACC8C094DE651EFA955B982302189EC47A14"));
+            final BlockHeader block547202 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("0000002030C831E27B35C498552F087186351E8A55DC1F1D83CF49010000000000000000CD7611E790C1051D5FC2E024EEAFD7A691DD3B92167211BEAFAE161FAC030D972DFC955B0F240218F86BB4D6"));
+            final BlockHeader block547203 = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000201F8D5E668DAA58B04FE17C1AA448FA143E64F01D9177030200000000000000001030F6AF6ED57728388DDBC309B0D690E70AA60E9EECE501AF2B50C3A1DE5594D6FD955B231D02181541C84F"));
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaderDatabaseManager.storeBlockHeader(preBlock);
+            // Block To Test...
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray("000000209C40E748F5BADA0670EE1F67EE0E3D9F48CE1D0753538E01000000000000000016C1FA95946D658E7F79DF9420EAF862F320A95630217EDED426114C46C1F5F88B01965B221D02186548ACB8"));
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaderDatabaseManager.storeBlockHeader(preBlock);
+            }
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
+                    .setParameter("00000000000000000054658037E3307ADEDCE4C9B3893EA9194519151BB2FBB5")
+                    .setParameter(547056L)
+                    .setParameter("000000000000000000000000000000000000000000C06C4B44874C9B9A130D94")
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaderDatabaseManager.storeBlockHeader(block547057);
+                blockHeaderDatabaseManager.storeBlockHeader(block547058);
+                blockHeaderDatabaseManager.storeBlockHeader(block547059);
+
+                blockHeaderDatabaseManager.storeBlockHeader(transitionBlock);
+            }
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
+                    .setParameter("000000000000000001043BACDCB59CED6726FCFDD199F20F2D22EDDB02C3BBDE")
+                    .setParameter(547200L)
+                    .setParameter("000000000000000000000000000000000000000000C0B356BB448CE8066B2F93")
+                    .setParameter("0000000000000000004129906FC0D6496A4194CD97251260FCF7F202A494DB92")
+            );
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockHeaderDatabaseManager.storeBlockHeader(block547201);
+                blockHeaderDatabaseManager.storeBlockHeader(block547202);
+                blockHeaderDatabaseManager.storeBlockHeader(block547203);
+            }
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
+            }
+
+            // Action
+            final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
+
+            // Assert
+            final Difficulty expectedDifficulty = Difficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
+            Assert.assertEquals(expectedDifficulty, difficulty);
         }
-        databaseConnection.executeSql(
-            new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
-                .setParameter("00000000000000000054658037E3307ADEDCE4C9B3893EA9194519151BB2FBB5")
-                .setParameter(547056L)
-                .setParameter("000000000000000000000000000000000000000000C06C4B44874C9B9A130D94")
-                .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-        );
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaderDatabaseManager.storeBlockHeader(block547057);
-            blockHeaderDatabaseManager.storeBlockHeader(block547058);
-            blockHeaderDatabaseManager.storeBlockHeader(block547059);
-
-            blockHeaderDatabaseManager.storeBlockHeader(transitionBlock);
-        }
-        databaseConnection.executeSql(
-            new Query("UPDATE blocks SET hash = ?, block_height = ?, chain_work = ? WHERE hash = ?")
-                .setParameter("000000000000000001043BACDCB59CED6726FCFDD199F20F2D22EDDB02C3BBDE")
-                .setParameter(547200L)
-                .setParameter("000000000000000000000000000000000000000000C0B356BB448CE8066B2F93")
-                .setParameter("0000000000000000004129906FC0D6496A4194CD97251260FCF7F202A494DB92")
-        );
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockHeaderDatabaseManager.storeBlockHeader(block547201);
-            blockHeaderDatabaseManager.storeBlockHeader(block547202);
-            blockHeaderDatabaseManager.storeBlockHeader(block547203);
-        }
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(blockHeader);
-        }
-
-        // Action
-        final Difficulty difficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
-
-        // Assert
-        final Difficulty expectedDifficulty = Difficulty.decode(HexUtil.hexStringToByteArray("18021D22"));
-        Assert.assertEquals(expectedDifficulty, difficulty);
     }
 }

@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database;
+package com.softwareverde.bitcoin.server.module.node.database.block.core;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -6,7 +6,12 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -23,16 +28,15 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class BlockDatabaseManager {
-    public static final Object BLOCK_TRANSACTIONS_WRITE_MUTEX = new Object();
-
-    protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
+public class CoreBlockDatabaseManager implements BlockDatabaseManager {
+    protected final CoreDatabaseManager _databaseManager;
 
     protected void _associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
             final Integer currentTransactionCount = _getTransactionCount(blockId);
-            _databaseConnection.executeSql(
+            databaseConnection.executeSql(
                 new Query("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)")
                     .setParameter(blockId)
                     .setParameter(transactionId)
@@ -43,6 +47,8 @@ public class BlockDatabaseManager {
 
 
     protected void _associateTransactionsToBlock(final List<TransactionId> transactionIds, final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
         synchronized (BLOCK_TRANSACTIONS_WRITE_MUTEX) {
             final BatchedInsertQuery batchedInsertQuery = new BatchedInsertQuery("INSERT INTO block_transactions (block_id, transaction_id, sort_order) VALUES (?, ?, ?)");
             int sortOrder = 0;
@@ -53,15 +59,15 @@ public class BlockDatabaseManager {
                 sortOrder += 1;
             }
 
-            _databaseConnection.executeSql(batchedInsertQuery);
+            databaseConnection.executeSql(batchedInsertQuery);
         }
     }
 
     protected void _storeBlockTransactions(final BlockId blockId, final List<Transaction> transactions) throws DatabaseException {
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
         final MilliTimer storeBlockTimer = new MilliTimer();
         final MilliTimer associateTransactionsTimer = new MilliTimer();
-
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
 
         storeBlockTimer.start();
         {
@@ -78,7 +84,9 @@ public class BlockDatabaseManager {
     }
 
     protected Integer _getTransactionCount(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT COUNT(*) AS transaction_count FROM block_transactions WHERE block_id = ?")
                 .setParameter(blockId)
         );
@@ -88,8 +96,10 @@ public class BlockDatabaseManager {
         return row.getInteger("transaction_count");
     }
 
-    public List<TransactionId> _getTransactionIds(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+    protected List<TransactionId> _getTransactionIds(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id, transaction_id FROM block_transactions WHERE block_id = ? ORDER BY sort_order ASC")
                 .setParameter(blockId)
         );
@@ -103,7 +113,8 @@ public class BlockDatabaseManager {
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
         final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(transactionIds.getSize());
@@ -117,7 +128,9 @@ public class BlockDatabaseManager {
     }
 
     protected BlockId _getHeadBlockId() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
@@ -127,7 +140,9 @@ public class BlockDatabaseManager {
     }
 
     protected Sha256Hash _getHeadBlockHash() throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id ORDER BY blocks.chain_work DESC LIMIT 1")
         );
         if (rows.isEmpty()) { return null; }
@@ -137,7 +152,8 @@ public class BlockDatabaseManager {
     }
 
     protected MutableBlock _getBlock(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+
         final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
 
         if (blockHeader == null) {
@@ -162,9 +178,8 @@ public class BlockDatabaseManager {
         return block;
     }
 
-    public BlockDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = databaseManagerCache;
+    public CoreBlockDatabaseManager(final CoreDatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
     public MutableBlock getBlock(final BlockId blockId) throws DatabaseException {
@@ -183,7 +198,8 @@ public class BlockDatabaseManager {
     public BlockId storeBlock(final Block block) throws DatabaseException {
         if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to storeBlock without obtaining lock."); }
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId existingBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -191,8 +207,6 @@ public class BlockDatabaseManager {
         final BlockId blockId;
         if (existingBlockId == null) {
             blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
-
-            final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
             blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
         }
         else {
@@ -205,7 +219,7 @@ public class BlockDatabaseManager {
     }
 
     public Boolean storeBlockTransactions(final Block block) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -227,12 +241,12 @@ public class BlockDatabaseManager {
     public BlockId insertBlock(final Block block) throws DatabaseException {
         if (! Thread.holdsLock(BlockHeaderDatabaseManager.MUTEX)) { throw new RuntimeException("Attempting to insertBlock without obtaining lock."); }
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
 
         final BlockId blockId = blockHeaderDatabaseManager.insertBlockHeader(block);
         if (blockId == null) { return null; }
 
-        final BlockchainDatabaseManager blockchainDatabaseManager = new BlockchainDatabaseManager(_databaseConnection, _databaseManagerCache);
         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
 
         _storeBlockTransactions(blockId, block.getTransactions());
@@ -242,6 +256,7 @@ public class BlockDatabaseManager {
     /**
      * Returns the Sha256Hash of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
+    @Override
     public Sha256Hash getHeadBlockHash() throws DatabaseException {
         return _getHeadBlockHash();
     }
@@ -249,6 +264,7 @@ public class BlockDatabaseManager {
     /**
      * Returns the BlockId of the block that has the tallest block-height that has been fully downloaded (i.e. has transactions).
      */
+    @Override
     public BlockId getHeadBlockId() throws DatabaseException {
         return _getHeadBlockId();
     }
@@ -256,33 +272,41 @@ public class BlockDatabaseManager {
     /**
      * Returns true if the BlockHeader and its Transactions have been downloaded and verified.
      */
-    public Boolean blockHeaderHasTransactions(final Sha256Hash blockHash) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+    @Override
+    public Boolean hasTransactions(final Sha256Hash blockHash) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN block_transactions ON block_transactions.block_id = blocks.id WHERE blocks.hash = ? GROUP BY blocks.id")
                 .setParameter(blockHash)
         );
         return (! rows.isEmpty());
     }
 
+    @Override
     public Boolean hasTransactions(final BlockId blockId) throws DatabaseException {
-        final java.util.List<Row> rows = _databaseConnection.query(
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT id FROM block_transactions WHERE block_id = ? LIMIT 1")
                 .setParameter(blockId)
         );
         return (! rows.isEmpty());
     }
 
+    @Override
     public List<TransactionId> getTransactionIds(final BlockId blockId) throws DatabaseException {
         return _getTransactionIds(blockId);
     }
 
+    @Override
     public Integer getTransactionCount(final BlockId blockId) throws DatabaseException {
         return _getTransactionCount(blockId);
     }
 
     public void repairBlock(final Block block) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
@@ -305,7 +329,7 @@ public class BlockDatabaseManager {
             for (final TransactionId transactionId : transactionIds) {
                 final Sha256Hash transactionHash = transactionDatabaseManager.getTransactionHash(transactionId);
 
-                final Boolean transactionExistsInUpdatedBlock = existingTransactionHashes.containsKey(transactionHash);
+                final boolean transactionExistsInUpdatedBlock = existingTransactionHashes.containsKey(transactionHash);
 
                 if (transactionExistsInUpdatedBlock) {
                     final Transaction transaction = existingTransactionHashes.get(transactionHash);
@@ -322,7 +346,7 @@ public class BlockDatabaseManager {
 
         for (final Transaction transaction : block.getTransactions()) {
             final Sha256Hash transactionHash = transaction.getHash();
-            final Boolean transactionHasBeenProcessed = updatedTransactions.contains(transactionHash);
+            final boolean transactionHasBeenProcessed = updatedTransactions.contains(transactionHash);
             if (transactionHasBeenProcessed) { continue; }
 
             Logger.log("Inserting Transaction: " + transactionHash);

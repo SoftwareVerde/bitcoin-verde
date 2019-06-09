@@ -8,11 +8,10 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -30,10 +29,10 @@ import com.softwareverde.util.Util;
 
 public class TransactionTestUtil {
 
-    protected static BlockId _getGenesisBlockId(final BlockchainSegmentId blockchainSegmentId, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
+    protected static BlockId _getGenesisBlockId(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
         if (genesisBlockId == null) {
 
@@ -77,15 +76,15 @@ public class TransactionTestUtil {
         return transactionHashes;
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, new MutableList<Sha256Hash>(0));
+    public static void createRequiredTransactionInputs(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction) throws DatabaseException {
+        TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, transaction, new MutableList<Sha256Hash>(0));
     }
 
-    public static void createRequiredTransactionInputs(final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final DatabaseConnection databaseConnection, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
-        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
-        final TransactionInputDatabaseManager transactionInputDatabaseManager = new TransactionInputDatabaseManager(databaseConnection, databaseManagerCache);
+    public static void createRequiredTransactionInputs(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final TransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getTransactionInputDatabaseManager();
 
-        final BlockId genesisBlockId = _getGenesisBlockId(blockchainSegmentId, databaseConnection);
+        final BlockId genesisBlockId = _getGenesisBlockId(databaseManager, blockchainSegmentId);
 
         // Ensure that all of the Transaction's TransactionInput's have outputs that exist...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {

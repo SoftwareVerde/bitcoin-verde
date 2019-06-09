@@ -29,7 +29,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {
         final UtxoCount maxUtxoCount = masterCache.getMaxCachedUtxoCount();
-        if (NativeUnspentTransactionOutputCache.isEnabled()) {
+        if ( (NativeUnspentTransactionOutputCache.isEnabled()) && (maxUtxoCount != null) ) {
             _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
         }
         else {

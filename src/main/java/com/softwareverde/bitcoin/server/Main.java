@@ -1,15 +1,50 @@
 package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.server.module.*;
+import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.conscientious.DisabledUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
+import com.softwareverde.bitcoin.server.module.AddressModule;
+import com.softwareverde.bitcoin.server.module.ChainValidationModule;
+import com.softwareverde.bitcoin.server.module.DatabaseModule;
+import com.softwareverde.bitcoin.server.module.MinerModule;
+import com.softwareverde.bitcoin.server.module.RepairModule;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
 import com.softwareverde.bitcoin.server.module.node.NodeModule;
 import com.softwareverde.bitcoin.server.module.proxy.ProxyModule;
 import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.io.Logger;
+import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
+import java.io.File;
+
 public class Main {
+
+    protected static Configuration _loadConfigurationFile(final String configurationFilename) {
+        final File configurationFile =  new File(configurationFilename);
+        if (! configurationFile.isFile()) {
+            Logger.error("Invalid configuration file.");
+            BitcoinUtil.exitFailure();
+        }
+
+        return new Configuration(configurationFile);
+    }
+
+    protected static UnspentTransactionOutputCache _initUtxoCache(final Long maxUtxoCacheByteCount) {
+        final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
+
+        if (! NativeUnspentTransactionOutputCache.isEnabled()) {
+            return new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
+        }
+
+        Logger.log("NativeUnspentTransactionOutputCache max item count: " + maxUtxoCount);
+        return new NativeUnspentTransactionOutputCache(maxUtxoCount);
+    }
 
     public static void main(final String[] commandLineArguments) {
         final Main application = new Main(commandLineArguments);
@@ -137,8 +172,48 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
-                NodeModule.execute(configurationFile);
+                final String configurationFilename = _arguments[1];
+
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+
+                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+
+                final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, new Runnable() {
+                    @Override
+                    public void run() {
+                        final NodeModule nodeModule = nodeModuleContainer.value;
+                        if (nodeModule != null) {
+                            nodeModule.shutdown();
+                        }
+                    }
+                });
+                if (database == null) {
+                    Logger.log("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                    throw new RuntimeException("");
+                }
+                Logger.log("[Database Online]");
+
+                { // Initialize the NativeUnspentTransactionOutputCache...
+                    final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+                    if (nativeCacheIsEnabled) {
+                        NativeUnspentTransactionOutputCache.init();
+                    }
+                    else {
+                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                    }
+                }
+
+                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
+                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+
+                final Environment environment = new Environment(database, masterDatabaseManagerCache);
+
+                nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
+                nodeModuleContainer.value.loop();
             } break;
 
             case "EXPLORER": {
@@ -170,9 +245,37 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
+                final String configurationFilename = _arguments[1];
                 final String startingBlockHash = (_arguments.length > 2 ? _arguments[2] : "");
-                ChainValidationModule.execute(configurationFile, startingBlockHash);
+
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                if (database == null) {
+                    Logger.log("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                }
+                Logger.log("[Database Online]");
+
+                { // Initialize the NativeUnspentTransactionOutputCache...
+                    final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+                    if (nativeCacheIsEnabled) {
+                        NativeUnspentTransactionOutputCache.init();
+                    }
+                    else {
+                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                    }
+                }
+
+                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
+                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+                final Environment environment = new Environment(database, masterDatabaseManagerCache);
+
+                final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
+                chainValidationModule.run();
             } break;
 
             case "REPAIR": {
@@ -182,12 +285,31 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
+                final String configurationFilename = _arguments[1];
                 final String[] blockHashes = new String[_arguments.length - 2];
                 for (int i = 0; i < blockHashes.length; ++i) {
                     blockHashes[i] = _arguments[2 + i];
                 }
-                RepairModule.execute(configurationFile, blockHashes);
+
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+
+                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                if (database == null) {
+                    Logger.log("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                }
+                Logger.log("[Database Online]");
+
+                final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
+                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+                final Environment environment = new Environment(database, masterDatabaseManagerCache);
+
+                final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
+                repairModule.run();
             } break;
 
             case "STRATUM": {
@@ -198,7 +320,21 @@ public class Main {
                 }
 
                 final String configurationFile = _arguments[1];
-                StratumModule.execute(configurationFile);
+
+                final Configuration configuration = _loadConfigurationFile(configurationFile);
+                final Configuration.StratumProperties stratumProperties = configuration.getStratumProperties();
+                final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
+                if (database == null) {
+                    Logger.log("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                }
+                Logger.log("[Database Online]");
+
+                final Environment environment = new Environment(database, null);
+
+                final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
+                stratumModule.loop();
             } break;
 
             case "PROXY": {
@@ -219,8 +355,23 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
-                DatabaseModule.execute(configurationFile);
+                final String configurationFilename = _arguments[1];
+
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+
+                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+
+                final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
+                if (database == null) {
+                    Logger.log("Error initializing database.");
+                    BitcoinUtil.exitFailure();
+                }
+                Logger.log("[Database Online]");
+
+                final Environment environment = new Environment(database, null);
+                final DatabaseModule databaseModule = new DatabaseModule(environment);
+                databaseModule.loop();
             } break;
 
             case "ADDRESS": {

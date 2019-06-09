@@ -67,6 +67,7 @@ public class Configuration {
         private Boolean _bootstrapIsEnabled;
         private Boolean _shouldTrimBlocks;
         private Integer _maxMessagesPerSecond;
+        private String _dataDirectory;
 
         private DatabaseProperties _databaseProperties;
 
@@ -82,6 +83,7 @@ public class Configuration {
         public Boolean shouldTrimBlocks() { return _shouldTrimBlocks; }
         public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
         public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
+        public String getDataDirectory() { return _dataDirectory; }
 
         public DatabaseProperties getDatabaseProperties() { return _databaseProperties; }
     }
@@ -237,6 +239,7 @@ public class Configuration {
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
         _bitcoinProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
+        _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
 
         _bitcoinProperties._databaseProperties = _loadDatabaseProperties("bitcoin");
     }

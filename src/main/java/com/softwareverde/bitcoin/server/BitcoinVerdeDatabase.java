@@ -1,6 +1,8 @@
-package com.softwareverde.bitcoin.server.database;
+package com.softwareverde.bitcoin.server;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;

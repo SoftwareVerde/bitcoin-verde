@@ -2,22 +2,25 @@ package com.softwareverde.bitcoin.server.module.node.manager;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 
 public class BanFilter {
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerFactory _databaseManagerFactory;
 
-    public BanFilter(final DatabaseConnectionFactory databaseConnectionFactory) {
-        _databaseConnectionFactory = databaseConnectionFactory;
+    public BanFilter(final DatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     public Boolean isIpBanned(final Ip ip) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
-            final Boolean isBanned = nodeDatabaseManager.isBanned(ip);
-            return isBanned;
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
+            return nodeDatabaseManager.isBanned(ip);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -26,8 +29,9 @@ public class BanFilter {
     }
 
     public Boolean shouldBanIp(final Ip ip) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
             final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip);
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
         }
@@ -40,8 +44,9 @@ public class BanFilter {
     public void banIp(final Ip ip) {
         Logger.log("Banning Node: " + ip);
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
             nodeDatabaseManager.setIsBanned(ip, true);
         }
         catch (final DatabaseException exception) {
@@ -50,8 +55,9 @@ public class BanFilter {
     }
 
     public void unbanNode(final Ip ip) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
             nodeDatabaseManager.setIsBanned(ip, false);
         }
         catch (final DatabaseException databaseException) {

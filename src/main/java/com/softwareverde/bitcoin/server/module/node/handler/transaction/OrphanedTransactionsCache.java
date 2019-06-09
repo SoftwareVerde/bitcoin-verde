@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -44,7 +44,7 @@ public class OrphanedTransactionsCache {
     }
 
     protected void _purgeOldTransactions() {
-        final Integer itemsToRemoveCount = (MAX_ORPHANED_TRANSACTION_COUNT / 2);
+        final int itemsToRemoveCount = (MAX_ORPHANED_TRANSACTION_COUNT / 2);
         for (int i = 0; i < itemsToRemoveCount; ++i) {
             if (_orphanedTransactionsByAge.isEmpty()) { break; }
 
@@ -59,8 +59,8 @@ public class OrphanedTransactionsCache {
         _databaseManagerCache = databaseManagerCache;
     }
 
-    public synchronized void add(final Transaction transaction, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final Boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
+    public synchronized void add(final Transaction transaction, final CoreDatabaseManager databaseManager) throws DatabaseException {
+        final boolean transactionIsUnique = _orphanedTransactionSet.add(transaction);
         if (! transactionIsUnique) { return; }
 
         Logger.log("Queuing orphaned Transaction: " + transaction.getHash() + " (" + _orphanedTransactionSet.size() + " / " + MAX_ORPHANED_TRANSACTION_COUNT + ")");
@@ -70,7 +70,7 @@ public class OrphanedTransactionsCache {
             _purgeOldTransactions();
         }
 
-        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
+        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
             final TransactionOutputIdentifier transactionOutputIdentifier = TransactionOutputIdentifier.fromTransactionInput(transactionInput);

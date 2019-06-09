@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 public class DisabledAddressProcessor extends AddressProcessor {
     public DisabledAddressProcessor() {
-        super(null, null);
+        super(null);
     }
 
     @Override

@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
@@ -11,8 +10,7 @@ import java.util.concurrent.Executors;
 public class ParallelledTaskSpawner<T, S> {
     protected static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool();
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
 
@@ -20,9 +18,8 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public ParallelledTaskSpawner(final CoreDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void executeTasks(final List<T> items, final int maxThreadCount) {
@@ -37,7 +34,7 @@ public class ParallelledTaskSpawner<T, S> {
             final int remainingItems = (items.getSize() - startIndex);
             final int itemCount = ( (i < (threadCount - 1)) ? Math.min(itemsPerThread, remainingItems) : remainingItems);
 
-            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_databaseConnectionFactory, _databaseManagerCache, items, _taskHandlerFactory.newInstance());
+            final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_databaseManagerFactory, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
             validationTask.enqueueTo(THREAD_POOL);

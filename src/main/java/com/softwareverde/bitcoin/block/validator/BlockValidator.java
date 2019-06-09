@@ -7,15 +7,18 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.header.difficulty.PrototypeDifficulty;
-import com.softwareverde.bitcoin.block.validator.thread.*;
+import com.softwareverde.bitcoin.block.validator.thread.ParallelledTaskSpawner;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TaskHandlerFactory;
+import com.softwareverde.bitcoin.block.validator.thread.TotalExpenditureTaskHandler;
+import com.softwareverde.bitcoin.block.validator.thread.TransactionValidationTaskHandler;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -42,8 +45,7 @@ public class BlockValidator {
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
@@ -84,9 +86,9 @@ public class BlockValidator {
             }
         };
 
-        final Integer threadCount = Math.max((_maxThreadCount / 2), 1);
+        final int threadCount = Math.max((_maxThreadCount / 2), 1);
 
-        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(_databaseConnectionFactory, _databaseManagerCache);
+        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(_databaseManagerFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
@@ -95,7 +97,7 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(_databaseConnectionFactory, _databaseManagerCache);
+        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(_databaseManagerFactory);
         transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
 
         transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
@@ -231,8 +233,9 @@ public class BlockValidator {
         final Block block;
         final Long blockHeight;
         final BlockchainSegmentId blockchainSegmentId;
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             if (nullableBlock != null) {
                 block = nullableBlock;
@@ -246,7 +249,6 @@ public class BlockValidator {
                 }
             }
             else {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 block = blockDatabaseManager.getBlock(blockId);
                 if (block == null) {
                     return BlockValidationResult.invalid("Could not inflate Block. BlockId: " + blockId);
@@ -255,7 +257,7 @@ public class BlockValidator {
 
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseConnection, _databaseManagerCache, _networkTime, _medianBlockTime);
+            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
             final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block, blockHeight);
             if (! blockHeaderValidationResponse.isValid) {
                 return BlockValidationResult.invalid(blockHeaderValidationResponse.errorMessage);
@@ -298,9 +300,8 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidator(final DatabaseConnectionFactory threadedConnectionsFactory, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-        _databaseConnectionFactory = threadedConnectionsFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public BlockValidator(final CoreDatabaseManagerFactory databaseManagerFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+        _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
@@ -336,8 +337,10 @@ public class BlockValidator {
         final Block block;
         final Long blockHeight;
         final BlockchainSegmentId blockchainSegmentId;
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
             blockchainSegmentId = blockHeaderDatabaseManager.getBlockchainSegmentId(blockId);
 
@@ -353,7 +356,6 @@ public class BlockValidator {
                 }
             }
             else {
-                final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
                 block = blockDatabaseManager.getBlock(blockId);
                 if (block == null) {
                     return BlockValidationResult.invalid("No transactions for block id: " + blockId);
