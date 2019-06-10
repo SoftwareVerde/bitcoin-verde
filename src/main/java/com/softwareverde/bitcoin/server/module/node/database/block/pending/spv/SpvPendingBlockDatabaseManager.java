@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.database.block.pending.spv;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;

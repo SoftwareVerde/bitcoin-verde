@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database.cache.conscientious;
 
 import com.softwareverde.bitcoin.server.database.cache.MutableCache;
-import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;

@@ -5,8 +5,6 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 
-import java.io.IOException;
-
 public class DatabaseConnectionFactoryWrapper extends DatabaseConnectionFactory {
 
     public DatabaseConnectionFactoryWrapper(final MysqlDatabaseConnectionFactory core) {

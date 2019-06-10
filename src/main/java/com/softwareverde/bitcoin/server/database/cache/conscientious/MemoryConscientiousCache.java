@@ -1,11 +1,8 @@
 package com.softwareverde.bitcoin.server.database.cache.conscientious;
 
 import com.softwareverde.bitcoin.server.database.cache.MutableCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
-import com.softwareverde.bitcoin.server.memory.SystemMemoryStatus;
 
 public abstract class MemoryConscientiousCache<T, S> implements MutableCache<T, S> {
 

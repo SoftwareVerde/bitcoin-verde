@@ -27,7 +27,6 @@ import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CorePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();

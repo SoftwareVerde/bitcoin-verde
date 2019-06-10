@@ -14,18 +14,7 @@ import com.softwareverde.util.jni.NativeUtil;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._cacheUnspentTransactionOutputId;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._commit;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._createCache;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._deleteCache;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._destroy;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._getCachedUnspentTransactionOutputId;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._init;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._invalidateUnspentTransactionOutputId;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._loadUnspentTransactionOutputId;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._pruneHalf;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._setMasterCache;
-import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache._setMaxItemCount;
+import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
 
 public class NativeUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
     public static Long DEFAULT_MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
