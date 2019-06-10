@@ -1210,7 +1210,7 @@ class Void {
         System.out.println(privateKey);
         System.out.println(payToAddress.toBase58CheckEncoded());
 
-        final Miner miner = new Miner(4, 0);
+        final Miner miner = new Miner(4, 0, null);
         miner.setShouldMutateTimestamp(true);
         final Block minedBlock = miner.mineBlock(mutableBlock);
         System.out.println(minedBlock.getHash());
