@@ -6,6 +6,10 @@ apply plugin: 'java'
 sourceCompatibility = JavaVersion.VERSION_1_8
 
 sourceSets {
+    main {
+        java
+        resources
+    }
     server {
         java
         resources
@@ -23,7 +27,6 @@ sourceSets {
 }
 
 configurations {
-    serverImplementation
     serverImplementation.extendsFrom implementation
     serverRuntimeOnly.extendsFrom runtimeOnly
 
@@ -77,13 +80,11 @@ task makeFatJar(type: Jar) {
 
     baseName = project.name + '-server-all'
 
-    jar {
-        from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-            exclude 'META-INF/MANIFEST.MF'
-            exclude 'META-INF/*.SF'
-            exclude 'META-INF/*.DSA'
-            exclude 'META-INF/*.RSA'
-        }
+    from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'META-INF/*.SF'
+        exclude 'META-INF/*.DSA'
+        exclude 'META-INF/*.RSA'
     }
 
     from sourceSets.main.output
@@ -102,13 +103,11 @@ task makeLibJar(type: Jar) {
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-    jar {
-        from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-            exclude 'META-INF/MANIFEST.MF'
-            exclude 'META-INF/*.SF'
-            exclude 'META-INF/*.DSA'
-            exclude 'META-INF/*.RSA'
-        }
+    from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'META-INF/*.SF'
+        exclude 'META-INF/*.DSA'
+        exclude 'META-INF/*.RSA'
     }
 
     from sourceSets.main.output
