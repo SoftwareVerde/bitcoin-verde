@@ -7,7 +7,10 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
+import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
@@ -136,9 +139,13 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         final MilliTimer setupTimer = new MilliTimer();
         setupTimer.start();
 
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(UtxoCount.wrap(1048576L));
+        try (
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
+                final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
+                final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()
+        ) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache();
             final BlockInflater blockInflater = new BlockInflater();
 
             final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();

@@ -13,11 +13,16 @@ import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.util.Util;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     public LocalDatabaseManagerCache() {
         _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
+    }
+
+    public LocalDatabaseManagerCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+        _unspentTransactionOutputCache = Util.coalesce(unspentTransactionOutputCache, new DisabledUnspentTransactionOutputCache());
     }
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {

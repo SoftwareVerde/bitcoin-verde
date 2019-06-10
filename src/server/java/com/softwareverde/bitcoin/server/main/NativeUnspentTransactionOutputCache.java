@@ -15,6 +15,7 @@ import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
@@ -58,6 +59,7 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
     private static final boolean LIBRARY_LOADED_CORRECTLY;
     private static final Object MASTER_MUTEX = new Object();
     private static final ConcurrentHashMap<Integer, ReentrantReadWriteLock> MUTEXES = new ConcurrentHashMap<Integer, ReentrantReadWriteLock>(256);
+    private static boolean IS_INIT = false;
 
     static {
         boolean isEnabled = true;
@@ -90,13 +92,19 @@ public class NativeUnspentTransactionOutputCache implements UnspentTransactionOu
 
     public static void init() {
         synchronized (MASTER_MUTEX) {
+            if (IS_INIT) { return; }
+
             _init();
+            IS_INIT = true;
         }
     }
 
     public static void destroy() {
         synchronized (MASTER_MUTEX) {
+            if (! IS_INIT) { return; }
+
             _destroy();
+            IS_INIT = false;
         }
     }
 
