@@ -2,6 +2,7 @@ package com.softwareverde.jocl;
 
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
@@ -16,14 +17,14 @@ import org.jocl.*;
 import static org.jocl.CL.*;
 // import static org.jocl.Jocl.*;
 
-public class GpuSha256 {
+public class JoclGpuSha256 implements GpuSha256 {
     protected static final Object _mutex = new Object();
-    protected static GpuSha256 _instance;
+    protected static JoclGpuSha256 _instance;
     public static GpuSha256 getInstance() {
         if (_instance == null) {
             synchronized (_mutex) {
                 if (_instance == null) {
-                    _instance = new GpuSha256();
+                    _instance = new JoclGpuSha256();
                 }
             }
         }
@@ -66,7 +67,7 @@ public class GpuSha256 {
     protected boolean _isShutdown = false;
 
     protected final boolean _initCL() {
-        CL.setExceptionsEnabled(true);
+        setExceptionsEnabled(true);
 
         final int numPlatformsArray[] = new int[1];
         clGetPlatformIDs(0, null, numPlatformsArray);
@@ -93,7 +94,7 @@ public class GpuSha256 {
         }
 
         if (devicesCount == 0) {
-            System.err.println("No devices with type " + CL.stringFor_cl_device_type(defaultDeviceType) + " on platform " + defaultPlatformIndex);
+            System.err.println("No devices with type " + stringFor_cl_device_type(defaultDeviceType) + " on platform " + defaultPlatformIndex);
             return false;
         }
 
@@ -141,7 +142,7 @@ public class GpuSha256 {
         _isShutdown = true;
     }
 
-    protected GpuSha256() {
+    protected JoclGpuSha256() {
         _initCL();
         _initKernel();
 
@@ -158,6 +159,12 @@ public class GpuSha256 {
 
     protected int _commandQueueIndex = 0;
 
+    @Override
+    public Integer getMaxBatchSize() {
+        return JoclGpuSha256.maxBatchSize;
+    }
+
+    @Override
     public List<Sha256Hash> sha256(final List<? extends ByteArray> inputs) {
         if (_isShutdown) {
             throw new IllegalStateException("GpuSha256 kernel has been shutdown for this instance. Be sure GpuSha256.getInstance() is called for a new reference after a call to SpuSha256.shutdown().");

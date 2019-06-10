@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
@@ -14,6 +15,7 @@ import com.softwareverde.bitcoin.server.module.stratum.StratumModule;
 import com.softwareverde.bitcoin.server.module.wallet.WalletModule;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.jocl.JoclGpuSha256;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 
@@ -194,6 +196,7 @@ public class Main {
 
                 nodeModuleContainer.value = new NodeModule(bitcoinProperties, environment);
                 nodeModuleContainer.value.loop();
+                Logger.shutdown();
             } break;
 
             case "EXPLORER": {
@@ -226,6 +229,7 @@ public class Main {
                 walletModule.start();
                 walletModule.loop();
                 walletModule.stop();
+                Logger.shutdown();
             } break;
 
             case "VALIDATE": {
@@ -256,6 +260,7 @@ public class Main {
 
                 final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
                 chainValidationModule.run();
+                Logger.shutdown();
             } break;
 
             case "REPAIR": {
@@ -290,6 +295,7 @@ public class Main {
 
                 final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
                 repairModule.run();
+                Logger.shutdown();
             } break;
 
             case "STRATUM": {
@@ -315,6 +321,7 @@ public class Main {
 
                 final StratumModule stratumModule = new StratumModule(stratumProperties, environment);
                 stratumModule.loop();
+                Logger.shutdown();
             } break;
 
             case "PROXY": {
@@ -331,6 +338,7 @@ public class Main {
                 final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
                 final ProxyModule proxyModule = new ProxyModule(proxyProperties, stratumProperties, explorerProperties);
                 proxyModule.loop();
+                Logger.shutdown();
             } break;
 
             case "DATABASE": {
@@ -355,10 +363,12 @@ public class Main {
                 final Environment environment = new Environment(database, null);
                 final DatabaseModule databaseModule = new DatabaseModule(environment);
                 databaseModule.loop();
+                Logger.shutdown();
             } break;
 
             case "ADDRESS": {
                 AddressModule.execute();
+                Logger.shutdown();
             } break;
 
             case "MINER": {
@@ -372,7 +382,10 @@ public class Main {
                 final String base58CheckAddress = _arguments[2];
                 final Integer cpuThreadCount = Util.parseInt(_arguments[3]);
                 final Integer gpuThreadCount = Util.parseInt(_arguments[4]);
-                MinerModule.execute(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
+                final GpuSha256 gpuSha256 = JoclGpuSha256.getInstance();
+                final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount, gpuSha256);
+                minerModule.run();
+                Logger.shutdown();
             } break;
 
             default: {

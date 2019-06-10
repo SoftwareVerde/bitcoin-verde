@@ -48,10 +48,10 @@ dependencies {
     implementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
     implementation group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
 
-    implementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
-
     // Server
     serverImplementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
+
+    serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
     serverImplementation group: 'org.slf4j',                 name: 'slf4j-api',              version: '1.7.9'
     serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.8.2'
     serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.8.2'
@@ -78,7 +78,7 @@ task makeFatJar(type: Jar) {
     baseName = project.name + '-server-all'
 
     jar {
-        from (configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+        from (configurations.serverCompileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
             exclude 'META-INF/MANIFEST.MF'
             exclude 'META-INF/*.SF'
             exclude 'META-INF/*.DSA'
@@ -100,6 +100,8 @@ task makeLibJar(type: Jar) {
 
     baseName = project.name + '-lib'
 
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     jar {
         from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
             exclude 'META-INF/MANIFEST.MF'
@@ -119,7 +121,7 @@ task makeJar(type: Jar) {
         attributes  'Implementation-Title': 'Bitcoin Server',
                     'Implementation-Version': version,
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
-                    'Class-Path': project.configurations.compileClasspath.collect { 'libs/' + it.getName() }.join(' ')
+                    'Class-Path': project.configurations.serverCompileClasspath.collect { 'libs/' + it.getName() }.join(' ')
     }
 
     baseName = project.name + '-server'

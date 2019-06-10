@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -22,12 +23,6 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 
 public class MinerModule {
-    public static void execute(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
-        final MinerModule minerModule = new MinerModule(previousBlockHashString, base58CheckAddress, cpuThreadCount, gpuThreadCount);
-        minerModule.run();
-        Logger.shutdown();
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
@@ -36,12 +31,14 @@ public class MinerModule {
     protected final String _base58CheckAddress;
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
+    protected final GpuSha256 _gpuSha256;
 
-    public MinerModule(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount) {
-        this._previousBlockHashString = previousBlockHashString;
-        this._base58CheckAddress = base58CheckAddress;
-        this._cpuThreadCount = cpuThreadCount;
-        this._gpuThreadCount = gpuThreadCount;
+    public MinerModule(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount, final GpuSha256 gpuSha256) {
+        _previousBlockHashString = previousBlockHashString;
+        _base58CheckAddress = base58CheckAddress;
+        _cpuThreadCount = cpuThreadCount;
+        _gpuThreadCount = gpuThreadCount;
+        _gpuSha256 = gpuSha256;
     }
 
     public void run() {
@@ -85,7 +82,7 @@ public class MinerModule {
                 prototypeBlock.addTransaction(coinbaseTransaction);
             }
 
-            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount);
+            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount, _gpuSha256);
             final Block block = miner.mineBlock(prototypeBlock);
 
             final BlockDeflater blockDeflater = new BlockDeflater();
