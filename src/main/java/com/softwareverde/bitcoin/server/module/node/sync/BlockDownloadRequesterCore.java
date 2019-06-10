@@ -4,10 +4,11 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.core.CorePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -21,18 +22,19 @@ import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
-    protected final DatabaseConnectionFactory _connectionFactory;
+
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+
     protected final BlockDownloader _blockDownloader;
     protected final BitcoinNodeManager _bitcoinNodeManager;
-    protected final DatabaseManagerCache _databaseCache;
 
     protected final Object _lastUnavailableRequestedBlockTimestampMutex = new Object();
     protected Long _lastUnavailableRequestedBlockTimestamp = 0L;
     protected final Object _lastNodeInventoryBroadcastTimestampMutex = new Object();
     protected Long _lastNodeInventoryBroadcastTimestamp = 0L;
 
-    protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final DatabaseConnection databaseConnection) throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseCache);
+    protected Sha256Hash _getParentBlockHash(final Sha256Hash childBlockHash, final DatabaseManager databaseManager) throws DatabaseException {
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
         final BlockId childBlockId = blockHeaderDatabaseManager.getBlockHeaderId(childBlockHash);
         if (childBlockId == null) { return null; }
 
@@ -43,8 +45,9 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     }
 
     protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) {
-        try (final DatabaseConnection databaseConnection = _connectionFactory.newConnection()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final CorePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             TransactionUtil.startTransaction(databaseConnection);
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
@@ -78,14 +81,14 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
                     }
                     else {
                         // Search for the previousBlockHash via the database (relies on the BlockHeaders sync)...
-                        final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseConnection);
+                        final Sha256Hash queriedParentBlockHash = _getParentBlockHash(blockHash, databaseManager);
                         if (queriedParentBlockHash != null) {
                             blockFinderHashes.add(queriedParentBlockHash);
                             Logger.log("Broadcasting QueryBlocks with queried BlockHash: " + queriedParentBlockHash);
                         }
                         else {
                             // Fallback to broadcasting a blockFinder...
-                            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseCache);
+                            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
                             blockFinderHashes.addAll(blockFinderHashesBuilder.createBlockFinderBlockHashes());
                             Logger.log("Broadcasting blockfinder...");
                         }
@@ -117,11 +120,10 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 //        _bitcoinNodeManager.findNodeInventory();
 //    }
 
-    public BlockDownloadRequesterCore(final DatabaseConnectionFactory connectionFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager, final DatabaseManagerCache databaseManagerCache) {
-        _connectionFactory = connectionFactory;
+    public BlockDownloadRequesterCore(final CoreDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
+        _databaseManagerFactory = databaseManagerFactory;
         _blockDownloader = blockDownloader;
         _bitcoinNodeManager = bitcoinNodeManager;
-        _databaseCache = databaseManagerCache;
     }
 
     @Override

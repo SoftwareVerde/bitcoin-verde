@@ -7,9 +7,11 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.core.CoreBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -59,11 +61,11 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
      *               A #1           Height: 0
      *
      */
-    protected ScenarioData _setupScenario(final DatabaseConnection databaseConnection) throws Exception {
+    protected ScenarioData _setupScenario(final CoreDatabaseManager databaseManager) throws Exception {
         final BlockInflater blockInflater = new BlockInflater();
 
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+        final CoreBlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+        final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
         final Block block_A = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
         final Block block_B = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
@@ -120,12 +122,11 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void should_inflate_stored_transaction() throws Exception {
-        try (final DatabaseConnection databaseConnection = _database.newConnection()) {
-
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
             // Setup
             final BlockInflater blockInflater = new BlockInflater();
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final CoreBlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockHeaderDatabaseManager.storeBlockHeader(blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK)));
@@ -135,7 +136,7 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
                 // Block Hash: 00000000689051C09FF2CD091CC4C22C10B965EB8DB3AD5F032621CC36626175
                 final Block prerequisiteBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000F5790162A682DDD5086265D254F7F59023D35D07DF7C95DC9779942D00000000193028D8B78007269D52B2A1068E32EDD21D0772C2C157954F7174761B78A51A30CE6E49FFFF001D3A2E34480201000000010000000000000000000000000000000000000000000000000000000000000000FFFFFFFF0804FFFF001D027C05FFFFFFFF0100F2052A01000000434104B43BB206B71F34E2FAB9359B156FF683BED889021A06C315722A7C936B9743AD88A8882DC13EECAFCDAD4F082D2D0CC54AA177204F79DC7305F1F4857B7B8802AC00000000010000000177B5E6E78F8552129D07A73801B1A5F6830EC040D218755B46340B4CF6D21FD7000000004A49304602210083EC8BD391269F00F3D714A54F4DBD6B8004B3E9C91F3078FF4FCA42DA456F4D0221008DFE1450870A717F59A494B77B36B7884381233555F8439DAC4EA969977DD3F401FFFFFFFF0200E1F505000000004341044A656F065871A353F216CA26CEF8DDE2F03E8C16202D2E8AD769F02032CB86A5EB5E56842E92E19141D60A01928F8DD2C875A390F67C1F6C94CFC617C0EA45AFAC00180D8F00000000434104F36C67039006EC4ED2C885D7AB0763FEB5DEB9633CF63841474712E4CF0459356750185FC9D962D0F4A1E08E1A84F0C9A9F826AD067675403C19D752530492DCAC00000000"));
                 for (final Transaction transaction : prerequisiteBlock.getTransactions()) {
-                    TransactionTestUtil.createRequiredTransactionInputs(null, transaction, databaseConnection);
+                    TransactionTestUtil.createRequiredTransactionInputs(databaseManager, null, transaction);
                 }
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.insertBlock(new MutableBlock(prerequisiteBlock) {
@@ -172,353 +173,366 @@ public class BlockDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void should_detect_connected_block_when_parent() throws Exception {
-        // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            // Setup
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.C;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
+
+            // Assert
+            Assert.assertTrue(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.C;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANCESTOR);
-
-        // Assert
-        Assert.assertTrue(isBlockConnected);
     }
 
     @Test
     public void should_detect_not_connected_block() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.C2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+            // Assert
+            Assert.assertFalse(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.C2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-
-        // Assert
-        Assert.assertFalse(isBlockConnected);
     }
 
     @Test
     public void should_detect_connected_block_for_child() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.E;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(2L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
+
+            // Assert
+            Assert.assertTrue(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.E;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(2L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
-
-        // Assert
-        Assert.assertTrue(isBlockConnected);
     }
 
     @Test
     public void should_detect_connected_block_for_child_2() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.E;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
+
+            // Assert
+            Assert.assertTrue(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.E;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
-
-        // Assert
-        Assert.assertTrue(isBlockConnected);
     }
 
     @Test
     public void should_detect_connected_block_for_child_3() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.E2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
+
+            // Assert
+            Assert.assertTrue(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.E2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
-
-        // Assert
-        Assert.assertTrue(isBlockConnected);
     }
 
     @Test
     public void should_detect_connected_block_for_child_4() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.C2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
+
+            // Assert
+            Assert.assertTrue(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.C2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.DESCENDANT);
-
-        // Assert
-        Assert.assertTrue(isBlockConnected);
     }
 
     @Test
     public void should_detect_not_connected_block_2() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.C2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(5L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+            // Assert
+            Assert.assertFalse(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.C2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(5L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-
-        // Assert
-        Assert.assertFalse(isBlockConnected);
     }
 
     @Test
     public void should_detect_not_connected_block_3() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.E2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+            // Assert
+            Assert.assertFalse(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.E2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-
-        // Assert
-        Assert.assertFalse(isBlockConnected);
     }
 
     @Test
     public void should_detect_not_connected_block_4() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.E;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+            // Assert
+            Assert.assertFalse(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.E;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(3L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-
-        // Assert
-        Assert.assertFalse(isBlockConnected);
     }
 
     @Test
     public void should_detect_not_connected_block_5() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
-        final ScenarioData scenarioData;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            scenarioData = _setupScenario(databaseConnection);
+            final ScenarioData scenarioData;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                scenarioData = _setupScenario(databaseManager);
+            }
+
+            final BlockId blockId = scenarioData.C2;
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
+
+            // Action
+            final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
+
+            // Assert
+            Assert.assertFalse(isBlockConnected);
         }
-
-        final BlockId blockId = scenarioData.C2;
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(4L);
-
-        // Action
-        final Boolean isBlockConnected = blockHeaderDatabaseManager.isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
-
-        // Assert
-        Assert.assertFalse(isBlockConnected);
     }
 
     @Test
     public void should_inflate_block_00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7() throws Exception {
         // Setup
         final BlockInflater blockInflater = new BlockInflater();
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-
-        { // Store genesis block...
-            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockDatabaseManager.insertBlock(block);
+            { // Store genesis block...
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.insertBlock(block);
+                }
             }
+
+            final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
+
+            final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
+            final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
+            final Block block = blockInflater.fromBytes(blockBytes);
+            final List<Sha256Hash> excludedHashes = TransactionTestUtil.getTransactionHashes(block.getTransactions());
+            for (final Transaction transaction : block.getTransactions()) {
+                TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, transaction, excludedHashes);
+            }
+
+            // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
+            databaseConnection.executeSql(
+                new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
+                    .setParameter(block.getPreviousBlockHash())
+                    .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
+            );
+
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.insertBlock(block);
+            }
+
+            // Action
+            final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
+
+            // Assert
+            Assert.assertNotNull(inflatedBlock);
+            Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
         }
-
-        final BlockchainSegmentId blockchainSegmentId = BlockchainSegmentId.wrap(1L);
-
-        final String blockData = IoUtil.getResource("/blocks/00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7");
-        final byte[] blockBytes = HexUtil.hexStringToByteArray(blockData);
-        final Block block = blockInflater.fromBytes(blockBytes);
-        final List<Sha256Hash> excludedHashes = TransactionTestUtil.getTransactionHashes(block.getTransactions());
-        for (final Transaction transaction : block.getTransactions()) {
-            TransactionTestUtil.createRequiredTransactionInputs(blockchainSegmentId, transaction, databaseConnection, excludedHashes);
-        }
-
-        // Hack the genesis block so that its hash looks like the tested-block's previousBlockHash...
-        databaseConnection.executeSql(
-            new Query("UPDATE blocks SET hash = ? WHERE hash = ?")
-                .setParameter(block.getPreviousBlockHash())
-                .setParameter(BlockHeader.GENESIS_BLOCK_HASH)
-        );
-
-        final BlockId blockId;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockId = blockDatabaseManager.insertBlock(block);
-        }
-
-        // Action
-        final Block inflatedBlock = blockDatabaseManager.getBlock(blockId);
-
-        // Assert
-        Assert.assertNotNull(inflatedBlock);
-        Assert.assertEquals("00000000B0C5A240B2A61D2E75692224EFD4CBECDF6EAF4CC2CF477CA7C270E7", inflatedBlock.getHash().toString());
     }
 
     @Test
     public void should_store_block_if_input_exist_on_prior_blockchain_segment_after_fork() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
 
-        final BlockInflater blockInflater = new BlockInflater();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockInflater blockInflater = new BlockInflater();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
-        final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
-        final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+            final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+            final Block block4 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_4));
+            final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
 
-        final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
-        final Block fakeBlock7;
-        {
-            final MutableBlock mutableBlock = new MutableBlock(customBlock6);
-            mutableBlock.setPreviousBlockHash(customBlock6.getHash());
-            mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
-            mutableBlock.clearTransactions();
-            mutableBlock.addTransaction(block5.getCoinbaseTransaction());
-            fakeBlock7 = mutableBlock;
-        }
-
-        // This block is valid to store (although the proof of work is invalid). It contains a transaction that spends
-        //  an input that is a part of the same chain, but a different blockchainSegment...
-        final Block fakeBlock7Prime;
-        {
-            final TransactionInflater transactionInflater = new TransactionInflater();
-            final Transaction transactionSpendingBlock6Coinbase = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D53000000008A47304402205AF3B0D44912D11484ACAFE9409B76D1682A6BDF86EAC17056B8AD6F9FEDF47502205D844BFC1F93F9C5B4BD7D45C426CE56B6BA7E4EFAB5433189ACBAF5403C61F70141046C1D8C923D8ADFCEA711BE28A9BF7E2981632AAC789AEF95D7402B9225784AD93661700AB5474EFFDD7D5BEA6100904D3F1B3BE2017E2A18971DD8904B522020FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
-
-            final MutableBlock mutableBlock = new MutableBlock(fakeBlock7);
-            mutableBlock.setPreviousBlockHash(customBlock6.getHash());
-            mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
-            mutableBlock.clearTransactions();
-            mutableBlock.addTransaction(block5.getCoinbaseTransaction());
-            mutableBlock.addTransaction(transactionSpendingBlock6Coinbase);
-            fakeBlock7Prime = mutableBlock;
-        }
-
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            for (final Block block : new Block[]{genesisBlock, block1, block2, block3, block4, block5, customBlock6, fakeBlock7}) {
-                blockDatabaseManager.storeBlock(block);
+            final Block customBlock6 = blockInflater.fromBytes(HexUtil.hexStringToByteArray("01000000FC33F596F822A0A1951FFDBF2A897B095636AD871707BF5D3162729B00000000E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D539CC56649FFFF001D4A0CDDD801010000000100000000000000000000000000000000000000000000000000000000000000000000000020184D696E65642076696120426974636F696E2D56657264652E06313134353332FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
+            final Block fakeBlock7;
+            {
+                final MutableBlock mutableBlock = new MutableBlock(customBlock6);
+                mutableBlock.setPreviousBlockHash(customBlock6.getHash());
+                mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
+                mutableBlock.clearTransactions();
+                mutableBlock.addTransaction(block5.getCoinbaseTransaction());
+                fakeBlock7 = mutableBlock;
             }
-        }
 
-        // Action
-        final BlockId blockId;
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            blockId = blockDatabaseManager.storeBlock(fakeBlock7Prime);
-        }
+            // This block is valid to store (although the proof of work is invalid). It contains a transaction that spends
+            //  an input that is a part of the same chain, but a different blockchainSegment...
+            final Block fakeBlock7Prime;
+            {
+                final TransactionInflater transactionInflater = new TransactionInflater();
+                final Transaction transactionSpendingBlock6Coinbase = transactionInflater.fromBytes(HexUtil.hexStringToByteArray("0100000001E04DAA8565BEFFCEF1949AC5582B7DF359A10A2138409503A1B8B8D3C7355D53000000008A47304402205AF3B0D44912D11484ACAFE9409B76D1682A6BDF86EAC17056B8AD6F9FEDF47502205D844BFC1F93F9C5B4BD7D45C426CE56B6BA7E4EFAB5433189ACBAF5403C61F70141046C1D8C923D8ADFCEA711BE28A9BF7E2981632AAC789AEF95D7402B9225784AD93661700AB5474EFFDD7D5BEA6100904D3F1B3BE2017E2A18971DD8904B522020FFFFFFFF0100F2052A010000001976A914F1A626E143DCC5E75E8E6BE3F2CE1CF3108FB53D88AC00000000"));
 
-        // Assert
-        Assert.assertNotNull(blockId);
+                final MutableBlock mutableBlock = new MutableBlock(fakeBlock7);
+                mutableBlock.setPreviousBlockHash(customBlock6.getHash());
+                mutableBlock.setTimestamp(mutableBlock.getTimestamp() + 600);
+                mutableBlock.clearTransactions();
+                mutableBlock.addTransaction(block5.getCoinbaseTransaction());
+                mutableBlock.addTransaction(transactionSpendingBlock6Coinbase);
+                fakeBlock7Prime = mutableBlock;
+            }
+
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[]{genesisBlock, block1, block2, block3, block4, block5, customBlock6, fakeBlock7}) {
+                    blockDatabaseManager.storeBlock(block);
+                }
+            }
+
+            // Action
+            final BlockId blockId;
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                blockId = blockDatabaseManager.storeBlock(fakeBlock7Prime);
+            }
+
+            // Assert
+            Assert.assertNotNull(blockId);
+        }
     }
 
     @Test
     public void should_find_block_at_height_across_blockchain_segments() throws Exception {
         // Setup
-        final DatabaseConnection databaseConnection = _database.newConnection();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
 
-        final BlockInflater blockInflater = new BlockInflater();
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+            final BlockInflater blockInflater = new BlockInflater();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
-        final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
-        final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
-        final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
+            final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
+            final Block block1 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_1));
+            final Block block2 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_2));
+            final Block block3 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_3));
 
-        final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
-        final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
+            final Block block2Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+            final Block block3Prime = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_3));
 
-        synchronized (BlockHeaderDatabaseManager.MUTEX) {
-            for (final Block block : new Block[]{genesisBlock, block1, block2, block3, block2Prime, block3Prime}) {
-                blockDatabaseManager.storeBlock(block);
+            synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                for (final Block block : new Block[]{genesisBlock, block1, block2, block3, block2Prime, block3Prime}) {
+                    blockDatabaseManager.storeBlock(block);
+                }
             }
+
+            final BlockchainSegmentId blockchainSegmentId1 = BlockchainSegmentId.wrap(1L); // Blocks 0 and 1...
+            final BlockchainSegmentId blockchainSegmentId2 = BlockchainSegmentId.wrap(2L); // Blocks 2 and 3...
+            final BlockchainSegmentId blockchainSegmentId3 = BlockchainSegmentId.wrap(3L); // Blocks 2' and 3'...
+
+            final BlockId expectedBlockId1 = blockHeaderDatabaseManager.getBlockHeaderId(block3.getHash());
+            final BlockId expectedBlockId2 = blockHeaderDatabaseManager.getBlockHeaderId(block3Prime.getHash());
+
+            // Action
+            final BlockId blockId1 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId2, 3L);
+            final BlockId blockId2 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId3, 3L);
+
+            // Assert
+            Assert.assertEquals(expectedBlockId1, blockId1);
+            Assert.assertEquals(expectedBlockId2, blockId2);
         }
-
-        final BlockchainSegmentId blockchainSegmentId1 = BlockchainSegmentId.wrap(1L); // Blocks 0 and 1...
-        final BlockchainSegmentId blockchainSegmentId2 = BlockchainSegmentId.wrap(2L); // Blocks 2 and 3...
-        final BlockchainSegmentId blockchainSegmentId3 = BlockchainSegmentId.wrap(3L); // Blocks 2' and 3'...
-
-        final BlockId expectedBlockId1 = blockHeaderDatabaseManager.getBlockHeaderId(block3.getHash());
-        final BlockId expectedBlockId2 = blockHeaderDatabaseManager.getBlockHeaderId(block3Prime.getHash());
-
-        // Action
-        final BlockId blockId1 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId2, 3L);
-        final BlockId blockId2 = blockHeaderDatabaseManager.getBlockIdAtHeight(blockchainSegmentId3, 3L);
-
-        // Assert
-        Assert.assertEquals(expectedBlockId1, blockId1);
-        Assert.assertEquals(expectedBlockId2, blockId2);
     }
 }

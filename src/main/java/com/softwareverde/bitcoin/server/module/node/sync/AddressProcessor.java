@@ -2,10 +2,10 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -21,12 +21,10 @@ import com.softwareverde.util.timer.MilliTimer;
 public class AddressProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
 
-    public AddressProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public AddressProcessor(final CoreDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
@@ -34,14 +32,15 @@ public class AddressProcessor extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final MilliTimer processTimer = new MilliTimer();
 
-            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, _databaseManagerCache);
-            final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, _databaseManagerCache);
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
+            final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
             final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
 
-            final Integer lockingScriptCount;
+            final int lockingScriptCount;
             processTimer.start();
             TransactionUtil.startTransaction(databaseConnection);
             {

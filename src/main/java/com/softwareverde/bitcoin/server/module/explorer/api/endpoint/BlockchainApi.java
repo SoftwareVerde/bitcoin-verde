@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -27,7 +27,7 @@ public class BlockchainApi extends ExplorerApiEndpoint {
         }
     }
 
-    public BlockchainApi(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+    public BlockchainApi(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
         super(explorerProperties, threadPool);
     }
 

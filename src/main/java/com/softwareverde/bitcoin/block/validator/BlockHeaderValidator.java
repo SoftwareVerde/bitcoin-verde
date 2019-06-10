@@ -7,9 +7,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.difficulty.DifficultyCalculator;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
@@ -37,12 +36,11 @@ public class BlockHeaderValidator {
 
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
-    protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final DatabaseManager _databaseManager;
 
     protected Boolean _validateBlockTimeForAlternateChain(final BlockHeader blockHeader) {
         try {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
             final BlockId headBlockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
             final BlockId parentBlockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHeader.getPreviousBlockHash());
 
@@ -98,13 +96,13 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseConnection, _databaseManagerCache);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseManager);
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
             if (calculatedRequiredDifficulty == null) {
                 return BlockHeaderValidationResponse.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());
             }
 
-            final Boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
+            final boolean difficultyIsCorrect = calculatedRequiredDifficulty.equals(blockHeader.getDifficulty());
             if (! difficultyIsCorrect) {
                 return BlockHeaderValidationResponse.invalid("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
             }
@@ -116,15 +114,14 @@ public class BlockHeaderValidator {
         return BlockHeaderValidationResponse.valid();
     }
 
-    public BlockHeaderValidator(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = databaseManagerCache;
+    public BlockHeaderValidator(final DatabaseManager databaseManager, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+        _databaseManager = databaseManager;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }
 
     public BlockHeaderValidationResponse validateBlockHeader(final BlockHeader blockHeader) {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final BlockId blockId;
         final Long blockHeight;

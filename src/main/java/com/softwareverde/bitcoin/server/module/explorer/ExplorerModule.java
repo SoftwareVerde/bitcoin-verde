@@ -1,8 +1,7 @@
 package com.softwareverde.bitcoin.server.module.explorer;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.explorer.api.endpoint.*;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.http.server.HttpServer;
@@ -10,21 +9,13 @@ import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
-import com.softwareverde.io.Logger;
 
 import java.io.File;
 
 public class ExplorerModule {
-    public static void execute(final String configurationFileName) {
-        final ExplorerModule explorerModule = new ExplorerModule(configurationFileName);
-        explorerModule.start();
-        explorerModule.loop();
-        explorerModule.stop();
-    }
-
     protected final HttpServer _apiServer = new HttpServer();
     protected final ThreadPool _threadPool = new MainThreadPool(512, 1000L);
-    protected final Configuration.ExplorerProperties _explorerProperties;
+    protected final ExplorerProperties _explorerProperties;
     protected final AnnouncementsApi _announcementsApi;
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
@@ -35,19 +26,8 @@ public class ExplorerModule {
         _apiServer.addEndpoint(endpoint);
     }
 
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            Logger.error("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
-
-    protected ExplorerModule(final String configurationFilename) {
-        final Configuration configuration = _loadConfigurationFile(configurationFilename);
-        _explorerProperties = configuration.getExplorerProperties();
+    public ExplorerModule(final ExplorerProperties explorerProperties) {
+        _explorerProperties = explorerProperties;
 
         final String tlsKeyFile = _explorerProperties.getTlsKeyFile();
         final String tlsCertificateFile = _explorerProperties.getTlsCertificateFile();

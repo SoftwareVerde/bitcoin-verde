@@ -1,6 +1,7 @@
 package com.softwareverde.jocl;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
@@ -14,9 +15,9 @@ public class GpuSha256Tests {
     public void should_hash_batch_correctly() {
         // Setup
         final int totalHashCount = 1024 * 512;
-        final int batchSize = GpuSha256.maxBatchSize;
+        final int batchSize = JoclGpuSha256.maxBatchSize;
 
-        final GpuSha256 gpuSha256 = GpuSha256.getInstance();
+        final GpuSha256 gpuSha256 = JoclGpuSha256.getInstance();
 
         final long cpuStartTime = System.currentTimeMillis();
         final List<Sha256Hash> expectedValues;

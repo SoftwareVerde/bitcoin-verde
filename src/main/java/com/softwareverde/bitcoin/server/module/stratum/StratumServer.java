@@ -11,8 +11,8 @@ import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
@@ -54,7 +54,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public class StratumServer {
     protected static final Boolean PROXY_VIABTC = false;
 
-    protected final Configuration.StratumProperties _stratumProperties;
+    protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
     protected final DatabaseConnectionPool _databaseConnectionPool;
@@ -464,7 +464,7 @@ public class StratumServer {
         socketConnection.write(new JsonProtocolMessage(blockAcceptedMessage));
     }
 
-    public StratumServer(final Configuration.StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory) {
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
         _databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 128);

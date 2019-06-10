@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadataBuilder;
@@ -16,11 +15,9 @@ import com.softwareverde.io.Logger;
 
 public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHandler {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
 
-    public QueryBlockchainHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public QueryBlockchainHandler(final DatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
     }
 
     @Override

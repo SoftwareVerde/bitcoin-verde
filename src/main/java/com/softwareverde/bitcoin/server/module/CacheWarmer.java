@@ -6,12 +6,14 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;
 
 public class CacheWarmer {
@@ -38,7 +40,7 @@ public class CacheWarmer {
                     }
                 }
 
-                final Long maxUtxoCount = masterDatabaseManagerCache.getMaxCachedUtxoCount().unwrap();
+                final Long maxUtxoCount = Util.coalesce(masterDatabaseManagerCache.getMaxCachedUtxoCount(), UtxoCount.wrap(0L)).unwrap();
 
                 final Integer batchSize = 4096; // 512; // NOTE: Reducing the batch size greatly decreases the amount of memory-bloat during startup.
                 Long lastRowId = (newestUnspentTransactionOutputId + 1L);

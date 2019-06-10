@@ -3,7 +3,6 @@ package com.softwareverde.network.ip;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
 import com.softwareverde.util.Util;

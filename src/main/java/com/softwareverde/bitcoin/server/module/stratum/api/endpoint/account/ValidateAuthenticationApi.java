@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account;
 
 import com.softwareverde.bitcoin.miner.pool.AccountId;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.http.querystring.GetParameters;
 import com.softwareverde.http.querystring.PostParameters;
@@ -12,7 +12,7 @@ import com.softwareverde.servlet.AuthenticatedServlet;
 
 public class ValidateAuthenticationApi extends AuthenticatedServlet {
 
-    public ValidateAuthenticationApi(final Configuration.StratumProperties stratumProperties) {
+    public ValidateAuthenticationApi(final StratumProperties stratumProperties) {
         super(stratumProperties);
     }
 

@@ -1,10 +1,9 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
 
 public interface TaskHandler<T, S> {
-    void init(DatabaseConnection databaseConnection, DatabaseManagerCache databaseManagerCache);
+    void init(CoreDatabaseManager databaseManager);
 
     /**
      * TaskHandler.executeTask() is invoked an arbitrary number of unique times by the same thread.

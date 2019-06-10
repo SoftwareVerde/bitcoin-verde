@@ -1,11 +1,21 @@
 package com.softwareverde.bitcoin.server.database.cache.utxo;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
 
 public class DisabledUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
+    public static final UnspentTransactionOutputCacheFactory FACTORY = new UnspentTransactionOutputCacheFactory() {
+        @Override
+        public UnspentTransactionOutputCache newUnspentTransactionOutputCache() {
+            return new DisabledUnspentTransactionOutputCache();
+        }
+    };
+
+    final UtxoCount _maxUtxoCount = UtxoCount.wrap(0L);
+
     @Override
     public void setMasterCache(final UnspentTransactionOutputCache masterCache) { }
 
@@ -31,7 +41,15 @@ public class DisabledUnspentTransactionOutputCache implements UnspentTransaction
     public void commit() { }
 
     @Override
+    public MemoryStatus getMemoryStatus() { return null; }
+
+    @Override
     public void pruneHalf() { }
+
+    @Override
+    public UtxoCount getMaxUtxoCount() {
+        return _maxUtxoCount;
+    }
 
     @Override
     public void close() { }

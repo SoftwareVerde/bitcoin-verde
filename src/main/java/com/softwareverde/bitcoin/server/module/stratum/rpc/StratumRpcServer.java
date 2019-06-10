@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.module.stratum.rpc;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -45,7 +45,7 @@ public class StratumRpcServer {
         response.put(WAS_SUCCESS_KEY, 1);
     }
 
-    public StratumRpcServer(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool) {
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool) {
         _rpcThreadPool = rpcThreadPool;
         _stratumDataHandler = stratumDataHandler;
 

@@ -1,42 +1,27 @@
 package com.softwareverde.bitcoin.server.module.proxy;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
+import com.softwareverde.bitcoin.server.configuration.ProxyProperties;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.WebSocketEndpoint;
 import com.softwareverde.http.server.servlet.ProxyServlet;
-import com.softwareverde.http.websocket.WebSocket;
 import com.softwareverde.util.type.time.SystemTime;
 
-import java.io.File;
 import java.util.HashMap;
 
 public class ProxyModule {
-    public static void execute(final String configurationFileName) {
-        final ProxyModule stratumModule = new ProxyModule(configurationFileName);
-        stratumModule.loop();
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
 
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected final Configuration _configuration;
+    protected final ProxyProperties _proxyProperties;
+    protected final StratumProperties _stratumProperties;
+    protected final ExplorerProperties _explorerProperties;
     protected final HttpServer _apiServer = new HttpServer();
-
-    protected HashMap<Long, WebSocket> _proxiedWebsockets = new HashMap<Long, WebSocket>();
-
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile = new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            _printError("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
 
     protected Boolean _addCertificate(final String tlsCertificateFile, final String tlsKeyFile) {
         if ( (tlsKeyFile != null) && (tlsCertificateFile != null) ) {
@@ -46,12 +31,10 @@ public class ProxyModule {
         return false;
     }
 
-    public ProxyModule(final String configurationFilename) {
-        _configuration = _loadConfigurationFile(configurationFilename);
-
-        final Configuration.ProxyProperties proxyProperties = _configuration.getProxyProperties();
-        final Configuration.StratumProperties stratumProperties = _configuration.getStratumProperties();
-        final Configuration.ExplorerProperties explorerProperties = _configuration.getExplorerProperties();
+    public ProxyModule(final ProxyProperties proxyProperties, final StratumProperties stratumProperties, final ExplorerProperties explorerProperties) {
+        _proxyProperties = proxyProperties;
+        _stratumProperties = stratumProperties;
+        _explorerProperties = explorerProperties;
 
         final String[] tlsKeyFiles = proxyProperties.getTlsKeyFiles();
         final String[] tlsCertificateFiles = proxyProperties.getTlsCertificateFiles();

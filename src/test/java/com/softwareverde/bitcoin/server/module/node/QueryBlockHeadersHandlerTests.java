@@ -5,16 +5,13 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -55,21 +52,23 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario() throws Exception {
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-        final BlockInflater blockInflater = new BlockInflater();
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final String[] blockDatas = new String[]{ BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4 };
-        final Block[] blocks = new Block[blockDatas.length];
-        int i = 0;
-        for (final String blockData : blockDatas) {
-            final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
-            blockDatabaseManager.insertBlock(block);
-            blocks[i] = block;
-            i += 1;
+            final BlockInflater blockInflater = new BlockInflater();
+
+            final String[] blockDatas = new String[]{BlockData.MainChain.GENESIS_BLOCK, BlockData.MainChain.BLOCK_1, BlockData.MainChain.BLOCK_2, BlockData.MainChain.BLOCK_3, BlockData.MainChain.BLOCK_4};
+            final Block[] blocks = new Block[blockDatas.length];
+            int i = 0;
+            for (final String blockData : blockDatas) {
+                final Block block = blockInflater.fromBytes(HexUtil.hexStringToByteArray(blockData));
+                blockDatabaseManager.insertBlock(block);
+                blocks[i] = block;
+                i += 1;
+            }
+
+            return blocks;
         }
-
-        return blocks;
     }
 
     /**
@@ -88,47 +87,48 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *               A #1           Height: 0
      *
      */
-    protected static Block[] _initScenario2(final Block[] blocks) throws Exception {
-        final DatabaseConnection databaseConnection = _database.newConnection();
-        final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache();
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, databaseManagerCache);
-        final BlockInflater blockInflater = new BlockInflater();
+    protected Block[] _initScenario2(final Block[] blocks) throws Exception {
+        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
-        final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
-        blockDatabaseManager.insertBlock(block5);
+            final BlockInflater blockInflater = new BlockInflater();
 
-        final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
-        blockDatabaseManager.insertBlock(forkedBlock0);
+            final Block block5 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.BLOCK_5));
+            blockDatabaseManager.insertBlock(block5);
 
-        final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
-        {
-            final MutableBlock mutableBlock = new MutableBlock(blocks[blocks.length - 1]);
-            mutableBlock.setNonce(mutableBlock.getNonce() + 1);
-            forkedBlock1 = mutableBlock;
+            final Block forkedBlock0 = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.ForkChain3.BLOCK_2));
+            blockDatabaseManager.insertBlock(forkedBlock0);
+
+            final Block forkedBlock1; // NOTE: Has an invalid hash, but shouldn't matter...
+            {
+                final MutableBlock mutableBlock = new MutableBlock(blocks[blocks.length - 1]);
+                mutableBlock.setNonce(mutableBlock.getNonce() + 1);
+                forkedBlock1 = mutableBlock;
+            }
+            blockDatabaseManager.insertBlock(forkedBlock1);
+
+            final Block[] newBlocks = new Block[blocks.length + 3];
+            for (int i = 0; i < blocks.length; ++i) {
+                newBlocks[i] = blocks[i];
+            }
+            newBlocks[blocks.length + 0] = block5;
+            newBlocks[blocks.length + 1] = forkedBlock0;
+            newBlocks[blocks.length + 2] = forkedBlock1;
+
+            { //  Sanity check for the appropriate chain structure...
+                Assert.assertEquals(newBlocks[0].getHash(), newBlocks[1].getPreviousBlockHash());
+                Assert.assertEquals(newBlocks[1].getHash(), newBlocks[2].getPreviousBlockHash());
+                Assert.assertEquals(newBlocks[2].getHash(), newBlocks[3].getPreviousBlockHash());
+                Assert.assertEquals(newBlocks[3].getHash(), newBlocks[4].getPreviousBlockHash());
+                Assert.assertEquals(newBlocks[4].getHash(), newBlocks[5].getPreviousBlockHash());
+
+                Assert.assertEquals(newBlocks[1].getHash(), newBlocks[6].getPreviousBlockHash());
+
+                Assert.assertEquals(newBlocks[3].getHash(), newBlocks[7].getPreviousBlockHash());
+            }
+
+            return newBlocks;
         }
-        blockDatabaseManager.insertBlock(forkedBlock1);
-
-        final Block[] newBlocks = new Block[blocks.length + 3];
-        for (int i = 0; i < blocks.length; ++i) {
-            newBlocks[i] = blocks[i];
-        }
-        newBlocks[blocks.length + 0] = block5;
-        newBlocks[blocks.length + 1] = forkedBlock0;
-        newBlocks[blocks.length + 2] = forkedBlock1;
-
-        { //  Sanity check for the appropriate chain structure...
-            Assert.assertEquals(newBlocks[0].getHash(), newBlocks[1].getPreviousBlockHash());
-            Assert.assertEquals(newBlocks[1].getHash(), newBlocks[2].getPreviousBlockHash());
-            Assert.assertEquals(newBlocks[2].getHash(), newBlocks[3].getPreviousBlockHash());
-            Assert.assertEquals(newBlocks[3].getHash(), newBlocks[4].getPreviousBlockHash());
-            Assert.assertEquals(newBlocks[4].getHash(), newBlocks[5].getPreviousBlockHash());
-
-            Assert.assertEquals(newBlocks[1].getHash(), newBlocks[6].getPreviousBlockHash());
-
-            Assert.assertEquals(newBlocks[3].getHash(), newBlocks[7].getPreviousBlockHash());
-        }
-
-        return newBlocks;
     }
 
     @Before
@@ -150,8 +150,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -193,8 +192,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -237,8 +235,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -281,8 +278,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -326,10 +322,11 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
-            final DatabaseConnection databaseConnection = _database.newConnection();
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                blockDatabaseManager.insertBlock(mutableBlock);
+            try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+                final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                    blockDatabaseManager.insertBlock(mutableBlock);
+                }
             }
 
             fPrimeBlock = mutableBlock;
@@ -339,8 +336,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(databaseConnectionFactory, _databaseManagerCache);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 

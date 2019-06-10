@@ -4,16 +4,15 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.InputStream;
@@ -21,20 +20,22 @@ import java.io.InputStream;
 public class HeadersBootstrapper {
     protected static final Long BOOTSTRAP_BLOCK_COUNT = 575000L;
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final SystemTime _systemTime = new SystemTime();
     protected Long _currentBlockHeight = 0L;
     protected Boolean _abortInit = false;
 
-    public HeadersBootstrapper(final DatabaseConnectionFactory databaseConnectionFactory) {
-        _databaseConnectionFactory = databaseConnectionFactory;
+    public HeadersBootstrapper(final DatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     public void run() {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(UtxoCount.wrap(0L));
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, localDatabaseManagerCache);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
             final BlockId headBlockHeaderId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
+
             final long maxDatFileHeight = (BOOTSTRAP_BLOCK_COUNT - 1L);
             final long startingHeight = (headBlockHeaderId == null ? 0L : blockHeaderDatabaseManager.getBlockHeight(headBlockHeaderId));
             if (startingHeight < maxDatFileHeight) {
@@ -43,8 +44,13 @@ public class HeadersBootstrapper {
                 final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
 
                 try (final InputStream inputStream = HeadersBootstrapper.class.getResourceAsStream("/bootstrap/headers.dat")) {
+                    if (inputStream == null) {
+                        Logger.log("Error opening headers bootstrap file.");
+                        return;
+                    }
+
                     synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                        inputStream.skip(startingHeight * BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
+                        IoUtil.skipBytes((startingHeight * BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT), inputStream);
 
                         final MutableByteArray buffer = new MutableByteArray(BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT);
 

@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -19,7 +19,7 @@ import com.softwareverde.util.HexUtil;
 public class TransactionsApi extends ExplorerApiEndpoint {
     private static class SubmitTransactionResult extends ApiResult { }
 
-    public TransactionsApi(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+    public TransactionsApi(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
         super(explorerProperties, threadPool);
     }
 

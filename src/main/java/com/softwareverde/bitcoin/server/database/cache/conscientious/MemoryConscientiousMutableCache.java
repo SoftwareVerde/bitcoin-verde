@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.database.cache.conscientious;
 
 import com.softwareverde.bitcoin.server.database.cache.MutableCache;
-import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
@@ -25,12 +24,6 @@ public class MemoryConscientiousMutableCache<T, S> implements MutableCache<T, S>
         }
     }
 
-    protected MemoryConscientiousMutableCache(final MutableCache<T, S> cache, final Float memoryPercentThreshold) {
-        _cache = cache;
-        _memoryStatus = new JvmMemoryStatus();
-        _memoryPercentThreshold = memoryPercentThreshold;
-    }
-
     protected MemoryConscientiousMutableCache(final MutableCache<T, S> cache, final Float memoryPercentThreshold, final MemoryStatus memoryStatus) {
         _cache = cache;
         _memoryStatus = memoryStatus;
@@ -47,7 +40,7 @@ public class MemoryConscientiousMutableCache<T, S> implements MutableCache<T, S>
 
     @Override
     public void cacheItem(final T key, final S value) {
-        final Boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
+        final boolean isAboveThreshold = (_memoryStatus.getMemoryUsedPercent() >= _memoryPercentThreshold);
         if (isAboveThreshold) {
             _pruneHalf();
         }

@@ -10,18 +10,18 @@ import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
 import com.softwareverde.bitcoin.server.module.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -67,8 +67,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public static class Properties {
         public Integer maxNodeCount;
-        public DatabaseConnectionFactory databaseConnectionFactory;
-        public DatabaseManagerCache databaseManagerCache;
+        public DatabaseManagerFactory databaseManagerFactory;
         public MutableNetworkTime networkTime;
         public NodeInitializer nodeInitializer;
         public BanFilter banFilter;
@@ -79,8 +78,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         public LocalNodeFeatures localNodeFeatures;
     }
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final NodeInitializer _nodeInitializer;
     protected final BanFilter _banFilter;
     protected final MemoryPoolEnquirer _memoryPoolEnquirer;
@@ -104,8 +102,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 try { Thread.sleep(nextWait); }
                 catch (final Exception exception) { break; }
 
-                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
                     final MutableList<NodeFeatures.Feature> requiredFeatures = new MutableList<NodeFeatures.Feature>();
                     requiredFeatures.add(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
@@ -182,8 +180,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
             bitcoinNode.setBloomFilter(bloomFilter);
         }
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseConnection, _databaseManagerCache);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockFinderHashesBuilder blockFinderHashesBuilder = new BlockFinderHashesBuilder(databaseManager);
             final List<Sha256Hash> blockFinderHashes = blockFinderHashesBuilder.createBlockFinderBlockHashes();
 
             bitcoinNode.transmitBlockFinder(blockFinderHashes);
@@ -242,8 +240,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     protected void _addNotHandshakedNode(final BitcoinNode bitcoinNode) {
         final NodeIpAddress nodeIpAddress = bitcoinNode.getRemoteNodeIpAddress();
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
             final Boolean isBanned = nodeDatabaseManager.isBanned(nodeIpAddress.getIp());
             if ( (_isShuttingDown) || (isBanned) ) {
                 final NodeId nodeId = bitcoinNode.getId();
@@ -265,8 +264,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     @Override
     protected void _onNodeHandshakeComplete(final BitcoinNode node) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+
             nodeDatabaseManager.updateLastHandshake(node);
             nodeDatabaseManager.updateNodeFeatures(node);
             nodeDatabaseManager.updateUserAgent(node);
@@ -282,17 +282,17 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public BitcoinNodeManager(final Properties properties) {
-        this(properties.maxNodeCount, properties.databaseConnectionFactory, properties.databaseManagerCache,
-            properties.networkTime, properties.nodeInitializer, properties.banFilter, properties.memoryPoolEnquirer,
+        this(
+            properties.databaseManagerFactory, properties.maxNodeCount, properties.networkTime,
+            properties.nodeInitializer, properties.banFilter, properties.memoryPoolEnquirer,
             properties.synchronizationStatusHandler, properties.threadPool, properties.threadPoolFactory,
             properties.localNodeFeatures
         );
     }
 
-    public BitcoinNodeManager(final Integer maxNodeCount, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
+    public BitcoinNodeManager(final DatabaseManagerFactory databaseManagerFactory, final Integer maxNodeCount, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
         super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures), networkTime, threadPool);
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+        _databaseManagerFactory = databaseManagerFactory;
         _nodeInitializer = nodeInitializer;
         _banFilter = banFilter;
         _memoryPoolEnquirer = memoryPoolEnquirer;
@@ -356,8 +356,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
         final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final PendingBlockDatabaseManager pendingBlockDatabaseManager = new PendingBlockDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final PendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+
             final List<Tuple<Sha256Hash, Sha256Hash>> inventoryPlan = pendingBlockDatabaseManager.selectPriorityPendingBlocksWithUnknownNodeInventory(connectedNodes);
 
             int messagesWithoutStopBeforeHashes = 0;
@@ -674,9 +675,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 bitcoinNode.transmitBlockHeader(cachedBlockHeader);
             }
             else {
-                try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-                    final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
+                try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final BlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
                     final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                     if (blockId == null) { return; } // Block Hash has not been synchronized...
@@ -739,8 +740,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public void banNode(final Ip ip) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
+        try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
             // Ban any nodes from that ip...
             nodeDatabaseManager.setIsBanned(ip, true);

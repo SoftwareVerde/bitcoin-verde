@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.address;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-
 import org.junit.Assert;
 import org.junit.Test;
 

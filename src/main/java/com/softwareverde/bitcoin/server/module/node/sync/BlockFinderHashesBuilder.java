@@ -3,27 +3,24 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 
 public class BlockFinderHashesBuilder {
-    protected final DatabaseConnection _databaseConnection;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final DatabaseManager _databaseManager;
 
-    public BlockFinderHashesBuilder(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnection = databaseConnection;
-        _databaseManagerCache = databaseManagerCache;
+    public BlockFinderHashesBuilder(final DatabaseManager databaseManager) {
+        _databaseManager = databaseManager;
     }
 
     public List<Sha256Hash> createBlockFinderBlockHashes() throws DatabaseException {
-        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(_databaseConnection, _databaseManagerCache);
-        final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(_databaseConnection, _databaseManagerCache);
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
+        final BlockDatabaseManager blockDatabaseManager = _databaseManager.getBlockDatabaseManager();
 
         final Long maxBlockHeight;
         final BlockchainSegmentId headBlockchainSegmentId;

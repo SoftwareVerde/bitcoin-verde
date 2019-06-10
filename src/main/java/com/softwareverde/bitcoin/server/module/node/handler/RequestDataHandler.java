@@ -3,15 +3,14 @@ package com.softwareverde.bitcoin.server.module.node.handler;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
-import com.softwareverde.bitcoin.server.module.node.database.BlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -30,20 +29,18 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
         public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) { }
     };
 
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
 
-    public RequestDataHandler(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+    public RequestDataHandler(final CoreDatabaseManagerFactory databaseManagerFactory) {
+        _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public void run(final List<InventoryItem> dataHashes, final BitcoinNode bitcoinNode) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = new BlockHeaderDatabaseManager(databaseConnection, _databaseManagerCache);
-            final BlockDatabaseManager blockDatabaseManager = new BlockDatabaseManager(databaseConnection, _databaseManagerCache);
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final MutableList<InventoryItem> notFoundDataHashes = new MutableList<InventoryItem>();
 

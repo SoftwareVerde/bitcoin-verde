@@ -1,12 +1,11 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
-import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.PendingTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.node.core.CoreBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -22,21 +21,21 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
     };
 
     protected final BitcoinNode _bitcoinNode;
-    protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerCache _databaseManagerCache;
+    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
     protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache, final Runnable newInventoryCallback) {
+    public TransactionInventoryMessageHandler(final BitcoinNode bitcoinNode, final CoreDatabaseManagerFactory databaseManagerFactory, final Runnable newInventoryCallback) {
         _bitcoinNode = bitcoinNode;
-        _databaseConnectionFactory = databaseConnectionFactory;
-        _databaseManagerCache = databaseManagerCache;
+        _databaseManagerFactory = databaseManagerFactory;
         _newInventoryCallback = newInventoryCallback;
     }
 
     @Override
     public void onResult(final List<Sha256Hash> transactionHashes) {
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final TransactionDatabaseManager transactionDatabaseManager = new TransactionDatabaseManager(databaseConnection, _databaseManagerCache);
+        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
+            final CoreBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
             final List<Sha256Hash> unseenTransactionHashes;
             {
@@ -51,10 +50,7 @@ public class TransactionInventoryMessageHandler implements BitcoinNode.Transacti
             }
 
             if (! unseenTransactionHashes.isEmpty()) {
-                final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = new PendingTransactionDatabaseManager(databaseConnection);
                 final List<PendingTransactionId> pendingTransactionIds = pendingTransactionDatabaseManager.storeTransactionHashes(unseenTransactionHashes);
-
-                final BitcoinNodeDatabaseManager nodeDatabaseManager = new BitcoinNodeDatabaseManager(databaseConnection);
                 nodeDatabaseManager.updateTransactionInventory(_bitcoinNode, pendingTransactionIds);
 
                 if (_newInventoryCallback != null) {

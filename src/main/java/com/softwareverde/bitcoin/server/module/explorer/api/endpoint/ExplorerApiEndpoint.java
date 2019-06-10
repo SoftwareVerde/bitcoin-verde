@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumJsonRpcConnection;
@@ -14,10 +14,10 @@ import com.softwareverde.io.Logger;
 import java.net.Socket;
 
 public abstract class ExplorerApiEndpoint implements Servlet {
-    protected final Configuration.ExplorerProperties _explorerProperties;
+    protected final ExplorerProperties _explorerProperties;
     protected final ThreadPool _threadPool;
 
-    public ExplorerApiEndpoint(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+    public ExplorerApiEndpoint(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
         _explorerProperties = explorerProperties;
         _threadPool = threadPool;
     }

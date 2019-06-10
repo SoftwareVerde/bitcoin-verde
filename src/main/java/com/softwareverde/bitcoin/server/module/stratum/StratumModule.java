@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.server.database.BitcoinVerdeDatabase;
+import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
@@ -14,46 +14,30 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHas
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
-import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 
 public class StratumModule {
-    public static void execute(final String configurationFileName) {
-        final StratumModule stratumModule = new StratumModule(configurationFileName);
-        stratumModule.loop();
-    }
-
     protected void _printError(final String errorMessage) {
         System.err.println(errorMessage);
     }
 
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected final Configuration _configuration;
+    protected final Environment _environment;
+    protected final StratumProperties _stratumProperties;
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
 
     protected final MainThreadPool _stratumThreadPool = new MainThreadPool(256, 60000L);
     protected final MainThreadPool _rpcThreadPool = new MainThreadPool(256, 60000L);
-
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            _printError("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
@@ -63,22 +47,14 @@ public class StratumModule {
         _apiServer.addEndpoint(endpoint);
     }
 
-    public StratumModule(final String configurationFilename) {
-        _configuration = _loadConfigurationFile(configurationFilename);
+    public StratumModule(final StratumProperties stratumProperties, final Environment environment) {
+        _stratumProperties = stratumProperties;
+        _environment = environment;
 
-        final Configuration.StratumProperties stratumProperties = _configuration.getStratumProperties();
-        final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
-
-        final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
-        if (database == null) {
-            Logger.log("Error initializing database.");
-            BitcoinUtil.exitFailure();
-        }
-        Logger.log("[Database Online]");
-
+        final Database database = _environment.getDatabase();
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
-        _stratumServer = new StratumServer(_configuration.getStratumProperties(), _stratumThreadPool, databaseConnectionFactory);
+        _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool, databaseConnectionFactory);
 
         final String tlsKeyFile = stratumProperties.getTlsKeyFile();
         final String tlsCertificateFile = stratumProperties.getTlsCertificateFile();
