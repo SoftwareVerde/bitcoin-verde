@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
+import com.softwareverde.bitcoin.server.main.DatabaseConfigurer;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.database.mysql.embedded.DatabaseCommandLineArguments;
 import com.softwareverde.util.Util;
@@ -15,7 +16,7 @@ public class DatabaseConfigurerTests {
         // Setup
         final Long systemByteCount = (64L * ByteUtil.Unit.GIGABYTES);
 
-        final Configuration.DatabaseProperties databaseProperties = new Configuration.DatabaseProperties() {
+        final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -46,7 +47,7 @@ public class DatabaseConfigurerTests {
         // Setup
         final Long systemByteCount = (1L * ByteUtil.Unit.GIGABYTES);
 
-        final Configuration.DatabaseProperties databaseProperties = new Configuration.DatabaseProperties() {
+        final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;
@@ -77,7 +78,7 @@ public class DatabaseConfigurerTests {
         // Setup
         final Long systemByteCount = (1L * ByteUtil.Unit.GIGABYTES) + 1L;
 
-        final Configuration.DatabaseProperties databaseProperties = new Configuration.DatabaseProperties() {
+        final DatabaseProperties databaseProperties = new DatabaseProperties() {
             @Override
             public Long getMaxMemoryByteCount() {
                 return systemByteCount;

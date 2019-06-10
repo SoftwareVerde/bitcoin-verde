@@ -13,12 +13,21 @@ sourceSets {
         compileClasspath += sourceSets.main.output
         runtimeClasspath += sourceSets.main.output
     }
+    test {
+        java
+        resources
+
+        compileClasspath += sourceSets.server.output
+        runtimeClasspath += sourceSets.server.output
+    }
 }
 
 configurations {
     serverImplementation
     serverImplementation.extendsFrom implementation
     serverRuntimeOnly.extendsFrom runtimeOnly
+
+    testImplementation.extendsFrom serverImplementation
 }
 
 repositories {
@@ -41,13 +50,12 @@ dependencies {
 
     implementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'
 
-    implementation group: 'org.slf4j',                 name: 'slf4j-api',              version: '1.7.9'
-    implementation group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.8.2'
-    implementation group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.8.2'
-    implementation group: 'org.apache.logging.log4j',  name: 'log4j-core',             version: '2.8.2'
-
     // Server
-    implementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
+    serverImplementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
+    serverImplementation group: 'org.slf4j',                 name: 'slf4j-api',              version: '1.7.9'
+    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-slf4j-impl',       version: '2.8.2'
+    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-api',              version: '2.8.2'
+    serverImplementation group: 'org.apache.logging.log4j',  name: 'log4j-core',             version: '2.8.2'
 
     // Testing
     testImplementation group: 'junit',                     name: 'junit',                  version: '4.11'
@@ -67,16 +75,41 @@ task makeFatJar(type: Jar) {
                     'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
     }
 
-    baseName = project.name + '-server'
+    baseName = project.name + '-server-all'
 
-    doFirst {
-        from (configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }) {
+    jar {
+        from (configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
             exclude 'META-INF/MANIFEST.MF'
             exclude 'META-INF/*.SF'
             exclude 'META-INF/*.DSA'
             exclude 'META-INF/*.RSA'
         }
     }
+
+    from sourceSets.main.output
+    from sourceSets.server.output
+
+    with jar
+}
+
+task makeLibJar(type: Jar) {
+    manifest {
+        attributes  'Implementation-Title': 'Bitcoin Verde Library',
+                    'Implementation-Version': version
+    }
+
+    baseName = project.name + '-lib'
+
+    jar {
+        from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+            exclude 'META-INF/MANIFEST.MF'
+            exclude 'META-INF/*.SF'
+            exclude 'META-INF/*.DSA'
+            exclude 'META-INF/*.RSA'
+        }
+    }
+
+    from sourceSets.main.output
 
     with jar
 }
@@ -99,6 +132,9 @@ task makeJar(type: Jar) {
 
 task copyDependencies(type: Copy) {
     from project.configurations.compileClasspath
+    into "$buildDir/libs/libs"
+
+    from project.configurations.serverCompileClasspath
     into "$buildDir/libs/libs"
 }
 
@@ -141,12 +177,12 @@ tasks.withType(Javadoc) {
 }
 
 task sourcesJar(type: Jar, dependsOn: classes) {
-    classifier = 'sources'
+    archiveClassifier = 'sources'
     from sourceSets.main.allSource
 }
 
 task javadocJar(type: Jar, dependsOn: javadoc) {
-    classifier = 'javadoc'
+    archiveClassifier = 'javadoc'
     from javadoc.destinationDir
 }
 

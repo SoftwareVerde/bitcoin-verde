@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server;
+package com.softwareverde.bitcoin.server.configuration;
 
 import org.junit.Assert;
 import org.junit.Test;

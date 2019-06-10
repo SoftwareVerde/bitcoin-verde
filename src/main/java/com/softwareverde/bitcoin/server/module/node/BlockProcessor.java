@@ -28,7 +28,7 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;

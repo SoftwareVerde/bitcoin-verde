@@ -9,8 +9,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -321,7 +322,7 @@ class StratumMiner {
         }
 
         final Configuration configuration = new Configuration(TEMP_FILE);
-        final Configuration.StratumProperties stratumProperties = configuration.getStratumProperties();
+        final StratumProperties stratumProperties = configuration.getStratumProperties();
 
         _stratumServerSocket = new StratumServerSocket(stratumProperties.getPort(), _threadPool);
 

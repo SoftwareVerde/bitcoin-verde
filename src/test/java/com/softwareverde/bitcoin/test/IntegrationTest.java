@@ -10,7 +10,7 @@ import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.database.mysql.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.test.database.MysqlTestDatabase;
 import com.softwareverde.test.database.TestDatabase;

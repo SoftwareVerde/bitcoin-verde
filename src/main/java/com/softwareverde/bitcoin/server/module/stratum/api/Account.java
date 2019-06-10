@@ -21,10 +21,9 @@ public class Account implements Jsonable {
     }
 
     /**
-     * Retrieves the Account from the Database or the cache if already loaded.
+     * Retrieves the Account from the Database (or the cache, if already loaded).
      * @param id                    - The id of the Account. Returns null if the id is null or equal to zero.
      * @param databaseConnection    - May be null if the id exists in the cache.
-     * @return
      */
     synchronized public static Account loadAccount(final Long id, final MysqlDatabaseConnection databaseConnection) {
         if ((id == null) || (id == 0)) { return null; }

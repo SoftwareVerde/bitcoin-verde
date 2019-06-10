@@ -24,7 +24,7 @@ import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseMa
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;

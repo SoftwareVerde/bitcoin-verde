@@ -45,7 +45,7 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
-import com.softwareverde.database.mysql.embedded.factory.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.DateUtil;
@@ -618,7 +618,7 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     @Test
-    public void should_not_be_allowed_to_spent_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
+    public void should_not_be_allowed_to_spend_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
         // Setup
         try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
             final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
