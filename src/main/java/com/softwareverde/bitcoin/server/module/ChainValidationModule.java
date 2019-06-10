@@ -8,8 +8,8 @@ import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -31,11 +31,11 @@ import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
 
 public class ChainValidationModule {
-    protected final Configuration.BitcoinProperties _bitcoinProperties;
+    protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
 
-    public ChainValidationModule(final Configuration.BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
+    public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 

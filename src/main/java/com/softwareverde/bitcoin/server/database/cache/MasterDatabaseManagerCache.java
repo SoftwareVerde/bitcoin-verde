@@ -4,9 +4,10 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.conscientious.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.conscientious.MemoryConscientiousCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
@@ -26,6 +27,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         }
     }
 
+    protected final UnspentTransactionOutputCacheFactory _unspentTransactionOutputCacheFactory;
     protected final MutableCache<ImmutableSha256Hash, TransactionId> _transactionIdCache;
     protected final MutableCache<TransactionId, ImmutableTransaction> _transactionCache;
     protected final MutableCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache;
@@ -40,7 +42,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         this(null);
     }
 
-    public MasterDatabaseManagerCache(final UnspentTransactionOutputCache unspentTransactionOutputCache) {
+    public MasterDatabaseManagerCache(final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory) {
         final MemoryStatus memoryStatus = new JvmMemoryStatus();
 
         _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<ImmutableSha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
@@ -50,7 +52,8 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         _blockHeightCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
         _addressIdCache                     = MemoryConscientiousCache.wrap(0.95F, new DisabledCache<String, AddressId>(), memoryStatus);
 
-        _unspentTransactionOutputCache = Util.coalesce(unspentTransactionOutputCache, new DisabledUnspentTransactionOutputCache());
+        _unspentTransactionOutputCacheFactory = Util.coalesce(unspentTransactionOutputCacheFactory, DisabledUnspentTransactionOutputCache.FACTORY);
+        _unspentTransactionOutputCache = _unspentTransactionOutputCacheFactory.newUnspentTransactionOutputCache();
         _maxCachedUtxoCount = _unspentTransactionOutputCache.getMaxUtxoCount();
     }
 
@@ -79,6 +82,10 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
 
     public UtxoCount getMaxCachedUtxoCount() {
         return _maxCachedUtxoCount;
+    }
+
+    public UnspentTransactionOutputCache newUnspentTransactionOutputCache() {
+        return _unspentTransactionOutputCacheFactory.newUnspentTransactionOutputCache();
     }
 
     @Override

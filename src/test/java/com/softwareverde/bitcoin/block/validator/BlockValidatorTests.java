@@ -22,10 +22,11 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
+import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
@@ -932,9 +933,9 @@ public class BlockValidatorTests extends IntegrationTest {
         //  properly waits for a connection to become available.  Alternatively, the DeadlockTimeout property of the DatabaseConnectionPool can be configured to surpass the maximum connection count.
 
         // Setup
+        final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(UtxoCount.wrap(1048576L));
         try (
-            final NativeUnspentTransactionOutputCache nativeUnspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(UtxoCount.wrap(1048576L));
-            final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(nativeUnspentTransactionOutputCache);
+            final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
             final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
             final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()
         ) {

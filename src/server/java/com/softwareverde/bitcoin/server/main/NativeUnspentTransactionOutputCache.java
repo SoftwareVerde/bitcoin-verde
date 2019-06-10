@@ -1,9 +1,12 @@
-package com.softwareverde.bitcoin.server.database.cache.utxo;
+package com.softwareverde.bitcoin.server.main;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.conscientious.ConscientiousUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
-import com.softwareverde.bitcoin.server.memory.SystemMemoryStatus;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
 import com.softwareverde.constable.list.List;
@@ -17,6 +20,30 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;
 
 public class NativeUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
+    public static UnspentTransactionOutputCacheFactory createNativeUnspentTransactionOutputCacheFactory(final UtxoCount maxUtxoCount) {
+        return new UnspentTransactionOutputCacheFactory() {
+            @Override
+            public UnspentTransactionOutputCache newUnspentTransactionOutputCache() {
+                { // Initialize the NativeUnspentTransactionOutputCache...
+                    final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
+                    if (nativeCacheIsEnabled) {
+                        NativeUnspentTransactionOutputCache.init();
+                    }
+                    else {
+                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
+                    }
+                }
+
+                if (NativeUnspentTransactionOutputCache.isEnabled()) {
+                    return new NativeUnspentTransactionOutputCache(maxUtxoCount);
+                }
+                else {
+                    return new DisabledUnspentTransactionOutputCache();
+                }
+            }
+        };
+    }
+
     public static Long DEFAULT_MAX_ITEM_COUNT = (1L << 24); // Approximately 1/4 of all Unspent Transaction Outputs as of 2018-11.
 
     public static UtxoCount calculateMaxUtxoCountFromMemoryUsage(final Long maxByteCount) {

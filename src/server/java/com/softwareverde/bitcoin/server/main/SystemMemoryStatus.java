@@ -1,5 +1,6 @@
-package com.softwareverde.bitcoin.server.memory;
+package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.memory.MemoryStatus;
 import com.softwareverde.io.Logger;
 import com.sun.management.OperatingSystemMXBean;
 

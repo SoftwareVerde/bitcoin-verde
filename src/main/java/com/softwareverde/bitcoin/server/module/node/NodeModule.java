@@ -5,9 +5,10 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -81,7 +82,7 @@ import java.util.HashSet;
 public class NodeModule {
     protected final Boolean _shouldWarmUpCache = true;
 
-    protected final Configuration.BitcoinProperties _bitcoinProperties;
+    protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected DatabaseConnectionPool _databaseConnectionPool;
 
@@ -121,9 +122,9 @@ public class NodeModule {
     }
 
     protected void _connectToAdditionalNodes() {
-        final Configuration.SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
+        final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
         final HashSet<String> seedNodeHosts = new HashSet<String>(seedNodes.length);
-        for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
+        for (final SeedNodeProperties seedNodeProperties : seedNodes) {
             final String host = seedNodeProperties.getAddress();
             final Integer port = seedNodeProperties.getPort();
 
@@ -236,7 +237,7 @@ public class NodeModule {
         }
     }
 
-    public NodeModule(final Configuration.BitcoinProperties bitcoinProperties, final Environment environment) {
+    public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {
         final Thread mainThread = Thread.currentThread();
 
         _bitcoinProperties = bitcoinProperties;
@@ -729,8 +730,8 @@ public class NodeModule {
             Logger.log("[Starting Node Manager]");
             _bitcoinNodeManager.startNodeMaintenanceThread();
 
-            final Configuration.SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
-            for (final Configuration.SeedNodeProperties seedNodeProperties : seedNodes) {
+            final SeedNodeProperties[] seedNodes = _bitcoinProperties.getSeedNodeProperties();
+            for (final SeedNodeProperties seedNodeProperties : seedNodes) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
                 try {

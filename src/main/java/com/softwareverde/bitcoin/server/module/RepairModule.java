@@ -3,8 +3,9 @@ package com.softwareverde.bitcoin.server.module;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
+import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -41,14 +42,14 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 
 public class RepairModule {
-    protected final Configuration.BitcoinProperties _bitcoinProperties;
+    protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final List<Sha256Hash> _blockHashes;
 
     protected final NodeInitializer _nodeInitializer;
     protected final MainThreadPool _threadPool = new MainThreadPool(256, 10000L);
 
-    public RepairModule(Configuration.BitcoinProperties bitcoinProperties, final Environment environment, final String[] blockHashes) {
+    public RepairModule(BitcoinProperties bitcoinProperties, final Environment environment, final String[] blockHashes) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
@@ -116,7 +117,7 @@ public class RepairModule {
         final List<BitcoinNode> bitcoinNodes;
         {
             final ImmutableListBuilder<BitcoinNode> bitcoinNodeListBuilder = new ImmutableListBuilder<BitcoinNode>();
-            for (final Configuration.SeedNodeProperties seedNodeProperties : _bitcoinProperties.getSeedNodeProperties()) {
+            for (final SeedNodeProperties seedNodeProperties : _bitcoinProperties.getSeedNodeProperties()) {
                 final String host = seedNodeProperties.getAddress();
                 final Integer port = seedNodeProperties.getPort();
 

@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -38,7 +38,7 @@ public class SearchApi extends ExplorerApiEndpoint {
         }
     }
 
-    public SearchApi(final Configuration.ExplorerProperties explorerProperties, final ThreadPool threadPool) {
+    public SearchApi(final ExplorerProperties explorerProperties, final ThreadPool threadPool) {
         super(explorerProperties, threadPool);
     }
 

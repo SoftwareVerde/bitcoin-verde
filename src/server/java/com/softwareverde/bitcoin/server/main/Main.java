@@ -1,10 +1,10 @@
-package com.softwareverde.bitcoin.server;
+package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.*;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.conscientious.DisabledUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.module.*;
 import com.softwareverde.bitcoin.server.module.explorer.ExplorerModule;
@@ -31,15 +31,9 @@ public class Main {
         return new Configuration(configurationFile);
     }
 
-    protected static UnspentTransactionOutputCache _initUtxoCache(final Long maxUtxoCacheByteCount) {
+    protected static UnspentTransactionOutputCacheFactory _getUtxoCacheFactory(final Long maxUtxoCacheByteCount) {
         final UtxoCount maxUtxoCount = NativeUnspentTransactionOutputCache.calculateMaxUtxoCountFromMemoryUsage(maxUtxoCacheByteCount);
-
-        if (! NativeUnspentTransactionOutputCache.isEnabled()) {
-            return new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
-        }
-
-        Logger.log("NativeUnspentTransactionOutputCache max item count: " + maxUtxoCount);
-        return new NativeUnspentTransactionOutputCache(maxUtxoCount);
+        return NativeUnspentTransactionOutputCache.createNativeUnspentTransactionOutputCacheFactory(maxUtxoCount);
     }
 
     public static void main(final String[] commandLineArguments) {
@@ -172,8 +166,8 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
-                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Container<NodeModule> nodeModuleContainer = new Container<NodeModule>();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties, new Runnable() {
@@ -192,19 +186,9 @@ public class Main {
                 }
                 Logger.log("[Database Online]");
 
-                { // Initialize the NativeUnspentTransactionOutputCache...
-                    final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-                    if (nativeCacheIsEnabled) {
-                        NativeUnspentTransactionOutputCache.init();
-                    }
-                    else {
-                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
-                    }
-                }
-
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
 
                 final Environment environment = new Environment(database, masterDatabaseManagerCache);
 
@@ -219,8 +203,13 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
-                ExplorerModule.execute(configurationFile);
+                final String configurationFilename = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+                final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
+                final ExplorerModule explorerModule = new ExplorerModule(explorerProperties);
+                explorerModule.start();
+                explorerModule.loop();
+                explorerModule.stop();
             } break;
 
             case "WALLET": {
@@ -230,8 +219,13 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
-                WalletModule.execute(configurationFile);
+                final String configurationFilenamr = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilenamr);
+                final WalletProperties walletProperties = configuration.getWalletProperties();
+                final WalletModule walletModule = new WalletModule(walletProperties);
+                walletModule.start();
+                walletModule.loop();
+                walletModule.stop();
             } break;
 
             case "VALIDATE": {
@@ -245,8 +239,8 @@ public class Main {
                 final String startingBlockHash = (_arguments.length > 2 ? _arguments[2] : "");
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
-                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
@@ -255,19 +249,9 @@ public class Main {
                 }
                 Logger.log("[Database Online]");
 
-                { // Initialize the NativeUnspentTransactionOutputCache...
-                    final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-                    if (nativeCacheIsEnabled) {
-                        NativeUnspentTransactionOutputCache.init();
-                    }
-                    else {
-                        Logger.log("NOTICE: NativeUtxoCache not enabled.");
-                    }
-                }
-
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
                 final Environment environment = new Environment(database, masterDatabaseManagerCache);
 
                 final ChainValidationModule chainValidationModule = new ChainValidationModule(bitcoinProperties, environment, startingBlockHash);
@@ -289,8 +273,8 @@ public class Main {
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
 
-                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+                final BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
+                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {
@@ -300,8 +284,8 @@ public class Main {
                 Logger.log("[Database Online]");
 
                 final Long maxUtxoCacheByteCount = bitcoinProperties.getMaxUtxoCacheByteCount();
-                final UnspentTransactionOutputCache unspentTransactionOutputCache = _initUtxoCache(maxUtxoCacheByteCount);
-                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCache);
+                final UnspentTransactionOutputCacheFactory unspentTransactionOutputCacheFactory = _getUtxoCacheFactory(maxUtxoCacheByteCount);
+                final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
                 final Environment environment = new Environment(database, masterDatabaseManagerCache);
 
                 final RepairModule repairModule = new RepairModule(bitcoinProperties, environment, blockHashes);
@@ -318,8 +302,8 @@ public class Main {
                 final String configurationFile = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFile);
-                final Configuration.StratumProperties stratumProperties = configuration.getStratumProperties();
-                final Configuration.DatabaseProperties databaseProperties = stratumProperties.getDatabaseProperties();
+                final StratumProperties stratumProperties = configuration.getStratumProperties();
+                final DatabaseProperties databaseProperties = configuration.getStratumDatabaseProperties();
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.STRATUM, databaseProperties);
                 if (database == null) {
                     Logger.log("Error initializing database.");
@@ -340,8 +324,13 @@ public class Main {
                     break;
                 }
 
-                final String configurationFile = _arguments[1];
-                ProxyModule.execute(configurationFile);
+                final String configurationFilename = _arguments[1];
+                final Configuration configuration = _loadConfigurationFile(configurationFilename);
+                final ProxyProperties proxyProperties = configuration.getProxyProperties();
+                final StratumProperties stratumProperties = configuration.getStratumProperties();
+                final ExplorerProperties explorerProperties = configuration.getExplorerProperties();
+                final ProxyModule proxyModule = new ProxyModule(proxyProperties, stratumProperties, explorerProperties);
+                proxyModule.loop();
             } break;
 
             case "DATABASE": {
@@ -354,9 +343,7 @@ public class Main {
                 final String configurationFilename = _arguments[1];
 
                 final Configuration configuration = _loadConfigurationFile(configurationFilename);
-
-                final Configuration.BitcoinProperties bitcoinProperties = configuration.getBitcoinProperties();
-                final Configuration.DatabaseProperties databaseProperties = bitcoinProperties.getDatabaseProperties();
+                final DatabaseProperties databaseProperties = configuration.getBitcoinDatabaseProperties();
 
                 final Database database = BitcoinVerdeDatabase.newInstance(BitcoinVerdeDatabase.BITCOIN, databaseProperties);
                 if (database == null) {

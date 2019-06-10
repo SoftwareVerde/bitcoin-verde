@@ -1,25 +1,16 @@
 package com.softwareverde.bitcoin.server.module.wallet;
 
-import com.softwareverde.bitcoin.server.Configuration;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
+import com.softwareverde.bitcoin.server.configuration.WalletProperties;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
-import com.softwareverde.io.Logger;
 
 import java.io.File;
 
 public class WalletModule {
-    public static void execute(final String configurationFileName) {
-        final WalletModule walletModule = new WalletModule(configurationFileName);
-        walletModule.start();
-        walletModule.loop();
-        walletModule.stop();
-    }
-
     protected final HttpServer _apiServer = new HttpServer();
-    protected final Configuration.WalletProperties _walletProperties;
+    protected final WalletProperties _walletProperties;
 
     protected <T extends Servlet> void _assignEndpoint(final String path, final T servlet) {
         final Endpoint endpoint = new Endpoint(servlet);
@@ -29,19 +20,8 @@ public class WalletModule {
         _apiServer.addEndpoint(endpoint);
     }
 
-    protected Configuration _loadConfigurationFile(final String configurationFilename) {
-        final File configurationFile =  new File(configurationFilename);
-        if (! configurationFile.isFile()) {
-            Logger.error("Invalid configuration file.");
-            BitcoinUtil.exitFailure();
-        }
-
-        return new Configuration(configurationFile);
-    }
-
-    protected WalletModule(final String configurationFilename) {
-        final Configuration configuration = _loadConfigurationFile(configurationFilename);
-        _walletProperties = configuration.getWalletProperties();
+    public WalletModule(final WalletProperties walletProperties) {
+        _walletProperties = walletProperties;
 
         final String tlsKeyFile = _walletProperties.getTlsKeyFile();
         final String tlsCertificateFile = _walletProperties.getTlsCertificateFile();

@@ -1,11 +1,11 @@
-package com.softwareverde.bitcoin.server;
+package com.softwareverde.bitcoin.server.main;
 
+import com.softwareverde.bitcoin.server.configuration.DatabaseProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionFactoryWrapper;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
-import com.softwareverde.bitcoin.server.module.DatabaseConfigurer;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.DatabaseInitializer;
 import com.softwareverde.database.mysql.MysqlDatabase;
@@ -30,7 +30,7 @@ public class BitcoinVerdeDatabase extends Database {
     public static final InitFile BITCOIN = new InitFile("/queries/bitcoin_init.sql", 1);
     public static final InitFile STRATUM = new InitFile("/queries/stratum_init.sql", 1);
 
-    public static Database newInstance(final InitFile initFile, final Configuration.DatabaseProperties databaseProperties) {
+    public static Database newInstance(final InitFile initFile, final DatabaseProperties databaseProperties) {
         return newInstance(initFile, databaseProperties, new Runnable() {
             @Override
             public void run() {
@@ -39,7 +39,7 @@ public class BitcoinVerdeDatabase extends Database {
         });
     }
 
-    public static Database newInstance(final InitFile sqlInitFile, final Configuration.DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
+    public static Database newInstance(final InitFile sqlInitFile, final DatabaseProperties databaseProperties, final Runnable onShutdownCallback) {
         final DatabaseInitializer databaseInitializer = new DatabaseInitializer(sqlInitFile.sqlInitFile, sqlInitFile.databaseVersion, new DatabaseInitializer.DatabaseUpgradeHandler() {
             @Override
             public Boolean onUpgrade(final int currentVersion, final int requiredVersion) { return false; }

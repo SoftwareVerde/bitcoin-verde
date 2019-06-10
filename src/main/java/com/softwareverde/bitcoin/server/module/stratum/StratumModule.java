@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
@@ -31,7 +31,7 @@ public class StratumModule {
     protected final SystemTime _systemTime = new SystemTime();
 
     protected final Environment _environment;
-    protected final Configuration.StratumProperties _stratumProperties;
+    protected final StratumProperties _stratumProperties;
     protected final StratumServer _stratumServer;
     protected final StratumRpcServer _stratumRpcServer;
     protected final HttpServer _apiServer = new HttpServer();
@@ -47,7 +47,7 @@ public class StratumModule {
         _apiServer.addEndpoint(endpoint);
     }
 
-    public StratumModule(final Configuration.StratumProperties stratumProperties, final Environment environment) {
+    public StratumModule(final StratumProperties stratumProperties, final Environment environment) {
         _stratumProperties = stratumProperties;
         _environment = environment;
 

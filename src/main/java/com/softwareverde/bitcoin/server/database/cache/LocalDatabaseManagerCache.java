@@ -5,10 +5,8 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.database.cache.conscientious.DisabledUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
+import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -18,23 +16,12 @@ import com.softwareverde.constable.list.List;
 
 public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
-    public LocalDatabaseManagerCache(final UtxoCount maxUtxoCount) {
-        if (NativeUnspentTransactionOutputCache.isEnabled()) {
-            _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
-        }
-        else {
-            _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
-        }
+    public LocalDatabaseManagerCache() {
+        _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache();
     }
 
     public LocalDatabaseManagerCache(final MasterDatabaseManagerCache masterCache) {
-        final UtxoCount maxUtxoCount = masterCache.getMaxCachedUtxoCount();
-        if ( (NativeUnspentTransactionOutputCache.isEnabled()) && (maxUtxoCount != null) ) {
-            _unspentTransactionOutputCache = new NativeUnspentTransactionOutputCache(maxUtxoCount);
-        }
-        else {
-            _unspentTransactionOutputCache = new DisabledUnspentTransactionOutputCache(); // MemoryConscientiousCache.wrap(0.95F, new JvmUnspentTransactionOutputCache());
-        }
+        _unspentTransactionOutputCache = masterCache.newUnspentTransactionOutputCache();
 
         _transactionIdCache.setMasterCache(masterCache.getTransactionIdCache());
         _transactionCache.setMasterCache(masterCache.getTransactionCache());

@@ -138,7 +138,7 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
 
         try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(UtxoCount.wrap(0L));
+            final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache();
             final BlockInflater blockInflater = new BlockInflater();
 
             final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();

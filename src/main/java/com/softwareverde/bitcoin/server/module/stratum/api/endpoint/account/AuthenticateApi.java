@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account;
 
 import com.softwareverde.bitcoin.miner.pool.AccountId;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
@@ -21,7 +21,7 @@ import com.softwareverde.servlet.session.Session;
 public class AuthenticateApi extends StratumApiEndpoint {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
 
-    public AuthenticateApi(final Configuration.StratumProperties stratumProperties, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public AuthenticateApi(final StratumProperties stratumProperties, final DatabaseConnectionFactory databaseConnectionFactory) {
         super(stratumProperties);
 
         _databaseConnectionFactory = databaseConnectionFactory;

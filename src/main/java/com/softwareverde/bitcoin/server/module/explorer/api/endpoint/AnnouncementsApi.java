@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.explorer.api.endpoint;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.ExplorerProperties;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.http.server.servlet.WebSocketServlet;
@@ -33,7 +33,7 @@ public class AnnouncementsApi implements WebSocketServlet {
 
     protected static final AtomicLong _nextSocketId = new AtomicLong(1L);
 
-    protected final Configuration.ExplorerProperties _explorerProperties;
+    protected final ExplorerProperties _explorerProperties;
     protected final Object _socketConnectionMutex = new Object();
     protected Boolean _isShuttingDown = false;
     protected JsonSocket _socketConnection = null;
@@ -99,7 +99,7 @@ public class AnnouncementsApi implements WebSocketServlet {
         }
     }
 
-    public AnnouncementsApi(final Configuration.ExplorerProperties explorerProperties) {
+    public AnnouncementsApi(final ExplorerProperties explorerProperties) {
         _explorerProperties = explorerProperties;
     }
 

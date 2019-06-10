@@ -7,6 +7,13 @@ import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutput
 import com.softwareverde.constable.list.List;
 
 public class DisabledUnspentTransactionOutputCache implements UnspentTransactionOutputCache {
+    public static final UnspentTransactionOutputCacheFactory FACTORY = new UnspentTransactionOutputCacheFactory() {
+        @Override
+        public UnspentTransactionOutputCache newUnspentTransactionOutputCache() {
+            return new DisabledUnspentTransactionOutputCache();
+        }
+    };
+
     final UtxoCount _maxUtxoCount = UtxoCount.wrap(0L);
 
     @Override

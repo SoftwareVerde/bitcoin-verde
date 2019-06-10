@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint;
 
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.api.ApiResult;
 import com.softwareverde.http.server.servlet.Servlet;
 import com.softwareverde.http.server.servlet.request.Request;
@@ -10,10 +10,10 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.servlet.session.SessionManager;
 
 public abstract class StratumApiEndpoint implements Servlet {
-    protected final Configuration.StratumProperties _stratumProperties;
+    protected final StratumProperties _stratumProperties;
     protected final SessionManager _sessionManager;
 
-    public StratumApiEndpoint(final Configuration.StratumProperties stratumProperties) {
+    public StratumApiEndpoint(final StratumProperties stratumProperties) {
         _stratumProperties = stratumProperties;
         _sessionManager = new SessionManager(_stratumProperties.getCookiesDirectory() + "/");
     }

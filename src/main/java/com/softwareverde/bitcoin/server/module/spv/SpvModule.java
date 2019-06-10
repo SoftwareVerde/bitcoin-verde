@@ -5,16 +5,15 @@ import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Configuration;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
+import com.softwareverde.bitcoin.server.configuration.SeedNodeProperties;
 import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
-import com.softwareverde.bitcoin.server.database.cache.utxo.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -87,7 +86,7 @@ public class SpvModule {
     protected final Object _initPin = new Object();
     protected Boolean _isInitialized = false;
 
-    protected final Configuration.SeedNodeProperties[] _seedNodes;
+    protected final SeedNodeProperties[] _seedNodes;
     protected final Environment _environment;
 
     protected final Wallet _wallet;
@@ -145,7 +144,7 @@ public class SpvModule {
     }
 
     protected void _connectToSeedNodes() {
-        for (final Configuration.SeedNodeProperties seedNodeProperties : _seedNodes) {
+        for (final SeedNodeProperties seedNodeProperties : _seedNodes) {
             try {
                 final String host = seedNodeProperties.getAddress();
                 final String ipAddressString;
@@ -301,7 +300,7 @@ public class SpvModule {
         _setStatus(Status.OFFLINE);
     }
 
-    public SpvModule(final Environment environment, final Configuration.SeedNodeProperties[] seedNodes, final Wallet wallet) {
+    public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
         _seedNodes = seedNodes;
         _wallet = wallet;
         final Integer maxPeerCount = 8; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
@@ -459,15 +458,6 @@ public class SpvModule {
             }
         });
 
-        { // Initialize the NativeUnspentTransactionOutputCache...
-            final boolean nativeCacheIsEnabled = NativeUnspentTransactionOutputCache.isEnabled();
-            if (nativeCacheIsEnabled) {
-                NativeUnspentTransactionOutputCache.init();
-            }
-            else {
-                Logger.log("NOTICE: NativeUtxoCache not enabled.");
-            }
-        }
         _setStatus(Status.LOADING);
 
         final MutableMedianBlockTime medianBlockHeaderTime;

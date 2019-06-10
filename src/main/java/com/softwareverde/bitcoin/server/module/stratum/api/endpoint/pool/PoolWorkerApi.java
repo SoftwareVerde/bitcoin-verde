@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool;
 
 import com.softwareverde.bitcoin.block.Block;
-import com.softwareverde.bitcoin.server.Configuration;
+import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiEndpoint;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumApiResult;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
@@ -15,7 +15,7 @@ import com.softwareverde.json.Json;
 public class PoolWorkerApi extends StratumApiEndpoint {
     protected final StratumDataHandler _stratumDataHandler;
 
-    public PoolWorkerApi(final Configuration.StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler) {
+    public PoolWorkerApi(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler) {
         super(stratumProperties);
         _stratumDataHandler = stratumDataHandler;
     }
