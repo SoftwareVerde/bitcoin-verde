@@ -46,11 +46,11 @@ dependencies {
     implementation  group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
 
     api             group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
-    implementation  group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
-    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
-    api             group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
-    implementation  group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
+    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.6'
+    api             group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4' // TODO: Remove dependency...
+    implementation  group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
+    implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.1'
 
     // Server
     serverImplementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
