@@ -72,12 +72,16 @@ dependencies {
 // }
 
 jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
     from (configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
         exclude 'META-INF/MANIFEST.MF'
         exclude 'META-INF/*.SF'
         exclude 'META-INF/*.DSA'
         exclude 'META-INF/*.RSA'
     }
+
+    from sourceSets.main.output
 }
 
 task makeFatJar(type: Jar) {
@@ -109,15 +113,6 @@ task makeLibJar(type: Jar) {
     }
 
     baseName = project.name + '-lib'
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude 'META-INF/MANIFEST.MF'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-    }
 
     from sourceSets.main.output
 
