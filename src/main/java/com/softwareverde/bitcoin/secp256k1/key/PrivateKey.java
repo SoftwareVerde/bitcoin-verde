@@ -93,4 +93,10 @@ public class PrivateKey extends ImmutableByteArray {
     public PrivateKey asConst() {
         return this;
     }
+
+    @Override
+    protected void finalize() throws Throwable {
+        ByteUtil.cleanByteArray(_bytes);
+        super.finalize();
+    }
 }
