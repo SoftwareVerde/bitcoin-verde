@@ -2,6 +2,7 @@ group 'com.softwareverde'
 version '1.1.1'
 
 apply plugin: 'java'
+apply plugin: 'java-library'
 
 sourceCompatibility = JavaVersion.VERSION_1_8
 
@@ -74,8 +75,8 @@ dependencies {
 task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
-                    'Implementation-Version': version,
-                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
+                'Implementation-Version': version,
+                'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
     }
 
     baseName = project.name + '-server-all'
@@ -96,7 +97,7 @@ task makeFatJar(type: Jar) {
 task makeLibJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Verde Library',
-                    'Implementation-Version': version
+                'Implementation-Version': version
     }
 
     baseName = project.name + '-lib'
@@ -118,9 +119,9 @@ task makeLibJar(type: Jar) {
 task makeJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
-                    'Implementation-Version': version,
-                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
-                    'Class-Path': project.configurations.serverCompileClasspath.collect { 'libs/' + it.getName() }.join(' ')
+                'Implementation-Version': version,
+                'Main-Class': 'com.softwareverde.bitcoin.server.main.Main',
+                'Class-Path': project.configurations.serverCompileClasspath.collect { 'libs/' + it.getName() }.join(' ')
     }
 
     baseName = project.name + '-server'
