@@ -42,14 +42,14 @@ dependencies {
     // Library
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
-    implementation group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
+    api group: 'org.bouncycastle',          name: 'bcprov-jdk15on',         version: '1.61'
 
-    implementation group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
-    implementation group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
-    implementation group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
-    implementation group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
-    implementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
-    implementation group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
+    api group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
+    api group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
+    api group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
+    api group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.0'
+    api group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
+    api group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.4'
 
     // Server
     serverImplementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
@@ -70,19 +70,6 @@ dependencies {
 //         failOnVersionConflict()
 //     }
 // }
-
-jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from (configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude 'META-INF/MANIFEST.MF'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-    }
-
-    from sourceSets.main.output
-}
 
 task makeFatJar(type: Jar) {
     manifest {
@@ -113,6 +100,15 @@ task makeLibJar(type: Jar) {
     }
 
     baseName = project.name + '-lib'
+
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude 'META-INF/MANIFEST.MF'
+        exclude 'META-INF/*.SF'
+        exclude 'META-INF/*.DSA'
+        exclude 'META-INF/*.RSA'
+    }
 
     from sourceSets.main.output
 
