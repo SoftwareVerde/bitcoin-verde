@@ -1,9 +1,11 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.Database;
+import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.*;
@@ -13,21 +15,20 @@ import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.account.work
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolHashRateApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolPrototypeBlockApi;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.pool.PoolWorkerApi;
+import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.module.stratum.rpc.StratumRpcServer;
 import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.database.DatabaseException;
 import com.softwareverde.http.server.HttpServer;
 import com.softwareverde.http.server.endpoint.Endpoint;
 import com.softwareverde.http.server.servlet.DirectoryServlet;
 import com.softwareverde.http.server.servlet.Servlet;
+import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.io.File;
 
 public class StratumModule {
-    protected void _printError(final String errorMessage) {
-        System.err.println(errorMessage);
-    }
-
     protected final SystemTime _systemTime = new SystemTime();
 
     protected final Environment _environment;
@@ -55,6 +56,25 @@ public class StratumModule {
         final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
 
         _stratumServer = new StratumServer(_stratumProperties, _stratumThreadPool, databaseConnectionFactory);
+        _stratumServer.setWorkerShareCallback(new StratumServer.WorkerShareCallback() {
+            @Override
+            public void onNewWorkerShare(final String workerUsername, final Integer shareDifficulty) {
+                try (final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
+                    final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
+                    final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
+                    if (workerId == null) {
+                        Logger.log("NOTICE: Unknown worker: " + workerUsername);
+                    }
+                    else {
+                        accountDatabaseManager.addWorkerShare(workerId, shareDifficulty);
+                        Logger.log("Added worker share: " + workerUsername + " " + shareDifficulty);
+                    }
+                }
+                catch (final DatabaseException databaseException) {
+                    Logger.log("NOTICE: Unable to add worker share.");
+                }
+            }
+        });
 
         final String tlsKeyFile = stratumProperties.getTlsKeyFile();
         final String tlsCertificateFile = stratumProperties.getTlsCertificateFile();

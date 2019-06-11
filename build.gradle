@@ -48,11 +48,11 @@ dependencies {
     api             group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
     api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.6'
-    api             group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4' // TODO: Remove dependency...
     implementation  group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
     implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.1'
 
     // Server
+    serverImplementation group: 'com.github.softwareverde',  name: 'http-servlet',           version: 'v3.0.4'
     serverImplementation group: 'com.github.softwareverde',  name: 'java-db-mysql-embedded', version: 'v1.0.1'
 
     serverImplementation group: 'org.jocl',                  name: 'jocl',                   version: '2.0.1'

@@ -9,15 +9,12 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
-import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
-import com.softwareverde.bitcoin.server.module.stratum.database.AccountDatabaseManager;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -33,7 +30,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
-import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.network.socket.JsonProtocolMessage;
@@ -52,6 +48,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class StratumServer {
+    public interface WorkerShareCallback {
+        void onNewWorkerShare(String workerUsername, Integer shareDifficulty);
+    }
+
     protected static final Boolean PROXY_VIABTC = false;
 
     protected final StratumProperties _stratumProperties;
@@ -77,17 +77,19 @@ public class StratumServer {
     protected MilliTimer _lastTransactionQueueProcessTimer = new MilliTimer();
     protected final ConcurrentLinkedQueue<TransactionWithFee> _queuedTransactions = new ConcurrentLinkedQueue<TransactionWithFee>();
 
-    protected Integer _shareDifficulty = 2048;
+    protected final Integer _shareDifficulty = 2048;
 
     protected Boolean _validatePrototypeBlockBeforeMining = true;
 
-    protected Thread _rebuildTaskThread;
+    protected final Thread _rebuildTaskThread;
 
     protected final Long _startTime = _systemTime.getCurrentTimeInSeconds();
     protected Long _currentBlockStartTime = _systemTime.getCurrentTimeInSeconds();
-    protected AtomicLong _shareCount = new AtomicLong(0L);
+    protected final AtomicLong _shareCount = new AtomicLong(0L);
 
     protected final ConcurrentLinkedQueue<JsonSocket> _connections = new ConcurrentLinkedQueue<JsonSocket>();
+
+    protected WorkerShareCallback _workerShareCallback;
 
     protected void _broadcastNewTask(final Boolean abandonOldJobs) {
         final Iterator<JsonSocket> iterator = _connections.iterator();
@@ -442,19 +444,14 @@ public class StratumServer {
         if (submissionWasAccepted) {
             _shareCount.incrementAndGet();
 
-            try (final DatabaseConnection databaseConnection = _databaseConnectionPool.newConnection()) {
-                final AccountDatabaseManager accountDatabaseManager = new AccountDatabaseManager(databaseConnection);
-                final WorkerId workerId = accountDatabaseManager.getWorkerId(workerUsername);
-                if (workerId == null) {
-                    Logger.log("NOTICE: Unknown worker: " + workerUsername);
-                }
-                else {
-                    accountDatabaseManager.addWorkerShare(workerId, _shareDifficulty);
-                    Logger.log("Added worker share: " + workerUsername + " " + _shareDifficulty);
-                }
-            }
-            catch (final DatabaseException databaseException) {
-                Logger.log("NOTICE: Unable to add worker share.");
+            final WorkerShareCallback workerShareCallback = _workerShareCallback;
+            if (workerShareCallback != null) {
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        workerShareCallback.onNewWorkerShare(workerUsername, _shareDifficulty);
+                    }
+                });
             }
         }
 
@@ -663,4 +660,8 @@ public class StratumServer {
     }
 
     public Long getCurrentBlockStartTimeInSeconds() { return _currentBlockStartTime; }
+
+    public void setWorkerShareCallback(final WorkerShareCallback workerShareCallback) {
+        _workerShareCallback = workerShareCallback;
+    }
 }
