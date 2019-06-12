@@ -70,6 +70,10 @@ public class SpvModule {
         void onMerkleBlockHeightUpdated(Long currentBlockHeight, Boolean isSynchronizing);
     }
 
+    public interface NewTransactionCallback {
+        void onNewTransactionReceived(Transaction transaction);
+    }
+
     public enum Status {
         INITIALIZING        ("Initializing"),
         LOADING             ("Loading"),
@@ -115,7 +119,7 @@ public class SpvModule {
 
     protected volatile Status _status = Status.OFFLINE;
     protected Runnable _onStatusUpdatedCallback = null;
-    protected Runnable _newTransactionCallback = null;
+    protected NewTransactionCallback _newTransactionCallback = null;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
 
@@ -390,9 +394,16 @@ public class SpvModule {
                     _wallet.addTransaction(transaction);
                 }
 
-                final Runnable newTransactionCallback = _newTransactionCallback;
+                final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
                 if (newTransactionCallback != null) {
-                    _mainThreadPool.execute(newTransactionCallback);
+                    _mainThreadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            for (final Transaction transaction : transactions) {
+                                newTransactionCallback.onNewTransactionReceived(transaction);
+                            }
+                        }
+                    });
                 }
 
                 return true;
@@ -519,9 +530,14 @@ public class SpvModule {
 
                         _wallet.addTransaction(transaction);
 
-                        final Runnable newTransactionCallback = _newTransactionCallback;
+                        final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
                         if (newTransactionCallback != null) {
-                            _mainThreadPool.execute(newTransactionCallback);
+                            _mainThreadPool.execute(new Runnable() {
+                                @Override
+                                public void run() {
+                                    newTransactionCallback.onNewTransactionReceived(transaction);
+                                }
+                            });
                         }
                     }
                 };
@@ -731,8 +747,8 @@ public class SpvModule {
         _onStatusUpdatedCallback = callback;
     }
 
-    public void setNewTransactionCallback(final Runnable callback) {
-        _newTransactionCallback = callback;
+    public void setNewTransactionCallback(final NewTransactionCallback newTransactionCallback) {
+        _newTransactionCallback = newTransactionCallback;
     }
 
     public Status getStatus() {
