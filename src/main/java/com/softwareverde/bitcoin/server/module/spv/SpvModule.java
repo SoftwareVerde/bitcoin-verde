@@ -31,6 +31,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
+import com.softwareverde.bitcoin.server.module.spv.handler.SpvBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -611,14 +612,7 @@ public class SpvModule {
             nodeInitializerProperties.requestDataCallback = _spvRequestDataHandler;
             nodeInitializerProperties.requestPeersHandler = requestPeersHandler;
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = null;
-            nodeInitializerProperties.spvBlockInventoryMessageCallback = new BitcoinNode.SpvBlockInventoryMessageCallback() {
-                @Override
-                public void onResult(final List<Sha256Hash> blockHashes) {
-                    for (final Sha256Hash hash : blockHashes) {
-                        _bitcoinNodeManager.requestMerkleBlock(hash, _onMerkleBlockDownloaded);
-                    }
-                }
-            };
+            nodeInitializerProperties.spvBlockInventoryMessageCallback = new SpvBlockDownloader(databaseManagerFactory, _bitcoinNodeManager);
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override

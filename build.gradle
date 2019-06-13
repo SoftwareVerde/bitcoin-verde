@@ -75,8 +75,8 @@ dependencies {
 task makeFatJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Server',
-                'Implementation-Version': version,
-                'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
+                    'Implementation-Version': version,
+                    'Main-Class': 'com.softwareverde.bitcoin.server.main.Main'
     }
 
     baseName = project.name + '-server-all'
@@ -97,21 +97,12 @@ task makeFatJar(type: Jar) {
 task makeLibJar(type: Jar) {
     manifest {
         attributes  'Implementation-Title': 'Bitcoin Verde Library',
-                'Implementation-Version': version
+                    'Implementation-Version': version
     }
 
     baseName = project.name + '-lib'
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    from (project.configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude 'META-INF/MANIFEST.MF'
-        exclude 'META-INF/*.SF'
-        exclude 'META-INF/*.DSA'
-        exclude 'META-INF/*.RSA'
-    }
-
-    from sourceSets.main.output
 
     with jar
 }

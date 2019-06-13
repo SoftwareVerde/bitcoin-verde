@@ -211,7 +211,7 @@ public class Wallet {
     protected void _addTransaction(final Transaction transaction) {
         final Transaction constTransaction = transaction.asConst();
         final Sha256Hash transactionHash = constTransaction.getHash();
-        _transactions.put(transactionHash.asConst(), constTransaction);
+        _transactions.put(transactionHash, constTransaction);
 
         // Mark outputs as spent, if any...
         for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
@@ -896,5 +896,14 @@ public class Wallet {
 
     public synchronized Boolean hasPrivateKeys() {
         return (! _privateKeys.isEmpty());
+    }
+
+    public synchronized Address getReceivingAddress() {
+        final AddressInflater addressInflater = new AddressInflater();
+        for (final PublicKey publicKey : _privateKeys.keySet()) {
+            return addressInflater.compressedFromPublicKey(publicKey);
+        }
+
+        return null;
     }
 }
