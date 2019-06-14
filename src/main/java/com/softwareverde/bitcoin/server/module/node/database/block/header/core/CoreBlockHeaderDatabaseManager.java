@@ -31,6 +31,8 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
 
+import java.util.HashMap;
+
 public class CoreBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
 
     /**
@@ -658,6 +660,34 @@ public class CoreBlockHeaderDatabaseManager implements BlockHeaderDatabaseManage
     @Override
     public Sha256Hash getBlockHash(final BlockId blockId) throws DatabaseException {
         return _getBlockHash(blockId);
+    }
+
+    /**
+     * Returns a list of Block hashes for the provided list of BlockIds.
+     *  The order of the Block hashes corresponds to order within blockIds.
+     *  If a Block hash could not be found then the item is set to null within the returned list.
+     *  blockIds does not need to be sorted, and may be in any order.
+     */
+    @Override
+    public List<Sha256Hash> getBlockHashes(final List<BlockId> blockIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, hash FROM blocks WHERE id IN (" + DatabaseUtil.createInClause(blockIds) + ")")
+        );
+
+        final HashMap<BlockId, Sha256Hash> hashesMap = new HashMap<BlockId, Sha256Hash>(rows.size());
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+            final Sha256Hash blockHash = Sha256Hash.fromHexString(row.getString("hash"));
+
+            hashesMap.put(blockId, blockHash);
+        }
+
+        final MutableList<Sha256Hash> blockHashes = new MutableList<Sha256Hash>(blockIds.getSize());
+        for (final BlockId blockId : blockIds) {
+            blockHashes.add(hashesMap.get(blockId));
+        }
+        return blockHashes;
     }
 
     /**

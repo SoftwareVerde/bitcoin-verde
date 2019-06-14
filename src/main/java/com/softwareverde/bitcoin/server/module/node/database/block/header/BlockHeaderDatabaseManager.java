@@ -34,6 +34,7 @@ public interface BlockHeaderDatabaseManager {
     BlockId getChildBlockId(BlockchainSegmentId blockchainSegmentId, BlockId previousBlockId) throws DatabaseException;
     Boolean isBlockConnectedToChain(BlockId blockId, BlockchainSegmentId blockchainSegmentId, BlockRelationship blockRelationship) throws DatabaseException;
     Sha256Hash getBlockHash(BlockId blockId) throws DatabaseException;
+    List<Sha256Hash> getBlockHashes(List<BlockId> blockIds) throws DatabaseException;
     BlockId getAncestorBlockId(BlockId blockId, Integer parentCount) throws DatabaseException;
     MutableMedianBlockTime initializeMedianBlockTime() throws DatabaseException;
     MutableMedianBlockTime initializeMedianBlockHeaderTime() throws DatabaseException;

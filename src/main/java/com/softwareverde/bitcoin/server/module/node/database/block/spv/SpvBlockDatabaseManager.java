@@ -37,6 +37,29 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
         return row.getLong("id");
     }
 
+    protected List<BlockId> _selectNextIncompleteBlocks(final Long minBlockHeight, final Integer maxBlockCount) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+
+        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
+        final BlockchainSegment blockchainSegment = blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId);
+        if (blockchainSegment == null) { return null; }
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN blockchain_segments ON blockchain_segments.id = blocks.blockchain_segment_id WHERE blockchain_segments.nested_set_left <= ? AND blockchain_segments.nested_set_right >= ? AND NOT EXISTS (SELECT * FROM block_merkle_trees WHERE block_merkle_trees.block_id = blocks.id) AND blocks.block_height >= ? ORDER BY blocks.chain_work ASC LIMIT " + maxBlockCount)
+                .setParameter(blockchainSegment.nestedSetLeft)
+                .setParameter(blockchainSegment.nestedSetRight)
+                .setParameter(Util.coalesce(minBlockHeight))
+        );
+
+        final MutableList<BlockId> blockIds = new MutableList<BlockId>(rows.size());
+        for (final Row row : rows) {
+            final BlockId blockId = BlockId.wrap(row.getLong("id"));
+            blockIds.add(blockId);
+        }
+        return blockIds;
+    }
+
     public SpvBlockDatabaseManager(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
@@ -55,23 +78,14 @@ public class SpvBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     public BlockId selectNextIncompleteBlock(final Long minBlockHeight) throws DatabaseException {
-        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final BlockchainDatabaseManager blockchainDatabaseManager = _databaseManager.getBlockchainDatabaseManager();
+        final List<BlockId> nextIncompleteBlockIds = _selectNextIncompleteBlocks(minBlockHeight, 1);
+        if (nextIncompleteBlockIds.isEmpty()) { return null; }
 
-        final BlockchainSegmentId blockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
-        final BlockchainSegment blockchainSegment = blockchainDatabaseManager.getBlockchainSegment(blockchainSegmentId);
-        if (blockchainSegment == null) { return null; }
+        return nextIncompleteBlockIds.get(0);
+    }
 
-        final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT blocks.id, blocks.hash FROM blocks INNER JOIN blockchain_segments ON blockchain_segments.id = blocks.blockchain_segment_id WHERE blockchain_segments.nested_set_left <= ? AND blockchain_segments.nested_set_right >= ? AND NOT EXISTS (SELECT * FROM block_merkle_trees WHERE block_merkle_trees.block_id = blocks.id) AND blocks.block_height >= ? ORDER BY blocks.chain_work ASC LIMIT 1")
-                .setParameter(blockchainSegment.nestedSetLeft)
-                .setParameter(blockchainSegment.nestedSetRight)
-                .setParameter(Util.coalesce(minBlockHeight))
-        );
-        if (rows.isEmpty()) { return null; }
-
-        final Row row = rows.get(0);
-        return BlockId.wrap(row.getLong("id"));
+    public List<BlockId> selectNextIncompleteBlocks(final Long minBlockHeight, final Integer maxBlockCount) throws DatabaseException {
+        return _selectNextIncompleteBlocks(minBlockHeight, maxBlockCount);
     }
 
     @Override

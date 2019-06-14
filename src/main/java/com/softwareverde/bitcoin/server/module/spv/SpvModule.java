@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.MerkleBlock;
-import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Environment;
@@ -31,7 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BanFilter;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockHeaderDownloader;
-import com.softwareverde.bitcoin.server.module.spv.handler.SpvBlockDownloader;
+import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader;
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
@@ -53,20 +51,12 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Util;
+import com.softwareverde.util.Callback;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.net.InetAddress;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class SpvModule {
-    protected interface DownloadMerkleBlockCallback extends BitcoinNodeManager.DownloadMerkleBlockCallback {
-        Boolean run(BitcoinNode.MerkleBlockParameters merkleBlockParameters);
-        Boolean onFailed(Sha256Hash merkleBlockHash);
-    }
-
     public interface MerkleBlockSyncUpdateCallback {
         void onMerkleBlockHeightUpdated(Long currentBlockHeight, Boolean isSynchronizing);
     }
@@ -109,12 +99,9 @@ public class SpvModule {
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final MainThreadPool _mainThreadPool;
     protected final BanFilter _banFilter;
+    protected MerkleBlockDownloader _merkleBlockDownloader;
 
     protected NodeInitializer _nodeInitializer;
-
-    protected final AtomicBoolean _merkleBlockSyncHasCompleted = new AtomicBoolean(false); // Is true if the MerkleBlock synchronization process has been run and completed successfully.
-    protected final AtomicBoolean _isSynchronizingMerkleBlocks = new AtomicBoolean(false);
-    protected final DownloadMerkleBlockCallback _onMerkleBlockDownloaded;
 
     protected Long _minimumMerkleBlockHeight = 575000L;
 
@@ -205,7 +192,9 @@ public class SpvModule {
 
                         blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
                     }
-                    merkleBlockSyncUpdateCallback.onMerkleBlockHeightUpdated(blockHeight, _isSynchronizingMerkleBlocks.get());
+
+                    final Boolean isSynchronizingMerkleBlocks = _merkleBlockDownloader.isRunning();
+                    merkleBlockSyncUpdateCallback.onMerkleBlockHeightUpdated(blockHeight, isSynchronizingMerkleBlocks);
                 }
                 catch (final DatabaseException exception) {
                     Logger.log(exception);
@@ -220,69 +209,7 @@ public class SpvModule {
             Logger.log(new Exception());
         }
 
-        if (_isSynchronizingMerkleBlocks.getAndSet(true)) { return; }
-
-        final Boolean synchronizationContinues = _synchronizeNextMerkleBlock();
-        if (! synchronizationContinues) {
-            _isSynchronizingMerkleBlocks.set(false);
-        }
-    }
-
-    protected Boolean _synchronizeNextMerkleBlock() {
-        final Database database = _environment.getDatabase();
-        try (final DatabaseConnection databaseConnection = database.newConnection()) {
-            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
-            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-
-            final BlockId nextBlockId = blockDatabaseManager.selectNextIncompleteBlock(_minimumMerkleBlockHeight);
-            if (nextBlockId == null) {
-                _merkleBlockSyncHasCompleted.set(true);
-                _currentMerkleBlockHash = null;
-                return false;
-            }
-
-            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(nextBlockId);
-            _currentMerkleBlockHash = blockHash;
-
-            _bitcoinNodeManager.requestMerkleBlock(blockHash, new BitcoinNodeManager.DownloadMerkleBlockCallback() {
-                @Override
-                public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
-                    final Boolean wasSuccess = _onMerkleBlockDownloaded.run(merkleBlockParameters);
-                    if (! wasSuccess) {
-                        _isSynchronizingMerkleBlocks.set(false);
-                        _executeMerkleBlockSyncUpdateCallback();
-                        return;
-                    }
-
-                    final Boolean synchronizationContinues = _synchronizeNextMerkleBlock();
-                    if (! synchronizationContinues) {
-                        _isSynchronizingMerkleBlocks.set(false);
-                        _executeMerkleBlockSyncUpdateCallback();
-                        return;
-                    }
-
-                    _executeMerkleBlockSyncUpdateCallback();
-                }
-
-                @Override
-                public void onFailure(final Sha256Hash blockHash) {
-                    final Boolean didFail = _onMerkleBlockDownloaded.onFailed(blockHash);
-
-                    if (didFail) {
-                        _isSynchronizingMerkleBlocks.set(false);
-                        _executeMerkleBlockSyncUpdateCallback();
-                    }
-                }
-            });
-
-            return true;
-        }
-        catch (final DatabaseException exception) {
-            _isSynchronizingMerkleBlocks.set(false);
-            exception.printStackTrace(System.err);
-            return false;
-        }
+        _merkleBlockDownloader.wakeUp();
     }
 
     protected void _shutdown() {
@@ -328,125 +255,6 @@ public class SpvModule {
         _databaseConnectionFactory = database.newConnectionFactory();
         _databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
         _banFilter = new BanFilter(_databaseManagerFactory);
-
-        _onMerkleBlockDownloaded = new DownloadMerkleBlockCallback() {
-            private final ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>> _failedDownloadTimes = new ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>>();
-
-            @Override
-            public Boolean run(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
-                if (merkleBlockParameters == null) { return false; }
-
-                final MerkleBlock merkleBlock = merkleBlockParameters.getMerkleBlock();
-                if (merkleBlock == null) { return false; }
-
-                final PartialMerkleTree partialMerkleTree = merkleBlock.getPartialMerkleTree();
-                if (partialMerkleTree == null) { return false; }
-
-                final List<Transaction> transactions = merkleBlockParameters.getTransactions();
-                if (transactions == null) { return false; }
-
-                if (! merkleBlock.isValid()) {
-                    Logger.log("Invalid MerkleBlock received. Discarding. " + merkleBlock.getHash());
-                    return false;
-                }
-
-                for (final Transaction transaction : transactions) {
-                    final Sha256Hash transactionHash = transaction.getHash();
-                    if (! merkleBlock.containsTransaction(transactionHash)) {
-                        Logger.log("MerkleBlock did not contain transaction. Block: " + merkleBlock.getHash() + " Tx: " + transactionHash);
-                        return false;
-                    }
-                }
-
-                final Database database = _environment.getDatabase();
-                try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                    TransactionUtil.startTransaction(databaseConnection);
-                    final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
-                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                    final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-                    final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-                    final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
-                    if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
-                        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
-                        if (previousBlockId == null) {
-                            Logger.log("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
-                            return false;
-                        }
-                    }
-
-                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
-                        final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(merkleBlock);
-                        blockDatabaseManager.storePartialMerkleTree(blockId, partialMerkleTree);
-
-                        for (final Transaction transaction : transactions) {
-                            final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
-                            blockDatabaseManager.addTransactionToBlock(blockId, transactionId);
-                        }
-                    }
-                    TransactionUtil.commitTransaction(databaseConnection);
-                }
-                catch (final DatabaseException exception) {
-                    Logger.log(exception);
-                    return false;
-                }
-
-                for (final Transaction transaction : transactions) {
-                    _wallet.addTransaction(transaction);
-                }
-
-                final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
-                if (newTransactionCallback != null) {
-                    _mainThreadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            for (final Transaction transaction : transactions) {
-                                newTransactionCallback.onNewTransactionReceived(transaction);
-                            }
-                        }
-                    });
-                }
-
-                return true;
-            }
-
-            @Override
-            public synchronized Boolean onFailed(final Sha256Hash merkleBlockHash) {
-                final Long now = _systemTime.getCurrentTimeInMilliSeconds();
-                ConcurrentLinkedDeque<Long> failedDownloadTimestamps = _failedDownloadTimes.get(merkleBlockHash);
-                if (failedDownloadTimestamps == null) {
-                    failedDownloadTimestamps = new ConcurrentLinkedDeque<Long>();
-                    _failedDownloadTimes.put(merkleBlockHash, failedDownloadTimestamps);
-                }
-                failedDownloadTimestamps.add(now);
-
-                int recentFailureCount = 0;
-                if (failedDownloadTimestamps.size() > 3) {
-                    for (final Long failedTimestamp : failedDownloadTimestamps) {
-                        if (now - failedTimestamp > 30000L) {
-                            recentFailureCount += 1;
-                        }
-                    }
-                }
-
-                if (recentFailureCount < 3) {
-                    _bitcoinNodeManager.requestMerkleBlock(merkleBlockHash, this);
-                    return false;
-                }
-
-                return true;
-            }
-
-            @Override
-            public void onResult(final BitcoinNode.MerkleBlockParameters merkleBlockParameters) {
-                this.run(merkleBlockParameters);
-            }
-
-            @Override
-            public void onFailure(final Sha256Hash merkleBlockHash) {
-                this.onFailed(merkleBlockHash);
-            }
-        };
     }
 
     public Boolean isInitialized() {
@@ -499,7 +307,41 @@ public class SpvModule {
             }
         };
 
-        final DatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
+        final SpvDatabaseManagerFactory databaseManagerFactory = new SpvDatabaseManagerFactory(_databaseConnectionFactory, _readOnlyDatabaseManagerCache);
+
+        _merkleBlockDownloader = new MerkleBlockDownloader(databaseManagerFactory, new MerkleBlockDownloader.Downloader() {
+            @Override
+            public void requestMerkleBlock(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback callback) {
+                _bitcoinNodeManager.requestMerkleBlock(blockHash, callback);
+            }
+        });
+        _merkleBlockDownloader.setMinimumMerkleBlockHeight(_minimumMerkleBlockHeight);
+        _merkleBlockDownloader.setNewTransactionsCallback(new Callback<List<Transaction>>() {
+            @Override
+            public void call(final List<Transaction> transactions) {
+                for (final Transaction transaction : transactions) {
+                    _wallet.addTransaction(transaction);
+                }
+
+                final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
+                if (newTransactionCallback != null) {
+                    _mainThreadPool.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            for (final Transaction transaction : transactions) {
+                                newTransactionCallback.onNewTransactionReceived(transaction);
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        _merkleBlockDownloader.setMerkleBlockProcessedCallback(new Runnable() {
+            @Override
+            public void run() {
+                _executeMerkleBlockSyncUpdateCallback();
+            }
+        });
 
         final LocalNodeFeatures localNodeFeatures = new LocalNodeFeatures() {
             @Override
@@ -599,9 +441,7 @@ public class SpvModule {
                 @Override
                 public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
                     // Only restart the synchronization process if it has already successfully completed.
-                    if (_merkleBlockSyncHasCompleted.get()) {
-                        _synchronizeMerkleBlocks();
-                    }
+                    _merkleBlockDownloader.wakeUp();
                 }
             };
             nodeInitializerProperties.threadPoolFactory = threadPoolFactory;
@@ -612,12 +452,7 @@ public class SpvModule {
             nodeInitializerProperties.requestDataCallback = _spvRequestDataHandler;
             nodeInitializerProperties.requestPeersHandler = requestPeersHandler;
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = null;
-            nodeInitializerProperties.spvBlockInventoryMessageCallback = new SpvBlockDownloader(databaseManagerFactory, new SpvBlockDownloader.MerkleBlockDownloader() {
-                @Override
-                public void requestMerkleBlock(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback callback) {
-                    _bitcoinNodeManager.requestMerkleBlock(blockHash, callback);
-                }
-            });
+            nodeInitializerProperties.spvBlockInventoryMessageCallback = _merkleBlockDownloader;
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override
@@ -791,5 +626,6 @@ public class SpvModule {
      */
     public void setMinimumMerkleBlockHeight(final Long minimumMerkleBlockHeight) {
         _minimumMerkleBlockHeight = minimumMerkleBlockHeight;
+        _merkleBlockDownloader.setMinimumMerkleBlockHeight(minimumMerkleBlockHeight);
     }
 }
