@@ -636,6 +636,16 @@ public class CoreBlockHeaderDatabaseManager implements BlockHeaderDatabaseManage
         return _getChildBlockId(blockchainSegmentId, previousBlockId);
     }
 
+    @Override
+    public Boolean hasChildBlock(final BlockId blockId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id FROM blocks WHERE previous_block_id = ? LIMIT 1")
+                .setParameter(blockId)
+        );
+        return (! rows.isEmpty());
+    }
+
     /**
      *
      *     E         E'

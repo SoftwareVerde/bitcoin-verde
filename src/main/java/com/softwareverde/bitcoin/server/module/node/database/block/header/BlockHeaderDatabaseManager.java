@@ -32,6 +32,7 @@ public interface BlockHeaderDatabaseManager {
     Long getBlockHeight(BlockId blockId) throws DatabaseException;
     Long getBlockTimestamp(BlockId blockId) throws DatabaseException;
     BlockId getChildBlockId(BlockchainSegmentId blockchainSegmentId, BlockId previousBlockId) throws DatabaseException;
+    Boolean hasChildBlock(BlockId blockId) throws DatabaseException;
     Boolean isBlockConnectedToChain(BlockId blockId, BlockchainSegmentId blockchainSegmentId, BlockRelationship blockRelationship) throws DatabaseException;
     Sha256Hash getBlockHash(BlockId blockId) throws DatabaseException;
     List<Sha256Hash> getBlockHashes(List<BlockId> blockIds) throws DatabaseException;

@@ -145,6 +145,74 @@ public class BlockHeaderDownloader extends SleepyService {
         return true;
     }
 
+    protected Boolean _validateAndStoreBlockHeaders(final List<BlockHeader> blockHeaders, final DatabaseManager databaseManager) throws DatabaseException {
+        if (blockHeaders.isEmpty()) { return true; }
+
+        final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+        final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+        synchronized (BlockHeaderDatabaseManager.MUTEX) {
+            { // Validate blockHeaders are sequential...
+                final BlockHeader firstBlockHeader = blockHeaders.get(0);
+                if (! firstBlockHeader.isValid()) { return false; }
+
+                final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(firstBlockHeader.getPreviousBlockHash());
+                final Boolean previousBlockExists = (previousBlockId != null);
+                if (! previousBlockExists) {
+                    final Boolean isGenesisBlock = Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, firstBlockHeader.getHash());
+                    if (! isGenesisBlock) { return false; }
+                }
+                else {
+                    final Boolean hasChildren = blockHeaderDatabaseManager.hasChildBlock(previousBlockId);
+                    if (hasChildren) {
+                        // BlockHeaders cannot be batched due to potential forks...
+                        for (final BlockHeader blockHeader : blockHeaders) {
+                            final Boolean isValid = _validateAndStoreBlockHeader(blockHeader, databaseManager);
+                            if (! isValid) { return false; }
+                        }
+                        return true;
+                    }
+                }
+                Sha256Hash previousBlockHash = firstBlockHeader.getPreviousBlockHash();
+                for (final BlockHeader blockHeader : blockHeaders) {
+                    if (! blockHeader.isValid()) { return false; }
+                    if (! Util.areEqual(previousBlockHash, blockHeader.getPreviousBlockHash())) {
+                        return false;
+                    }
+                    previousBlockHash = blockHeader.getHash();
+                }
+            }
+
+            final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
+
+            TransactionUtil.startTransaction(databaseConnection);
+            final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
+            if (blockIds == null) {
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
+            }
+
+            for (final BlockHeader blockHeader : blockHeaders) {
+                final Sha256Hash blockHash = blockHeader.getHash();
+
+                final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeader(blockHeader);
+                if (!blockHeaderValidationResponse.isValid) {
+                    Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
+                    TransactionUtil.rollbackTransaction(databaseConnection);
+                    return false;
+                }
+            }
+
+            final BlockId lastBlockId = blockIds.get(blockIds.getSize() - 1);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(lastBlockId);
+            _blockHeight = Math.max(blockHeight, _blockHeight);
+
+            TransactionUtil.commitTransaction(databaseConnection);
+
+            return true;
+        }
+    }
+
     protected void _processBlockHeaders(final List<BlockHeader> blockHeaders) {
         final MilliTimer storeHeadersTimer = new MilliTimer();
         storeHeadersTimer.start();
