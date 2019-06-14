@@ -14,7 +14,6 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.block.QueryBlocksMessage;
-import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.server.module.node.MemoryPoolEnquirer;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
@@ -24,6 +23,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.pending.Pendi
 import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.sync.BlockFinderHashesBuilder;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
@@ -174,6 +174,8 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
                 pollForReconnectionThread.interrupt();
             }
         }
+
+        bitcoinNode.ping(null);
 
         final BloomFilter bloomFilter = _bloomFilter;
         if (bloomFilter != null) {

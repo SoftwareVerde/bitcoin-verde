@@ -575,7 +575,7 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _pingIdleNodes() {
-        final Long maxIdleTime = 30000L;
+        final Long maxIdleTime = 5L * 60000L; // 5 Minutes.
 
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
 
