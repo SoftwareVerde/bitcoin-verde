@@ -612,7 +612,12 @@ public class SpvModule {
             nodeInitializerProperties.requestDataCallback = _spvRequestDataHandler;
             nodeInitializerProperties.requestPeersHandler = requestPeersHandler;
             nodeInitializerProperties.queryUnconfirmedTransactionsCallback = null;
-            nodeInitializerProperties.spvBlockInventoryMessageCallback = new SpvBlockDownloader(databaseManagerFactory, _bitcoinNodeManager);
+            nodeInitializerProperties.spvBlockInventoryMessageCallback = new SpvBlockDownloader(databaseManagerFactory, new SpvBlockDownloader.MerkleBlockDownloader() {
+                @Override
+                public void requestMerkleBlock(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback callback) {
+                    _bitcoinNodeManager.requestMerkleBlock(blockHash, callback);
+                }
+            });
 
             nodeInitializerProperties.requestPeersHandler = new BitcoinNode.RequestPeersHandler() {
                 @Override

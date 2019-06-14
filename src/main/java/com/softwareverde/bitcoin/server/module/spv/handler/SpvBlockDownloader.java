@@ -18,8 +18,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *  Failed blocks are not retried.
  */
 public class SpvBlockDownloader implements BitcoinNode.SpvBlockInventoryMessageCallback {
+    public interface MerkleBlockDownloader {
+        void requestMerkleBlock(Sha256Hash blockHash, BitcoinNodeManager.DownloadMerkleBlockCallback callback);
+    }
+
     protected final DatabaseManagerFactory _databaseManagerFactory;
-    protected final BitcoinNodeManager _bitcoinNodeManager;
+    protected final MerkleBlockDownloader _merkleBlockDownloader;
     protected final ConcurrentLinkedQueue<Sha256Hash> _queuedBlockHashes = new ConcurrentLinkedQueue<Sha256Hash>();
     protected final AtomicBoolean _blockIsInFlight = new AtomicBoolean(false);
 
@@ -46,7 +50,7 @@ public class SpvBlockDownloader implements BitcoinNode.SpvBlockInventoryMessageC
                 if (blockHash == null) { break; }
 
                 if (! blockDatabaseManager.hasTransactions(blockHash)) {
-                    _bitcoinNodeManager.requestMerkleBlock(blockHash, _onMerkleBlockDownloaded);
+                    _merkleBlockDownloader.requestMerkleBlock(blockHash, _onMerkleBlockDownloaded);
                     return;
                 }
             }
@@ -59,9 +63,9 @@ public class SpvBlockDownloader implements BitcoinNode.SpvBlockInventoryMessageC
         _blockIsInFlight.set(false);
     }
 
-    public SpvBlockDownloader(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager bitcoinNodeManager) {
+    public SpvBlockDownloader(final DatabaseManagerFactory databaseManagerFactory, final MerkleBlockDownloader merkleBlockDownloader) {
         _databaseManagerFactory = databaseManagerFactory;
-        _bitcoinNodeManager = bitcoinNodeManager;
+        _merkleBlockDownloader = merkleBlockDownloader;
     }
 
     @Override
