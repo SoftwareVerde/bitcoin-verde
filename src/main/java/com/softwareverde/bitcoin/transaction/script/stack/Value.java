@@ -10,12 +10,69 @@ import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.StringUtil;
 
 public class Value extends ImmutableByteArray implements Const {
     public static Integer MAX_BYTE_COUNT = 520; // https://en.bitcoin.it/wiki/Script#Arithmetic
     public static final Value ZERO = Value.fromInteger(0L);
+
+    /**
+     * Returns a new copy of littleEndianBytes as if it were a minimally encoded integer (despite being too long for a normal integer).
+     *  This function should be identical to Value::_longToBytes for byteArrays of 4 bytes or less...
+     */
+    public static Value minimallyEncodeBytes(final ByteArray littleEndianBytes) {
+        if (littleEndianBytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
+        if (littleEndianBytes.isEmpty()) { return ZERO; }
+
+        final ByteArray bytes = MutableByteArray.wrap(ByteUtil.reverseEndian(littleEndianBytes.getBytes()));
+
+        // If the first byte is not 0x00 or 0x80, then bytes is minimally encoded...
+        final byte signByte = bytes.getByte(0);
+        if ( (signByte != 0x00) && (signByte != (byte) 0x80) ) {
+            return Value.fromBytes(littleEndianBytes);
+        }
+
+        // If bytes is one exactly byte, then the value is zero, which is encoded as an empty array...
+        if (bytes.getByteCount() == 1) { return ZERO; }
+
+        // If the next byte has its sign bit set, then it is minimally encoded...
+        final byte secondByte = bytes.getByte(1);
+        if ( (secondByte & 0x80) != 0x00 ) {
+            return Value.fromBytes(littleEndianBytes);
+        }
+
+        // Otherwise, bytes was not minimally encoded...
+        for (int i = 1; i < bytes.getByteCount(); ++i) {
+            final byte b = bytes.getByte(i);
+
+            // Start encoding after the first non-zero byte...
+            if (b != 0x00) {
+                final int copiedByteCount = (bytes.getByteCount() - i);
+                final byte[] copiedBytes = bytes.getBytes(i, copiedByteCount);
+                final MutableByteArray byteArray;
+
+                final boolean signBitIsSet = ( (b & 0x80) != 0x00 );
+                if (signBitIsSet) {
+                    // The sign-bit is set, so the returned value must have an extra byte...
+                    byteArray = new MutableByteArray( copiedByteCount + 1);
+                    ByteUtil.setBytes(byteArray.unwrap(), copiedBytes, 1);
+                    byteArray.set(0, signByte);
+                }
+                else {
+                    // The sign bit isn't set, so the returned value can just set the signed bit...
+                    byteArray = MutableByteArray.wrap(copiedBytes);
+                    byteArray.set(0, (byte) (byteArray.getByte(0) | signByte));
+                }
+
+                return Value.fromBytes(ByteUtil.reverseEndian(byteArray.unwrap()));
+            }
+        }
+
+        // All of the values within bytes were zero...
+        return ZERO;
+    }
 
     // NOTE: Bitcoin uses "MPI" encoding for its numeric values on the stack.
     //  This fact and/or a specification for how MPI is encoded is not on the wiki (...of course).
