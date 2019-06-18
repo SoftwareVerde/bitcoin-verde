@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContex
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.util.ByteUtil;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 
@@ -123,7 +124,7 @@ public class StringOperation extends SubTypedOperation {
             }
 
             // Decodes an MPI-encoded number into a signed byte array of specific size.
-            case DECODE_NUMBER: { // TODO: Write tests for this implementation...
+            case DECODE_NUMBER: {
                 // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
                 // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
                 // { 0x85 } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x05 }
@@ -133,33 +134,45 @@ public class StringOperation extends SubTypedOperation {
                 final Value byteCountValue = stack.pop();
                 final Value value = stack.pop();
 
-                final Integer byteCount = byteCountValue.asInteger();
-                final Long valueAsInteger = value.asLong();
-                final Value reinterpretedValue = Value.fromInteger(valueAsInteger);
+                final int byteCount = byteCountValue.asInteger();
+                final MutableByteArray minimallyEncodedByteArray;
+                {
+                    final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
+                    if (minimallyEncodedValue == null) { return false; }
 
-                final byte[] minimallyEncodedValue = ByteUtil.reverseEndian(reinterpretedValue.getBytes());
-                if (byteCount < minimallyEncodedValue.length) { return false; }
+                    minimallyEncodedByteArray = new MutableByteArray(minimallyEncodedValue);
+                }
 
-                final Boolean isNegative = (valueAsInteger < 0);
+                if (byteCount < minimallyEncodedByteArray.getByteCount()) { return false; }
 
-                { // Remove the sign bit from the minimally encoded value...
-                    if (minimallyEncodedValue.length > 0) {
-                        minimallyEncodedValue[0] &= 0x7F;
+                final Boolean isNegative;
+                {
+                    if (minimallyEncodedByteArray.isEmpty()) {
+                        isNegative = false;
+                    }
+                    else {
+                        isNegative = ( (minimallyEncodedByteArray.getByte(minimallyEncodedByteArray.getByteCount() - 1) & 0x80) != 0x00 );
                     }
                 }
 
-                final byte[] bytes = new byte[byteCount];
-                for (int i = 0; i < minimallyEncodedValue.length; ++i) {
-                    final byte b = minimallyEncodedValue[minimallyEncodedValue.length - i - 1];
-                    bytes[bytes.length - i - 1] = b;
+                { // Remove the sign bit from the minimally encoded value...
+                    if (! minimallyEncodedByteArray.isEmpty()) {
+                        final int lastIndex = (minimallyEncodedByteArray.getByteCount() - 1);
+                        final byte lastByte = minimallyEncodedByteArray.getByte(lastIndex);
+                        minimallyEncodedByteArray.set(lastIndex, (byte) (lastByte & 0x7F));
+                    }
                 }
+
+                final MutableByteArray bytes = new MutableByteArray(byteCount);
+                ByteUtil.setBytes(bytes, minimallyEncodedByteArray);
 
                 if ( (isNegative) && (byteCount > 0) ) {
-                    bytes[0] |= (byte) 0x80;
+                    final int lastByteIndex = (byteCount - 1);
+                    final byte lastByte = bytes.getByte(lastByteIndex);
+                    bytes.set(lastByteIndex, (byte) (lastByte | 0x80));
                 }
 
-                final byte[] littleEndianBytes = ByteUtil.reverseEndian(bytes);
-                final Value decodedValue = Value.fromBytes(littleEndianBytes);
+                final Value decodedValue = Value.fromBytes(bytes);
                 stack.push(decodedValue);
 
                 return (! stack.didOverflow());
