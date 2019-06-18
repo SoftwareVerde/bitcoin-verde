@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class NodeManager<NODE extends Node> {
+    public static final Long PING_AFTER_MS_IDLE = 5L * 60000L; // 5 Minutes
     public static Boolean LOGGING_ENABLED = false;
 
     protected static ThreadPool _threadPool;
@@ -575,8 +576,6 @@ public class NodeManager<NODE extends Node> {
     }
 
     protected void _pingIdleNodes() {
-        final Long maxIdleTime = 5L * 60000L; // 5 Minutes.
-
         final Long now = _systemTime.getCurrentTimeInMilliSeconds();
 
         final MutableList<NODE> idleNodes = new MutableList<NODE>(_nodes.size());
@@ -584,7 +583,7 @@ public class NodeManager<NODE extends Node> {
             final Long lastMessageTime = node.getLastMessageReceivedTimestamp();
             final Long idleDuration = (now - lastMessageTime); // NOTE: Race conditions could result in a negative value...
 
-            if (idleDuration > maxIdleTime) {
+            if (idleDuration > PING_AFTER_MS_IDLE) {
                 idleNodes.add(node);
             }
         }
