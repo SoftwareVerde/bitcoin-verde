@@ -1,7 +1,6 @@
 package com.softwareverde.bitcoin.server.node;
 
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
-import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.concurrent.pool.ThreadPoolFactory;
 import com.softwareverde.network.p2p.node.NodeFactory;
 

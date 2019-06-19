@@ -3,7 +3,6 @@ package com.softwareverde.bitcoin.transaction.script.stack;
 import com.softwareverde.bitcoin.test.util.TestUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.util.ByteUtil;
 import com.softwareverde.util.HexUtil;
 import org.junit.Assert;
 import org.junit.Test;

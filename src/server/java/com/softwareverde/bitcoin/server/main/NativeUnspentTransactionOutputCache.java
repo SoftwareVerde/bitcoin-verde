@@ -15,7 +15,6 @@ import com.softwareverde.util.SystemUtil;
 import com.softwareverde.util.jni.NativeUtil;
 
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static com.softwareverde.bitcoin.jni.NativeUnspentTransactionOutputCache.*;

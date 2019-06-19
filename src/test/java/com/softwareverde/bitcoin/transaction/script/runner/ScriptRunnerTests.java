@@ -6,8 +6,6 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
-import com.softwareverde.bitcoin.transaction.script.Script;
-import com.softwareverde.bitcoin.transaction.script.ScriptDeflater;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.locking.MutableLockingScript;
