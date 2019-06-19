@@ -38,6 +38,7 @@ import com.softwareverde.bitcoin.wallet.slp.SlpPaymentAmount;
 import com.softwareverde.bitcoin.wallet.slp.SlpToken;
 import com.softwareverde.bitcoin.wallet.utxo.MutableSpendableTransactionOutput;
 import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -65,6 +66,7 @@ public class Wallet {
 
     protected final HashMap<TransactionOutputIdentifier, Sha256Hash> _spentTransactionOutputs = new HashMap<TransactionOutputIdentifier, Sha256Hash>();
     protected final HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput> _transactionOutputs = new HashMap<TransactionOutputIdentifier, MutableSpendableTransactionOutput>();
+    protected BloomFilter _cachedBloomFilter = null;
 
     protected final MedianBlockTime _medianBlockTime;
     protected Double _satoshisPerByteFee = 1D;
@@ -561,6 +563,35 @@ public class Wallet {
         return signedTransaction;
     }
 
+    protected MutableBloomFilter _generateBloomFilter() {
+        final AddressInflater addressInflater = new AddressInflater();
+
+        final Collection<PrivateKey> privateKeys = _privateKeys.values();
+
+        final long itemCount;
+        {
+            final int privateKeyCount = privateKeys.size();
+            final int estimatedItemCount = (privateKeyCount * 4);
+            itemCount = (int) (Math.pow(2, (BitcoinUtil.log2(estimatedItemCount) + 1)));
+        }
+
+        final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.01D);
+
+        for (final PrivateKey privateKey : privateKeys) {
+            final PublicKey publicKey = privateKey.getPublicKey();
+
+            // Add sending matchers...
+            bloomFilter.addItem(publicKey.decompress());
+            bloomFilter.addItem(publicKey.compress());
+
+            // Add receiving matchers...
+            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey));
+            bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
+        }
+
+        return bloomFilter;
+    }
+
     public Wallet() {
         _medianBlockTime = null; // Only necessary for instances near impending hard forks...
     }
@@ -579,6 +610,7 @@ public class Wallet {
 
     public synchronized void addPrivateKey(final PrivateKey privateKey) {
         _addPrivateKey(privateKey);
+        _cachedBloomFilter = null; // Invalidate the cached BloomFilter...
         _reloadTransactions();
     }
 
@@ -586,6 +618,7 @@ public class Wallet {
         for (final PrivateKey privateKey : privateKeys) {
             _addPrivateKey(privateKey);
         }
+        _cachedBloomFilter = null; // Invalidate the cached BloomFilter...
         _reloadTransactions();
     }
 
@@ -755,32 +788,15 @@ public class Wallet {
     }
 
     public synchronized MutableBloomFilter generateBloomFilter() {
-        final AddressInflater addressInflater = new AddressInflater();
+        return _generateBloomFilter();
+    }
 
-        final Collection<PrivateKey> privateKeys = _privateKeys.values();
-
-        final long itemCount;
-        {
-            final int privateKeyCount = privateKeys.size();
-            final int estimatedItemCount = (privateKeyCount * 4);
-            itemCount = (int) (Math.pow(2, (BitcoinUtil.log2(estimatedItemCount) + 1)));
+    public synchronized BloomFilter getBloomFilter() {
+        if (_cachedBloomFilter == null) {
+            _cachedBloomFilter = _generateBloomFilter();
         }
 
-        final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.01D);
-
-        for (final PrivateKey privateKey : privateKeys) {
-            final PublicKey publicKey = privateKey.getPublicKey();
-
-            // Add sending matchers...
-            bloomFilter.addItem(publicKey.decompress());
-            bloomFilter.addItem(publicKey.compress());
-
-            // Add receiving matchers...
-            bloomFilter.addItem(addressInflater.fromPrivateKey(privateKey));
-            bloomFilter.addItem(addressInflater.compressedFromPrivateKey(privateKey));
-        }
-
-        return bloomFilter;
+        return _cachedBloomFilter;
     }
 
     public synchronized SpendableTransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {

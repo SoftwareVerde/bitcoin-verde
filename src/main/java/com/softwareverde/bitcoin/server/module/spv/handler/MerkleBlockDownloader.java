@@ -38,6 +38,10 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
         void requestMerkleBlock(Sha256Hash blockHash, BitcoinNodeManager.DownloadMerkleBlockCallback callback);
     }
 
+    public interface DownloadCompleteCallback {
+        void newMerkleBlockDownloaded(MerkleBlock merkleBlock, List<Transaction> transactions);
+    }
+
     protected final SystemTime _systemTime = new SystemTime();
     protected final SpvDatabaseManagerFactory _databaseManagerFactory;
     protected final Downloader _merkleBlockDownloader;
@@ -45,7 +49,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     protected final AtomicBoolean _blockIsInFlight = new AtomicBoolean(false);
 
     protected Runnable _merkleBlockProcessedCallback = null;
-    protected Callback<List<Transaction>> _newTransactionsCallback = null;
+    protected DownloadCompleteCallback _downloadCompleteCallback = null;
     protected Long _minimumMerkleBlockHeight = 0L;
 
     protected final BitcoinNodeManager.DownloadMerkleBlockCallback _onMerkleBlockDownloaded = new BitcoinNodeManager.DownloadMerkleBlockCallback() {
@@ -76,6 +80,9 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 }
             }
 
+//            final UpdateBloomFilterMode updateBloomFilterMode = Util.coalesce(UpdateBloomFilterMode.valueOf(bloomFilter.getUpdateMode()), UpdateBloomFilterMode.READ_ONLY);
+//            final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter, updateBloomFilterMode);
+//            return transactionBloomFilterMatcher.shouldInclude(transaction);
             try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
                 final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
                 final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -108,9 +115,9 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 return false;
             }
 
-            final Callback<List<Transaction>> newTransactionsCallback = _newTransactionsCallback;
-            if (newTransactionsCallback != null) {
-                newTransactionsCallback.call(transactions);
+            final DownloadCompleteCallback downloadCompleteCallback = _downloadCompleteCallback;
+            if (downloadCompleteCallback != null) {
+                downloadCompleteCallback.newMerkleBlockDownloaded(merkleBlock, transactions);
             }
 
             return true;
@@ -227,8 +234,13 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
         _minimumMerkleBlockHeight = minimumMerkleBlockHeight;
     }
 
-    public void setNewTransactionsCallback(final Callback<List<Transaction>> newTransactionsCallback) {
-        _newTransactionsCallback = newTransactionsCallback;
+    public void resetQueue() {
+        _queuedBlockHashes.clear();
+        _refillBlockHashQueue();
+    }
+
+    public void setDownloadCompleteCallback(final DownloadCompleteCallback downloadCompleteCallback) {
+        _downloadCompleteCallback = downloadCompleteCallback;
     }
 
     public void setMerkleBlockProcessedCallback(final Runnable merkleBlockProcessedCallback) {

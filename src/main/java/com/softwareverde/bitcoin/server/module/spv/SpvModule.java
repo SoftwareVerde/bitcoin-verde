@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.spv;
 
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.MerkleBlock;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Environment;
@@ -16,7 +17,6 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
@@ -34,9 +34,11 @@ import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.wallet.Wallet;
+import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -51,7 +53,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
 import com.softwareverde.network.time.MutableNetworkTime;
-import com.softwareverde.util.Callback;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.net.InetAddress;
@@ -96,7 +98,7 @@ public class SpvModule {
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
     protected final ReadOnlyLocalDatabaseManagerCache _readOnlyDatabaseManagerCache;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
-    protected final DatabaseManagerFactory _databaseManagerFactory;
+    protected final SpvDatabaseManagerFactory _databaseManagerFactory;
     protected final MainThreadPool _mainThreadPool;
     protected final BanFilter _banFilter;
     protected MerkleBlockDownloader _merkleBlockDownloader;
@@ -232,6 +234,35 @@ public class SpvModule {
         _setStatus(Status.OFFLINE);
     }
 
+    protected void _loadDownloadedTransactionsIntoWallet() {
+        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
+            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, _readOnlyDatabaseManagerCache);
+            final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+            int loadedTransactionCount = 0;
+            final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
+            for (final BlockId blockId : blockIds) {
+                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
+                for (final TransactionId transactionId : transactionIds) {
+                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                    if (transaction == null) {
+                        System.err.println("NOTICE: Unable to inflate Transaction: " + transactionId);
+                        continue;
+                    }
+
+                    _wallet.addTransaction(transaction);
+                    loadedTransactionCount += 1;
+                }
+            }
+
+            System.out.println("Loaded " + loadedTransactionCount + " transactions.");
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+        }
+    }
+
     public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
         _seedNodes = seedNodes;
         _wallet = wallet;
@@ -312,15 +343,57 @@ public class SpvModule {
         _merkleBlockDownloader = new MerkleBlockDownloader(databaseManagerFactory, new MerkleBlockDownloader.Downloader() {
             @Override
             public void requestMerkleBlock(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback callback) {
+                if (! _bitcoinNodeManager.hasBloomFilter()) {
+                    if (callback != null) {
+                        callback.onFailure(blockHash);
+                    }
+                    return;
+                }
+
                 _bitcoinNodeManager.requestMerkleBlock(blockHash, callback);
             }
         });
         _merkleBlockDownloader.setMinimumMerkleBlockHeight(_minimumMerkleBlockHeight);
-        _merkleBlockDownloader.setNewTransactionsCallback(new Callback<List<Transaction>>() {
+        _merkleBlockDownloader.setDownloadCompleteCallback(new MerkleBlockDownloader.DownloadCompleteCallback() {
             @Override
-            public void call(final List<Transaction> transactions) {
-                for (final Transaction transaction : transactions) {
-                    _wallet.addTransaction(transaction);
+            public void newMerkleBlockDownloaded(final MerkleBlock merkleBlock, final List<Transaction> transactions) {
+                final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
+                final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
+
+                try (final SpvDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+                    final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+                    final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+                    final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                    final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+
+                    TransactionUtil.startTransaction(databaseConnection);
+                    final Sha256Hash previousBlockHash = merkleBlock.getPreviousBlockHash();
+                    if (! Util.areEqual(previousBlockHash, Sha256Hash.EMPTY_HASH)) { // Check for Genesis Block...
+                        final BlockId previousBlockId = blockHeaderDatabaseManager.getBlockHeaderId(merkleBlock.getPreviousBlockHash());
+                        if (previousBlockId == null) {
+                            Logger.log("NOTICE: Out of order MerkleBlock received. Discarding. " + merkleBlock.getHash());
+                            return;
+                        }
+                    }
+
+                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                        final BlockId blockId = blockHeaderDatabaseManager.storeBlockHeader(merkleBlock);
+                        blockDatabaseManager.storePartialMerkleTree(blockId, merkleBlock.getPartialMerkleTree());
+
+                        for (final Transaction transaction : transactions) {
+                            if (transactionBloomFilterMatcher.shouldInclude(transaction)) {
+                                final TransactionId transactionId = transactionDatabaseManager.storeTransaction(transaction);
+                                blockDatabaseManager.addTransactionToBlock(blockId, transactionId);
+
+                                _wallet.addTransaction(transaction);
+                            }
+                        }
+                    }
+                    TransactionUtil.commitTransaction(databaseConnection);
+                }
+                catch (final DatabaseException exception) {
+                    Logger.log(exception);
+                    return;
                 }
 
                 final NewTransactionCallback newTransactionCallback = _newTransactionCallback;
@@ -359,6 +432,10 @@ public class SpvModule {
                 protected final BitcoinNodeManager.DownloadTransactionCallback _downloadTransactionsCallback = new BitcoinNodeManager.DownloadTransactionCallback() {
                     @Override
                     public void onResult(final Transaction transaction) {
+                        final BloomFilter walletBloomFilter = _wallet.getBloomFilter();
+                        final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(walletBloomFilter);
+                        if (! transactionBloomFilterMatcher.shouldInclude(transaction)) { return; } // False positive...
+
                         try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
                             final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection);
                             final SpvTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
@@ -440,6 +517,8 @@ public class SpvModule {
             nodeInitializerProperties.blockInventoryMessageHandler = new BitcoinNode.BlockInventoryMessageCallback() {
                 @Override
                 public void onResult(final BitcoinNode bitcoinNode, final List<Sha256Hash> blockHashes) {
+                    if (! _bitcoinNodeManager.hasBloomFilter()) { return; }
+
                     // Only restart the synchronization process if it has already successfully completed.
                     _merkleBlockDownloader.wakeUp();
                 }
@@ -515,29 +594,6 @@ public class SpvModule {
             }
         });
 
-        try (final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection()) {
-            final SpvDatabaseManager databaseManager = new SpvDatabaseManager(databaseConnection, _readOnlyDatabaseManagerCache);
-            final SpvBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-
-            final List<BlockId> blockIds = blockDatabaseManager.getBlockIdsWithTransactions();
-            for (final BlockId blockId : blockIds) {
-                final List<TransactionId> transactionIds = blockDatabaseManager.getTransactionIds(blockId);
-                for (final TransactionId transactionId : transactionIds) {
-                    final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
-                    if (transaction == null) {
-                        System.err.println("NOTICE: Unable to inflate Transaction: " + transactionId);
-                        continue;
-                    }
-
-                    _wallet.addTransaction(transaction);
-                }
-            }
-        }
-        catch (final DatabaseException exception) {
-            Logger.log(exception);
-        }
-
         if (_wallet.hasPrivateKeys()) { // Avoid sending an empty bloom filter since Bitcoin Unlimited nodes will ignore it.
             final MutableBloomFilter bloomFilter = _wallet.generateBloomFilter();
             _bitcoinNodeManager.setBloomFilter(bloomFilter);
@@ -560,6 +616,14 @@ public class SpvModule {
     public void loop() {
         _waitForInit();
         _setStatus(Status.ONLINE);
+
+        _loadDownloadedTransactionsIntoWallet();
+
+        if ( (! _bitcoinNodeManager.hasBloomFilter()) && (_wallet.hasPrivateKeys()) ) {
+            final MutableBloomFilter bloomFilter = _wallet.generateBloomFilter();
+            _bitcoinNodeManager.setBloomFilter(bloomFilter);
+            _merkleBlockDownloader.wakeUp();
+        }
 
         Logger.log("[Starting Node Manager]");
         _bitcoinNodeManager.startNodeMaintenanceThread();
@@ -627,5 +691,6 @@ public class SpvModule {
     public void setMinimumMerkleBlockHeight(final Long minimumMerkleBlockHeight) {
         _minimumMerkleBlockHeight = minimumMerkleBlockHeight;
         _merkleBlockDownloader.setMinimumMerkleBlockHeight(minimumMerkleBlockHeight);
+        _merkleBlockDownloader.resetQueue();
     }
 }
