@@ -51,6 +51,8 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     protected DownloadCompleteCallback _downloadCompleteCallback = null;
     protected Long _minimumMerkleBlockHeight = 0L;
 
+    protected final AtomicBoolean _isPaused = new AtomicBoolean(true);
+
     protected final BitcoinNodeManager.DownloadMerkleBlockCallback _onMerkleBlockDownloaded = new BitcoinNodeManager.DownloadMerkleBlockCallback() {
         private final ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>> _failedDownloadTimes = new ConcurrentHashMap<Sha256Hash, ConcurrentLinkedDeque<Long>>();
 
@@ -196,6 +198,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     }
 
     protected synchronized void _downloadNextMerkleBlock() {
+        if (_isPaused.get()) { return; }
         if (! _blockIsInFlight.compareAndSet(false, true)) { return; }
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -236,6 +239,16 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     public void resetQueue() {
         _queuedBlockHashes.clear();
         _refillBlockHashQueue();
+    }
+
+    public void pause() {
+        _isPaused.set(true);
+    }
+
+    public void start() {
+        // if (! _isPaused.compareAndSet(true, false)) { return; }
+        _isPaused.set(false);
+        _downloadNextMerkleBlock();
     }
 
     public void setDownloadCompleteCallback(final DownloadCompleteCallback downloadCompleteCallback) {

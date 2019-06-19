@@ -211,7 +211,7 @@ public class SpvModule {
             Logger.log(new Exception());
         }
 
-        _merkleBlockDownloader.wakeUp();
+        _merkleBlockDownloader.start();
     }
 
     protected void _shutdown() {
