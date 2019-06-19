@@ -7,7 +7,7 @@ import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.cache.utxo.DisabledUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
+import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -82,10 +82,10 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION CACHE -----------------------------------------------------------------------------------------------
 
-    protected final HashMapCache<TransactionId, ImmutableTransaction> _transactionCache = new HashMapCache<TransactionId, ImmutableTransaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
+    protected final HashMapCache<TransactionId, ConstTransaction> _transactionCache = new HashMapCache<TransactionId, ConstTransaction>("TransactionCache", HashMapCache.DEFAULT_CACHE_SIZE);
 
     @Override
-    public void cacheTransaction(final TransactionId transactionId, final ImmutableTransaction transaction) {
+    public void cacheTransaction(final TransactionId transactionId, final ConstTransaction transaction) {
         _transactionCache.cacheItem(transactionId, transaction);
     }
 
@@ -99,7 +99,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
         _transactionCache.invalidate();
     }
 
-    public HashMapCache<TransactionId, ImmutableTransaction> getTransactionCache() { return _transactionCache; }
+    public HashMapCache<TransactionId, ConstTransaction> getTransactionCache() { return _transactionCache; }
 
     // -----------------------------------------------------------------------------------------------------------------
 

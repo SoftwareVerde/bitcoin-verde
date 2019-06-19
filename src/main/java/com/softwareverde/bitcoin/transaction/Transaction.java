@@ -17,7 +17,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
-public interface Transaction extends Hashable, Constable<ImmutableTransaction>, Jsonable {
+public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
     Long VERSION = 0x02L;
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
@@ -93,5 +93,5 @@ public interface Transaction extends Hashable, Constable<ImmutableTransaction>, 
     Boolean matches(BloomFilter bloomFilter);
 
     @Override
-    ImmutableTransaction asConst();
+    ConstTransaction asConst();
 }
