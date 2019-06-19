@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.ImmutableCoinbaseTransaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.list.List;
@@ -74,7 +73,7 @@ public class ImmutableBlock extends ImmutableBlockHeader implements Block, Const
         if (_transactions.isEmpty()) { return null; }
 
         final Transaction transaction = _transactions.get(0);
-        return new ImmutableCoinbaseTransaction(transaction);
+        return transaction.asCoinbase();
     }
 
     @Override

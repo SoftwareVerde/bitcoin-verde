@@ -3,6 +3,8 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
+import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -33,6 +35,17 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
         coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
         coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
         return coinbaseTransaction;
+    }
+
+    static Boolean isCoinbaseTransaction(final Transaction transaction) {
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        if (transactionInputs.getSize() != 1) { return false; }
+
+        final TransactionInput transactionInput = transactionInputs.get(0);
+        final boolean isCoinbaseInput = CoinbaseTransactionInputInflater.isCoinbaseInput(transactionInput);
+        if (! isCoinbaseInput) { return false; }
+
+        return true;
     }
 
     /**
@@ -91,6 +104,7 @@ public interface Transaction extends Hashable, Constable<ConstTransaction>, Json
     LockTime getLockTime();
     Long getTotalOutputValue();
     Boolean matches(BloomFilter bloomFilter);
+    CoinbaseTransaction asCoinbase();
 
     @Override
     ConstTransaction asConst();
