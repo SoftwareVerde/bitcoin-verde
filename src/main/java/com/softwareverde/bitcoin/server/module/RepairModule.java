@@ -16,10 +16,10 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.RequestDataHandler;
 import com.softwareverde.bitcoin.server.module.node.handler.SynchronizationStatusHandler;
@@ -77,7 +77,7 @@ public class RepairModule {
 
         { // Initialize NodeInitializer...
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
-            final DatabaseManagerFactory databaseManagerFactory = new CoreDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
+            final DatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
 
             final NodeInitializer.Properties nodeInitializerProperties = new NodeInitializer.Properties();
             nodeInitializerProperties.synchronizationStatus = new SynchronizationStatusHandler(databaseManagerFactory);
@@ -140,9 +140,9 @@ public class RepairModule {
                 @Override
                 public void onResult(final Block block) {
                     try (final DatabaseConnection databaseConnection = database.newConnection()) {
-                        final CoreDatabaseManager databaseManager = new CoreDatabaseManager(databaseConnection, databaseManagerCache);
+                        final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
                         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                        final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+                        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
                         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
                         if (blockId == null) {

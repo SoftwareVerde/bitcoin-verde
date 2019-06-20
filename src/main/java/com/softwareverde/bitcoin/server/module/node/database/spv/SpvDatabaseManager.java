@@ -4,10 +4,10 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.core.CoreBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.spv.SpvPendingBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.spv.SpvBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.core.CoreBlockchainDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
 import com.softwareverde.bitcoin.server.module.node.database.node.spv.SpvBitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
@@ -18,9 +18,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     protected final DatabaseManagerCache _databaseManagerCache;
 
     protected SpvBitcoinNodeDatabaseManager _nodeDatabaseManager;
-    protected CoreBlockchainDatabaseManager _blockchainDatabaseManager;
+    protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
     protected SpvBlockDatabaseManager _blockDatabaseManager;
-    protected CoreBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
+    protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
     protected SpvPendingBlockDatabaseManager _pendingBlockDatabaseManager;
     protected SpvTransactionDatabaseManager _transactionDatabaseManager;
 
@@ -54,9 +54,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public CoreBlockchainDatabaseManager getBlockchainDatabaseManager() {
+    public BlockchainDatabaseManagerCore getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new CoreBlockchainDatabaseManager(this);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this);
         }
 
         return _blockchainDatabaseManager;
@@ -72,9 +72,9 @@ public class SpvDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public CoreBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
+    public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new CoreBlockHeaderDatabaseManager(this);
+            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this);
         }
 
         return _blockHeaderDatabaseManager;

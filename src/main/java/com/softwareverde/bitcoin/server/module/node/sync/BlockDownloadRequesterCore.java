@@ -6,9 +6,9 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.core.CorePendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.sync.block.BlockDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
@@ -23,7 +23,7 @@ import com.softwareverde.util.type.time.SystemTime;
 public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     protected final SystemTime _systemTime = new SystemTime();
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
     protected final BlockDownloader _blockDownloader;
     protected final BitcoinNodeManager _bitcoinNodeManager;
@@ -45,9 +45,9 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
     }
 
     protected void _requestBlock(final Sha256Hash blockHash, final Sha256Hash parentBlockHash, final Long priority) {
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final CorePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
+            final FullNodePendingBlockDatabaseManager pendingBlockDatabaseManager = databaseManager.getPendingBlockDatabaseManager();
 
             TransactionUtil.startTransaction(databaseConnection);
             final PendingBlockId pendingBlockId = pendingBlockDatabaseManager.storeBlockHash(blockHash, parentBlockHash);
@@ -120,7 +120,7 @@ public class BlockDownloadRequesterCore implements BlockDownloadRequester {
 //        _bitcoinNodeManager.findNodeInventory();
 //    }
 
-    public BlockDownloadRequesterCore(final CoreDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
+    public BlockDownloadRequesterCore(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockDownloader blockDownloader, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
         _blockDownloader = blockDownloader;
         _bitcoinNodeManager = bitcoinNodeManager;

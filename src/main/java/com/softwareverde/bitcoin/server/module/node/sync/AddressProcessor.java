@@ -3,9 +3,9 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -21,9 +21,9 @@ import com.softwareverde.util.timer.MilliTimer;
 public class AddressProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    public AddressProcessor(final CoreDatabaseManagerFactory databaseManagerFactory) {
+    public AddressProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
@@ -32,7 +32,7 @@ public class AddressProcessor extends SleepyService {
 
     @Override
     protected Boolean _run() {
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final MilliTimer processTimer = new MilliTimer();
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();

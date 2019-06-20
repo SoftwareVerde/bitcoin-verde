@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.block.header.core;
+package com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -33,7 +33,7 @@ import com.softwareverde.util.Util;
 
 import java.util.HashMap;
 
-public class CoreBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
+public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseManager {
 
     /**
      * Initializes a MedianBlockTime from the database.
@@ -67,7 +67,7 @@ public class CoreBlockHeaderDatabaseManager implements BlockHeaderDatabaseManage
 
     protected final DatabaseManager _databaseManager;
 
-    public CoreBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
+    public FullNodeBlockHeaderDatabaseManager(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

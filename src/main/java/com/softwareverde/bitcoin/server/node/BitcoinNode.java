@@ -59,9 +59,7 @@ import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.p2p.message.type.PingMessage;
-import com.softwareverde.network.p2p.message.type.PongMessage;
-import com.softwareverde.network.p2p.message.type.SynchronizeVersionMessage;
+import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
@@ -281,12 +279,12 @@ public class BitcoinNode extends Node {
     }
 
     @Override
-    protected BitcoinPingMessage _createPingMessage() {
+    protected PingMessage _createPingMessage() {
         return new BitcoinPingMessage();
     }
 
     @Override
-    protected BitcoinPongMessage _createPongMessage(final PingMessage pingMessage) {
+    protected PongMessage _createPongMessage(final PingMessage pingMessage) {
         final BitcoinPongMessage pongMessage = new BitcoinPongMessage();
         pongMessage.setNonce(pingMessage.getNonce());
         return pongMessage;
@@ -347,7 +345,7 @@ public class BitcoinNode extends Node {
     }
 
     @Override
-    protected BitcoinSynchronizeVersionMessage _createSynchronizeVersionMessage() {
+    protected SynchronizeVersionMessage _createSynchronizeVersionMessage() {
         final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
 
         final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
@@ -372,12 +370,12 @@ public class BitcoinNode extends Node {
     }
 
     @Override
-    protected BitcoinAcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
+    protected AcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
         return new BitcoinAcknowledgeVersionMessage();
     }
 
     @Override
-    protected BitcoinNodeIpAddressMessage _createNodeIpAddressMessage() {
+    protected NodeIpAddressMessage _createNodeIpAddressMessage() {
         return new BitcoinNodeIpAddressMessage();
     }
 
@@ -1174,7 +1172,7 @@ public class BitcoinNode extends Node {
             //  1. The first message should be the MerkleBlock itself.
             //  2. Immediately following should be the any transactions that match the Node's bloomFilter.
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
-            final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>();
+            final MutableList<ProtocolMessage> messages = new MutableList<ProtocolMessage>();
 
             final MerkleBlockMessage merkleBlockMessage = new MerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);

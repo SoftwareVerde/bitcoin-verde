@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
@@ -123,7 +123,7 @@ public class PushOperation extends SubTypedOperation {
 
             case PUSH_VERSION: {
                 final Integer valueByteCountLength = null;
-                final Value value = Value.fromBytes(StringUtil.stringToBytes(Constants.USER_AGENT));
+                final Value value = Value.fromBytes(StringUtil.stringToBytes(BitcoinConstants.getUserAgent()));
                 payload = new Payload(false, valueByteCountLength, value);
             } break;
 

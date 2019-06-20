@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.core;
+package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -8,24 +8,24 @@ import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFact
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Util;
 
-public class CoreDatabaseManagerFactory implements DatabaseManagerFactory {
+public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    public CoreDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = new DisabledDatabaseManagerCache();
     }
 
-    public CoreDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
+    public FullNodeDatabaseManagerFactory(final DatabaseConnectionFactory databaseConnectionFactory, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
     }
 
     @Override
-    public CoreDatabaseManager newDatabaseManager() throws DatabaseException {
+    public FullNodeDatabaseManager newDatabaseManager() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
-        return new CoreDatabaseManager(databaseConnection, _databaseManagerCache);
+        return new FullNodeDatabaseManager(databaseConnection, _databaseManagerCache);
     }
 
     @Override

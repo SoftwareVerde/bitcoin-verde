@@ -7,10 +7,10 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
@@ -30,7 +30,7 @@ import com.softwareverde.util.Util;
 
 public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
     protected static void _addMetadataForBlockHeaderToJson(final Sha256Hash blockHash, final Json blockJson, final DatabaseManager databaseConnection) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseConnection.getBlockHeaderDatabaseManager();
@@ -49,7 +49,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         }
     }
 
-    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final CoreDatabaseManager databaseManager) throws DatabaseException {
+    protected static void _addMetadataForTransactionToJson(final Transaction transaction, final Json transactionJson, final FullNodeDatabaseManager databaseManager) throws DatabaseException {
         final Sha256Hash transactionHash = transaction.getHash();
         final String transactionHashString = transactionHash.toString();
 
@@ -152,7 +152,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
         transactionJson.put("fee", transactionFee);
     }
 
-    public MetadataHandler(final CoreDatabaseManagerFactory databaseManagerFactory) {
+    public MetadataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
@@ -168,7 +168,7 @@ public class MetadataHandler implements NodeRpcHandler.MetadataHandler {
 
     @Override
     public void applyMetadataToTransaction(final Transaction transaction, final Json transactionJson) {
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _addMetadataForTransactionToJson(transaction, transactionJson, databaseManager);
         }
         catch (final DatabaseException exception) {

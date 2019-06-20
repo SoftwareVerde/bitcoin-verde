@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.version.synchronize;
 
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
@@ -25,7 +25,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
 
     public BitcoinSynchronizeVersionMessage() {
         super(MessageType.SYNCHRONIZE_VERSION);
-        _version = Constants.PROTOCOL_VERSION;
+        _version = BitcoinConstants.getProtocolVersion();
 
         _remoteNodeIpAddress = new BitcoinNodeIpAddress();
         _localNodeIpAddress = new BitcoinNodeIpAddress();
@@ -34,7 +34,7 @@ public class BitcoinSynchronizeVersionMessage extends BitcoinProtocolMessage imp
         _nonce = (long) (Math.random() * Long.MAX_VALUE);
         _currentBlockHeight = 0L;
 
-        _userAgent = Constants.USER_AGENT;
+        _userAgent = BitcoinConstants.getUserAgent();
     }
 
     public Integer getVersion() { return _version; }

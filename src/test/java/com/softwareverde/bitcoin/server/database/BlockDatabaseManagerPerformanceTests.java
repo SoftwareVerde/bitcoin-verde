@@ -11,9 +11,9 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -143,12 +143,12 @@ public class BlockDatabaseManagerPerformanceTests extends IntegrationTest {
         try (
                 final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
                 final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-                final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()
+                final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()
         ) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockInflater blockInflater = new BlockInflater();
 
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
                 blockDatabaseManager.storeBlock(blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK)));

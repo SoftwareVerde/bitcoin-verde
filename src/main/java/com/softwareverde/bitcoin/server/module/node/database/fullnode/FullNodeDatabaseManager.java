@@ -1,43 +1,45 @@
-package com.softwareverde.bitcoin.server.module.node.database.core;
+package com.softwareverde.bitcoin.server.module.node.database.fullnode;
 
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.address.core.CoreAddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.header.core.CoreBlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.block.pending.core.CorePendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.blockchain.core.CoreBlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.core.CoreBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.input.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.address.fullnode.FullNodeAddressDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.header.fullnode.FullNodeBlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode.FullNodePendingBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManagerCore;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Util;
 
-public class CoreDatabaseManager implements DatabaseManager {
+public class FullNodeDatabaseManager implements DatabaseManager {
     protected final DatabaseConnection _databaseConnection;
     protected final DatabaseManagerCache _databaseManagerCache;
 
-    protected CoreBitcoinNodeDatabaseManager _nodeDatabaseManager;
-    protected CoreBlockchainDatabaseManager _blockchainDatabaseManager;
-    protected CoreBlockDatabaseManager _blockDatabaseManager;
-    protected CoreBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
-    protected CorePendingBlockDatabaseManager _pendingBlockDatabaseManager;
-    protected CoreAddressDatabaseManager _addressDatabaseManager;
-    protected CoreTransactionDatabaseManager _transactionDatabaseManager;
+    protected FullNodeBitcoinNodeDatabaseManager _nodeDatabaseManager;
+    protected BlockchainDatabaseManagerCore _blockchainDatabaseManager;
+    protected FullNodeBlockDatabaseManager _blockDatabaseManager;
+    protected FullNodeBlockHeaderDatabaseManager _blockHeaderDatabaseManager;
+    protected FullNodePendingBlockDatabaseManager _pendingBlockDatabaseManager;
+    protected FullNodeAddressDatabaseManager _addressDatabaseManager;
+    protected FullNodeTransactionDatabaseManager _transactionDatabaseManager;
     protected TransactionInputDatabaseManager _transactionInputDatabaseManager;
     protected TransactionOutputDatabaseManager _transactionOutputDatabaseManager;
     protected PendingTransactionDatabaseManager _pendingTransactionDatabaseManager;
 
-    public CoreDatabaseManager(final DatabaseConnection databaseConnection) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = new DisabledDatabaseManagerCache();
     }
 
-    public CoreDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
+    public FullNodeDatabaseManager(final DatabaseConnection databaseConnection, final DatabaseManagerCache databaseManagerCache) {
         _databaseConnection = databaseConnection;
         _databaseManagerCache = Util.coalesce(databaseManagerCache, new DisabledDatabaseManagerCache());
     }
@@ -53,62 +55,62 @@ public class CoreDatabaseManager implements DatabaseManager {
     }
 
     @Override
-    public CoreBitcoinNodeDatabaseManager getNodeDatabaseManager() {
+    public FullNodeBitcoinNodeDatabaseManager getNodeDatabaseManager() {
         if (_nodeDatabaseManager == null) {
-            _nodeDatabaseManager = new CoreBitcoinNodeDatabaseManager(this);
+            _nodeDatabaseManager = new FullNodeBitcoinNodeDatabaseManagerCore(this);
         }
 
         return _nodeDatabaseManager;
     }
 
     @Override
-    public CoreBlockchainDatabaseManager getBlockchainDatabaseManager() {
+    public BlockchainDatabaseManagerCore getBlockchainDatabaseManager() {
         if (_blockchainDatabaseManager == null) {
-            _blockchainDatabaseManager = new CoreBlockchainDatabaseManager(this);
+            _blockchainDatabaseManager = new BlockchainDatabaseManagerCore(this);
         }
 
         return _blockchainDatabaseManager;
     }
 
     @Override
-    public CoreBlockDatabaseManager getBlockDatabaseManager() {
+    public FullNodeBlockDatabaseManager getBlockDatabaseManager() {
         if (_blockDatabaseManager == null) {
-            _blockDatabaseManager = new CoreBlockDatabaseManager(this);
+            _blockDatabaseManager = new FullNodeBlockDatabaseManager(this);
         }
 
         return _blockDatabaseManager;
     }
 
     @Override
-    public CoreBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
+    public FullNodeBlockHeaderDatabaseManager getBlockHeaderDatabaseManager() {
         if (_blockHeaderDatabaseManager == null) {
-            _blockHeaderDatabaseManager = new CoreBlockHeaderDatabaseManager(this);
+            _blockHeaderDatabaseManager = new FullNodeBlockHeaderDatabaseManager(this);
         }
 
         return _blockHeaderDatabaseManager;
     }
 
     @Override
-    public CorePendingBlockDatabaseManager getPendingBlockDatabaseManager() {
+    public FullNodePendingBlockDatabaseManager getPendingBlockDatabaseManager() {
         if (_pendingBlockDatabaseManager == null) {
-            _pendingBlockDatabaseManager = new CorePendingBlockDatabaseManager(this);
+            _pendingBlockDatabaseManager = new FullNodePendingBlockDatabaseManager(this);
         }
 
         return _pendingBlockDatabaseManager;
     }
 
     @Override
-    public CoreTransactionDatabaseManager getTransactionDatabaseManager() {
+    public FullNodeTransactionDatabaseManager getTransactionDatabaseManager() {
         if (_transactionDatabaseManager == null) {
-            _transactionDatabaseManager = new CoreTransactionDatabaseManager(this);
+            _transactionDatabaseManager = new FullNodeTransactionDatabaseManagerCore(this);
         }
 
         return _transactionDatabaseManager;
     }
 
-    public CoreAddressDatabaseManager getAddressDatabaseManager() {
+    public FullNodeAddressDatabaseManager getAddressDatabaseManager() {
         if (_addressDatabaseManager == null) {
-            _addressDatabaseManager = new CoreAddressDatabaseManager(this);
+            _addressDatabaseManager = new FullNodeAddressDatabaseManager(this);
         }
 
         return _addressDatabaseManager;

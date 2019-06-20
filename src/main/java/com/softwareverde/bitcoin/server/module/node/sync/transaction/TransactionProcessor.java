@@ -6,10 +6,10 @@ import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.node.core.CoreBitcoinNodeDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.node.fullnode.FullNodeBitcoinNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.pending.PendingTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -40,10 +41,11 @@ public class TransactionProcessor extends SleepyService {
 
     protected static final Long MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE = 5000L;
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
@@ -56,12 +58,14 @@ public class TransactionProcessor extends SleepyService {
     public Boolean _run() {
         final Thread thread = Thread.currentThread();
 
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
-            final CoreBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
+            final FullNodeBitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
 
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {
@@ -96,7 +100,6 @@ public class TransactionProcessor extends SleepyService {
                     transactionsToStore.add(transaction);
                 }
 
-                final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, _networkTime, _medianBlockTime);
                 transactionValidator.setLoggingEnabled(true);
 
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -196,11 +199,12 @@ public class TransactionProcessor extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public TransactionProcessor(final CoreDatabaseManagerFactory databaseManagerFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BitcoinNodeManager bitcoinNodeManager) {
+    public TransactionProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
         _bitcoinNodeManager = bitcoinNodeManager;
+        _transactionValidatorFactory = transactionValidatorFactory;
 
         _systemTime = new SystemTime();
         _lastOrphanPurgeTime = 0L;

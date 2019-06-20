@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.transaction.core;
+package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
@@ -8,10 +8,9 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.input.TransactionInputDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -23,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
+import com.softwareverde.bitcoin.util.IoUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -37,7 +37,6 @@ import com.softwareverde.database.mysql.BatchedInsertQuery;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
-import com.softwareverde.util.IoUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
@@ -49,8 +48,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class CoreTransactionDatabaseManager implements TransactionDatabaseManager {
+public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransactionDatabaseManager {
     // TODO: Inserting a transaction requires a write lock...
+
+    // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
+    protected static final Integer EXISTING_TRANSACTIONS_FILTER_VERSION = 2;
+    protected static MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null;
+    protected static Sha256Hash EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
+    protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
+    protected static final Long FILTER_NONCE = 0L;
+    protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
 
     public static void initializeBloomFilter(String filename, DatabaseConnection databaseConnection) throws DatabaseException {
         try {
@@ -59,7 +66,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
 
             final Sha256Hash filterLastTransactionHash;
             {
-                if (Util.areEqual(CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_VERSION, transactionBloomFilterVersion)) {
+                if (Util.areEqual(EXISTING_TRANSACTIONS_FILTER_VERSION, transactionBloomFilterVersion)) {
                     filterLastTransactionHash = Sha256Hash.fromHexString(json.getString("lastTransactionHash"));
                 }
                 else {
@@ -77,10 +84,10 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
                     if (Util.areEqual(lastTransactionHash, filterLastTransactionHash)) {
                         Logger.log("Restoring ExistingTransactionFilter. Last TransactionHash: " + lastTransactionHash);
 
-                        final MutableBloomFilter loadedBloomFilter = CoreTransactionDatabaseManager._loadBloomFilterFromFile(filename, CoreTransactionDatabaseManager.FILTER_ITEM_COUNT, CoreTransactionDatabaseManager.FILTER_NONCE);
+                        final MutableBloomFilter loadedBloomFilter = _loadBloomFilterFromFile(filename, FILTER_ITEM_COUNT, FILTER_NONCE);
                         if (loadedBloomFilter != null) {
-                            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER = loadedBloomFilter;
-                            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
+                            EXISTING_TRANSACTIONS_FILTER = loadedBloomFilter;
+                            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = filterLastTransactionHash;
                         }
                     }
                     else {
@@ -88,9 +95,9 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
                     }
                 }
             }
-            if (CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER != null) { return; }
+            if (EXISTING_TRANSACTIONS_FILTER != null) { return; }
 
-            final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(CoreTransactionDatabaseManager.FILTER_ITEM_COUNT, CoreTransactionDatabaseManager.FILTER_FALSE_POSITIVE_RATE, CoreTransactionDatabaseManager.FILTER_NONCE);
+            final MutableBloomFilter mutableBloomFilter = MutableBloomFilter.newInstance(FILTER_ITEM_COUNT, FILTER_FALSE_POSITIVE_RATE, FILTER_NONCE);
 
             Logger.log("[Building TransactionBloomFilter]");
             final Long batchSize = 4096L;
@@ -115,34 +122,26 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
                 }
             }
 
-            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER = mutableBloomFilter;
-            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = lastTransactionHash;
+            EXISTING_TRANSACTIONS_FILTER = mutableBloomFilter;
+            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = lastTransactionHash;
         }
         catch (final Exception exception) {
-            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER = null;
-            CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
+            EXISTING_TRANSACTIONS_FILTER = null;
+            EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
             throw exception;
         }
     }
 
     public static void saveBloomFilter(String filename) {
-        final MutableByteArray filterBytes = (CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER != null ? CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER.unwrap() : new MutableByteArray(0));
+        final MutableByteArray filterBytes = (EXISTING_TRANSACTIONS_FILTER != null ? EXISTING_TRANSACTIONS_FILTER.unwrap() : new MutableByteArray(0));
         IoUtil.putFileContents(filename, filterBytes.unwrap());
 
-        final ByteArray filterLastTransactionHash = Util.coalesce(CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH, new MutableByteArray(0));
+        final ByteArray filterLastTransactionHash = Util.coalesce(EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH, new MutableByteArray(0));
         final Json json = new Json();
-        json.put("version", CoreTransactionDatabaseManager.EXISTING_TRANSACTIONS_FILTER_VERSION);
+        json.put("version", EXISTING_TRANSACTIONS_FILTER_VERSION);
         json.put("lastTransactionHash", filterLastTransactionHash);
         IoUtil.putFileContents(filename + ".json", StringUtil.stringToBytes(json.toString()));
     }
-
-    // The EXISTING_TRANSACTIONS_FILTER is used to greatly improve the performance of TransactionDatabaseManager::storeTransactions by reducing the number of queried hashes to determine if a transaction is new...
-    protected static final Integer EXISTING_TRANSACTIONS_FILTER_VERSION = 2;
-    protected static MutableBloomFilter EXISTING_TRANSACTIONS_FILTER = null;
-    protected static Sha256Hash EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH = null;
-    protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
-    protected static final Long FILTER_NONCE = 0L;
-    protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
 
     // NOTE: This function intentionally does not use IoUtil::getFileContents in order to reduce the initial memory footprint of the node startup...
     protected static MutableBloomFilter _loadBloomFilterFromFile(final String filename, final Long filterItemCount, final Long filterNonce) {
@@ -166,7 +165,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
     }
 
     protected final SystemTime _systemTime = new SystemTime();
-    protected final CoreDatabaseManager _databaseManager;
+    protected final FullNodeDatabaseManager _databaseManager;
 
     protected void _insertTransactionInputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
@@ -454,7 +453,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return transaction;
     }
 
-    public CoreTransactionDatabaseManager(final CoreDatabaseManager databaseManager) {
+    public FullNodeTransactionDatabaseManagerCore(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
@@ -654,10 +653,12 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return _inflateTransaction(transactionId, false);
     }
 
+    @Override
     public Transaction getTransaction(final TransactionId transactionId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
         return _inflateTransaction(transactionId, shouldUpdateUnspentOutputCache);
     }
 
+    @Override
     public Boolean previousOutputsExist(final Transaction transaction) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
@@ -670,22 +671,27 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return true;
     }
 
+    @Override
     public void addToUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         _insertIntoUnconfirmedTransactions(transactionId);
     }
 
+    @Override
     public void addToUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
         _insertIntoUnconfirmedTransactions(transactionIds);
     }
 
+    @Override
     public void removeFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         _deleteFromUnconfirmedTransactions(transactionId);
     }
 
+    @Override
     public void removeFromUnconfirmedTransactions(final List<TransactionId> transactionIds) throws DatabaseException {
         _deleteFromUnconfirmedTransactions(transactionIds);
     }
 
+    @Override
     public Boolean isUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -696,6 +702,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return (! rows.isEmpty());
     }
 
+    @Override
     public List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -712,6 +719,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
     }
 
     // "Select transactions that are unconfirmed that spend an output spent by any of these transactionIds..."
+    @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOnSpentInputsOf(final List<TransactionId> transactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -740,6 +748,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
     }
 
     // "Select transactions that are unconfirmed that spent an output produced by any of these transactionIds..."
+    @Override
     public List<TransactionId> getUnconfirmedTransactionsDependingOn(final List<TransactionId> transactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -767,6 +776,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return listBuilder.build();
     }
 
+    @Override
     public Integer getUnconfirmedTransactionCount() throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -806,6 +816,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return _getBlockIds(transactionId);
     }
 
+    @Override
     public Long calculateTransactionFee(final Transaction transaction) throws DatabaseException {
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
@@ -841,6 +852,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         return (totalTransactionInputAmount - totalTransactionOutputAmount);
     }
 
+    @Override
     public void updateTransaction(final Transaction transaction) throws DatabaseException {
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
@@ -926,6 +938,7 @@ public class CoreTransactionDatabaseManager implements TransactionDatabaseManage
         }
     }
 
+    @Override
     public void deleteTransaction(final TransactionId transactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();

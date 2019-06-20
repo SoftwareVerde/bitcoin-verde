@@ -41,7 +41,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected Integer _maxHeaderBatchSize = 2000;
 
     protected Long _blockHeight = 0L;
-    protected Sha256Hash _lastBlockHash = Block.GENESIS_BLOCK_HASH;
+    protected Sha256Hash _lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
     protected Long _blockHeaderCount = 0L;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
