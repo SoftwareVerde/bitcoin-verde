@@ -27,11 +27,11 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -91,10 +91,10 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = new BlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             for (int i=0; i<blockCount; ++i) {
                 final Sha256Hash mostRecentBlockHash = blockHeaderDatabaseManager.getHeadBlockHeaderHash();
@@ -132,10 +132,10 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_validate_block_that_contains_transaction_that_spends_outputs_in_same_block() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = new BlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
             { // Store the blocks and transactions included within the block-under-test so that it should appear valid...
@@ -211,7 +211,7 @@ public class BlockValidatorTests extends IntegrationTest {
     // public void should_validate_transactions_that_spend_its_coinbase() throws Exception {
     //     // NOTE: Spending the coinbase transaction within 100 blocks of its mining is invalid.
     //
-    //     try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+    //     try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
     //         // Setup
     //         final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
     //
@@ -254,10 +254,10 @@ public class BlockValidatorTests extends IntegrationTest {
             //
         */
 
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
@@ -322,7 +322,7 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void difficulty_should_be_recalculated_every_2016th_block() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final TimeZone timeZone = TimeZone.getTimeZone("GMT+1:00"); // Rome, Italy; DST
             final long blockHeight = 2016 * 2; // 32256L;
 
@@ -331,7 +331,7 @@ public class BlockValidatorTests extends IntegrationTest {
             final BlockInflater blockInflater = new BlockInflater();
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
             synchronized (BlockHeaderDatabaseManager.MUTEX) {
@@ -450,10 +450,10 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_transaction_when_transaction_output_is_only_found_on_separate_fork() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
 
             final BlockInflater blockInflater = new BlockInflater();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
 
@@ -491,9 +491,9 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_validate_block_that_contains_a_duplicate_transaction() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
@@ -620,9 +620,9 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_allowed_to_spend_transactions_with_duplicate_identifiers_more_than_the_number_of_times_they_are_duplicated() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
@@ -794,9 +794,9 @@ public class BlockValidatorTests extends IntegrationTest {
     @Test
     public void should_not_be_invalid_if_spent_on_different_chain() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
@@ -937,12 +937,12 @@ public class BlockValidatorTests extends IntegrationTest {
         try (
             final MasterDatabaseManagerCache masterDatabaseManagerCache = new MasterDatabaseManagerCache(unspentTransactionOutputCacheFactory);
             final LocalDatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
-            final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()
+            final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()
         ) {
             final BlockInflater blockInflater = new BlockInflater();
             final DatabaseConnection databaseConnection = _database.newConnection();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final ReadUncommittedDatabaseConnectionFactory coreDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(_database.getDatabaseConnectionFactory());
             final DatabaseConnectionFactory databaseConnectionFactory = new DatabaseConnectionFactory(coreDatabaseConnectionFactory) {
                 @Override
@@ -952,7 +952,7 @@ public class BlockValidatorTests extends IntegrationTest {
                 }
             };
             final DatabaseConnectionPool databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 16, 30000L);
-            final CoreDatabaseManagerFactory databaseManagerFactory = new CoreDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
+            final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, databaseManagerCache);
 
             final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new FakeMedianBlockTime());
             blockValidator.setMaxThreadCount(8);

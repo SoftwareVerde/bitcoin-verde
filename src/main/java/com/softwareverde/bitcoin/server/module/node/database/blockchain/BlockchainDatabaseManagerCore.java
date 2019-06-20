@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.blockchain.core;
+package com.softwareverde.bitcoin.server.module.node.database.blockchain;
 
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
@@ -17,7 +17,7 @@ import com.softwareverde.database.Query;
 import com.softwareverde.database.Row;
 import com.softwareverde.util.Util;
 
-public class CoreBlockchainDatabaseManager implements BlockchainDatabaseManager {
+public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
     protected final DatabaseManager _databaseManager;
 
     protected BlockchainSegmentId _calculateBlockchainSegment(final BlockId blockId) throws DatabaseException {
@@ -220,7 +220,7 @@ public class CoreBlockchainDatabaseManager implements BlockchainDatabaseManager 
         return row.getBoolean("are_connected");
     }
 
-    public CoreBlockchainDatabaseManager(final DatabaseManager databaseManager) {
+    public BlockchainDatabaseManagerCore(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

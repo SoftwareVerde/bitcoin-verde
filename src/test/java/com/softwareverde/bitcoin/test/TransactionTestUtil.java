@@ -8,10 +8,10 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.input.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -29,10 +29,10 @@ import com.softwareverde.util.Util;
 
 public class TransactionTestUtil {
 
-    protected static BlockId _getGenesisBlockId(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
+    protected static BlockId _getGenesisBlockId(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-        final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
         final BlockId genesisBlockId = blockHeaderDatabaseManager.getBlockHeaderId(BlockHeader.GENESIS_BLOCK_HASH);
         if (genesisBlockId == null) {
 
@@ -76,11 +76,11 @@ public class TransactionTestUtil {
         return transactionHashes;
     }
 
-    public static void createRequiredTransactionInputs(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction) throws DatabaseException {
         TransactionTestUtil.createRequiredTransactionInputs(databaseManager, blockchainSegmentId, transaction, new MutableList<Sha256Hash>(0));
     }
 
-    public static void createRequiredTransactionInputs(final CoreDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
+    public static void createRequiredTransactionInputs(final FullNodeDatabaseManager databaseManager, final BlockchainSegmentId blockchainSegmentId, final Transaction transaction, final List<Sha256Hash> excludedTransactionHashes) throws DatabaseException {
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final TransactionInputDatabaseManager transactionInputDatabaseManager = databaseManager.getTransactionInputDatabaseManager();
 

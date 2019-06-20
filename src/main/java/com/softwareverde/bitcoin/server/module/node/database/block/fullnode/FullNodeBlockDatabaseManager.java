@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.block.core;
+package com.softwareverde.bitcoin.server.module.node.database.block.fullnode;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.constable.list.List;
@@ -28,8 +28,8 @@ import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeSet;
 
-public class CoreBlockDatabaseManager implements BlockDatabaseManager {
-    protected final CoreDatabaseManager _databaseManager;
+public class FullNodeBlockDatabaseManager implements BlockDatabaseManager {
+    protected final FullNodeDatabaseManager _databaseManager;
 
     protected void _associateTransactionToBlock(final TransactionId transactionId, final BlockId blockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -113,7 +113,7 @@ public class CoreBlockDatabaseManager implements BlockDatabaseManager {
     }
 
     protected List<Transaction> _getBlockTransactions(final BlockId blockId, final Boolean shouldUpdateUnspentOutputCache) throws DatabaseException {
-        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final List<TransactionId> transactionIds = _getTransactionIds(blockId);
 
@@ -178,7 +178,7 @@ public class CoreBlockDatabaseManager implements BlockDatabaseManager {
         return block;
     }
 
-    public CoreBlockDatabaseManager(final CoreDatabaseManager databaseManager) {
+    public FullNodeBlockDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
@@ -306,7 +306,7 @@ public class CoreBlockDatabaseManager implements BlockDatabaseManager {
 
     public void repairBlock(final Block block) throws DatabaseException {
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
-        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final Sha256Hash blockHash = block.getHash();
         final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);

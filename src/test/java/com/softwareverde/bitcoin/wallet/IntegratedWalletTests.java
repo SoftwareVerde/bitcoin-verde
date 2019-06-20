@@ -5,10 +5,10 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
@@ -43,10 +43,10 @@ public class IntegratedWalletTests extends IntegrationTest {
             "0200000001B407DD18E98019D7711AB87A51F340B4B8570390651E86F7F15111E04B4C41BA860000006A47304402204AEA02984644FE5E0333709E7089C95A5BDC0C8DF77DD03B04F72139B60573F202203E935E7A835E2D0ED1C42EC215E3B389CE6535B10CB80BAA3F60672C8569484E412103AAAC352016376B9BE4ECA4D303BCEBAD9F773872E7A1584E0A3DCF259BBAADF7FFFFFFFF02F5D61A00000000001976A914AEAFC2F4A4026827BB66F1EA3C475ECAB670D28C88AC68420000000000001976A9142297636D6AF0116B6467DCF7C22DC2CAFBC3B3F188AC00000000"
         };
 
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
 
             final BlockInflater blockInflater = new BlockInflater();
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final Block genesisBlock = blockInflater.fromBytes(HexUtil.hexStringToByteArray(BlockData.MainChain.GENESIS_BLOCK));
 
             final BlockId blockId;
@@ -55,7 +55,7 @@ public class IntegratedWalletTests extends IntegrationTest {
                 blockId = blockDatabaseManager.storeBlock(genesisBlock);
             }
 
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionInflater transactionInflater = new TransactionInflater();
             for (final String transactionString : transactionHexStrings) {
                 final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionString));

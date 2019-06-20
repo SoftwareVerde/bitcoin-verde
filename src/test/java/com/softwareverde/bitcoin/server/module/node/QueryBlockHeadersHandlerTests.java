@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatu
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.query.response.InventoryMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.handler.block.QueryBlocksHandler;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
@@ -52,8 +52,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario() throws Exception {
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
 
@@ -88,8 +88,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
      *
      */
     protected Block[] _initScenario2(final Block[] blocks) throws Exception {
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
 
             final BlockInflater blockInflater = new BlockInflater();
 
@@ -150,7 +150,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -192,7 +192,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -235,7 +235,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -278,7 +278,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 
@@ -322,8 +322,8 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
             final MutableBlock mutableBlock = new MutableBlock(allBlocks[allBlocks.length - 1]);
             mutableBlock.setPreviousBlockHash(allBlocks[allBlocks.length - 1].getHash());
 
-            try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-                final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+            try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+                final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
                 synchronized (BlockHeaderDatabaseManager.MUTEX) {
                     blockDatabaseManager.insertBlock(mutableBlock);
                 }
@@ -336,7 +336,7 @@ public class QueryBlockHeadersHandlerTests extends IntegrationTest {
         final Block[] mainChainBlocks = new Block[bestChainHeight];
         for (int i = 0; i < scenarioBlocks.length + 1; ++i) { mainChainBlocks[i] = allBlocks[i]; }
 
-        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_coreDatabaseManagerFactory);
+        final QueryBlocksHandler queryBlocksHandler = new QueryBlocksHandler(_fullNodeDatabaseManagerFactory);
 
         final FakeBitcoinNode bitcoinNode = new FakeBitcoinNode(new FakeBinarySocket(new FakeSocket(), _threadPool), _threadPool, _localNodeFeatures);
 

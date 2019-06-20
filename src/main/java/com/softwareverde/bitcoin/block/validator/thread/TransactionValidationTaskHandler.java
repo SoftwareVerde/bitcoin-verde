@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.constable.list.List;
@@ -57,7 +57,7 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     }
 
     @Override
-    public void init(final CoreDatabaseManager databaseManager) {
+    public void init(final FullNodeDatabaseManager databaseManager) {
         _transactionValidator = new TransactionValidator(databaseManager, _networkTime, _medianBlockTime);
     }
 

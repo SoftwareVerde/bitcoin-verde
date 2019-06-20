@@ -1,11 +1,11 @@
-package com.softwareverde.bitcoin.server.module.node.database.transaction.input;
+package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input;
 
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
@@ -34,7 +34,7 @@ import com.softwareverde.util.timer.NanoTimer;
 import java.util.Map;
 
 public class TransactionInputDatabaseManager {
-    protected CoreDatabaseManager _databaseManager;
+    protected FullNodeDatabaseManager _databaseManager;
 
 //    protected TransactionOutputId _getPreviousTransactionOutputId(final TransactionInput transactionInput) throws DatabaseException {
 //        final TransactionOutputDatabaseManager transactionOutputDatabaseManager = new TransactionOutputDatabaseManager(databaseConnection, databaseManagerCache);
@@ -151,7 +151,7 @@ public class TransactionInputDatabaseManager {
         databaseConnection.executeSql(batchedInsertQuery);
     }
 
-    public TransactionInputDatabaseManager(final CoreDatabaseManager databaseManager) {
+    public TransactionInputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

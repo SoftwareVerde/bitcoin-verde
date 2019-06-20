@@ -4,7 +4,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.database.mysql.DatabaseInitializer;
@@ -23,17 +23,17 @@ public class IntegrationTest {
     protected final DatabaseManagerCache _databaseManagerCache = new DisabledDatabaseManagerCache();
     protected final MainThreadPool _threadPool = new MainThreadPool(1, 1L);
 
-    protected final CoreDatabaseManagerFactory _coreDatabaseManagerFactory;
-    protected final CoreDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _fullNodeDatabaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _readUncomittedDatabaseManagerFactory;
     protected final SpvDatabaseManagerFactory _spvDatabaseManagerFactory;
 
     public IntegrationTest() {
         final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-        _coreDatabaseManagerFactory = new CoreDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
+        _fullNodeDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
         _spvDatabaseManagerFactory = new SpvDatabaseManagerFactory(databaseConnectionFactory, _databaseManagerCache);
 
         final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(databaseConnectionFactory);
-        _readUncomittedDatabaseManagerFactory = new CoreDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
+        _readUncomittedDatabaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, _databaseManagerCache);
     }
 
     static {
