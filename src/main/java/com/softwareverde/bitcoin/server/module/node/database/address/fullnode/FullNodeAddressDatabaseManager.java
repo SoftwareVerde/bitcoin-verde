@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.address.core;
+package com.softwareverde.bitcoin.server.module.node.database.address.fullnode;
 
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressId;
@@ -11,8 +11,8 @@ import com.softwareverde.bitcoin.server.module.node.database.address.MutableSpen
 import com.softwareverde.bitcoin.server.module.node.database.address.SpendableTransactionOutput;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -33,8 +33,8 @@ import com.softwareverde.io.Logger;
 import java.util.HashMap;
 import java.util.HashSet;
 
-public class CoreAddressDatabaseManager implements AddressDatabaseManager {
-    protected final CoreDatabaseManager _databaseManager;
+public class FullNodeAddressDatabaseManager implements AddressDatabaseManager {
+    protected final FullNodeDatabaseManager _databaseManager;
 
     protected AddressId _getAddressId(final String addressString) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -62,7 +62,7 @@ public class CoreAddressDatabaseManager implements AddressDatabaseManager {
 
     protected List<TransactionId> _getTransactionIdsSendingTo(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final java.util.List<Row> rows = databaseConnection.query(
             // Include Transactions that send to the Address...
@@ -91,7 +91,7 @@ public class CoreAddressDatabaseManager implements AddressDatabaseManager {
 
     protected List<TransactionId> _getTransactionIdsSpendingFrom(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId, final Boolean includeUnconfirmedTransactions) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
 
         final java.util.List<Row> rows = databaseConnection.query(
             // Include Transactions that spend from the Address...
@@ -120,7 +120,7 @@ public class CoreAddressDatabaseManager implements AddressDatabaseManager {
 
     protected List<SpendableTransactionOutput> _getAddressOutputs(final BlockchainSegmentId blockchainSegmentId, final AddressId addressId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
-        final CoreTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+        final FullNodeTransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = _databaseManager.getBlockHeaderDatabaseManager();
 
         final java.util.List<Row> rows = databaseConnection.query(
@@ -190,7 +190,7 @@ public class CoreAddressDatabaseManager implements AddressDatabaseManager {
         return spendableTransactionOutputs;
     }
 
-    public CoreAddressDatabaseManager(final CoreDatabaseManager databaseManager) {
+    public FullNodeAddressDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

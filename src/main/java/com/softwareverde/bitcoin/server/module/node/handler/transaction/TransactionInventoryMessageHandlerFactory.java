@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.manager.NodeInitializer;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 
@@ -12,10 +12,10 @@ public class TransactionInventoryMessageHandlerFactory implements NodeInitialize
         }
     };
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final Runnable _newInventoryCallback;
 
-    public TransactionInventoryMessageHandlerFactory(final CoreDatabaseManagerFactory databaseManagerFactory, final Runnable newInventoryCallback) {
+    public TransactionInventoryMessageHandlerFactory(final FullNodeDatabaseManagerFactory databaseManagerFactory, final Runnable newInventoryCallback) {
         _databaseManagerFactory = databaseManagerFactory;
         _newInventoryCallback = newInventoryCallback;
     }

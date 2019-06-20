@@ -648,7 +648,7 @@ public class HistoricTransactionsTests {
         final MedianBlockTime medianBlockTime = new ImmutableMedianBlockTime(1467969398L);
         final NetworkTime networkTime = new ImmutableNetworkTime(1529680230L);
 
-        final TransactionValidator transactionValidator = new TransactionValidator(null, networkTime, medianBlockTime);
+        final TransactionValidatorCore transactionValidator = new TransactionValidatorCore(null, networkTime, medianBlockTime);
 
         // Action
         final Boolean shouldValidateLockTime = transactionValidator._shouldValidateLockTime(context.getTransaction());

@@ -10,10 +10,10 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
@@ -145,7 +145,7 @@ public class StratumServer {
     protected void _rebuildNewMiningTask() {
         final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory(_totalExtraNonceByteCount);
 
-        final String coinbaseMessage = Constants.COINBASE_MESSAGE;
+        final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
         final AddressInflater addressInflater = new AddressInflater();
         final Address address = addressInflater.compressedFromPrivateKey(_privateKey);

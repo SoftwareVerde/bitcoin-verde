@@ -2,8 +2,8 @@ package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
@@ -53,10 +53,10 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         }
     }
 
-    protected CoreDatabaseManager _databaseManager;
+    protected FullNodeDatabaseManager _databaseManager;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    protected static TransactionOutput _getTransactionOutput(final CoreDatabaseManager databaseManager, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions) {
+    protected static TransactionOutput _getTransactionOutput(final FullNodeDatabaseManager databaseManager, final Sha256Hash outputTransactionHash, final Integer transactionOutputIndex, final Map<Sha256Hash, Transaction> queuedTransactions) {
         try {
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
 
@@ -83,7 +83,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
         return null;
     }
 
-    protected static Long _calculateTotalTransactionInputs(final CoreDatabaseManager databaseManager, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions) {
+    protected static Long _calculateTotalTransactionInputs(final FullNodeDatabaseManager databaseManager, final Transaction transaction, final Map<Sha256Hash, Transaction> queuedTransactions) {
         long totalInputValue = 0L;
         final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
 
@@ -114,7 +114,7 @@ public class TotalExpenditureTaskHandler implements TaskHandler<Transaction, Tot
     }
 
     @Override
-    public void init(final CoreDatabaseManager databaseManager) {
+    public void init(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

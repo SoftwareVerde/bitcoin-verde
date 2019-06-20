@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.handler.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -18,16 +18,16 @@ public class QueryUnconfirmedTransactionsHandler implements BitcoinNode.QueryUnc
         public void run(final BitcoinNode bitcoinNode) { }
     };
 
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    public QueryUnconfirmedTransactionsHandler(final CoreDatabaseManagerFactory databaseManagerFactory) {
+    public QueryUnconfirmedTransactionsHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public void run(final BitcoinNode bitcoinNode) {
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final List<TransactionId> unconfirmedTransactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();
 
             final ImmutableListBuilder<Sha256Hash> unconfirmedTransactionHashes = new ImmutableListBuilder<Sha256Hash>(unconfirmedTransactionIds.getSize());

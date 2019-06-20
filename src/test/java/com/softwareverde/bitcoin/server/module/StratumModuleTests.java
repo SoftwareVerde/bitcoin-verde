@@ -5,9 +5,9 @@ import com.softwareverde.bitcoin.block.header.MutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeJsonRpcConnection;
 import com.softwareverde.bitcoin.server.module.stratum.StratumServer;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
@@ -73,7 +73,7 @@ public class StratumModuleTests {
         final UnlockingScript unlockingScript = block.getCoinbaseTransaction().getCoinbaseScript();
         final List<Operation> operations = unlockingScript.getOperations();
         Assert.assertEquals(Long.valueOf(568010L), ((PushOperation) operations.get(0)).getValue().asLong()); // Enforce BlockHeight within coinbase...
-        Assert.assertEquals(Constants.COINBASE_MESSAGE, ((PushOperation) operations.get(1)).getValue().asString()); // Enforce coinbase message...
+        Assert.assertEquals(BitcoinConstants.getCoinbaseMessage(), ((PushOperation) operations.get(1)).getValue().asString()); // Enforce coinbase message...
         Assert.assertEquals(stratumMineBlockTask.getExtraNonce(), HexUtil.toHexString(((PushOperation) operations.get(2)).getValue().getBytes(0, 4))); // Enforce extraNonce...
         Assert.assertEquals("00000000", HexUtil.toHexString(((PushOperation) operations.get(2)).getValue().getBytes(4, 4))); // Enforce extraNonce2...
     }

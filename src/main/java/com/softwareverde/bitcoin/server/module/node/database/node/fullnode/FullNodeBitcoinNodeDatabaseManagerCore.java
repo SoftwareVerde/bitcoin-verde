@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.node.core;
+package com.softwareverde.bitcoin.server.module.node.database.node.fullnode;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -6,7 +6,6 @@ import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpA
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.pending.PendingBlockDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.FilterType;
 import com.softwareverde.bitcoin.server.module.node.sync.block.pending.PendingBlockId;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.pending.PendingTransactionId;
@@ -27,7 +26,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashSet;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager {
+public class FullNodeBitcoinNodeDatabaseManagerCore implements FullNodeBitcoinNodeDatabaseManager {
 
     protected final DatabaseManager _databaseManager;
     protected final SystemTime _systemTime = new SystemTime();
@@ -63,7 +62,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         return NodeId.wrap(row.getLong("id"));
     }
 
-    public CoreBitcoinNodeDatabaseManager(final DatabaseManager databaseManager) {
+    public FullNodeBitcoinNodeDatabaseManagerCore(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 
@@ -212,6 +211,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         );
     }
 
+    @Override
     public Boolean updateBlockInventory(final BitcoinNode node, final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -233,6 +233,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         return (databaseConnection.getRowsAffectedCount() > 0);
     }
 
+    @Override
     public void deleteBlockInventory(final PendingBlockId pendingBlockId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -242,6 +243,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         );
     }
 
+    @Override
     public void deleteBlockInventory(final List<PendingBlockId> pendingBlockIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -249,6 +251,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         databaseConnection.executeSql(new Query("DELETE FROM node_blocks_inventory WHERE pending_block_id IN (" + DatabaseUtil.createInClause(pendingBlockIds) + ")"));
     }
 
+    @Override
     public void updateTransactionInventory(final BitcoinNode node, final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -268,6 +271,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         databaseConnection.executeSql(batchedInsertQuery);
     }
 
+    @Override
     public List<NodeId> filterNodesViaTransactionInventory(final List<NodeId> nodeIds, final Sha256Hash transactionHash, final FilterType filterType) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -297,6 +301,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         return new ImmutableList<NodeId>(filteredNodes);
     }
 
+    @Override
     public List<NodeId> filterNodesViaBlockInventory(final List<NodeId> nodeIds, final Sha256Hash blockHash, final FilterType filterType) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -336,6 +341,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         return new ImmutableList<NodeId>(filteredNodes);
     }
 
+    @Override
     public void deleteTransactionInventory(final PendingTransactionId pendingTransactionId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
@@ -345,6 +351,7 @@ public class CoreBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManage
         );
     }
 
+    @Override
     public void deleteTransactionInventory(final List<PendingTransactionId> pendingTransactionIds) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 

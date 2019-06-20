@@ -11,8 +11,8 @@ import com.softwareverde.bitcoin.server.message.type.query.response.hash.Invento
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -23,15 +23,15 @@ import com.softwareverde.io.Logger;
 import java.util.HashSet;
 
 public class RequestSpvBlockHandler implements BitcoinNode.RequestSpvBlocksCallback {
-    protected final CoreDatabaseManagerFactory _databaseManagerFactory;
+    protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
 
-    public RequestSpvBlockHandler(final CoreDatabaseManagerFactory databaseManagerFactory) {
+    public RequestSpvBlockHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
         _databaseManagerFactory = databaseManagerFactory;
     }
 
     @Override
     public void run(final List<Address> addresses, final BitcoinNode bitcoinNode) {
-        try (final CoreDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();

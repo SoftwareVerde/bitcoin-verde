@@ -1,4 +1,4 @@
-package com.softwareverde.bitcoin.server.module.node.database.block.pending.core;
+package com.softwareverde.bitcoin.server.module.node.database.block.pending.fullnode;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
@@ -28,7 +28,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.HashMap;
 import java.util.Map;
 
-public class CorePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
+public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManager _databaseManager;
 
@@ -188,7 +188,7 @@ public class CorePendingBlockDatabaseManager implements PendingBlockDatabaseMana
         return new PendingBlock(blockHash, previousBlockHash, blockData);
     }
 
-    public CorePendingBlockDatabaseManager(final DatabaseManager databaseManager) {
+    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

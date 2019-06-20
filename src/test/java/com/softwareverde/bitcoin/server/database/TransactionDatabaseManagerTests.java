@@ -11,10 +11,10 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.module.node.database.block.core.CoreBlockDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.core.CoreTransactionDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.FullNodeTransactionDatabaseManager;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -43,14 +44,15 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
 
     @Test
     public void transaction_spending_output_spent_by_other_mempool_tx_should_be_invalid() throws Exception {
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
-            final CoreBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
+            final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
-            final CoreTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new BlockValidatorTests.FakeMedianBlockTime());
+            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
+            final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
+            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new BlockValidatorTests.FakeMedianBlockTime());
 
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 

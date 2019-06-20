@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.block.merkleroot.Hashable;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.CoinbaseTransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
@@ -20,7 +21,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.json.Jsonable;
 
 public interface Transaction extends Hashable, Constable<ConstTransaction>, Jsonable {
-    Long VERSION = 0x02L;
+    Long VERSION = BitcoinConstants.getTransactionVersion();
     Long SATOSHIS_PER_BITCOIN = 100_000_000L;
 
     static Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {
