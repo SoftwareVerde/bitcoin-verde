@@ -131,7 +131,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
             final TestBlockDatabaseManager blockDatabaseManager = new TestBlockDatabaseManager(databaseManager);
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
             final TransactionInflater transactionInflater = new TransactionInflater();
 
@@ -164,7 +164,7 @@ public class TransactionValidatorTests extends IntegrationTest {
         // Setup
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
 
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
@@ -218,7 +218,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final PrivateKey privateKey = PrivateKey.createNewKey();
 
             // Create a transaction that will be spent in our signed transaction.
@@ -268,7 +268,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final PrivateKey privateKey = PrivateKey.createNewKey();
 
             // Create a transaction that will be spent in our signed transaction.
@@ -318,7 +318,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final PrivateKey privateKey = PrivateKey.createNewKey();
 
             // Create a transaction that will be spent in our signed transaction.
@@ -383,7 +383,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             Block lastBlock = null;
@@ -457,7 +457,7 @@ public class TransactionValidatorTests extends IntegrationTest {
             final FullNodeBlockDatabaseManager blockDatabaseManager = databaseManager.getBlockDatabaseManager();
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
 
             Block lastBlock = null;

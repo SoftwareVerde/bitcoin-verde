@@ -21,6 +21,7 @@ import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockH
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.database.DatabaseException;
@@ -64,8 +65,9 @@ public class ChainValidationModule {
             final DatabaseConnectionFactory databaseConnectionFactory = database.newConnectionFactory();
             final ReadUncommittedDatabaseConnectionFactory readUncommittedDatabaseConnectionFactory = new ReadUncommittedDatabaseConnectionFactory(databaseConnectionFactory);
             final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
+            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
-            final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, networkTime, medianBlockTime);
+            final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(false);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);

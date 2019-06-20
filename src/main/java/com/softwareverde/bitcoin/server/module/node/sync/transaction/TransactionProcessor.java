@@ -18,6 +18,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -44,6 +45,7 @@ public class TransactionProcessor extends SleepyService {
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final SystemTime _systemTime;
     protected Long _lastOrphanPurgeTime;
@@ -62,6 +64,8 @@ public class TransactionProcessor extends SleepyService {
             final PendingTransactionDatabaseManager pendingTransactionDatabaseManager = databaseManager.getPendingTransactionDatabaseManager();
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+            final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
 
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             if ((now - _lastOrphanPurgeTime) > MIN_MILLISECONDS_BEFORE_ORPHAN_PURGE) {
@@ -96,7 +100,6 @@ public class TransactionProcessor extends SleepyService {
                     transactionsToStore.add(transaction);
                 }
 
-                final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, _networkTime, _medianBlockTime);
                 transactionValidator.setLoggingEnabled(true);
 
                 final BlockId blockId = blockHeaderDatabaseManager.getHeadBlockHeaderId();
@@ -196,11 +199,12 @@ public class TransactionProcessor extends SleepyService {
     @Override
     protected void _onSleep() { }
 
-    public TransactionProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BitcoinNodeManager bitcoinNodeManager) {
+    public TransactionProcessor(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTime medianBlockTime, final BitcoinNodeManager bitcoinNodeManager) {
         _databaseManagerFactory = databaseManagerFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
         _bitcoinNodeManager = bitcoinNodeManager;
+        _transactionValidatorFactory = transactionValidatorFactory;
 
         _systemTime = new SystemTime();
         _lastOrphanPurgeTime = 0L;

@@ -25,6 +25,7 @@ import com.softwareverde.bitcoin.server.module.node.handler.transaction.Orphaned
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
@@ -47,6 +48,7 @@ public class BlockProcessor {
     protected final NetworkTime _networkTime;
 
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final MasterDatabaseManagerCache _masterDatabaseManagerCache;
     protected final OrphanedTransactionsCache _orphanedTransactionsCache;
@@ -57,9 +59,10 @@ public class BlockProcessor {
     protected Integer _processedBlockCount = 0;
     protected final Long _startTime;
 
-    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
+        _transactionValidatorFactory = transactionValidatorFactory;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;
@@ -163,7 +166,7 @@ public class BlockProcessor {
                 try (final DatabaseConnectionPool readUncommittedDatabaseConnectionPool = new DatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
                     final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache);
 
-                    final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _networkTime, _medianBlockTime);
+                    final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
 
@@ -236,7 +239,7 @@ public class BlockProcessor {
                     Logger.log("NOTICE: Utxo Reorg - 3/5 complete.");
 
                     // 4. Validate that the transactions are still valid on the new chain...
-                    final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+                    final TransactionValidator transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
                     transactionValidator.setLoggingEnabled(false);
 
                     final List<TransactionId> transactionIds = transactionDatabaseManager.getUnconfirmedTransactionIds();

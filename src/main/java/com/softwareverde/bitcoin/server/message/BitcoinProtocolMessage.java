@@ -5,11 +5,9 @@ import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.socket.BinaryPacketFormat;
-import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -20,7 +18,7 @@ import com.softwareverde.util.bytearray.Endian;
  */
 
 public abstract class BitcoinProtocolMessage implements ProtocolMessage {
-    public static final ByteArray MAIN_NET_MAGIC_NUMBER = new ImmutableByteArray(HexUtil.hexStringToByteArray("E8F3E1E3")); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
+    public static final ByteArray MAIN_NET_MAGIC_NUMBER = ByteArray.fromHexString("E8F3E1E3"); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
     public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(BitcoinProtocolMessage.MAIN_NET_MAGIC_NUMBER, new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageFactory());
 
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;

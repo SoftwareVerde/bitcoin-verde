@@ -29,6 +29,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.transaction.Transaction
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -39,6 +40,7 @@ import com.softwareverde.network.time.NetworkTime;
 
 public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
@@ -46,7 +48,8 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
 
-    public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+        _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManagerFactory = databaseManagerFactory;
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
@@ -345,9 +348,8 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
                     TransactionUtil.startTransaction(databaseConnection);
 
                     final BlockId blockId = blockDatabaseManager.storeBlock(block);
-
                     final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
-                    final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _networkTime, _medianBlockTime);
+                    final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     return blockValidator.validatePrototypeBlock(blockId, block);
                 }
             }

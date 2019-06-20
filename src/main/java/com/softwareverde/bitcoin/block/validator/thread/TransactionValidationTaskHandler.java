@@ -7,6 +7,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -46,19 +47,22 @@ public class TransactionValidationTaskHandler implements TaskHandler<Transaction
     protected final Long _blockHeight;
     protected final NetworkTime _networkTime;
     protected final MedianBlockTime _medianBlockTime;
-    protected TransactionValidator _transactionValidator;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableList<Transaction> _invalidTransactions = new MutableList<Transaction>(0);
 
-    public TransactionValidationTaskHandler(final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
+    protected TransactionValidator _transactionValidator;
+
+    public TransactionValidationTaskHandler(final TransactionValidatorFactory transactionValidatorFactory, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight, final NetworkTime networkTime, final MedianBlockTime medianBlockTime) {
         _blockchainSegmentId = blockchainSegmentId;
         _blockHeight = blockHeight;
         _networkTime = networkTime.asConst(); // NOTE: This freezes the networkTime...
         _medianBlockTime = medianBlockTime.asConst(); // NOTE: This freezes the medianBlockTime... (but shouldn't matter)
+        _transactionValidatorFactory = transactionValidatorFactory;
     }
 
     @Override
     public void init(final FullNodeDatabaseManager databaseManager) {
-        _transactionValidator = new TransactionValidator(databaseManager, _networkTime, _medianBlockTime);
+        _transactionValidator = _transactionValidatorFactory.newTransactionValidator(databaseManager, _networkTime, _medianBlockTime);
     }
 
     @Override

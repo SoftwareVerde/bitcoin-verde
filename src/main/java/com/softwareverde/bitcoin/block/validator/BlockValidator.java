@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -42,6 +43,7 @@ public class BlockValidator {
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
     protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final TransactionValidatorFactory _transactionValidatorFactory;
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
@@ -78,7 +80,7 @@ public class BlockValidator {
         final TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskHandlerFactory = new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
-                return new TransactionValidationTaskHandler(blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
+                return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
         };
 
@@ -296,8 +298,9 @@ public class BlockValidator {
         return BlockValidationResult.valid();
     }
 
-    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseManagerFactory = databaseManagerFactory;
+        _transactionValidatorFactory = transactionValidatorFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
     }

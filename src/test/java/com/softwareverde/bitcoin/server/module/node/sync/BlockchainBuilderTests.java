@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.test.BlockData;
 import com.softwareverde.bitcoin.test.IntegrationTest;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -84,7 +85,8 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
                 final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
 
-                final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, masterCache, networkTime, medianBlockTime, orphanedTransactionsCache);
+                final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
+                final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache);
                 final SleepyService.StatusMonitor blockDownloaderStatusMonitor = new SleepyService.StatusMonitor() {
                     @Override
                     public SleepyService.Status getStatus() {

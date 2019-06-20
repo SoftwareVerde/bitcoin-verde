@@ -22,6 +22,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -48,9 +49,10 @@ public class TransactionDatabaseManagerTests extends IntegrationTest {
             final BlockInflater blockInflater = new BlockInflater();
             final AddressInflater addressInflater = new AddressInflater();
             final TransactionSigner transactionSigner = new TransactionSigner();
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
+            final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
+            final TransactionValidator transactionValidator = transactionValidatorFactory.newTransactionValidator(databaseManager, new ImmutableNetworkTime(Long.MAX_VALUE), new ImmutableMedianBlockTime(Long.MAX_VALUE));
             final FullNodeTransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
-            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new BlockValidatorTests.FakeMedianBlockTime());
+            final BlockValidator blockValidator = new BlockValidator(_readUncomittedDatabaseManagerFactory, transactionValidatorFactory, new ImmutableNetworkTime(Long.MAX_VALUE), new BlockValidatorTests.FakeMedianBlockTime());
 
             final TransactionOutputRepository transactionOutputRepository = new DatabaseTransactionOutputRepository(databaseManager);
 

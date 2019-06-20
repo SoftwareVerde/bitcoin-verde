@@ -56,6 +56,7 @@ import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.concurrent.pool.ThreadPool;
@@ -392,13 +393,15 @@ public class NodeModule {
             _transactionDownloader = new TransactionDownloader(databaseManagerFactory, _bitcoinNodeManager);
         }
 
+        final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
+
         { // Initialize the TransactionProcessor...
-            _transactionProcessor = new TransactionProcessor(databaseManagerFactory, _mutableNetworkTime, medianBlockTime, _bitcoinNodeManager);
+            _transactionProcessor = new TransactionProcessor(databaseManagerFactory, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, _bitcoinNodeManager);
         }
 
         final BlockProcessor blockProcessor;
         { // Initialize BlockSynchronizer...
-            blockProcessor = new BlockProcessor(_databaseConnectionPool, masterDatabaseManagerCache, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
+            blockProcessor = new BlockProcessor(_databaseConnectionPool, masterDatabaseManagerCache, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime, orphanedTransactionsCache);
             blockProcessor.setMaxThreadCount(bitcoinProperties.getMaxThreadCount());
             blockProcessor.setTrustedBlockHeight(bitcoinProperties.getTrustedBlockHeight());
         }
@@ -627,7 +630,7 @@ public class NodeModule {
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
-                final DataHandler dataHandler = new DataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
+                final DataHandler dataHandler = new DataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
 

@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
+import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorCore;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.HexUtil;
@@ -72,7 +73,7 @@ public class IntegratedWalletTests extends IntegrationTest {
             final MutableNetworkTime networkTime = new MutableNetworkTime();
             final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
 
-            final TransactionValidator transactionValidator = new TransactionValidator(databaseManager, networkTime, medianBlockTime);
+            final TransactionValidator transactionValidator = new TransactionValidatorCore(databaseManager, networkTime, medianBlockTime);
             transactionValidator.setLoggingEnabled(true);
 
             final Boolean transactionIsValid = transactionValidator.validateTransaction(blockchainSegmentId, 581678L, transaction, true);
