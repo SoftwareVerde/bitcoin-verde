@@ -61,9 +61,19 @@ while (list.pop() != null) {
 
 ### Explicit Generic Types
 
-Explicit generic typing should always be used, even if it may be inferred by the compiler.
+Explicit generic typing is required except when the type is easily inferred within its declaration.
 
-`final List<Item> items = new ArrayList<Item>(10);`
+```
+final List<Item> items = new ArrayList<>(10); // Same-line construction may be inferred visually easily.
+```
+
+```
+final List<Item> _items;
+...
+public Constructor() {
+    _items = new ArrayList<Item>(10); // Should be explicitly provided due to low proximity.
+}
+```
 
 ## Engineering Decisions
 

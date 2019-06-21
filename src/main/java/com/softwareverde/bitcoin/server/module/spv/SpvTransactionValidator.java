@@ -18,6 +18,7 @@ import com.softwareverde.util.Util;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SpvTransactionValidator {
@@ -163,6 +164,13 @@ public class SpvTransactionValidator {
         private final AtomicInteger pendingCount = new AtomicInteger(0);
         private final AtomicInteger failureCount = new AtomicInteger(0);
         private final AtomicInteger successCount = new AtomicInteger(0);
+        private final AtomicBoolean isFinished = new AtomicBoolean(false);
+
+        private void _finish(final Boolean wasSuccess) {
+            if (isFinished.compareAndSet(false, true)) {
+                this.validationCallback.onValidationComplete(this.rootTransaction, wasSuccess);
+            }
+        }
 
         public ValidationMetaData(final Transaction rootTransaction, final ValidationCallback validationCallback) {
             this.slpTokenId = _getTokenId(rootTransaction);
@@ -178,7 +186,7 @@ public class SpvTransactionValidator {
             this.pendingCount.decrementAndGet();
             this.successCount.incrementAndGet();
 
-            validationCallback.onValidationComplete(this.rootTransaction, true);
+            _finish(true);
         }
 
         public synchronized void onFailure() {
@@ -186,7 +194,7 @@ public class SpvTransactionValidator {
             this.failureCount.incrementAndGet();
 
             if (pendingCount < 1) {
-                this.validationCallback.onValidationComplete(this.rootTransaction, false);
+                _finish(false);
             }
         }
 
@@ -195,14 +203,14 @@ public class SpvTransactionValidator {
                 this.pendingCount.set(0);
                 this.failureCount.incrementAndGet();
 
-                this.validationCallback.onValidationComplete(this.rootTransaction, false);
+                _finish(false);
             }
             else {
                 final int pendingCount = this.pendingCount.decrementAndGet();
                 this.failureCount.incrementAndGet();
 
                 if (pendingCount < 1) {
-                    this.validationCallback.onValidationComplete(this.rootTransaction, false);
+                    _finish(false);
                 }
             }
         }
@@ -211,7 +219,7 @@ public class SpvTransactionValidator {
             final int pendingCount = this.pendingCount.decrementAndGet();
 
             if (pendingCount < 1) {
-                this.validationCallback.onValidationComplete(this.rootTransaction, true);
+                _finish(true);
             }
         }
 
@@ -219,7 +227,7 @@ public class SpvTransactionValidator {
             final int pendingCount = this.pendingCount.decrementAndGet();
 
             if (pendingCount < 1) {
-                this.validationCallback.onValidationComplete(this.rootTransaction, true);
+                _finish(true);
             }
         }
     }
