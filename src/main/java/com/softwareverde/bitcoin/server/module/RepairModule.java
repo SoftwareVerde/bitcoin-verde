@@ -160,6 +160,8 @@ public class RepairModule {
                     synchronized (BlockHeaderDatabaseManager.MUTEX) {
                         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
                     }
+
+                    i += 1L;
                 }
                 TransactionUtil.commitTransaction(databaseConnection);
             }
