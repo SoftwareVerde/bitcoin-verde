@@ -9,9 +9,9 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
-import com.softwareverde.bitcoin.server.Constants;
 import com.softwareverde.bitcoin.server.configuration.Configuration;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
@@ -42,7 +42,7 @@ import java.io.File;
 public class TestBlockDataStratumMiner {
     // @Test
     public void run() {
-        final String coinbaseMessage = Constants.COINBASE_MESSAGE;
+        final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
         final AddressInflater addressInflater = new AddressInflater();
 

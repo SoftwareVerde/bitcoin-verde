@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.transaction.signer;
 
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.output.identifier.TransactionOutputIdentifier;
@@ -9,9 +9,9 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 
 public class DatabaseTransactionOutputRepository implements TransactionOutputRepository {
-    protected final CoreDatabaseManager _databaseManager;
+    protected final FullNodeDatabaseManager _databaseManager;
 
-    public DatabaseTransactionOutputRepository(final CoreDatabaseManager databaseManager) {
+    public DatabaseTransactionOutputRepository(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

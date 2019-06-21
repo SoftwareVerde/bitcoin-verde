@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
@@ -121,6 +122,13 @@ public class MutableTransaction implements Transaction {
     public Boolean matches(final BloomFilter bloomFilter) {
         final TransactionBloomFilterMatcher transactionBloomFilterMatcher = new TransactionBloomFilterMatcher(bloomFilter);
         return transactionBloomFilterMatcher.shouldInclude(this);
+    }
+
+    @Override
+    public MutableCoinbaseTransaction asCoinbase() {
+        if (! Transaction.isCoinbaseTransaction(this)) { return null; }
+
+        return new MutableCoinbaseTransaction(this);
     }
 
     @Override

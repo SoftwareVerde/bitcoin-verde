@@ -10,7 +10,6 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
-import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
@@ -188,7 +187,7 @@ public class MutableBlock implements Block {
         if (_transactions.isEmpty()) { return null; }
 
         final Transaction transaction = _transactions.get(0);
-        return new MutableCoinbaseTransaction(transaction);
+        return transaction.asCoinbase();
     }
 
     @Override

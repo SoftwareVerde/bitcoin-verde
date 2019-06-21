@@ -2,7 +2,7 @@ package com.softwareverde.bitcoin.server.database;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
@@ -22,7 +22,7 @@ public class AddressDatabaseManagerTests extends IntegrationTest {
     @Test
     public void should_store_script_addresses() throws Exception {
         // Setup
-        try (final CoreDatabaseManager databaseManager = _coreDatabaseManagerFactory.newDatabaseManager()) {
+        try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
 
             final MutableList<LockingScript> lockingScripts = new MutableList<LockingScript>();

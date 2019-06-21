@@ -5,7 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
+import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
@@ -29,7 +29,7 @@ public class DisabledDatabaseManagerCache implements DatabaseManagerCache {
     public void invalidateTransactionIdCache() { }
 
     @Override
-    public void cacheTransaction(final TransactionId transactionId, final ImmutableTransaction transaction) { }
+    public void cacheTransaction(final TransactionId transactionId, final ConstTransaction transaction) { }
 
     @Override
     public Transaction getCachedTransaction(final TransactionId transactionId) { return null; }

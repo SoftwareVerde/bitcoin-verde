@@ -1,13 +1,13 @@
-package com.softwareverde.bitcoin.server.module.node.database.transaction.output;
+package com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output;
 
 import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.core.CoreDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
-import com.softwareverde.bitcoin.server.module.node.database.transaction.input.TransactionInputDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.input.TransactionInputDatabaseManager;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputId;
@@ -52,7 +52,7 @@ public class TransactionOutputDatabaseManager {
         }
     }
 
-    protected final CoreDatabaseManager _databaseManager;
+    protected final FullNodeDatabaseManager _databaseManager;
 
     protected TransactionOutputId _getTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -334,7 +334,7 @@ public class TransactionOutputDatabaseManager {
         return transactionOutputIsSpent;
     }
 
-    public TransactionOutputDatabaseManager(final CoreDatabaseManager databaseManager) {
+    public TransactionOutputDatabaseManager(final FullNodeDatabaseManager databaseManager) {
         _databaseManager = databaseManager;
     }
 

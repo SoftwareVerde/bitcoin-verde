@@ -1,6 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
@@ -91,7 +91,7 @@ public class ControlOperation extends SubTypedOperation {
                 if (controlState.shouldExecute()) {
                     final Value value = stack.pop();
                     final String userAgent = value.asString();
-                    final Boolean booleanValue = (Constants.USER_AGENT.equalsIgnoreCase(userAgent));
+                    final Boolean booleanValue = (BitcoinConstants.getUserAgent().equalsIgnoreCase(userAgent));
 
                     final Boolean notIf = (_opcode == Opcode.IF_NOT_VERSION);
                     condition = ( notIf ? (! booleanValue) : (booleanValue) );

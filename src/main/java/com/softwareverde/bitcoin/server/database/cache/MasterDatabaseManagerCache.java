@@ -11,7 +11,7 @@ import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOu
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.memory.JvmMemoryStatus;
 import com.softwareverde.bitcoin.server.memory.MemoryStatus;
-import com.softwareverde.bitcoin.transaction.ImmutableTransaction;
+import com.softwareverde.bitcoin.transaction.ConstTransaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.util.Util;
@@ -29,7 +29,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
 
     protected final UnspentTransactionOutputCacheFactory _unspentTransactionOutputCacheFactory;
     protected final MutableCache<ImmutableSha256Hash, TransactionId> _transactionIdCache;
-    protected final MutableCache<TransactionId, ImmutableTransaction> _transactionCache;
+    protected final MutableCache<TransactionId, ConstTransaction> _transactionCache;
     protected final MutableCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache;
     protected final MutableCache<BlockId, BlockchainSegmentId> _blockIdBlockchainSegmentIdCache;
     protected final MutableCache<String, AddressId> _addressIdCache;
@@ -46,7 +46,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         final MemoryStatus memoryStatus = new JvmMemoryStatus();
 
         _transactionIdCache                 = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<ImmutableSha256Hash, TransactionId>(                    "TransactionIdCache",           128000), memoryStatus);
-        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, ImmutableTransaction>(                   "TransactionCache",             128000), memoryStatus);
+        _transactionCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<TransactionId, ConstTransaction>(                   "TransactionCache",             128000), memoryStatus);
         _transactionOutputIdCache           = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId",          128000), memoryStatus);
         _blockIdBlockchainSegmentIdCache    = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, BlockchainSegmentId>(                          "BlockId-BlockchainSegmentId",  2048), memoryStatus);
         _blockHeightCache                   = MemoryConscientiousCache.wrap(0.95F, new HashMapCache<BlockId, Long>(                                         "BlockHeightCache",             2048), memoryStatus);
@@ -57,7 +57,7 @@ public class MasterDatabaseManagerCache implements AutoCloseable {
         _maxCachedUtxoCount = _unspentTransactionOutputCache.getMaxUtxoCount();
     }
 
-    public Cache<TransactionId, ImmutableTransaction> getTransactionCache() { return _transactionCache; }
+    public Cache<TransactionId, ConstTransaction> getTransactionCache() { return _transactionCache; }
     public Cache<ImmutableSha256Hash, TransactionId> getTransactionIdCache() { return _transactionIdCache; }
     public Cache<CachedTransactionOutputIdentifier, TransactionOutputId> getTransactionOutputIdCache() { return _transactionOutputIdCache; }
     public Cache<BlockId, BlockchainSegmentId> getBlockIdBlockchainSegmentIdCache() { return _blockIdBlockchainSegmentIdCache; }

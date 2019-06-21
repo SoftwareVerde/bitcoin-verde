@@ -1,7 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.query.block;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.server.Constants;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.ByteUtil;
@@ -21,7 +21,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
 
     public QueryBlocksMessage() {
         super(MessageType.QUERY_BLOCKS);
-        _version = Constants.PROTOCOL_VERSION;
+        _version = BitcoinConstants.getProtocolVersion();
     }
 
     public Integer getVersion() { return _version; }

@@ -55,4 +55,9 @@ public class MutableCoinbaseTransaction extends MutableTransaction implements Co
         final TransactionOutput transactionOutput = _transactionOutputs.get(0);
         return transactionOutput.getAmount();
     }
+
+    @Override
+    public MutableCoinbaseTransaction asCoinbase() {
+        return this;
+    }
 }
