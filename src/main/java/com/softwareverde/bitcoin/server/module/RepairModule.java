@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.module;
 
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
@@ -18,6 +19,7 @@ import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
+import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.handler.BlockInventoryMessageHandler;
@@ -38,8 +40,11 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
+import com.softwareverde.database.Query;
+import com.softwareverde.database.Row;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 
 public class RepairModule {
     protected final BitcoinProperties _bitcoinProperties;
@@ -133,6 +138,35 @@ public class RepairModule {
         }
 
         final BitcoinNode bitcoinNode = bitcoinNodes.get(0);
+
+        if ( (_blockHashes.getSize() == 1) && (Util.areEqual(BlockHeader.GENESIS_BLOCK_HASH, _blockHashes.get(0))) ) {
+            try (final DatabaseConnection databaseConnection = database.newConnection()) {
+                final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
+
+                databaseConnection.executeSql(new Query("UPDATE blocks SET blockchain_segment_id = NULL"));
+                databaseConnection.executeSql(new Query("DELETE FROM blockchain_segments"));
+
+                final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
+
+                long i = 0L;
+                final java.util.List<Row> rows = databaseConnection.query(new Query("SELECT id FROM blocks ORDER BY block_height ASC"));
+                for (final Row row : rows) {
+                    final BlockId blockId = BlockId.wrap(row.getLong("id"));
+
+                    Logger.log(i + " of " + rows.size() + " (" + blockId + ")");
+                    synchronized (BlockHeaderDatabaseManager.MUTEX) {
+                        blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
+                    }
+                }
+            }
+            catch (final DatabaseException exception) {
+                Logger.log(exception);
+                Logger.log("Error repairing BlockchainSegments.");
+            }
+
+            _environment.getMasterDatabaseManagerCache().close();
+            System.exit(0);
+        }
 
         for (final Sha256Hash blockHash : _blockHashes) {
             final Object synchronizer = new Object();
