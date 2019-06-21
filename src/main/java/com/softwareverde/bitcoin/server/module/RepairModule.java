@@ -143,8 +143,11 @@ public class RepairModule {
             try (final DatabaseConnection databaseConnection = database.newConnection()) {
                 final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
 
+                TransactionUtil.startTransaction(databaseConnection);
                 databaseConnection.executeSql(new Query("UPDATE blocks SET blockchain_segment_id = NULL"));
+                databaseConnection.executeSql(new Query("SET foreign_key_checks = 0"));
                 databaseConnection.executeSql(new Query("DELETE FROM blockchain_segments"));
+                databaseConnection.executeSql(new Query("SET foreign_key_checks = 1"));
 
                 final BlockchainDatabaseManager blockchainDatabaseManager = databaseManager.getBlockchainDatabaseManager();
 
@@ -158,6 +161,7 @@ public class RepairModule {
                         blockchainDatabaseManager.updateBlockchainsForNewBlock(blockId);
                     }
                 }
+                TransactionUtil.commitTransaction(databaseConnection);
             }
             catch (final DatabaseException exception) {
                 Logger.log(exception);
