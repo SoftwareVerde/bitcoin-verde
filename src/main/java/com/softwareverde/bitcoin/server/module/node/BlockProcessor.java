@@ -169,6 +169,7 @@ public class BlockProcessor {
                     final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
+                    blockValidator.setShouldLogValidBlocks(true);
 
                     blockValidationTimer.start();
                     final BlockValidationResult blockValidationResult = blockValidator.validateBlockTransactions(blockId, block); // NOTE: Only validates the transactions since the blockHeader is validated separately above...
