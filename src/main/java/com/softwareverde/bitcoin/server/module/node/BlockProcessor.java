@@ -314,7 +314,7 @@ public class BlockProcessor {
             }
 
             // _averageBlocksPerSecond.value = averageBlocksPerSecond;
-            final Long now = System.currentTimeMillis();
+            // final Long now = System.currentTimeMillis();
             _averageBlocksPerSecond.value = averageBlocksPerSecond; // ((_processedBlockCount.floatValue() / (now - _startTime)) * 1000.0F);
             _averageTransactionsPerSecond.value = averageTransactionsPerSecond;
 

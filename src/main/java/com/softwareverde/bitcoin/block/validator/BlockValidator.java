@@ -23,6 +23,8 @@ import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.concurrent.pool.MainThreadPool;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
@@ -86,7 +88,10 @@ public class BlockValidator {
 
         final int threadCount = Math.max((_maxThreadCount / 2), 1);
 
-        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(_databaseManagerFactory);
+        final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
+        threadPool.setThreadPriority(currentThread.getPriority());
+
+        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(threadPool, _databaseManagerFactory);
         totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
         totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
 
@@ -95,7 +100,7 @@ public class BlockValidator {
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
-        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(_databaseManagerFactory);
+        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(threadPool, _databaseManagerFactory);
         transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
 
         transactionValidationTaskSpawner.executeTasks(transactions, threadCount);

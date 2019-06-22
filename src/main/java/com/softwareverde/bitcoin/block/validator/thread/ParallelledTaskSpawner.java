@@ -1,15 +1,12 @@
 package com.softwareverde.bitcoin.block.validator.thread;
 
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 public class ParallelledTaskSpawner<T, S> {
-    protected static final ExecutorService THREAD_POOL = Executors.newCachedThreadPool();
-
+    protected final ThreadPool _threadPool;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected List<ValidationTask<T, S>> _validationTasks = null;
     protected TaskHandlerFactory<T, S> _taskHandlerFactory;
@@ -18,7 +15,8 @@ public class ParallelledTaskSpawner<T, S> {
         _taskHandlerFactory = taskHandlerFactory;
     }
 
-    public ParallelledTaskSpawner(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public ParallelledTaskSpawner(final ThreadPool threadPool, final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+        _threadPool = threadPool;
         _databaseManagerFactory = databaseManagerFactory;
     }
 
@@ -37,7 +35,7 @@ public class ParallelledTaskSpawner<T, S> {
             final ValidationTask<T, S> validationTask = new ValidationTask<T, S>(_databaseManagerFactory, items, _taskHandlerFactory.newInstance());
             validationTask.setStartIndex(startIndex);
             validationTask.setItemCount(itemCount);
-            validationTask.enqueueTo(THREAD_POOL);
+            validationTask.enqueueTo(_threadPool);
             listBuilder.add(validationTask);
         }
 

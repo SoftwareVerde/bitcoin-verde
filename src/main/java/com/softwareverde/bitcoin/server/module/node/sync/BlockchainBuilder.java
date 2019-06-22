@@ -54,7 +54,20 @@ public class BlockchainBuilder extends SleepyService {
         final Block block = blockInflater.fromBytes(blockData);
 
         if (block != null) {
-            final Long processedBlockHeight = _blockProcessor.processBlock(block);
+
+            final Long processedBlockHeight;
+            { // Maximize the Thread priority and process the block...
+                final Thread currentThread = Thread.currentThread();
+                final Integer originalThreadPriority = currentThread.getPriority();
+                try {
+                    currentThread.setPriority(Thread.MAX_PRIORITY);
+                    processedBlockHeight = _blockProcessor.processBlock(block);
+                }
+                finally {
+                    currentThread.setPriority(originalThreadPriority);
+                }
+            }
+
             final Boolean blockWasValid = (processedBlockHeight != null);
 
             if (blockWasValid) {

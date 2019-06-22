@@ -11,6 +11,7 @@ public class MainThreadPool implements ThreadPool {
     protected final Long _threadKeepAliveMilliseconds;
     protected ThreadPoolExecutor _executorService;
     protected Runnable _shutdownCallback;
+    protected Integer _threadPriority = Thread.NORM_PRIORITY;
 
     final AtomicInteger _nextThreadId = new AtomicInteger(0);
 
@@ -25,6 +26,7 @@ public class MainThreadPool implements ThreadPool {
                 final Thread thread = new Thread(runnable);
                 thread.setName("MainThreadPool - " + nextThreadId);
                 thread.setDaemon(false);
+                thread.setPriority(_threadPriority);
                 thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
                     @Override
                     public void uncaughtException(final Thread thread, final Throwable throwable) {
@@ -58,6 +60,14 @@ public class MainThreadPool implements ThreadPool {
         _maxThreadCount = maxThreadCount;
         _threadKeepAliveMilliseconds = threadKeepAliveMilliseconds;
         _executorService = _createExecutorService();
+    }
+
+    public void setThreadPriority(final Integer threadPriority) {
+        _threadPriority = threadPriority;
+    }
+
+    public Integer getThreadPriority() {
+        return _threadPriority;
     }
 
     /**
