@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.configuration;
 import com.softwareverde.util.Util;
 
 public class BitcoinProperties {
+    public static final String DATA_CACHE_DIRECTORY_NAME = "cache";
     public static final Integer PORT = 8333;
     public static final Integer RPC_PORT = 8334;
 
@@ -16,7 +17,8 @@ public class BitcoinProperties {
     protected Long _maxUtxoCacheByteCount;
     protected Boolean _transactionBloomFilterIsEnabled;
     protected Boolean _bootstrapIsEnabled;
-    protected Boolean _shouldTrimBlocks;
+    protected Boolean _trimBlocksIsEnabled;
+    protected Boolean _blockCacheIsEnabled;
     protected Integer _maxMessagesPerSecond;
     protected String _dataDirectory;
 
@@ -29,7 +31,8 @@ public class BitcoinProperties {
     public Boolean skipNetworking() { return _shouldSkipNetworking; }
     public Long getMaxUtxoCacheByteCount() { return _maxUtxoCacheByteCount; }
     public Boolean isTransactionBloomFilterEnabled() { return _transactionBloomFilterIsEnabled; }
-    public Boolean shouldTrimBlocks() { return _shouldTrimBlocks; }
+    public Boolean isTrimBlocksEnabled() { return _trimBlocksIsEnabled; }
+    public Boolean isBlockCacheEnabled() { return _blockCacheIsEnabled; }
     public Integer getMaxMessagesPerSecond() { return _maxMessagesPerSecond; }
     public Boolean isBootstrapEnabled() { return _bootstrapIsEnabled; }
     public String getDataDirectory() { return _dataDirectory; }

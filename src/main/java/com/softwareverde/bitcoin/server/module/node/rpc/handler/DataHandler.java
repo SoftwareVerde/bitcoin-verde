@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 
 import com.softwareverde.bitcoin.block.Block;
+import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
+import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
@@ -30,6 +32,9 @@ import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
+import com.softwareverde.bitcoin.util.IoUtil;
+import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
@@ -48,6 +53,47 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final TransactionDownloader _transactionDownloader;
     protected final BlockDownloader _blockDownloader;
 
+    protected String _cachedBlockDirectory = null;
+    protected final Integer _blocksPerCacheDirectory = 2016; // About 2 weeks...
+
+    protected String _getCachedBlockPath(final Sha256Hash blockHash, final Long blockHeight) {
+        final String cachedBlockDirectory = _cachedBlockDirectory;
+        if (cachedBlockDirectory == null) { return null; }
+
+        final Long blockHeightDirectory = (blockHeight / _blocksPerCacheDirectory);
+        return (cachedBlockDirectory + "/" + blockHeightDirectory + "/" + blockHash);
+    }
+
+    protected void _cacheBlock(final Block block, final Long blockHeight) {
+        if (_cachedBlockDirectory == null) { return; }
+
+        final Sha256Hash blockHash = block.getHash();
+
+        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        if (blockPath == null) { return; }
+
+        if (IoUtil.fileExists(blockPath)) { return; }
+
+        final BlockDeflater blockDeflater = new BlockDeflater();
+        final MutableByteArray byteArray = blockDeflater.toBytes(block);
+
+        IoUtil.putFileContents(blockPath, byteArray.unwrap());
+    }
+
+    protected Block _getCachedBlock(final Sha256Hash blockHash, final Long blockHeight) {
+        if (_cachedBlockDirectory == null) { return null; }
+
+        final String blockPath = _getCachedBlockPath(blockHash, blockHeight);
+        if (blockPath == null) { return null; }
+
+        if (! IoUtil.fileExists(blockPath)) { return null; }
+        final ByteArray blockBytes = MutableByteArray.wrap(IoUtil.getFileContents(blockPath));
+        if (blockBytes == null) { return null; }
+
+        final BlockInflater blockInflater = new BlockInflater();
+        return blockInflater.fromBytes(blockBytes);
+    }
+
     public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManagerFactory = databaseManagerFactory;
@@ -56,6 +102,14 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
 
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
+    }
+
+    public void setCachedBlockDirectory(final String cachedBlockDirectory) {
+        _cachedBlockDirectory = cachedBlockDirectory;
+    }
+
+    public String getCachedBlockDirectory() {
+        return _cachedBlockDirectory;
     }
 
     @Override
@@ -210,7 +264,15 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             if (blockId == null) { return null; }
 
-            return blockDatabaseManager.getBlock(blockId);
+            final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+            final Block cachedBlock = _getCachedBlock(blockHash, blockHeight);
+            if (cachedBlock != null) {
+                return cachedBlock;
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+            _cacheBlock(block, blockHeight);
+            return block;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -227,7 +289,15 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { return null; }
 
-            return blockDatabaseManager.getBlock(blockId);
+            final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            final Block cachedBlock = _getCachedBlock(blockHash, blockHeight);
+            if (cachedBlock != null) {
+                return cachedBlock;
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+            _cacheBlock(block, blockHeight);
+            return block;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

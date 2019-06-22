@@ -82,7 +82,8 @@ public class Configuration {
         _bitcoinProperties._maxUtxoCacheByteCount = Util.parseLong(_properties.getProperty("bitcoin.maxUtxoCacheByteCount", String.valueOf(512L * ByteUtil.Unit.MEGABYTES)));
         _bitcoinProperties._transactionBloomFilterIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.useTransactionBloomFilter", "1"));
         _bitcoinProperties._bootstrapIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.enableBootstrap", "1"));
-        _bitcoinProperties._shouldTrimBlocks = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
+        _bitcoinProperties._trimBlocksIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.trimBlocks", "0"));
+        _bitcoinProperties._blockCacheIsEnabled = Util.parseBool(_properties.getProperty("bitcoin.cacheBlocks", "1"));
         _bitcoinProperties._maxMessagesPerSecond = Util.parseInt(_properties.getProperty("bitcoin.maxMessagesPerSecondPerNode", "250"));
         _bitcoinProperties._dataDirectory = _properties.getProperty("bitcoin.dataDirectory", "data");
     }

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.util;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -12,7 +13,7 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
      *  If byteCount is less than 1, 0 is returned.
      *  This method is similar to InputStream::skip except that this function will not return until EOF is reached or byteCount bytes has been skipped.
      */
-    public static long skipBytes(final Long byteCount, final InputStream inputStream) {
+    public static Long skipBytes(final Long byteCount, final InputStream inputStream) {
         if (byteCount < 1) { return 0L; }
 
         int numberOfTimesSkipReturnedZero = 0;
@@ -40,5 +41,10 @@ public class IoUtil extends com.softwareverde.util.IoUtil {
             if (numberOfTimesSkipReturnedZero > 32) { break; }
         }
         return skippedByteCount;
+    }
+
+    public static Boolean fileExists(final String path) {
+        final File file = new File(path);
+        return file.exists();
     }
 }

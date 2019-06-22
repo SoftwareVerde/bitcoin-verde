@@ -77,6 +77,7 @@ import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
+import java.io.File;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -280,6 +281,17 @@ public class NodeModule {
 
         _banFilter = new BanFilter(databaseManagerFactory);
 
+        { // Ensure the data/cache directory exists...
+            final String dataCacheDirectory = bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME;
+            final File file = new File(dataCacheDirectory);
+            if (! file.exists()) {
+                final Boolean wasSuccessful = file.mkdirs();
+                if (! wasSuccessful) {
+                    Logger.log("NOTICE: Unable to create data cache directory: " + dataCacheDirectory);
+                }
+            }
+        }
+
         final MutableMedianBlockTime medianBlockTime;
         final MutableMedianBlockTime medianBlockHeaderTime;
         { // Initialize MedianBlockTime...
@@ -322,7 +334,7 @@ public class NodeModule {
             public NodeFeatures getNodeFeatures() {
                 final NodeFeatures nodeFeatures = new NodeFeatures();
                 nodeFeatures.enableFeature(NodeFeatures.Feature.BITCOIN_CASH_ENABLED);
-                if (! bitcoinProperties.shouldTrimBlocks()) {
+                if (! bitcoinProperties.isTrimBlocksEnabled()) {
                     nodeFeatures.enableFeature(NodeFeatures.Feature.BLOCKCHAIN_ENABLED);
                 }
                 nodeFeatures.enableFeature(NodeFeatures.Feature.XTHIN_PROTOCOL_ENABLED);
@@ -420,7 +432,7 @@ public class NodeModule {
             _blockchainBuilder = new BlockchainBuilder(_bitcoinNodeManager, databaseManagerFactory, blockProcessor, _blockDownloader.getStatusMonitor(), blockDownloadRequester, _mainThreadPool);
         }
 
-        if (bitcoinProperties.shouldTrimBlocks()) {
+        if (bitcoinProperties.isTrimBlocksEnabled()) {
             _addressProcessor = new DisabledAddressProcessor();
         }
         else {
@@ -438,7 +450,7 @@ public class NodeModule {
 
                     _addressProcessor.wakeUp();
 
-                    if (bitcoinProperties.shouldTrimBlocks()) {
+                    if (bitcoinProperties.isTrimBlocksEnabled()) {
                         final Integer keepBlockCount = 144; // NOTE: Keeping the last days of blocks protects any non-malicious chain re-organization from failing...
                         if (blockHeight > keepBlockCount) {
                             try {
@@ -630,7 +642,12 @@ public class NodeModule {
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
+
                 final DataHandler dataHandler = new DataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
+                if (bitcoinProperties.isBlockCacheEnabled()) {
+                    dataHandler.setCachedBlockDirectory(bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+                }
+
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
 
@@ -660,7 +677,7 @@ public class NodeModule {
             _jsonRpcSocketServer = null;
         }
 
-        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/transaction-bloom-filter.dat");
+        _transactionBloomFilterFilename = (_bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME + "/transaction-bloom-filter");
 
         try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();

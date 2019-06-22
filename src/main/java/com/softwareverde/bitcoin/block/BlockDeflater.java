@@ -13,7 +13,7 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class BlockDeflater {
-    public ByteArray toBytes(final Block block) {
+    public MutableByteArray toBytes(final Block block) {
         final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
         final TransactionDeflater transactionDeflater = new TransactionDeflater();
 
