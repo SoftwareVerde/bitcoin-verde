@@ -43,6 +43,8 @@ import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 
+import java.io.File;
+
 public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -56,12 +58,20 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     protected String _cachedBlockDirectory = null;
     protected final Integer _blocksPerCacheDirectory = 2016; // About 2 weeks...
 
-    protected String _getCachedBlockPath(final Sha256Hash blockHash, final Long blockHeight) {
+    protected String _getCachedBlockDirectory(final Long blockHeight) {
         final String cachedBlockDirectory = _cachedBlockDirectory;
         if (cachedBlockDirectory == null) { return null; }
 
         final Long blockHeightDirectory = (blockHeight / _blocksPerCacheDirectory);
-        return (cachedBlockDirectory + "/" + blockHeightDirectory + "/" + blockHash);
+        return (cachedBlockDirectory + "/" + blockHeightDirectory);
+    }
+
+    protected String _getCachedBlockPath(final Sha256Hash blockHash, final Long blockHeight) {
+        final String cachedBlockDirectory = _cachedBlockDirectory;
+        if (cachedBlockDirectory == null) { return null; }
+
+        final String blockHeightDirectory = _getCachedBlockDirectory(blockHeight);
+        return (blockHeightDirectory + "/" + blockHash);
     }
 
     protected void _cacheBlock(final Block block, final Long blockHeight) {
@@ -73,6 +83,18 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
         if (blockPath == null) { return; }
 
         if (IoUtil.fileExists(blockPath)) { return; }
+
+        { // Create the directory, if necessary...
+            final String cacheDirectory = _getCachedBlockDirectory(blockHeight);
+            final File directory = new File(cacheDirectory);
+            if (! directory.exists()) {
+                final Boolean mkdirSuccessful = directory.mkdirs();
+                if (! mkdirSuccessful) {
+                    Logger.log("Unable to create block cache directory: " + cacheDirectory);
+                    return;
+                }
+            }
+        }
 
         final BlockDeflater blockDeflater = new BlockDeflater();
         final MutableByteArray byteArray = blockDeflater.toBytes(block);
