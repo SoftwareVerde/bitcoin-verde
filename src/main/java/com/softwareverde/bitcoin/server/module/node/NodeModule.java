@@ -439,6 +439,17 @@ public class NodeModule {
             _addressProcessor = new AddressProcessor(databaseManagerFactory);
         }
 
+        final BlockCache blockCache;
+        { // Initialize the BlockCache...
+            if (bitcoinProperties.isBlockCacheEnabled()) {
+                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+                blockCache = new BlockCache(blockCacheDirectory);
+            }
+            else {
+                blockCache = null;
+            }
+        }
+
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
         final BlockTrimmer blockTrimmer = new BlockTrimmer(databaseManagerFactory);
 
@@ -447,6 +458,10 @@ public class NodeModule {
                 @Override
                 public void onNewBlock(final Long blockHeight, final Block block) {
                     final Sha256Hash blockHash = block.getHash();
+
+                    if (blockCache != null) {
+                        blockCache.cacheBlock(block, blockHeight);
+                    }
 
                     _addressProcessor.wakeUp();
 
@@ -643,10 +658,7 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final DataHandler dataHandler = new DataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, _mutableNetworkTime, medianBlockTime);
-                if (bitcoinProperties.isBlockCacheEnabled()) {
-                    dataHandler.setCachedBlockDirectory(bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-                }
+                final DataHandler dataHandler = new DataHandler(databaseManagerFactory, transactionValidatorFactory, _transactionDownloader, _blockDownloader, blockCache, _mutableNetworkTime, medianBlockTime);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);
                 final QueryBlockchainHandler queryBlockchainHandler = new QueryBlockchainHandler(_databaseConnectionPool);
