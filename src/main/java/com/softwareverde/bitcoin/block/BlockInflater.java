@@ -41,10 +41,10 @@ public class BlockInflater {
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public MutableBlock fromBytes(final ByteArray byteArrayReader) {
-        if (byteArrayReader == null) { return null; }
+    public MutableBlock fromBytes(final ByteArray byteArray) {
+        if (byteArray == null) { return null; }
 
-        return _fromByteArrayReader(new ByteArrayReader(byteArrayReader));
+        return _fromByteArrayReader(new ByteArrayReader(byteArray));
     }
 
     public MutableBlock fromBytes(final byte[] bytes) {

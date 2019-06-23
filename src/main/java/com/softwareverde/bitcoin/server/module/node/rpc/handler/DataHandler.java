@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -42,17 +43,20 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
 
+    protected final TransactionDownloader _transactionDownloader;
+    protected final BlockDownloader _blockDownloader;
+    protected final BlockCache _blockCache;
+
     protected final NetworkTime _networkTime;
     protected final MedianBlockTimeWithBlocks _medianBlockTime;
 
-    protected final TransactionDownloader _transactionDownloader;
-    protected final BlockDownloader _blockDownloader;
-
-    public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+    public DataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final TransactionDownloader transactionDownloader, final BlockDownloader blockDownloader, final BlockCache blockCache, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _transactionValidatorFactory = transactionValidatorFactory;
         _databaseManagerFactory = databaseManagerFactory;
+
         _transactionDownloader = transactionDownloader;
         _blockDownloader = blockDownloader;
+        _blockCache = blockCache;
 
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
@@ -210,7 +214,21 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockIdAtHeight(headBlockchainSegmentId, blockHeight);
             if (blockId == null) { return null; }
 
-            return blockDatabaseManager.getBlock(blockId);
+            if (_blockCache != null) {
+                final Sha256Hash blockHash = blockHeaderDatabaseManager.getBlockHash(blockId);
+                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                if (cachedBlock != null) {
+                    return cachedBlock;
+                }
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+
+            if (_blockCache != null) {
+                _blockCache.cacheBlock(block, blockHeight);
+            }
+
+            return block;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -227,7 +245,22 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
             final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
             if (blockId == null) { return null; }
 
-            return blockDatabaseManager.getBlock(blockId);
+            final Long blockHeight = (_blockCache != null ? blockHeaderDatabaseManager.getBlockHeight(blockId) : null);
+
+            if (_blockCache != null) {
+                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                if (cachedBlock != null) {
+                    return cachedBlock;
+                }
+            }
+
+            final Block block = blockDatabaseManager.getBlock(blockId);
+
+            if (_blockCache != null) {
+                _blockCache.cacheBlock(block, blockHeight);
+            }
+
+            return block;
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);

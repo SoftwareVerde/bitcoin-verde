@@ -59,7 +59,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected static final Long FILTER_NONCE = 0L;
     protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
 
-    public static void initializeBloomFilter(String filename, DatabaseConnection databaseConnection) throws DatabaseException {
+    public static void initializeBloomFilter(final String filename, final DatabaseConnection databaseConnection) throws DatabaseException {
         try {
             final Json json = Json.parse(StringUtil.bytesToString(Util.coalesce(IoUtil.getFileContents(filename + ".json"), new byte[0])));
             final Integer transactionBloomFilterVersion = json.getInteger("version");
@@ -132,9 +132,9 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         }
     }
 
-    public static void saveBloomFilter(String filename) {
+    public static void saveBloomFilter(final String filename) {
         final MutableByteArray filterBytes = (EXISTING_TRANSACTIONS_FILTER != null ? EXISTING_TRANSACTIONS_FILTER.unwrap() : new MutableByteArray(0));
-        IoUtil.putFileContents(filename, filterBytes.unwrap());
+        IoUtil.putFileContents(filename + ".dat", filterBytes.unwrap());
 
         final ByteArray filterLastTransactionHash = Util.coalesce(EXISTING_TRANSACTIONS_FILTER_LAST_TRANSACTION_HASH, new MutableByteArray(0));
         final Json json = new Json();
@@ -145,7 +145,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
 
     // NOTE: This function intentionally does not use IoUtil::getFileContents in order to reduce the initial memory footprint of the node startup...
     protected static MutableBloomFilter _loadBloomFilterFromFile(final String filename, final Long filterItemCount, final Long filterNonce) {
-        final File file = new File(filename);
+        final File file = new File(filename + ".dat");
         if (! file.canRead()) { return null; }
 
         final Long byteCount = file.length();

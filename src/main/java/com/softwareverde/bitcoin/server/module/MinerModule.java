@@ -20,7 +20,6 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.io.Logger;
-import com.softwareverde.util.HexUtil;
 
 public class MinerModule {
     protected void _printError(final String errorMessage) {
@@ -87,7 +86,7 @@ public class MinerModule {
 
             final BlockDeflater blockDeflater = new BlockDeflater();
             Logger.log(block.getHash());
-            Logger.log(HexUtil.toHexString(blockDeflater.toBytes(block).getBytes()));
+            Logger.log(blockDeflater.toBytes(block));
         }
         catch (final Exception exception) {
             exception.printStackTrace();
