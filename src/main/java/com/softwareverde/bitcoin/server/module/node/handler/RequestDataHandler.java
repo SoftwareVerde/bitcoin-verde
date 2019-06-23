@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.message.type.query.response.error.NotFoundResponseMessage;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItem;
 import com.softwareverde.bitcoin.server.message.type.query.response.hash.InventoryItemType;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -30,9 +31,11 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
     };
 
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final BlockCache _blockCache;
 
-    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory) {
+    public RequestDataHandler(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockCache blockCache) {
         _databaseManagerFactory = databaseManagerFactory;
+        _blockCache = blockCache;
     }
 
     @Override
@@ -68,7 +71,25 @@ public class RequestDataHandler implements BitcoinNode.RequestDataCallback {
                             continue;
                         }
 
-                        final Block block = blockDatabaseManager.getBlock(blockId);
+                        final Block block;
+                        {
+                            if (_blockCache != null) {
+                                final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+                                final Block cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+
+                                if (cachedBlock != null) {
+                                    block = cachedBlock;
+                                }
+                                else {
+                                    block = blockDatabaseManager.getBlock(blockId);
+                                    _blockCache.cacheBlock(block, blockHeight);
+                                }
+                            }
+                            else {
+                                block = blockDatabaseManager.getBlock(blockId);
+                            }
+                        }
+
                         if (block == null) {
                             Logger.log("Error inflating Block: " + blockHash);
                             notFoundDataHashes.add(inventoryItem);

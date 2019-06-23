@@ -344,7 +344,18 @@ public class NodeModule {
             }
         };
 
-        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseManagerFactory));
+        final BlockCache blockCache;
+        { // Initialize the BlockCache...
+            if (bitcoinProperties.isBlockCacheEnabled()) {
+                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+                blockCache = new BlockCache(blockCacheDirectory);
+            }
+            else {
+                blockCache = null;
+            }
+        }
+
+        final RequestDataHandlerMonitor requestDataHandler = RequestDataHandlerMonitor.wrap(new RequestDataHandler(databaseManagerFactory, blockCache));
         { // Initialize the monitor with transactions from the memory pool...
             Logger.log("[Loading RequestDataHandlerMonitor]");
             try (final FullNodeDatabaseManager databaseManager = databaseManagerFactory.newDatabaseManager()) {
@@ -437,17 +448,6 @@ public class NodeModule {
         }
         else {
             _addressProcessor = new AddressProcessor(databaseManagerFactory);
-        }
-
-        final BlockCache blockCache;
-        { // Initialize the BlockCache...
-            if (bitcoinProperties.isBlockCacheEnabled()) {
-                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-                blockCache = new BlockCache(blockCacheDirectory);
-            }
-            else {
-                blockCache = null;
-            }
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
