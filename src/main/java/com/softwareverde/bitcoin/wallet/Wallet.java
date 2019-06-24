@@ -575,7 +575,7 @@ public class Wallet {
             itemCount = (int) (Math.pow(2, (BitcoinUtil.log2(estimatedItemCount) + 1)));
         }
 
-        final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(itemCount, 0.01D);
+        final MutableBloomFilter bloomFilter = MutableBloomFilter.newInstance(Math.max(itemCount, 1024), 0.0001D);
 
         for (final PrivateKey privateKey : privateKeys) {
             final PublicKey publicKey = privateKey.getPublicKey();

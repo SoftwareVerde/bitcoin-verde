@@ -8,6 +8,9 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.bloomfilter.BloomFilter;
 
 public class SetTransactionBloomFilterMessageInflater extends BitcoinProtocolMessageInflater {
+    public static final Long MAX_SIZE = 36000L;
+    public static final Integer MAX_HASH_FUNCTION_COUNT = 50;
+
     @Override
     public SetTransactionBloomFilterMessage fromBytes(final byte[] bytes) {
         final SetTransactionBloomFilterMessage setTransactionBloomFilterMessage = new SetTransactionBloomFilterMessage();
