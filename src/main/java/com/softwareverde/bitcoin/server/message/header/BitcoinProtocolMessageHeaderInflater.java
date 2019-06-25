@@ -16,7 +16,7 @@ public class BitcoinProtocolMessageHeaderInflater implements ProtocolMessageHead
         final byte[] magicNumber = byteArrayReader.readBytes(4, Endian.LITTLE);
 
         { // Validate Magic Number
-            if (! ByteUtil.areEqual(BitcoinProtocolMessage.MAIN_NET_MAGIC_NUMBER, MutableByteArray.wrap(magicNumber))) {
+            if (! ByteUtil.areEqual(BitcoinProtocolMessage.BINARY_PACKET_FORMAT.magicNumber, MutableByteArray.wrap(magicNumber))) {
                 // Logger.log("Invalid Packet Magic Number: " + MutableByteArray.wrap(magicNumber));
                 return null;
             }

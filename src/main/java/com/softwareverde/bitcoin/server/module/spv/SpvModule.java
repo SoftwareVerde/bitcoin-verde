@@ -33,6 +33,7 @@ import com.softwareverde.bitcoin.server.module.spv.handler.MerkleBlockDownloader
 import com.softwareverde.bitcoin.server.module.spv.handler.SpvRequestDataHandler;
 import com.softwareverde.bitcoin.server.module.spv.handler.SynchronizationStatusHandler;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionBloomFilterMatcher;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -553,7 +554,22 @@ public class SpvModule {
         }
 
         { // Initialize NodeManager...
-            _bitcoinNodeManager = new BitcoinNodeManager(_databaseManagerFactory, maxPeerCount, _mutableNetworkTime, _nodeInitializer, _banFilter, null, synchronizationStatusHandler, _mainThreadPool, threadPoolFactory, localNodeFeatures);
+            final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
+            {
+                properties.databaseManagerFactory = databaseManagerFactory;
+                properties.nodeFactory = new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures);
+                properties.maxNodeCount = maxPeerCount;
+                properties.networkTime = _mutableNetworkTime;
+                properties.nodeInitializer = _nodeInitializer;
+                properties.banFilter = _banFilter;
+                properties.memoryPoolEnquirer = null;
+                properties.synchronizationStatusHandler = synchronizationStatusHandler;
+                properties.threadPool = _mainThreadPool;
+                properties.threadPoolFactory = threadPoolFactory;
+                properties.localNodeFeatures = localNodeFeatures;
+            }
+
+            _bitcoinNodeManager = new BitcoinNodeManager(properties);
             _bitcoinNodeManager.enableTransactionRelay(false);
         }
 

@@ -19,8 +19,7 @@ import com.softwareverde.util.bytearray.Endian;
  */
 
 public abstract class BitcoinProtocolMessage implements ProtocolMessage {
-    public static final ByteArray MAIN_NET_MAGIC_NUMBER = ByteArray.fromHexString(BitcoinConstants.getNetMagicNumber()); // NOTICE: Different Network Magic-Number for Bitcoin Cash.  Bitcoin Core expects: D9B4BEF9.  Discovered via Bitcoin-ABC source code.
-    public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(BitcoinProtocolMessage.MAIN_NET_MAGIC_NUMBER, new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageFactory());
+    public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(ByteArray.fromHexString(BitcoinConstants.getNetMagicNumber()), new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageFactory());
 
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
@@ -39,7 +38,7 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     protected final MessageType _command;
 
     public BitcoinProtocolMessage(final MessageType command) {
-        _magicNumber = MAIN_NET_MAGIC_NUMBER;
+        _magicNumber = BINARY_PACKET_FORMAT.magicNumber;
         _command = command;
     }
 

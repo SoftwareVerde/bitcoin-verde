@@ -31,6 +31,7 @@ import java.util.Map;
 public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabaseManager {
     protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManager _databaseManager;
+    protected final BlockDeflater _blockDeflater;
 
     protected PendingBlockId _getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
@@ -190,6 +191,12 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
 
     public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager) {
         _databaseManager = databaseManager;
+        _blockDeflater = new BlockDeflater();
+    }
+
+    public FullNodePendingBlockDatabaseManager(final DatabaseManager databaseManager, final BlockDeflater blockDeflater) {
+        _databaseManager = databaseManager;
+        _blockDeflater = blockDeflater;
     }
 
     public PendingBlockId getPendingBlockId(final Sha256Hash blockHash) throws DatabaseException {
@@ -319,8 +326,7 @@ public class FullNodePendingBlockDatabaseManager implements PendingBlockDatabase
                 }
             }
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
-            _insertPendingBlockData(pendingBlockId, blockDeflater.toBytes(block));
+            _insertPendingBlockData(pendingBlockId, _blockDeflater.toBytes(block));
             return pendingBlockId;
 
         }

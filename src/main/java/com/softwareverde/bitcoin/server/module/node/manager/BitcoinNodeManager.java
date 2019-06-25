@@ -68,6 +68,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     public static class Properties {
         public Integer maxNodeCount;
         public DatabaseManagerFactory databaseManagerFactory;
+        public BitcoinNodeFactory nodeFactory;
         public MutableNetworkTime networkTime;
         public NodeInitializer nodeInitializer;
         public BanFilter banFilter;
@@ -285,15 +286,15 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
     public BitcoinNodeManager(final Properties properties) {
         this(
-            properties.databaseManagerFactory, properties.maxNodeCount, properties.networkTime,
+            properties.databaseManagerFactory, properties.nodeFactory, properties.maxNodeCount, properties.networkTime,
             properties.nodeInitializer, properties.banFilter, properties.memoryPoolEnquirer,
             properties.synchronizationStatusHandler, properties.threadPool, properties.threadPoolFactory,
             properties.localNodeFeatures
         );
     }
 
-    public BitcoinNodeManager(final DatabaseManagerFactory databaseManagerFactory, final Integer maxNodeCount, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
-        super(maxNodeCount, new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures), networkTime, threadPool);
+    public BitcoinNodeManager(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeFactory nodeFactory, final Integer maxNodeCount, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
+        super(maxNodeCount, nodeFactory, networkTime, threadPool);
         _databaseManagerFactory = databaseManagerFactory;
         _nodeInitializer = nodeInitializer;
         _banFilter = banFilter;

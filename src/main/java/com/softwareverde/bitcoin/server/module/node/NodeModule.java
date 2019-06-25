@@ -53,6 +53,7 @@ import com.softwareverde.bitcoin.server.module.node.sync.bootstrap.HeadersBootst
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionDownloader;
 import com.softwareverde.bitcoin.server.module.node.sync.transaction.TransactionProcessor;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
+import com.softwareverde.bitcoin.server.node.BitcoinNodeFactory;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
@@ -409,7 +410,22 @@ public class NodeModule {
         }
 
         { // Initialize NodeManager...
-            _bitcoinNodeManager = new BitcoinNodeManager(databaseManagerFactory, maxPeerCount, _mutableNetworkTime, _nodeInitializer, _banFilter, memoryPoolEnquirer, synchronizationStatusHandler, _mainThreadPool, nodeThreadPoolFactory, localNodeFeatures);
+            final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
+            {
+                properties.databaseManagerFactory = databaseManagerFactory;
+                properties.nodeFactory = new BitcoinNodeFactory(nodeThreadPoolFactory, localNodeFeatures);
+                properties.maxNodeCount = maxPeerCount;
+                properties.networkTime = _mutableNetworkTime;
+                properties.nodeInitializer = _nodeInitializer;
+                properties.banFilter = _banFilter;
+                properties.memoryPoolEnquirer = memoryPoolEnquirer;
+                properties.synchronizationStatusHandler = synchronizationStatusHandler;
+                properties.threadPool = _mainThreadPool;
+                properties.threadPoolFactory = nodeThreadPoolFactory;
+                properties.localNodeFeatures = localNodeFeatures;
+            }
+
+            _bitcoinNodeManager = new BitcoinNodeManager(properties);
         }
 
         { // Initialize the TransactionDownloader...

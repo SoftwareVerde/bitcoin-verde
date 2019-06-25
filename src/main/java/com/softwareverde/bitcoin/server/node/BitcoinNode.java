@@ -63,6 +63,7 @@ import com.softwareverde.network.p2p.message.type.*;
 import com.softwareverde.network.p2p.node.Node;
 import com.softwareverde.network.p2p.node.NodeConnection;
 import com.softwareverde.network.p2p.node.address.NodeIpAddress;
+import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.network.socket.BinarySocket;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.Util;
@@ -527,7 +528,7 @@ public class BitcoinNode extends Node {
 
                     case QUERY_ADDRESS_BLOCKS: {
                         _onQueryAddressBlocks((QueryAddressBlocksMessage) message);
-                    }
+                    } break;
 
                     default: {
                         Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
@@ -560,6 +561,13 @@ public class BitcoinNode extends Node {
 
     public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
+        _localNodeFeatures = localNodeFeatures;
+
+        _initConnection();
+    }
+
+    public BitcoinNode(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
+        super(host, port, binaryPacketFormat, threadPool);
         _localNodeFeatures = localNodeFeatures;
 
         _initConnection();
