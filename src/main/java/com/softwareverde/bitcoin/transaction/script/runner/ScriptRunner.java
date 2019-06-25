@@ -58,12 +58,18 @@ public class ScriptRunner {
                 for (final Operation operation : unlockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
 
+                    if (operation.failIfPresent()) { return false; }
+
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
 
                     final Boolean wasSuccessful = operation.applyTo(traditionalStack, controlState, mutableContext);
                     if (! wasSuccessful) { return false; }
                 }
+
+                if (controlState.isInCodeBlock()) { return false; } // IF/ELSE blocks cannot span scripts.
+
+                traditionalStack.clearAltStack(); // Clear the alt stack for the unlocking script, and for the payToScriptHash script...
 
                 payToScriptHashStack = new Stack(traditionalStack);
 
@@ -73,6 +79,8 @@ public class ScriptRunner {
                 mutableContext.setCurrentScript(lockingScript);
                 for (final Operation operation : lockingScriptOperations) {
                     mutableContext.incrementCurrentScriptIndex();
+
+                    if (operation.failIfPresent()) { return false; }
 
                     final Boolean shouldExecute = operation.shouldExecute(traditionalStack, controlState, mutableContext);
                     if (! shouldExecute) { continue; }
@@ -123,6 +131,8 @@ public class ScriptRunner {
 
                     for (final Operation operation : redeemScriptOperations) {
                         mutableContext.incrementCurrentScriptIndex();
+
+                        if (operation.failIfPresent()) { return false; }
 
                         final Boolean shouldExecute = operation.shouldExecute(payToScriptHashStack, controlState, mutableContext);
                         if (! shouldExecute) { continue; }

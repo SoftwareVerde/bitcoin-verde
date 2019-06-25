@@ -31,7 +31,7 @@ public class Stack {
     public Stack(final Stack stack) {
         _values.addAll(stack._values);
         _didOverflow = stack._didOverflow;
-        _altStack = stack._altStack;
+        _altStack = ((stack._altStack != null) ? new Stack(stack._altStack) : null);
     }
 
     public void push(final Value value) {
@@ -92,6 +92,24 @@ public class Stack {
     public Value popFromAltStack(final Integer index) {
         _initAltStack();
         return _altStack.pop(index);
+    }
+
+    /**
+     * Removes all items from the primary stack.
+     *  The altStack is not affected.
+     */
+    public void clear() {
+        _values.clear();
+    }
+
+    /**
+     * Removes all items from the alt stack.
+     *  The primary stack is not affected.
+     */
+    public void clearAltStack() {
+        if (_altStack != null) {
+            _altStack.clear();
+        }
     }
 
     public Boolean isEmpty() {

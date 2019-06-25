@@ -105,7 +105,7 @@ public class StringOperation extends SubTypedOperation {
             }
 
             // Encodes a signed binary number into Bitcoin's MPI format.
-            case ENCODE_NUMBER: { // TODO: Write tests for this implementation...
+            case ENCODE_NUMBER: {
                 // NOTE: Bitcoin Verde's internal representation is always big-endian.
                 // value ENCODE_NUMBER -> { minimum-encoded value }
                 // { 0x00, 0x00, 0x00, 0x00 } ENCODE_NUMBER -> { }
@@ -115,7 +115,7 @@ public class StringOperation extends SubTypedOperation {
                 final Value value = stack.pop();
 
                 final Long valueInteger = value.asLong();
-                if (_didIntegerOverflow(valueInteger)) { return false; }
+                if (! Operation.isWithinIntegerRange(valueInteger)) { return false; }
 
                 stack.push(Value.fromInteger(valueInteger));
 
@@ -123,17 +123,20 @@ public class StringOperation extends SubTypedOperation {
             }
 
             // Decodes an MPI-encoded number into a signed byte array of specific size.
-            case DECODE_NUMBER: {
-                // value byteCount DECODE_NUMBER -> { value expressed as byteCount bytes }
-                // 0x02 0x04 DECODE_NUMBER -> { 0x00, 0x00, 0x00, 0x02 }
-                // { 0x85 } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0x05 }
-                // { 0x85 } { 0x02 } DECODE_NUMBER -> { 0x80, 0x05 }
-                // { 0x80, 0xFF } { 0x04 } DECODE_NUMBER -> { 0x80, 0x00, 0x00, 0xFF }
+            case NUMBER_TO_BYTES: {
+                // value byteCount NUMBER_TO_BYTES -> { value expressed as byteCount bytes }
+                // 0x02 0x04 NUMBER_TO_BYTES -> { 0x00, 0x00, 0x00, 0x02 }
+                // { 0x85 } { 0x04 } NUMBER_TO_BYTES -> { 0x80, 0x00, 0x00, 0x05 }
+                // { 0x85 } { 0x02 } NUMBER_TO_BYTES -> { 0x80, 0x05 }
+                // { 0x80, 0xFF } { 0x04 } NUMBER_TO_BYTES -> { 0x80, 0x00, 0x00, 0xFF }
 
                 final Value byteCountValue = stack.pop();
                 final Value value = stack.pop();
 
+                if (! Operation.isMinimallyEncoded(byteCountValue)) { return false; }
+
                 final int byteCount = byteCountValue.asInteger();
+
                 final MutableByteArray minimallyEncodedByteArray;
                 {
                     final Value minimallyEncodedValue = Value.minimallyEncodeBytes(value);
@@ -142,7 +145,7 @@ public class StringOperation extends SubTypedOperation {
                     minimallyEncodedByteArray = new MutableByteArray(minimallyEncodedValue);
                 }
 
-                if (byteCount < minimallyEncodedByteArray.getByteCount()) { return false; }
+                if (byteCount < minimallyEncodedByteArray.getByteCount()) { return false; } // Fail if data is lost during the conversion...
 
                 final Boolean isNegative;
                 {
@@ -177,7 +180,7 @@ public class StringOperation extends SubTypedOperation {
                 return (! stack.didOverflow());
             }
 
-            case STRING_PUSH_LENGTH: {
+            case PUSH_1ST_BYTE_COUNT: {
                 final Value value = stack.peak();
                 final long byteCount = value.getByteCount();
                 stack.push(Value.fromInteger(byteCount));
