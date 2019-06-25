@@ -229,6 +229,7 @@ public class BitcoinNode extends Node {
         }
     }
 
+    protected final MessageRouter _messageRouter = new MessageRouter();
     protected SynchronizationStatus _synchronizationStatus = DEFAULT_STATUS_CALLBACK;
 
     protected QueryBlocksCallback _queryBlocksCallback = null;
@@ -412,128 +413,7 @@ public class BitcoinNode extends Node {
                     }
                 }
 
-                switch (message.getCommand()) {
-                    case PING: {
-                        _onPingReceived((BitcoinPingMessage) message);
-                    } break;
-
-                    case PONG: {
-                        _onPongReceived((PongMessage) message);
-                    } break;
-
-                    case SYNCHRONIZE_VERSION: {
-                        _onSynchronizeVersion((SynchronizeVersionMessage) message);
-                    } break;
-
-                    case ACKNOWLEDGE_VERSION: {
-                        _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message);
-                    } break;
-
-                    case NODE_ADDRESSES: {
-                        _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message);
-                    } break;
-
-                    case ERROR: {
-                        _onErrorMessageReceived((ErrorMessage) message);
-                    } break;
-
-                    case INVENTORY: {
-                        _onInventoryMessageReceived((InventoryMessage) message);
-                    } break;
-
-                    case REQUEST_DATA: {
-                        _onRequestDataMessageReceived((RequestDataMessage) message);
-                    } break;
-
-                    case BLOCK: {
-                        _onBlockMessageReceived((BlockMessage) message);
-                    } break;
-
-                    case TRANSACTION: {
-                        _onTransactionMessageReceived((TransactionMessage) message);
-                    } break;
-
-                    case MERKLE_BLOCK: {
-                        _onMerkleBlockReceived((MerkleBlockMessage) message);
-                    } break;
-
-                    case BLOCK_HEADERS: {
-                        _onBlockHeadersMessageReceived((BlockHeadersMessage) message);
-                    } break;
-
-                    case QUERY_BLOCKS: {
-                        _onQueryBlocksMessageReceived((QueryBlocksMessage) message);
-                    } break;
-
-                    case QUERY_UNCONFIRMED_TRANSACTIONS: {
-                        _onQueryUnconfirmedTransactionsReceived();
-                    } break;
-
-                    case REQUEST_BLOCK_HEADERS: {
-                        _onQueryBlockHeadersMessageReceived((RequestBlockHeadersMessage) message);
-                    } break;
-
-                    case ENABLE_NEW_BLOCKS_VIA_HEADERS: {
-                        _announceNewBlocksViaHeadersIsEnabled = true;
-                    } break;
-
-                    case ENABLE_COMPACT_BLOCKS: {
-                        final EnableCompactBlocksMessage enableCompactBlocksMessage = (EnableCompactBlocksMessage) message;
-                        _compactBlocksVersion = (enableCompactBlocksMessage.isEnabled() ? enableCompactBlocksMessage.getVersion() : null);
-                    } break;
-
-                    case REQUEST_EXTRA_THIN_BLOCK: {
-                        _onRequestExtraThinBlockMessageReceived((RequestExtraThinBlockMessage) message);
-                    } break;
-
-                    case EXTRA_THIN_BLOCK: {
-                        _onExtraThinBlockMessageReceived((ExtraThinBlockMessage) message);
-                    } break;
-
-                    case THIN_BLOCK: {
-                        _onThinBlockMessageReceived((ThinBlockMessage) message);
-                    } break;
-
-                    case REQUEST_EXTRA_THIN_TRANSACTIONS: {
-                        _onRequestExtraThinTransactionsMessageReceived((RequestExtraThinTransactionsMessage) message);
-                    } break;
-
-                    case THIN_TRANSACTIONS: {
-                        _onThinTransactionsMessageReceived((ThinTransactionsMessage) message);
-                    } break;
-
-                    case NOT_FOUND: {
-                        _onNotFoundMessageReceived((NotFoundResponseMessage) message);
-                    } break;
-
-                    case FEE_FILTER: {
-                        _onFeeFilterMessageReceived((FeeFilterMessage) message);
-                    } break;
-
-                    case REQUEST_PEERS: {
-                        _onRequestPeersMessageReceived((RequestPeersMessage) message);
-                    } break;
-
-                    case SET_TRANSACTION_BLOOM_FILTER: {
-                        _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message);
-                    } break;
-
-                    case UPDATE_TRANSACTION_BLOOM_FILTER: {
-                        _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message);
-                    } break;
-
-                    case CLEAR_TRANSACTION_BLOOM_FILTER: {
-                        _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message);
-                    } break;
-
-                    case QUERY_ADDRESS_BLOCKS: {
-                        _onQueryAddressBlocks((QueryAddressBlocksMessage) message);
-                    } break;
-
-                    default: {
-                        Logger.log("NOTICE: Unhandled Message Command: "+ message.getCommand() +": 0x"+ HexUtil.toHexString(message.getHeaderBytes()));
-                    } break;
-                }
+                _messageRouter.route(message.getCommand(), message);
             }
         });
 
@@ -559,10 +439,54 @@ public class BitcoinNode extends Node {
         });
     }
 
+    protected void _defineRoutes() {
+        _messageRouter.addRoute(MessageType.PING,                           (final ProtocolMessage message) -> { _onPingReceived((BitcoinPingMessage) message); });
+        _messageRouter.addRoute(MessageType.PONG,                           (final ProtocolMessage message) -> { _onPongReceived((BitcoinPongMessage) message); });
+        _messageRouter.addRoute(MessageType.SYNCHRONIZE_VERSION,            (final ProtocolMessage message) -> { _onSynchronizeVersion((SynchronizeVersionMessage) message); });
+        _messageRouter.addRoute(MessageType.ACKNOWLEDGE_VERSION,            (final ProtocolMessage message) -> { _onAcknowledgeVersionMessageReceived((BitcoinAcknowledgeVersionMessage) message); });
+        _messageRouter.addRoute(MessageType.NODE_ADDRESSES,                 (final ProtocolMessage message) -> { _onNodeAddressesReceived((BitcoinNodeIpAddressMessage) message); });
+        _messageRouter.addRoute(MessageType.ERROR,                          (final ProtocolMessage message) -> { _onErrorMessageReceived((ErrorMessage) message); });
+        _messageRouter.addRoute(MessageType.INVENTORY,                      (final ProtocolMessage message) -> { _onInventoryMessageReceived((InventoryMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_DATA,                   (final ProtocolMessage message) -> { _onRequestDataMessageReceived((RequestDataMessage) message); });
+        _messageRouter.addRoute(MessageType.BLOCK,                          (final ProtocolMessage message) -> { _onBlockMessageReceived((BlockMessage) message); });
+        _messageRouter.addRoute(MessageType.TRANSACTION,                    (final ProtocolMessage message) -> { _onTransactionMessageReceived((TransactionMessage) message); });
+        _messageRouter.addRoute(MessageType.MERKLE_BLOCK,                   (final ProtocolMessage message) -> { _onMerkleBlockReceived((MerkleBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.BLOCK_HEADERS,                  (final ProtocolMessage message) -> { _onBlockHeadersMessageReceived((BlockHeadersMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_BLOCKS,                   (final ProtocolMessage message) -> { _onQueryBlocksMessageReceived((QueryBlocksMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, (final ProtocolMessage message) -> { _onQueryUnconfirmedTransactionsReceived(); });
+        _messageRouter.addRoute(MessageType.REQUEST_BLOCK_HEADERS,          (final ProtocolMessage message) -> { _onQueryBlockHeadersMessageReceived((RequestBlockHeadersMessage) message); });
+        _messageRouter.addRoute(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS,  (final ProtocolMessage message) -> { _announceNewBlocksViaHeadersIsEnabled = true; });
+        _messageRouter.addRoute(MessageType.ENABLE_COMPACT_BLOCKS,          (final ProtocolMessage message) -> {
+            final EnableCompactBlocksMessage enableCompactBlocksMessage = (EnableCompactBlocksMessage) message;
+            _compactBlocksVersion = (enableCompactBlocksMessage.isEnabled() ? enableCompactBlocksMessage.getVersion() : null);
+        });
+        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_BLOCK,       (final ProtocolMessage message) -> { _onRequestExtraThinBlockMessageReceived((RequestExtraThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.EXTRA_THIN_BLOCK,               (final ProtocolMessage message) -> { _onExtraThinBlockMessageReceived((ExtraThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.THIN_BLOCK,                     (final ProtocolMessage message) -> { _onThinBlockMessageReceived((ThinBlockMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_EXTRA_THIN_TRANSACTIONS,(final ProtocolMessage message) -> { _onRequestExtraThinTransactionsMessageReceived((RequestExtraThinTransactionsMessage) message); });
+        _messageRouter.addRoute(MessageType.THIN_TRANSACTIONS,              (final ProtocolMessage message) -> { _onThinTransactionsMessageReceived((ThinTransactionsMessage) message); });
+        _messageRouter.addRoute(MessageType.NOT_FOUND,                      (final ProtocolMessage message) -> { _onNotFoundMessageReceived((NotFoundResponseMessage) message); });
+        _messageRouter.addRoute(MessageType.FEE_FILTER,                     (final ProtocolMessage message) -> { _onFeeFilterMessageReceived((FeeFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.REQUEST_PEERS,                  (final ProtocolMessage message) -> { _onRequestPeersMessageReceived((RequestPeersMessage) message); });
+        _messageRouter.addRoute(MessageType.SET_TRANSACTION_BLOOM_FILTER,   (final ProtocolMessage message) -> { _onSetTransactionBloomFilterMessageReceived((SetTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.UPDATE_TRANSACTION_BLOOM_FILTER,(final ProtocolMessage message) -> { _onUpdateTransactionBloomFilterMessageReceived((UpdateTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.CLEAR_TRANSACTION_BLOOM_FILTER, (final ProtocolMessage message) -> { _onClearTransactionBloomFilterMessageReceived((ClearTransactionBloomFilterMessage) message); });
+        _messageRouter.addRoute(MessageType.QUERY_ADDRESS_BLOCKS,           (final ProtocolMessage message) -> { _onQueryAddressBlocks((QueryAddressBlocksMessage) message); });
+
+        _messageRouter.setUnknownRouteHandler(new MessageRouter.UnknownRouteHandler() {
+            @Override
+            public void run(final MessageType messageType, final ProtocolMessage message) {
+                final BitcoinProtocolMessage bitcoinProtocolMessage = (BitcoinProtocolMessage) message;
+                Logger.log("NOTICE: Unhandled Message Command: "+ messageType +": 0x"+ HexUtil.toHexString(bitcoinProtocolMessage.getHeaderBytes()));
+            }
+        });
+    }
+
     public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
         _localNodeFeatures = localNodeFeatures;
 
+        _defineRoutes();
         _initConnection();
     }
 
@@ -570,6 +494,7 @@ public class BitcoinNode extends Node {
         super(host, port, binaryPacketFormat, threadPool);
         _localNodeFeatures = localNodeFeatures;
 
+        _defineRoutes();
         _initConnection();
     }
 
@@ -577,6 +502,7 @@ public class BitcoinNode extends Node {
         super(binarySocket, threadPool);
         _localNodeFeatures = localNodeFeatures;
 
+        _defineRoutes();
         _initConnection();
     }
 
