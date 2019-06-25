@@ -20,18 +20,18 @@ public class OperationInflater {
 
         final Operation operation;
         switch (type) {
-            case OP_PUSH:           { operation = PushOperation.fromBytes(byteArrayReader); }           break;
-            case OP_DYNAMIC_VALUE:  { operation = DynamicValueOperation.fromBytes(byteArrayReader); }   break;
-            case OP_CONTROL:        { operation = ControlOperation.fromBytes(byteArrayReader); }        break;
-            case OP_STACK:          { operation = StackOperation.fromBytes(byteArrayReader); }          break;
-            case OP_STRING:         { operation = StringOperation.fromBytes(byteArrayReader); }         break;
-            case OP_COMPARISON:     { operation = ComparisonOperation.fromBytes(byteArrayReader); }     break;
-            case OP_ARITHMETIC:     { operation = ArithmeticOperation.fromBytes(byteArrayReader); }     break;
-            case OP_CRYPTOGRAPHIC:  { operation = CryptographicOperation.fromBytes(byteArrayReader); }  break;
-            case OP_LOCK_TIME:      { operation = LockTimeOperation.fromBytes(byteArrayReader); }       break;
-            case OP_NOTHING:        { operation = NothingOperation.fromBytes(byteArrayReader); }        break;
-            case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader); }        break;
-            case OP_BITWISE:        { operation = BitwiseOperation.fromBytes(byteArrayReader); }        break;
+            case OP_PUSH:           { operation = PushOperation.fromBytes(byteArrayReader); }                       break;
+            case OP_DYNAMIC_VALUE:  { operation = DynamicValueOperation.fromBytes(byteArrayReader); }               break;
+            case OP_CONTROL:        { operation = ControlOperation.fromBytes(byteArrayReader); }                    break;
+            case OP_STACK:          { operation = StackOperation.fromBytes(byteArrayReader); }                      break;
+            case OP_STRING:         { operation = StringOperation.fromBytes(byteArrayReader); }                     break;
+            case OP_COMPARISON:     { operation = ComparisonOperation.fromBytes(byteArrayReader); }                 break;
+            case OP_ARITHMETIC:     { operation = ArithmeticOperation.fromBytes(byteArrayReader); }                 break;
+            case OP_CRYPTOGRAPHIC:  { operation = CryptographicOperation.fromBytes(byteArrayReader); }              break;
+            case OP_LOCK_TIME:      { operation = LockTimeOperation.fromBytes(byteArrayReader); }                   break;
+            case OP_NOTHING:        { operation = NothingOperation.fromBytes(byteArrayReader); }                    break;
+            case OP_INVALID:        { operation = InvalidOperation.fromBytes(byteArrayReader, false); }  break;
+            case OP_BITWISE:        { operation = BitwiseOperation.fromBytes(byteArrayReader); }                    break;
             default: {
                 Logger.log("Unimplemented Opcode Type: "+ type + " (0x" + HexUtil.toHexString(new byte[] { b }) + ")");
                 operation = null;
@@ -42,8 +42,10 @@ public class OperationInflater {
             return operation;
         }
 
+        final boolean failIfPresent = (type == Operation.Type.OP_PUSH);
+
         byteArrayReader.setPosition(originalPosition);
-        return InvalidOperation.fromBytes(byteArrayReader);
+        return InvalidOperation.fromBytes(byteArrayReader, failIfPresent);
     }
 
     public Operation fromBytes(final ByteArray byteArray) {

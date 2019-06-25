@@ -24,7 +24,6 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
-import com.softwareverde.util.bytearray.ByteArrayReader;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -53,10 +52,8 @@ public class AbcScriptRunnerTests {
             final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
             byteArrayBuilder.appendByte((byte) 0x4E); // PUSH_DATA_INTEGER
             byteArrayBuilder.appendBytes(ByteUtil.reverseEndian(ByteUtil.integerToBytes(contentByteCount)));
-            byteArrayBuilder.appendBytes(contentBytes);
-            final byte[] bytes = byteArrayBuilder.build();
-            final PushOperation pushOperation = PushOperation.fromBytes(new ByteArrayReader(bytes));
-            return MutableByteArray.wrap(bytes);
+            byteArrayBuilder.appendBytes(contentBytes);;
+            return MutableByteArray.wrap(byteArrayBuilder.build());
         }
 
         switch (opCodeString) {
@@ -296,7 +293,33 @@ public class AbcScriptRunnerTests {
             final String comments = testVector.getString(j);
             j += 1;
 
-            if (flagsString.contains("DISCOURAGE_UPGRADABLE_NOPS")) {
+            boolean skipTest = false;
+            {
+                final String[] skippedTestFlags = new String[] { "DISCOURAGE_UPGRADABLE_NOPS" };
+                for (final String skippedFlag : skippedTestFlags) {
+                    if (flagsString.contains(skippedFlag)) {
+                        skipTest = true;
+                        break;
+                    }
+                }
+
+                final String[] skippedResultTypes = new String[] { "OP_COUNT", "MINIMALDATA" };
+                for (final String resultType : skippedResultTypes) {
+                    if (expectedResultString.contains(resultType)) {
+                        skipTest = true;
+                        break;
+                    }
+                }
+
+                final int[] skippedTestIndices = new int[] { };
+                for (final int skippedTestIndex : skippedTestIndices) {
+                    if (i == skippedTestIndex) {
+                        skipTest = true;
+                        break;
+                    }
+                }
+            }
+            if (skipTest) {
                 System.out.println("SKIPPING: " + testVector);
                 continue;
             }

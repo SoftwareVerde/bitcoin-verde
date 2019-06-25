@@ -114,12 +114,12 @@ public class Value extends ImmutableByteArray implements Const {
     }
 
     public static Value fromBytes(final byte[] bytes) {
-        // if (bytes.length > MAX_BYTE_COUNT) { return null; }
+        if (bytes.length > MAX_BYTE_COUNT) { return null; }
         return new Value(bytes);
     }
 
     public static Value fromBytes(final ByteArray bytes) {
-        // if (bytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
+        if (bytes.getByteCount() > MAX_BYTE_COUNT) { return null; }
         return new Value(bytes.getBytes());
     }
 

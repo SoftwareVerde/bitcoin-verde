@@ -28,6 +28,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
+    public static final Integer MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT = 20;
 
     public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160.getValue(),                          Opcode.RIPEMD_160);
     public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1.getValue(),                               Opcode.SHA_1);
@@ -160,7 +161,9 @@ public class CryptographicOperation extends SubTypedOperation {
         final Integer publicKeyCount;
         {
             final Value publicKeyCountValue = stack.pop();
-            publicKeyCount = publicKeyCountValue.asInteger();
+            publicKeyCount = publicKeyCountValue.asLong().intValue();
+            if (publicKeyCount < 0) { return false; }
+            if (publicKeyCount > MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT) { return false; }
         }
 
         final List<PublicKey> publicKeys;
@@ -177,7 +180,9 @@ public class CryptographicOperation extends SubTypedOperation {
         final Integer signatureCount;
         {
             final Value signatureCountValue = stack.pop();
-            signatureCount = signatureCountValue.asInteger();
+            signatureCount = signatureCountValue.asLong().intValue();
+            if (signatureCount < 0) { return false; }
+            if (signatureCount > publicKeyCount) { return false; }
         }
 
         final boolean allSignaturesWereEmpty;

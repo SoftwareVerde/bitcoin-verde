@@ -29,6 +29,8 @@ public class Secp256k1Signature implements Signature {
     }
 
     protected static byte[] _toDerEncodedInteger(final ByteArray byteArray) {
+        if (byteArray.isEmpty()) { return new byte[0]; }
+
         final boolean firstByteHasSignBit = (ByteUtil.byteToInteger(byteArray.getByte(0)) > 0x7F);
         if (firstByteHasSignBit) {
             final byte[] bytes = new byte[1 + byteArray.getByteCount()];

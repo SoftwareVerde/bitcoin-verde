@@ -10,7 +10,6 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
-import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
@@ -23,23 +22,14 @@ public class PushOperation extends SubTypedOperation {
 
     protected static class Payload {
         public final Boolean shouldBeSerialized;
-        public final Integer valueByteCount; // May be different than Payload.value's byteCount when value is outside of allowed bounds.
         public final Integer valueByteCountLength; // The number of bytes that should be used when serializing the number of bytes within the Value. (Ex. 0x0001 -> 2, vs 0x00000001 -> 4)
         public final Value value;
 
         public Payload(final Boolean shouldBeSerialized, final Integer valueByteCountLength, final Value value) {
             this.shouldBeSerialized = shouldBeSerialized;
             this.valueByteCountLength = valueByteCountLength;
-            this.valueByteCount = value.getByteCount();
             this.value = value;
         }
-
-//        public Payload(final Boolean shouldBeSerialized, final Integer valueByteCount, final Integer valueByteCountLength, final Value value) {
-//            this.shouldBeSerialized = shouldBeSerialized;
-//            this.valueByteCount = valueByteCount;
-//            this.valueByteCountLength = valueByteCountLength;
-//            this.value = value;
-//        }
     }
 
     protected static PushOperation fromBytes(final ByteArrayReader byteArrayReader) {
@@ -82,42 +72,60 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA: {
                 final Integer valueByteCountLength = null;
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
-                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
+                }
+
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
 
                 payload = new Payload(true, valueByteCountLength, value);
-                // payload = new Payload(true, byteCount, valueByteCountLength, value);
             } break;
 
             // Interprets the next byte as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_BYTE: {
                 final Integer valueByteCountLength = 1;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength);
-                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
+                }
 
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
 
-                payload = new Payload(true, byteCount, valueByteCountLength, value);
+                payload = new Payload(true, valueByteCountLength, value);
             } break;
 
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_SHORT: {
                 final Integer valueByteCountLength = 2;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
-                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
+                }
 
-                payload = new Payload(true, byteCount, valueByteCountLength, value);
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
+                payload = new Payload(true, valueByteCountLength, value);
             } break;
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_INTEGER: {
                 final Integer valueByteCountLength = 4;
-                final int byteCount = byteArrayReader.readLong(valueByteCountLength, Endian.LITTLE).intValue();
-                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
+                final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
+                { // Validate byteCount...
+                    if (byteCount < 0) { return null; }
+                    if (byteCount > byteArrayReader.remainingByteCount()) { return null; }
+                }
 
-                payload = new Payload(true, byteCount, valueByteCountLength, value);
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
+                if (value == null) { return null; }
+
+                payload = new Payload(true, valueByteCountLength, value);
             } break;
 
             case PUSH_VERSION: {
@@ -130,10 +138,6 @@ public class PushOperation extends SubTypedOperation {
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
-
-        if (! Util.areEqual(payload.valueByteCount, payload.value.getByteCount())) {
-            return InvalidOperation
-        }
 
         return new PushOperation(opcodeByte, opcode, payload);
     }
@@ -191,13 +195,6 @@ public class PushOperation extends SubTypedOperation {
     }
 
     @Override
-    public Boolean failIfPresent() {
-        if (_payload.valueByteCount > VALUE_MAX_BYTE_COUNT) { return true; }
-
-        return super.failIfPresent();
-    }
-
-    @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
         if (! _opcode.isEnabled()) {
             Logger.log("NOTICE: Opcode is disabled: " + _opcode);
@@ -214,9 +211,10 @@ public class PushOperation extends SubTypedOperation {
         byteArrayBuilder.appendByte(_opcodeByte);
 
         if (_payload.valueByteCountLength != null) {
+            final Integer byteCount = _payload.value.getByteCount();
 
             final byte[] payloadByteCountBytes = new byte[_payload.valueByteCountLength];
-            ByteUtil.setBytes(payloadByteCountBytes, ByteUtil.reverseEndian(ByteUtil.integerToBytes(_payload.valueByteCount)));
+            ByteUtil.setBytes(payloadByteCountBytes, ByteUtil.reverseEndian(ByteUtil.integerToBytes(byteCount)));
             byteArrayBuilder.appendBytes(payloadByteCountBytes); // NOTE: Payload ByteCount is encoded little-endian, but payloadByteCountBytes is already in this format...
         }
 
@@ -249,7 +247,7 @@ public class PushOperation extends SubTypedOperation {
     @Override
     public String toStandardString() {
         if (_payload.shouldBeSerialized) {
-            final String byteCountString = (_payload.valueByteCountLength != null ? (" 0x" + Integer.toHexString(_payload.valueByteCount)) : "");
+            final String byteCountString = (_payload.valueByteCountLength != null ? (" 0x" + Integer.toHexString(_payload.value.getByteCount()).toUpperCase()) : "");
             final String payloadString = HexUtil.toHexString(_payload.value.getBytes());
             return (super.toStandardString() + byteCountString + " 0x" + payloadString);
         }

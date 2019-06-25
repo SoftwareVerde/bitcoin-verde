@@ -27,6 +27,8 @@ import com.softwareverde.io.Logger;
  * NOTE: All Operation Math and Values appear to be injected into the script as 4-byte integers.
  */
 public class ScriptRunner {
+    public static final Integer MAX_SCRIPT_BYTE_COUNT = 10000;
+
     protected static final Boolean BITCOIN_ABC_QUIRK_ENABLED = true;
 
     protected final MedianBlockTime _medianBlockTime;
@@ -40,11 +42,15 @@ public class ScriptRunner {
 
         final ControlState controlState = new ControlState();
 
+        if (lockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
+        if (unlockingScript.getByteCount() > MAX_SCRIPT_BYTE_COUNT) { return false; }
+
         final Stack traditionalStack;
         final Stack payToScriptHashStack;
 
         { // Normal Script-Validation...
             traditionalStack = new Stack();
+            traditionalStack.setMaxItemCount(1000);
             try {
                 final List<Operation> unlockingScriptOperations = unlockingScript.getOperations();
                 if (unlockingScriptOperations == null) { return false; }
@@ -95,6 +101,7 @@ public class ScriptRunner {
             }
 
             { // Validate Stack...
+                if (traditionalStack.didOverflow()) { return false; }
                 if (traditionalStack.isEmpty()) { return false; }
                 final Value topStackValue = traditionalStack.pop();
                 if (! topStackValue.asBoolean()) { return false; }
