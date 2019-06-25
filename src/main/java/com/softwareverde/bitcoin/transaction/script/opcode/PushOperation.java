@@ -10,6 +10,7 @@ import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.StringUtil;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
@@ -33,12 +34,12 @@ public class PushOperation extends SubTypedOperation {
             this.value = value;
         }
 
-        public Payload(final Boolean shouldBeSerialized, final Integer valueByteCount, final Integer valueByteCountLength, final Value value) {
-            this.shouldBeSerialized = shouldBeSerialized;
-            this.valueByteCount = valueByteCount;
-            this.valueByteCountLength = valueByteCountLength;
-            this.value = value;
-        }
+//        public Payload(final Boolean shouldBeSerialized, final Integer valueByteCount, final Integer valueByteCountLength, final Value value) {
+//            this.shouldBeSerialized = shouldBeSerialized;
+//            this.valueByteCount = valueByteCount;
+//            this.valueByteCountLength = valueByteCountLength;
+//            this.value = value;
+//        }
     }
 
     protected static PushOperation fromBytes(final ByteArrayReader byteArrayReader) {
@@ -81,46 +82,42 @@ public class PushOperation extends SubTypedOperation {
             case PUSH_DATA: {
                 final Integer valueByteCountLength = null;
                 final int byteCount = ByteUtil.byteToInteger(opcodeByte);
-                final int safeByteCount = Math.min(byteCount, Value.MAX_BYTE_COUNT);
+                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
                 final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
 
-                payload = new Payload(true, byteCount, valueByteCountLength, value);
+                payload = new Payload(true, valueByteCountLength, value);
+                // payload = new Payload(true, byteCount, valueByteCountLength, value);
             } break;
 
             // Interprets the next byte as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_BYTE: {
                 final Integer valueByteCountLength = 1;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength);
-                if (byteCount < 0) { return null; }
+                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
 
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
-                if (value == null) { return null; }
 
-                payload = new Payload(true, valueByteCountLength, value);
+                payload = new Payload(true, byteCount, valueByteCountLength, value);
             } break;
 
             // Interprets the next 2 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_SHORT: {
                 final Integer valueByteCountLength = 2;
                 final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
-                if (byteCount < 0) { return null; }
+                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
 
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
-                if (value == null) { return null; }
-
-                payload = new Payload(true, valueByteCountLength, value);
+                payload = new Payload(true, byteCount, valueByteCountLength, value);
             } break;
 
             // Interprets the next 4 bytes as an integer ("N").  Then, the next N bytes are pushed to the stack.
             case PUSH_DATA_INTEGER: {
                 final Integer valueByteCountLength = 4;
-                final int byteCount = byteArrayReader.readInteger(valueByteCountLength, Endian.LITTLE);
-                if (byteCount < 0) { return null; }
+                final int byteCount = byteArrayReader.readLong(valueByteCountLength, Endian.LITTLE).intValue();
+                final int safeByteCount = Math.min(byteArrayReader.remainingByteCount(), Math.min(byteCount, Value.MAX_BYTE_COUNT));
+                final Value value = Value.fromBytes(byteArrayReader.readBytes(safeByteCount));
 
-                final Value value = Value.fromBytes(byteArrayReader.readBytes(byteCount));
-                if (value == null) { return null; }
-
-                payload = new Payload(true, valueByteCountLength, value);
+                payload = new Payload(true, byteCount, valueByteCountLength, value);
             } break;
 
             case PUSH_VERSION: {
@@ -133,6 +130,10 @@ public class PushOperation extends SubTypedOperation {
         }
 
         if (byteArrayReader.didOverflow()) { return null; }
+
+        if (! Util.areEqual(payload.valueByteCount, payload.value.getByteCount())) {
+            return InvalidOperation
+        }
 
         return new PushOperation(opcodeByte, opcode, payload);
     }
