@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.transaction.script.runner.ControlState;
 import com.softwareverde.bitcoin.transaction.script.runner.context.Context;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignatureContext;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.transaction.script.stack.Stack;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
@@ -29,6 +30,7 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
     public static final Integer MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT = 20;
+    public static final Boolean FAIL_ON_BAD_SIGNATURE_ENABLED = true; // "NULLFAIL"
 
     public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160.getValue(),                          Opcode.RIPEMD_160);
     public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1.getValue(),                               Opcode.SHA_1);
@@ -123,7 +125,7 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final Boolean signatureIsValid;
         {
-            final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+            final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
 
             if (Buip55.isEnabled(blockHeight)) {
                 final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
@@ -145,7 +147,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signatureIsValid) { return false; }
         }
         else {
-            { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (FAIL_ON_BAD_SIGNATURE_ENABLED) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if (HF20171113.isEnabled(blockHeight)) {
                     if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
                 }
@@ -199,7 +201,7 @@ public class CryptographicOperation extends SubTypedOperation {
                     signaturesAreEmpty = false;
                 }
 
-                final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+                final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
                 // if (scriptSignature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails / pushes a false value...
                 if (scriptSignature != null) {
                     // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
@@ -270,7 +272,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signaturesAreValid) { return false; }
         }
         else {
-            { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (FAIL_ON_BAD_SIGNATURE_ENABLED) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if (HF20171113.isEnabled(blockHeight)) {
                     if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
                 }
@@ -288,7 +290,7 @@ public class CryptographicOperation extends SubTypedOperation {
         final Value messageValue = stack.pop();
         final Value signatureValue = stack.pop();
 
-        final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
+        final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_DATA_SIGNATURE);
         final byte[] messageHash = BitcoinUtil.sha256(messageValue.getBytes());
 
         final Boolean signatureIsValid;
@@ -309,7 +311,9 @@ public class CryptographicOperation extends SubTypedOperation {
             signatureIsValid = false;
         }
 
-        if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; } // Enforce NULLFAIL...
+        if (FAIL_ON_BAD_SIGNATURE_ENABLED) {
+            if ((!signatureIsValid) && (!signatureValue.isEmpty())) { return false; } // Enforce NULLFAIL...
+        }
 
         if (_opcode == Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY) {
             if (! signatureIsValid) { return false; }

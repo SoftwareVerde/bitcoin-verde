@@ -8,19 +8,33 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
 
 public class ScriptSignature {
-    public static ScriptSignature fromBytes(final ByteArray bytes) {
+    public static final Boolean SCHNORR_IS_ENABLED = true;
+
+    public static ScriptSignature fromBytes(final ByteArray bytes, final ScriptSignatureContext context) {
         if (bytes == null) { return null; }
+
+        final int schnorrScriptSignatureByteCount;
+        { // Schnorr signatures are 64 bytes, and only use the hashType byte for regular checksig operations...
+            if (context == ScriptSignatureContext.CHECK_DATA_SIGNATURE) {
+                schnorrScriptSignatureByteCount = SchnorrSignature.BYTE_COUNT;
+            }
+            else {
+                schnorrScriptSignatureByteCount = (SchnorrSignature.BYTE_COUNT + HashType.BYTE_COUNT);
+            }
+        }
 
         final HashType hashType;
         final Signature signature;
-        if (bytes.getByteCount() == SchnorrSignature.BYTE_COUNT) { // Schnorr CheckDataSignatures do not have a HashType...
-            signature = SchnorrSignature.fromBytes(bytes);
-            hashType = null;
-        }
-        else if (bytes.getByteCount() == (SchnorrSignature.BYTE_COUNT + 1)) {  // Schnorr Signature with HashType...
-            signature = SchnorrSignature.fromBytes(bytes);
-            final byte hashTypeByte = bytes.getByte(bytes.getByteCount() - 1);
-            hashType = HashType.fromByte(hashTypeByte);
+        if ( (SCHNORR_IS_ENABLED) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
+            if (context == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
+                signature = SchnorrSignature.fromBytes(bytes);
+                hashType = null;
+            }
+            else { // Schnorr Signature with HashType...
+                signature = SchnorrSignature.fromBytes(bytes);
+                final byte hashTypeByte = bytes.getByte(SchnorrSignature.BYTE_COUNT);
+                hashType = HashType.fromByte(hashTypeByte);
+            }
         }
         else { // Secp256k1 Signature with HashType...
             final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);

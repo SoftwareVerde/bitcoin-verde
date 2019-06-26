@@ -1,6 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.signature.hashtype;
 
 public class HashType {
+    public static final Integer BYTE_COUNT = 1;
+
     protected static final byte ANYONE_CAN_PAY_FLAG = (byte) 0x80;
     protected static final byte BITCOIN_CASH_FLAG = (byte) 0x40;
 

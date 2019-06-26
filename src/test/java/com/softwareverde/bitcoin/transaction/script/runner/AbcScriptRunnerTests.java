@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.runner;
 
-import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -11,8 +12,10 @@ import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
 import com.softwareverde.bitcoin.transaction.script.ScriptInflater;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.opcode.CryptographicOperation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
 import com.softwareverde.bitcoin.transaction.script.runner.context.MutableContext;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
 import com.softwareverde.bitcoin.transaction.script.stack.Value;
 import com.softwareverde.bitcoin.transaction.script.unlocking.MutableUnlockingScript;
 import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
@@ -22,12 +25,35 @@ import com.softwareverde.bitcoin.util.StringUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.json.Json;
+import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 
 public class AbcScriptRunnerTests {
+    public static class FakeMedianBlockTime implements MedianBlockTime {
+        protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
+
+        @Override
+        public ImmutableMedianBlockTime asConst() {
+            return new ImmutableMedianBlockTime(_medianBlockTime);
+        }
+
+        @Override
+        public Long getCurrentTimeInSeconds() {
+            return _medianBlockTime;
+        }
+
+        @Override
+        public Long getCurrentTimeInMilliSeconds() {
+            return (_medianBlockTime * 1000L);
+        }
+
+        public void setMedianBlockTime(final Long medianBlockTime) {
+            _medianBlockTime = medianBlockTime;
+        }
+    }
 
     protected ByteArray _wrapByte(final byte value) {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
@@ -311,7 +337,14 @@ public class AbcScriptRunnerTests {
                     }
                 }
 
-                final int[] skippedTestIndices = new int[] { };
+                if (expectedResultString.contains("UNKNOWN_ERROR") && flagsString.contains("MINIMALDATA")) {
+                    skipTest = true;
+                }
+
+                final int[] skippedTestIndices = new int[] {
+                    // 1189, 1190 // Attempts to execute CHECKDATASIG without enabling the opcode...
+                    // 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
+                };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
                         skipTest = true;
@@ -334,7 +367,7 @@ public class AbcScriptRunnerTests {
                 System.out.println(testVector);
             }
 
-            final MutableMedianBlockTime medianBlockTime = new MutableMedianBlockTime();
+            final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
             final ScriptRunner scriptRunner = new ScriptRunner(medianBlockTime);
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);
@@ -354,6 +387,15 @@ public class AbcScriptRunnerTests {
             if (flagsString.contains("P2SH")) {
                 context.setBlockHeight(173805L);
             }
+            if (flagsString.contains("SCHNORR")) {
+                medianBlockTime.setMedianBlockTime(1557921600L);
+            }
+            if ( (i >= 1189) && (lockingScriptString.contains("CHECKDATASIG")) ) {
+                context.setBlockHeight(556767L);
+            }
+
+            BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
+            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", flagsString.contains("NULLFAIL"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
 
