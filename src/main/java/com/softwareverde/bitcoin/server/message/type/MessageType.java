@@ -6,6 +6,8 @@ import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.util.Util;
 
 public class MessageType {
+    public static final Integer BYTE_COUNT = 12;
+
     public static final MessageType SYNCHRONIZE_VERSION = new MessageType("version");
     public static final MessageType ACKNOWLEDGE_VERSION = new MessageType("verack");
 
@@ -46,9 +48,6 @@ public class MessageType {
 
     // BitcoinVerde Messages
     public static final MessageType QUERY_ADDRESS_BLOCKS = new MessageType("addrblocks");
-
-
-    public static final Integer BYTE_COUNT = 12;
 
     protected final ByteArray _bytes;
     protected final String _value;
