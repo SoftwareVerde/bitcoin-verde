@@ -343,6 +343,7 @@ public class AbcScriptRunnerTests {
 
                 final int[] skippedTestIndices = new int[] {
                     1189, 1190, 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
+                    1201, // Requires CHECKDATASIG with STRICTENC disabled...
                 };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
@@ -401,7 +402,7 @@ public class AbcScriptRunnerTests {
             BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            // 1202
+            // 1211
 
             final boolean expectedResult = Util.areEqual("OK", expectedResultString);
             if (! Util.areEqual(expectedResult, wasValid)) {
