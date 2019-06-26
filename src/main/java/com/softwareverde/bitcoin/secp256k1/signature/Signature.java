@@ -15,4 +15,5 @@ public interface Signature extends Const {
     ByteArray encode();
     Boolean isCanonical();
     Signature asCanonical();
+    Boolean isEmpty();
 }

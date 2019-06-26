@@ -185,13 +185,18 @@ public class Secp256k1Signature implements Signature {
         final BigInteger r = new BigInteger(1, _r.getBytes());
         final BigInteger s = new BigInteger(1, _s.getBytes());
         final BigInteger newS;
-        if (Secp256k1Signature.isLowS(s)) {
+         if (! Secp256k1Signature.isLowS(s)) {
             newS = curveN.subtract(s);
         }
         else {
             newS = s;
         }
         return new Secp256k1Signature(r.toByteArray(), newS.toByteArray());
+    }
+
+    @Override
+    public Boolean isEmpty() {
+        return false;
     }
 
     @Override
