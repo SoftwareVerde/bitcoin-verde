@@ -89,7 +89,7 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
-        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding)
+        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding) (BitcoinXT: src/script/sigencoding.cpp ::IsValidSignatureEncoding)
             if (scriptSignature == null) { return false; }
 
             final HashType hashType = scriptSignature.getHashType();
@@ -128,7 +128,7 @@ public class CryptographicOperation extends SubTypedOperation {
             final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
 
             if (Buip55.isEnabled(blockHeight)) {
-                final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
+                final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature);
                 if (! meetsStrictEncodingStandard) { return false; }
             }
 
@@ -242,7 +242,7 @@ public class CryptographicOperation extends SubTypedOperation {
                     final boolean signatureIsValid;
                     {
                         if (Buip55.isEnabled(blockHeight)) {
-                            final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
+                            final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(signature);
                             if (! meetsStrictEncodingStandard) { return false; }
                         }
 

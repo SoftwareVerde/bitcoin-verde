@@ -385,13 +385,16 @@ public class AbcScriptRunnerTests {
 
             context.setBlockHeight(0L);
             if (flagsString.contains("P2SH")) {
-                context.setBlockHeight(173805L);
+                context.setBlockHeight(Math.max(173805L, context.getBlockHeight()));
+            }
+            if ( (i > 1000) && (flagsString.contains("STRICTENC")) ) {
+                context.setBlockHeight(Math.max(478559L, context.getBlockHeight()));
             }
             if (flagsString.contains("SCHNORR")) {
                 medianBlockTime.setMedianBlockTime(1557921600L);
             }
             if ( (i >= 1189) && (lockingScriptString.contains("CHECKDATASIG")) ) {
-                context.setBlockHeight(556767L);
+                context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
 
             BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
