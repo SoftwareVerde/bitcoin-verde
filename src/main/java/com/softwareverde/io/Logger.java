@@ -70,10 +70,10 @@ public class Logger {
             stringWriter.append("] ");
 
             try (final PrintWriter printWriter = new PrintWriter(stringWriter)) {
-                if (object instanceof Exception) {
+                if (object instanceof Throwable) {
                     final String metadata = ("[" + _getMetadata((Exception) object, 1) + "]");
                     stringWriter.append(metadata);
-                    ((Exception) object).printStackTrace(printWriter);
+                    ((Throwable) object).printStackTrace(printWriter);
                 }
                 else {
                     final String metadata = ("[" + _getMetadata(new Exception(), 2) + "] ");

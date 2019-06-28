@@ -1,8 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.Buip55;
-import com.softwareverde.bitcoin.bip.HF20171113;
-import com.softwareverde.bitcoin.bip.HF20181115;
+import com.softwareverde.bitcoin.bip.*;
 import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
@@ -30,7 +28,9 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
     public static final Integer MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT = 20;
+
     public static final Boolean FAIL_ON_BAD_SIGNATURE_ENABLED = true; // "NULLFAIL"
+    public static final Boolean REQUIRE_BITCOIN_CASH_FORK_ID = true; // "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID"
 
     public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160.getValue(),                          Opcode.RIPEMD_160);
     public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1.getValue(),                               Opcode.SHA_1);
@@ -62,7 +62,7 @@ public class CryptographicOperation extends SubTypedOperation {
         super(value, TYPE, opcode);
     }
 
-    protected static Boolean checkSignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature, final List<ByteArray> bytesToExcludeFromScript) {
+    protected static Boolean verifySignature(final Context context, final PublicKey publicKey, final ScriptSignature scriptSignature, final List<ByteArray> bytesToExcludeFromScript) {
         final Transaction transaction = context.getTransaction();
         final Integer transactionInputIndexBeingSigned = context.getTransactionInputIndex();
         final TransactionOutput transactionOutputBeingSpent = context.getTransactionOutput();
@@ -88,27 +88,55 @@ public class CryptographicOperation extends SubTypedOperation {
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
-    protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
-        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding)
-            if (scriptSignature == null) { return false; }
+    protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature, final ScriptSignatureContext scriptSignatureContext, final Context context) {
+        if (scriptSignature == null) { return false; }
+        if (scriptSignature.isEmpty()) { return true; } // "If a signature passing to ECDSA verification does not pass the Low S value check and is not an empty byte array, the entire script evaluates to false immediately."
 
+        if (scriptSignatureContext == ScriptSignatureContext.CHECK_SIGNATURE) { // CheckDataSignatures do not contain a HashType...
+            // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding) (BitcoinXT: src/script/sigencoding.cpp ::IsValidSignatureEncoding)
+            // https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki
             final HashType hashType = scriptSignature.getHashType();
             if (hashType == null) { return false; }
 
             if (hashType.getMode() == null) { return false; }
-            if (! hashType.isBitcoinCashType()) { return false; }
+
+            if (REQUIRE_BITCOIN_CASH_FORK_ID) {
+                if (! hashType.isBitcoinCashType()) { return false; }
+            }
         }
 
-        { // Enforce LOW_S Signature Encoding... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
+        {
             final Signature signature = scriptSignature.getSignature();
-            final Boolean isCanonical = signature.isCanonical();
-            if (! isCanonical) { return false; }
+            if (signature != null) {
+                // Check for negative-encoded DER signatures...
+                if (signature.getType() == Signature.Type.SECP256K1) { // Bip66 only applies to DER encoded signatures...
+                    if (Bip66.isEnabled(context.getBlockHeight())) { // Enforce non-negative R and S encoding for DER encoded signatures...
+                        final ByteArray signatureR = signature.getR();
+                        if (signatureR.getByteCount() == 0) { return false; }
+                        if ((signatureR.getByte(0) & 0x80) != 0) { return false; }
+
+                        final ByteArray signatureS = signature.getS();
+                        if (signatureS.getByteCount() == 0) { return false; }
+                        if ((signatureS.getByte(0) & 0x80) != 0) { return false; }
+                    }
+                }
+
+                // Enforce LOW_S Signature Encoding... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
+                final Boolean isCanonical = signature.isCanonical();
+                if (! isCanonical) { return false; }
+            }
         }
 
         return true;
     }
 
+    protected static Boolean validateStrictPublicKeyEncoding(final PublicKey publicKey) {
+        return ( publicKey.isCompressed() || publicKey.isDecompressed() );
+    }
+
     protected Boolean _executeCheckSignature(final Stack stack, final Context context) {
+        final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
+
         final Value publicKeyValue = stack.pop();
         final Value signatureValue = stack.pop();
 
@@ -125,16 +153,22 @@ public class CryptographicOperation extends SubTypedOperation {
 
         final Boolean signatureIsValid;
         {
-            final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
+            final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
 
-            if (Buip55.isEnabled(blockHeight)) {
-                final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
-                if (! meetsStrictEncodingStandard) { return false; }
+            if (Buip55.isEnabled(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                final Boolean signatureIsStrictlyEncoded = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, context);
+                if (! signatureIsStrictlyEncoded) { return false; }
             }
 
-            if (scriptSignature != null) {
+            if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
-                signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
+
+                if (Buip55.isEnabled(blockHeight)) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                    final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
+                    if (! publicKeyIsStrictlyEncoded) { return false; }
+                }
+
+                signatureIsValid = CryptographicOperation.verifySignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
             }
             else {
                 // NOTE: An invalid scriptSignature is permitted, and just simply fails...
@@ -160,6 +194,8 @@ public class CryptographicOperation extends SubTypedOperation {
     }
 
     protected Boolean _executeCheckMultiSignature(final Stack stack, final Context context) {
+        final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_SIGNATURE;
+
         final Integer publicKeyCount;
         {
             final Value publicKeyCountValue = stack.pop();
@@ -174,6 +210,12 @@ public class CryptographicOperation extends SubTypedOperation {
             for (int i = 0; i < publicKeyCount; ++i) {
                 final Value publicKeyValue = stack.pop();
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
+
+                if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                    final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
+                    if (! publicKeyIsStrictlyEncoded) { return false; }
+                }
+
                 listBuilder.add(publicKey);
             }
             publicKeys = listBuilder.build();
@@ -201,9 +243,13 @@ public class CryptographicOperation extends SubTypedOperation {
                     signaturesAreEmpty = false;
                 }
 
-                final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_SIGNATURE);
-                // if (scriptSignature == null) { return false; } // NOTE: An invalid scriptSignature is permitted, and just simply fails / pushes a false value...
-                if (scriptSignature != null) {
+                final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
+                if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                    final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, context);
+                    if (! meetsStrictEncodingStandard) { return false; }
+                }
+
+                if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
                     // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
                     final Signature signature = scriptSignature.getSignature();
                     if (signature.getType() == Signature.Type.SCHNORR) {
@@ -232,7 +278,7 @@ public class CryptographicOperation extends SubTypedOperation {
             boolean signaturesHaveMatchedPublicKeys = true;
             int nextPublicKeyIndex = 0;
             for (int i = 0; i < signatureCount; ++i) {
-                final ScriptSignature signature = signatures.get(i);
+                final ScriptSignature scriptSignature = signatures.get(i);
 
                 boolean signatureHasPublicKeyMatch = false;
                 for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
@@ -241,13 +287,8 @@ public class CryptographicOperation extends SubTypedOperation {
                     final PublicKey publicKey = publicKeys.get(j);
                     final boolean signatureIsValid;
                     {
-                        if (Buip55.isEnabled(blockHeight)) {
-                            final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
-                            if (! meetsStrictEncodingStandard) { return false; }
-                        }
-
-                        if (signature != null) {
-                            signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
+                        if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
+                            signatureIsValid = CryptographicOperation.verifySignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
                         }
                         else {
                             signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
@@ -285,18 +326,30 @@ public class CryptographicOperation extends SubTypedOperation {
         return (! stack.didOverflow());
     }
 
-    protected Boolean _executeCheckDataSignature(final Stack stack) {
+    protected Boolean _executeCheckDataSignature(final Stack stack, final Context context) {
+        final ScriptSignatureContext scriptSignatureContext = ScriptSignatureContext.CHECK_DATA_SIGNATURE;
+
         final Value publicKeyValue = stack.pop();
         final Value messageValue = stack.pop();
         final Value signatureValue = stack.pop();
 
-        final ScriptSignature scriptSignature = signatureValue.asScriptSignature(ScriptSignatureContext.CHECK_DATA_SIGNATURE);
+        final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
+        if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+            final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, context);
+            if (! meetsStrictEncodingStandard) { return false; }
+        }
+
         final byte[] messageHash = BitcoinUtil.sha256(messageValue.getBytes());
 
         final Boolean signatureIsValid;
-        if (scriptSignature != null) {
+        if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
             final PublicKey publicKey = publicKeyValue.asPublicKey();
-            if (publicKey == null) { return false; } // The PublicKey must be a valid for OP_CHECKDATASIG...
+            // if (publicKey == null) { return false; } // The PublicKey must be a valid for OP_CHECKDATASIG...
+
+            if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
+                if (! publicKeyIsStrictlyEncoded) { return false; }
+            }
 
             final Signature signature = scriptSignature.getSignature();
 
@@ -312,7 +365,7 @@ public class CryptographicOperation extends SubTypedOperation {
         }
 
         if (FAIL_ON_BAD_SIGNATURE_ENABLED) {
-            if ((!signatureIsValid) && (!signatureValue.isEmpty())) { return false; } // Enforce NULLFAIL...
+            if ( (! signatureIsValid) && (! signatureValue.isEmpty()) ) { return false; } // Enforce NULLFAIL...
         }
 
         if (_opcode == Opcode.CHECK_DATA_SIGNATURE_THEN_VERIFY) {
@@ -388,7 +441,7 @@ public class CryptographicOperation extends SubTypedOperation {
             case CHECK_DATA_SIGNATURE_THEN_VERIFY: {
                 if (! HF20181115.isEnabled(context.getBlockHeight())) { return false; }
 
-                return _executeCheckDataSignature(stack);
+                return _executeCheckDataSignature(stack, context);
             }
 
             default: { return false; }

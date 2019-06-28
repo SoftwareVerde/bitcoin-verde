@@ -13,8 +13,17 @@ public class PublicKey extends ImmutableByteArray implements Const {
     }
 
     protected Boolean _isCompressed() {
+        if (_bytes.length != 33) { return false; }
+
         final byte firstByte = _bytes[0];
         return ( (firstByte == (byte) 0x02) || (firstByte == (byte) 0x03) );
+    }
+
+    protected Boolean _isDecompressed() {
+        if (_bytes.length != 65) { return false; }
+
+        final byte firstByte = _bytes[0];
+        return (firstByte == (byte) 0x04);
     }
 
     protected PublicKey(final byte[] bytes) {
@@ -29,8 +38,13 @@ public class PublicKey extends ImmutableByteArray implements Const {
         return _isCompressed();
     }
 
+    public Boolean isDecompressed() {
+        return _isDecompressed();
+    }
+
     public PublicKey decompress() {
-        if (! _isCompressed()) { return this; }
+        if (_bytes.length == 0) { return this; } // NOP
+        if (_isDecompressed()) { return this; }
 
         final byte[] decompressedBytes = Secp256k1.decompressPoint(_bytes);
         decompressedBytes[0] = (byte) 0x04;
@@ -38,6 +52,7 @@ public class PublicKey extends ImmutableByteArray implements Const {
     }
 
     public PublicKey compress() {
+        if (_bytes.length == 0) { return this; } // NOP
         if (_isCompressed()) { return this; }
 
         final Integer coordinateByteCount = ((_bytes.length - 1) / 2);

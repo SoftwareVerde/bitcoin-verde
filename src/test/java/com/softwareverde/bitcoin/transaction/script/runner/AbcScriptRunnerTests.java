@@ -3,9 +3,12 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -32,6 +35,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 public class AbcScriptRunnerTests {
+    static {
+        BitcoinConstants.setTransactionVersion(1L);
+    }
+
     public static class FakeMedianBlockTime implements MedianBlockTime {
         protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
 
@@ -257,7 +264,7 @@ public class AbcScriptRunnerTests {
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
             transactionInput.setSequenceNumber(SequenceNumber.MAX_SEQUENCE_NUMBER);
-            transactionInput.setPreviousOutputIndex(0);
+            transactionInput.setPreviousOutputIndex(-1);
             transactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
             { // Unlocking Script...
                 final MutableUnlockingScript mutableUnlockingScript = new MutableUnlockingScript();
@@ -286,7 +293,7 @@ public class AbcScriptRunnerTests {
         }
         {
             final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
-            transactionOutput.setLockingScript(ByteArray.fromHexString("51"));
+            transactionOutput.setLockingScript(new MutableByteArray(0));
             transactionOutput.setAmount(0L);
             transactionOutput.setIndex(0);
             transaction.addTransactionOutput(transactionOutput);
@@ -342,8 +349,8 @@ public class AbcScriptRunnerTests {
                 }
 
                 final int[] skippedTestIndices = new int[] {
-                    // 1189, 1190 // Attempts to execute CHECKDATASIG without enabling the opcode...
-                    // 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
+                    1189, 1190, 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
+                    1201, // Requires CHECKDATASIG with STRICTENC disabled...
                 };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
@@ -385,19 +392,24 @@ public class AbcScriptRunnerTests {
 
             context.setBlockHeight(0L);
             if (flagsString.contains("P2SH")) {
-                context.setBlockHeight(173805L);
+                context.setBlockHeight(Math.max(173805L, context.getBlockHeight()));
+            }
+            if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("DERSIG")) ) {
+                context.setBlockHeight(Math.max(478559L, context.getBlockHeight()));
             }
             if (flagsString.contains("SCHNORR")) {
                 medianBlockTime.setMedianBlockTime(1557921600L);
             }
             if ( (i >= 1189) && (lockingScriptString.contains("CHECKDATASIG")) ) {
-                context.setBlockHeight(556767L);
+                context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
 
             BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
             BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", flagsString.contains("NULLFAIL"));
+            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
+            // 1252
 
             final boolean expectedResult = Util.areEqual("OK", expectedResultString);
             if (! Util.areEqual(expectedResult, wasValid)) {

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.transaction.script.signature;
 
+import com.softwareverde.bitcoin.secp256k1.signature.EmptySignature;
 import com.softwareverde.bitcoin.secp256k1.signature.SchnorrSignature;
 import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
@@ -10,12 +11,22 @@ import com.softwareverde.constable.bytearray.ByteArray;
 public class ScriptSignature {
     public static final Boolean SCHNORR_IS_ENABLED = true;
 
-    public static ScriptSignature fromBytes(final ByteArray bytes, final ScriptSignatureContext context) {
+    /**
+     * Returns a ScriptSignature (Secp25k1 Signature and HashType) from the provided bytes.
+     *  The ScriptSignatureContext is used to determine the appropriate Schnorr signature byte count (64 bytes with 1 optional byte for HashType).
+     *  i.e. CheckDataSignature does not provide a hashType.
+     *  If the provided ByteArray is empty (but not null), then the signature is valid, but empty.
+     */
+    public static ScriptSignature fromBytes(final ByteArray bytes, final ScriptSignatureContext scriptSignatureContext) {
         if (bytes == null) { return null; }
+
+        if (bytes.isEmpty()) {
+            return new ScriptSignature(EmptySignature.SECP256K1, null);
+        }
 
         final int schnorrScriptSignatureByteCount;
         { // Schnorr signatures are 64 bytes, and only use the hashType byte for regular checksig operations...
-            if (context == ScriptSignatureContext.CHECK_DATA_SIGNATURE) {
+            if (scriptSignatureContext == ScriptSignatureContext.CHECK_DATA_SIGNATURE) {
                 schnorrScriptSignatureByteCount = SchnorrSignature.BYTE_COUNT;
             }
             else {
@@ -26,7 +37,7 @@ public class ScriptSignature {
         final HashType hashType;
         final Signature signature;
         if ( (SCHNORR_IS_ENABLED) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
-            if (context == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
+            if (scriptSignatureContext == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
                 signature = SchnorrSignature.fromBytes(bytes);
                 hashType = null;
             }
@@ -37,6 +48,11 @@ public class ScriptSignature {
             }
         }
         else { // Secp256k1 Signature with HashType...
+            if (SCHNORR_IS_ENABLED) {
+                // 64-byte signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
+                if (bytes.getByteCount() == SchnorrSignature.BYTE_COUNT) { return null; }
+            }
+
             final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
             signature = Secp256k1Signature.fromBytes(byteArrayReader);
 
@@ -71,5 +87,9 @@ public class ScriptSignature {
 
     public Signature getSignature() {
         return _signature;
+    }
+
+    public Boolean isEmpty() {
+        return _signature.isEmpty();
     }
 }

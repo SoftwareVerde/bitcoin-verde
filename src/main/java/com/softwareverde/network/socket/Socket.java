@@ -178,18 +178,26 @@ public abstract class Socket {
         _socketClosedCallback = callback;
     }
 
-    public void write(final ProtocolMessage outboundMessage) {
+    public Boolean write(final ProtocolMessage outboundMessage) {
         final ByteArray bytes = outboundMessage.getBytes();
 
         try {
             synchronized (_rawOutputStreamWriteMutex) {
                 _rawOutputStream.write(bytes.getBytes());
                 _rawOutputStream.flush();
+
+                return true;
             }
         }
         catch (final Exception exception) {
+            if (LOGGING_ENABLED) {
+                Logger.log(exception);
+            }
+
             _closeSocket();
         }
+
+        return false;
     }
 
     /**

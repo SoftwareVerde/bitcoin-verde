@@ -196,6 +196,7 @@ public class Wallet {
     protected void _addPrivateKey(final PrivateKey privateKey) {
         final PrivateKey constPrivateKey = privateKey.asConst();
         final PublicKey publicKey = constPrivateKey.getPublicKey();
+
         final PublicKey compressedPublicKey = publicKey.compress();
         final PublicKey decompressedPublicKey = publicKey.decompress();
 
