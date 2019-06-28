@@ -11,7 +11,7 @@ public interface FullNodeTransactionDatabaseManager extends TransactionDatabaseM
     Boolean previousOutputsExist(Transaction transaction) throws DatabaseException;
     void addToUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void addToUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;
-    void removeFromUnconfirmedTransaction(TransactionId transactionId) throws DatabaseException;
+    void removeFromUnconfirmedTransactions(TransactionId transactionId) throws DatabaseException;
     void removeFromUnconfirmedTransactions(List<TransactionId> transactionIds) throws DatabaseException;
     Boolean isUnconfirmedTransaction(TransactionId transactionId) throws DatabaseException;
     List<TransactionId> getUnconfirmedTransactionIds() throws DatabaseException;
