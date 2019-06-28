@@ -211,11 +211,6 @@ public class CryptographicOperation extends SubTypedOperation {
                 final Value publicKeyValue = stack.pop();
                 final PublicKey publicKey = publicKeyValue.asPublicKey();
 
-                if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
-                    final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
-                    if (! publicKeyIsStrictlyEncoded) { return false; }
-                }
-
                 listBuilder.add(publicKey);
             }
             publicKeys = listBuilder.build();
@@ -244,10 +239,6 @@ public class CryptographicOperation extends SubTypedOperation {
                 }
 
                 final ScriptSignature scriptSignature = signatureValue.asScriptSignature(scriptSignatureContext);
-                if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
-                    final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, context);
-                    if (! meetsStrictEncodingStandard) { return false; }
-                }
 
                 if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
                     // Schnorr signatures are currently disabled for OP_CHECKMULTISIG...
@@ -285,6 +276,17 @@ public class CryptographicOperation extends SubTypedOperation {
                     nextPublicKeyIndex += 1;
 
                     final PublicKey publicKey = publicKeys.get(j);
+
+                    // Signatures and PublicKeys that are not used are allowed to be coded incorrectly.
+                    //  Therefore, the publicKey checking is performed immediately before the signature check, and not when popped from the stack.
+                    if (Buip55.isEnabled(context.getBlockHeight())) { // Enforce strict signature encoding (SCRIPT_VERIFY_STRICTENC)...
+                        final Boolean publicKeyIsStrictlyEncoded = CryptographicOperation.validateStrictPublicKeyEncoding(publicKey);
+                        if (! publicKeyIsStrictlyEncoded) { return false; }
+
+                        final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature, scriptSignatureContext, context);
+                        if (! meetsStrictEncodingStandard) { return false; }
+                    }
+
                     final boolean signatureIsValid;
                     {
                         if ( (scriptSignature != null) && (! scriptSignature.isEmpty()) ) {
