@@ -1,6 +1,9 @@
 package com.softwareverde.bitcoin.transaction.script.opcode;
 
-import com.softwareverde.bitcoin.bip.*;
+import com.softwareverde.bitcoin.bip.Bip66;
+import com.softwareverde.bitcoin.bip.Buip55;
+import com.softwareverde.bitcoin.bip.HF20171113;
+import com.softwareverde.bitcoin.bip.HF20181115;
 import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
@@ -72,11 +75,6 @@ public class CryptographicOperation extends SubTypedOperation {
         final HashType hashType = scriptSignature.getHashType();
 
         final Long blockHeight = context.getBlockHeight();
-        if (Buip55.isEnabled(blockHeight)) {
-            if (! hashType.isBitcoinCashType()) {
-                return false;
-            }
-        }
 
         final TransactionSigner transactionSigner = new TransactionSigner();
         final SignatureContext signatureContext = new SignatureContext(transaction, hashType, blockHeight);
@@ -92,6 +90,8 @@ public class CryptographicOperation extends SubTypedOperation {
         if (scriptSignature == null) { return false; }
         if (scriptSignature.isEmpty()) { return true; } // "If a signature passing to ECDSA verification does not pass the Low S value check and is not an empty byte array, the entire script evaluates to false immediately."
 
+        if (scriptSignature.hasExtraBytes()) { return false; }
+
         if (scriptSignatureContext == ScriptSignatureContext.CHECK_SIGNATURE) { // CheckDataSignatures do not contain a HashType...
             // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding) (BitcoinXT: src/script/sigencoding.cpp ::IsValidSignatureEncoding)
             // https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki
@@ -99,6 +99,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (hashType == null) { return false; }
 
             if (hashType.getMode() == null) { return false; }
+            if (hashType.hasUnknownFlags()) { return false; }
 
             if (REQUIRE_BITCOIN_CASH_FORK_ID) {
                 if (! hashType.isBitcoinCashType()) { return false; }

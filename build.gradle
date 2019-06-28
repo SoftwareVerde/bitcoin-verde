@@ -47,7 +47,7 @@ dependencies {
 
     api             group: 'com.github.softwareverde',  name: 'java-constable',         version: 'v0.4.3'
     api             group: 'com.github.softwareverde',  name: 'java-async',             version: 'v0.2.0'
-    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.6'
+    api             group: 'com.github.softwareverde',  name: 'json',                   version: 'v1.0.7'
     implementation  group: 'com.github.softwareverde',  name: 'java-util',              version: 'v1.3.2'
     implementation  group: 'com.github.softwareverde',  name: 'java-db-mysql',          version: 'v3.0.1'
 

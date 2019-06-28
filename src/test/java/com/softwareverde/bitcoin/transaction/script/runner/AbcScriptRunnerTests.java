@@ -291,8 +291,9 @@ public class AbcScriptRunnerTests {
             transactionInput.setPreviousOutputTransactionHash(Sha256Hash.EMPTY_HASH);
             transaction.addTransactionInput(transactionInput);
         }
+        final MutableTransactionOutput transactionOutput;
         {
-            final MutableTransactionOutput transactionOutput = new MutableTransactionOutput();
+            transactionOutput = new MutableTransactionOutput();
             transactionOutput.setLockingScript(new MutableByteArray(0));
             transactionOutput.setAmount(0L);
             transactionOutput.setIndex(0);
@@ -301,13 +302,18 @@ public class AbcScriptRunnerTests {
 
         // Format is: [[wit..., amount]?, scriptSig, scriptPubKey, flags, expected_scripterror, ... comments]
 
+        int executedCount = 0;
+        int skippedCount = 0;
+        int failCount = 0;
         for (int i = 0; i < testVectors.length(); ++i) {
             final Json testVector = testVectors.get(i);
             if (testVector.length() < 2) { continue; }
 
+            long amount = 0L;
             int j = 0;
-            if ( (! testVector.getString(i).isEmpty()) && (testVector.get(j).isArray()) ) {
-                System.out.println("witness, amount: " + testVector.get(j));
+            if ( (testVector.length() >= 6) && (! testVector.getString(j).trim().isEmpty()) && (testVector.get(j).isArray()) ) {
+                amount = (long) (testVector.get(j).getDouble(0) * Transaction.SATOSHIS_PER_BITCOIN);
+                System.out.println("witness, amount: " + testVector.get(j) + "=" + amount);
                 j += 1;
             }
 
@@ -328,7 +334,7 @@ public class AbcScriptRunnerTests {
 
             boolean skipTest = false;
             {
-                final String[] skippedTestFlags = new String[] { "DISCOURAGE_UPGRADABLE_NOPS" };
+                final String[] skippedTestFlags = new String[] { "DISCOURAGE_UPGRADABLE_NOPS", "REPLAY_PROTECTION" };
                 for (final String skippedFlag : skippedTestFlags) {
                     if (flagsString.contains(skippedFlag)) {
                         skipTest = true;
@@ -349,6 +355,14 @@ public class AbcScriptRunnerTests {
                     skipTest = true;
                 }
 
+                if (expectedResultString.contains("NONCOMPRESSED_PUBKEY")) {
+                    skipTest = true;
+                }
+
+                if (flagsString.contains("DISALLOW_SEGWIT_RECOVERY") && (! expectedResultString.contains("OK"))) {
+                    skipTest = true;
+                }
+
                 final int[] skippedTestIndices = new int[] {
                     1189, 1190, 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
                     1201, // Requires CHECKDATASIG with STRICTENC disabled...
@@ -356,6 +370,17 @@ public class AbcScriptRunnerTests {
                     1275, // Signature R is negative, with DERSIG flag enabled...  Unsure why this wouldn't fail...
                     1287, // 2nd Public key is not strictly encoded but STRICTENC is set...
                     1307, 1312, // Uses a non-BCH hashType after the BCH HF...
+                    1315, // Attempts to require that no forkId is set if ForkId is enabled, but ForkId is always enabled in practice.
+
+                    // Tests are specific to the ABC feature-flag mechanisms.
+                    // Bitcoin Verde does not implement the same feature-flags mechanism as ABC, and therefore STRICTENC cannot be disabled with CHECKDATASIG.
+                    // In practice, STRICTENC is always enabled when CHECKDATASIG is enabled.
+                    // Example tests include attempting to allow invalid signature (High S), or bad DER signature, in combination with CHECKDATASIG and now LOW_S/STRICTENC/etc flags.
+                    1322, 1324, 1326, 1328, 1333, 1334, 1336, 1338,
+                    1352, 1354, 1356, 1358, 1364, 1366, 1368,
+
+                    // Tests are schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType...
+                    1377, 1378, 1379, 1380, 1387, 1388, 1389
                 };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
@@ -365,7 +390,8 @@ public class AbcScriptRunnerTests {
                 }
             }
             if (skipTest) {
-                System.out.println("SKIPPING: " + testVector);
+                skippedCount += 1;
+                System.out.println(i + ": " + "[SKIPPED] " + testVector);
                 continue;
             }
 
@@ -376,14 +402,18 @@ public class AbcScriptRunnerTests {
                 lockingScript = LockingScript.castFrom(_inflateScript(lockingScriptString));
             }
             finally {
-                System.out.println(testVector);
+                System.out.println(i + ": " + testVector);
             }
 
             final FakeMedianBlockTime medianBlockTime = new FakeMedianBlockTime();
             final ScriptRunner scriptRunner = new ScriptRunner(medianBlockTime);
 
             transactionOutputBeingSpent.setLockingScript(lockingScript);
+            transactionOutputBeingSpent.setAmount(amount);
             transactionBeingSpent.setTransactionOutput(0, transactionOutputBeingSpent);
+
+            transactionOutput.setAmount(amount);
+            transaction.setTransactionOutput(0, transactionOutput);
 
             transactionInput.setUnlockingScript(unlockingScript);
             transactionInput.setPreviousOutputTransactionHash(transactionBeingSpent.getHash());
@@ -399,10 +429,13 @@ public class AbcScriptRunnerTests {
             if (flagsString.contains("P2SH")) {
                 context.setBlockHeight(Math.max(173805L, context.getBlockHeight()));
             }
+            if (flagsString.contains("CHECKSEQUENCEVERIFY")) {
+                context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
+            }
             if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("DERSIG") || flagsString.contains("LOW_S")) ) {
                 context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55 and BIP66...
             }
-            if (flagsString.contains("NULLFAIL")) {
+            if (flagsString.contains("NULLFAIL") || flagsString.contains("SIGHASH_FORKID")) {
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
             }
             if (flagsString.contains("SCHNORR")) {
@@ -420,15 +453,24 @@ public class AbcScriptRunnerTests {
             BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            // 1312
+            // 1487
+
+            executedCount += 1;
 
             final boolean expectedResult = Util.areEqual("OK", expectedResultString);
+            // Assert.assertEquals(expectedResult, wasValid);
             if (! Util.areEqual(expectedResult, wasValid)) {
-                System.out.println(i);
-                System.out.println(testVector);
+                failCount += 1;
+                System.out.println("FAILED: " + i);
+                System.out.println("Expected: " + expectedResult + " Actual: " + wasValid);
+                break;
             }
-
-            Assert.assertEquals(expectedResult, wasValid);
         }
+
+        final int totalCount = (executedCount + skippedCount);
+        final int successCount = (executedCount - failCount);
+        System.out.println("success=" + successCount + " failed=" + failCount + " skipped=" + skippedCount + " total=" + totalCount);
+
+        Assert.assertEquals(0, failCount);
     }
 }

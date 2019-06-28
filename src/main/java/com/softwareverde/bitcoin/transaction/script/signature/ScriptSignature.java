@@ -7,6 +7,8 @@ import com.softwareverde.bitcoin.secp256k1.signature.Signature;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
+import com.softwareverde.constable.bytearray.ImmutableByteArray;
+import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class ScriptSignature {
     public static final Boolean SCHNORR_IS_ENABLED = true;
@@ -36,6 +38,7 @@ public class ScriptSignature {
 
         final HashType hashType;
         final Signature signature;
+        final ByteArray extraBytes;
         if ( (SCHNORR_IS_ENABLED) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
             if (scriptSignatureContext == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
                 signature = SchnorrSignature.fromBytes(bytes);
@@ -46,15 +49,18 @@ public class ScriptSignature {
                 final byte hashTypeByte = bytes.getByte(SchnorrSignature.BYTE_COUNT);
                 hashType = HashType.fromByte(hashTypeByte);
             }
+
+            extraBytes = NO_EXTRA_BYTES;
         }
         else { // Secp256k1 Signature with HashType...
-            if (SCHNORR_IS_ENABLED) {
-                // 64-byte signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
-                if (bytes.getByteCount() == SchnorrSignature.BYTE_COUNT) { return null; }
-            }
-
             final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
             signature = Secp256k1Signature.fromBytes(byteArrayReader);
+
+            if (SCHNORR_IS_ENABLED) {
+                final int signatureByteCount = (bytes.getByteCount() - byteArrayReader.remainingByteCount());
+                // 64-byte (+1 hashType) signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
+                if (signatureByteCount == SchnorrSignature.BYTE_COUNT) { return null; }
+            }
 
             if (byteArrayReader.remainingByteCount() > 0) {
                 final byte hashTypeByte = byteArrayReader.readByte();
@@ -63,18 +69,36 @@ public class ScriptSignature {
             else {
                 hashType = null;
             }
+
+            final Integer extraByteCount = byteArrayReader.remainingByteCount();
+            if (extraByteCount > 0) {
+                extraBytes = MutableByteArray.wrap(byteArrayReader.readBytes(extraByteCount));
+            }
+            else {
+                extraBytes = NO_EXTRA_BYTES;
+            }
         }
         if (signature == null) { return null; }
 
-        return new ScriptSignature(signature, hashType);
+        return new ScriptSignature(signature, hashType, extraBytes);
     }
+
+    protected static final ByteArray NO_EXTRA_BYTES = new ImmutableByteArray(new byte[0]);
 
     protected final HashType _hashType;
     protected final Signature _signature;
+    protected final ByteArray _extraBytes;
+
+    protected ScriptSignature(final Signature signature, final HashType hashType, final ByteArray extraBytes) {
+        _signature = signature;
+        _hashType = hashType;
+        _extraBytes = extraBytes;
+    }
 
     public ScriptSignature(final Signature signature, final HashType hashType) {
         _signature = signature;
         _hashType = hashType;
+        _extraBytes = NO_EXTRA_BYTES;
     }
 
     /**
@@ -91,5 +115,13 @@ public class ScriptSignature {
 
     public Boolean isEmpty() {
         return _signature.isEmpty();
+    }
+
+    public Boolean hasExtraBytes() {
+        return (! _extraBytes.isEmpty());
+    }
+
+    public ByteArray getExtraBytes() {
+        return _extraBytes;
     }
 }
