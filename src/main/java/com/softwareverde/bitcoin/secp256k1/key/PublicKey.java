@@ -47,6 +47,8 @@ public class PublicKey extends ImmutableByteArray implements Const {
         if (_isDecompressed()) { return this; }
 
         final byte[] decompressedBytes = Secp256k1.decompressPoint(_bytes);
+        if (decompressedBytes == null) { return this; }
+
         decompressedBytes[0] = (byte) 0x04;
         return new PublicKey(decompressedBytes);
     }
@@ -62,7 +64,7 @@ public class PublicKey extends ImmutableByteArray implements Const {
         final byte[] publicKeyPointX = new byte[coordinateByteCount];
         final byte[] publicKeyPointY = new byte[coordinateByteCount];
         {
-            for (int i=0; i<coordinateByteCount; ++i) {
+            for (int i = 0; i < coordinateByteCount; ++i) {
                 publicKeyPointX[i] = _bytes[prefixByteCount + i];
                 publicKeyPointY[i] = _bytes[prefixByteCount + coordinateByteCount + i];
             }
