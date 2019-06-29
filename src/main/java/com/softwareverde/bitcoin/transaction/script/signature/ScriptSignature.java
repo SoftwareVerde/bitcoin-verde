@@ -63,15 +63,18 @@ public class ScriptSignature {
             }
 
             if (byteArrayReader.remainingByteCount() > 0) {
-                final byte hashTypeByte = byteArrayReader.readByte();
+                final byte hashTypeByte = bytes.getByte(bytes.getByteCount() - 1); // The HashType is always the last byte of the signature, if it's available.
                 hashType = HashType.fromByte(hashTypeByte);
             }
             else {
                 hashType = null;
             }
 
-            final Integer extraByteCount = byteArrayReader.remainingByteCount();
+            final int hashTypeByteCount = (hashType != null ? 1 : 0);
+            final int extraByteCount = (byteArrayReader.remainingByteCount() - hashTypeByteCount);
             if (extraByteCount > 0) {
+                // The "extra" bytes are bytes between the end of the signature, and the beginning of the HashType.
+                //  These extra bytes are not currently used for anything other than to indicate the signature was not strictly encoded.
                 extraBytes = MutableByteArray.wrap(byteArrayReader.readBytes(extraByteCount));
             }
             else {
