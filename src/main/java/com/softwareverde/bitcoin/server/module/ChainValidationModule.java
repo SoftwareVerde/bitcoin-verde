@@ -16,6 +16,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -35,12 +36,23 @@ public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
+    protected final BlockCache _blockCache;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
+
+        { // Initialize the BlockCache...
+            if (bitcoinProperties.isBlockCacheEnabled()) {
+                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+                _blockCache = new BlockCache(blockCacheDirectory);
+            }
+            else {
+                _blockCache = null;
+            }
+        }
     }
 
     public void run() {
@@ -103,7 +115,23 @@ public class ChainValidationModule {
                     Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
-                final Block block = blockDatabaseManager.getBlock(blockId, true);
+                final Boolean blockIsCached;
+                final Block block;
+                {
+                    Block cachedBlock = null;
+                    if (_blockCache != null) {
+                        cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                    }
+
+                    if (cachedBlock != null) {
+                        block = cachedBlock;
+                        blockIsCached = true;
+                    }
+                    else {
+                        block = blockDatabaseManager.getBlock(blockId, true);
+                        blockIsCached = false;
+                    }
+                }
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
                 final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
@@ -111,6 +139,10 @@ public class ChainValidationModule {
                 if (! blockValidationResult.isValid) {
                     Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");
                     break;
+                }
+
+                if ( (! blockIsCached) && (_blockCache != null) ) {
+                    _blockCache.cacheBlock(block, blockHeight);
                 }
 
                 nextBlockHash = null;
