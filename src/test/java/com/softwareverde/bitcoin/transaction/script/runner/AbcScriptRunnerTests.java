@@ -31,6 +31,7 @@ import com.softwareverde.json.Json;
 import com.softwareverde.util.BitcoinReflectionUtil;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -254,8 +255,29 @@ public class AbcScriptRunnerTests {
         return scriptInflater.fromBytes(byteArrayBuilder.build());
     }
 
+    @After
+    public void teardown() {
+        BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+    }
+
     @Test
     public void run() {
+        // This test runs the majority of ABC's test vectors.
+        // Unfortunately, the test suite relies heavily on ABC's feature-flag mechanisms, which Bitcoin Verde does not support.
+        //  This has been partially worked around with setting various blockHeights to enable/disable features.
+        //  However, many features cannot be individually disabled, either by because they are included in the same BIP/HF, or
+        //  the features span multiple fork activations (that is, if forks are activated as A, B, then C, enabling C automatically enables A and B).
+        //  A small subset of tests are disabled because the feature will never be supported (e.g. "MINIMALIF", which is a segwit leftover).
+        // Finally, a few feature flags have been "hacked in" via static final Booleans, and then toggled via reflection.
+        //  This reflection mutation can cause inconsistent test results, since the "final" modifier has certain effects within the Java memory model.
+        //  If these tests fail, consider re-running this suite multiple times.  If the tests still fail, locate the static final Boolean flags used
+        //  within the ::teardown function, and temporarily remove their "final" modifier.  If after that, the tests still fail, then there is likely
+        //  an actual bug that should be investigated.  Keep in mind that many feature/flags are incompatible, so a failing test may not actually be
+        //  indicative of an error.  Conversely, a passing test may not be actually testing the intent behind the test vector, since components of its
+        //  feature-flags may not have been successfully disabled.
+
         final Json testVectors = Json.parse(IoUtil.getResource("/abc_test_vectors.json"));
 
         final MutableTransaction transactionBeingSpent = new MutableTransaction();
@@ -363,6 +385,10 @@ public class AbcScriptRunnerTests {
                     skipTest = true;
                 }
 
+                if (flagsString.contains("MINIMALIF") && expectedResultString.contains("MINIMALIF")) {
+                    skipTest = true;
+                }
+
                 final int[] skippedTestIndices = new int[] {
                     1189, 1190, 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
                     1201, // Requires CHECKDATASIG with STRICTENC disabled...
@@ -380,7 +406,9 @@ public class AbcScriptRunnerTests {
                     1352, 1354, 1356, 1358, 1364, 1366, 1368,
 
                     // Tests are schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType...
-                    1377, 1378, 1379, 1380, 1387, 1388, 1389
+                    1377, 1378, 1379, 1380, 1387, 1388, 1389,
+                    1530, 1531, 1532, 1534, 1536, // Attempts to mix DERSIG/NULLFAIL/STRICTENC/NULLDUMMY flags in unsupported combinations...
+                    1539, 1541, // Cannot disable FORKID without STRICTENC...
                 };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
@@ -433,7 +461,8 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
             }
             if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("DERSIG") || flagsString.contains("LOW_S")) ) {
-                context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55 and BIP66...
+            // if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("LOW_S")) ) {
+                context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55...
             }
             if (flagsString.contains("NULLFAIL") || flagsString.contains("SIGHASH_FORKID")) {
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
@@ -453,7 +482,7 @@ public class AbcScriptRunnerTests {
             BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            // 1487
+            // 1530
 
             executedCount += 1;
 

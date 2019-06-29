@@ -54,7 +54,7 @@ public class ImmutableSequenceNumber implements SequenceNumber, Const {
 
     @Override
     public Boolean isDisabled() {
-        return ((_value & 0x80000000) != 0);
+        return ((_value & 0x80000000L) != 0L);
     }
 
     @Override
