@@ -74,9 +74,9 @@ public class RequestDataHandlerMonitor implements BitcoinNode.RequestDataCallbac
                     // }
                 }
             }
-
-            _core.run(dataHashes, bitcoinNode);
         }
+
+        _core.run(dataHashes, bitcoinNode);
     }
 
     /**
