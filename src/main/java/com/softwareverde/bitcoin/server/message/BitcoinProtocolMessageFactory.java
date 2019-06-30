@@ -40,10 +40,10 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
-    private final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
-    private final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
+    protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
+    protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
 
-    public BitcoinProtocolMessageFactory() {
+    protected void _defineInflaters() {
         _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new BitcoinSynchronizeVersionMessageInflater());
         _commandInflaterMap.put(MessageType.ACKNOWLEDGE_VERSION, new BitcoinAcknowledgeVersionMessageInflater());
         _commandInflaterMap.put(MessageType.PING, new BitcoinPingMessageInflater());
@@ -86,5 +86,15 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         }
 
         return protocolMessageInflater.fromBytes(bytes);
+    }
+
+    public BitcoinProtocolMessageFactory() {
+        _protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
+        _defineInflaters();
+    }
+
+    public BitcoinProtocolMessageFactory(final BitcoinProtocolMessageHeaderInflater bitcoinProtocolMessageHeaderInflater) {
+        _protocolMessageHeaderParser = bitcoinProtocolMessageHeaderInflater;
+        _defineInflaters();
     }
 }

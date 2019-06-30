@@ -13,9 +13,10 @@ import com.softwareverde.util.bytearray.Endian;
 public abstract class BitcoinProtocolMessageInflater {
     public abstract BitcoinProtocolMessage fromBytes(byte[] bytes);
 
+    protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
+
     protected BitcoinProtocolMessageHeader _parseHeader(final ByteArrayReader byteArrayReader, final MessageType command) {
-        final BitcoinProtocolMessageHeaderInflater protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
-        final BitcoinProtocolMessageHeader protocolMessageHeader = protocolMessageHeaderParser.fromBytes(byteArrayReader);
+        final BitcoinProtocolMessageHeader protocolMessageHeader = _protocolMessageHeaderParser.fromBytes(byteArrayReader);
 
         { // Validate MessageType Type
             if (command != protocolMessageHeader.command) {
@@ -48,6 +49,14 @@ public abstract class BitcoinProtocolMessageInflater {
         }
 
         return protocolMessageHeader;
+    }
+
+    public BitcoinProtocolMessageInflater() {
+        _protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
+    }
+
+    public BitcoinProtocolMessageInflater(final BitcoinProtocolMessageHeaderInflater protocolMessageHeaderParser) {
+        _protocolMessageHeaderParser = protocolMessageHeaderParser;
     }
 }
 
