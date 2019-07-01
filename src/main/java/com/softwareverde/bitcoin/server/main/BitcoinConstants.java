@@ -39,7 +39,7 @@ public class BitcoinConstants {
         return GENESIS_BLOCK_HASH;
     }
 
-    protected static void setGenesisBlockHash(final String genesisBlockHash) {
+    public static void setGenesisBlockHash(final String genesisBlockHash) {
         if (LOCKED) {
             System.err.println(LOCKED_ERROR_MESSAGE);
             return;
