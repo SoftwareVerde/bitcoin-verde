@@ -14,6 +14,7 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockCache;
@@ -31,6 +32,7 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
@@ -56,6 +58,9 @@ public class ChainValidationModule {
     }
 
     public void run() {
+        final Thread mainThread = Thread.currentThread();
+        mainThread.setPriority(Thread.MAX_PRIORITY);
+
         final Database database = _environment.getDatabase();
         final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
@@ -81,7 +86,7 @@ public class ChainValidationModule {
 
             final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
-            blockValidator.setShouldLogValidBlocks(false);
+            blockValidator.setShouldLogValidBlocks(true);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -115,6 +120,8 @@ public class ChainValidationModule {
                     Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
+                final MilliTimer blockInflaterTimer = new MilliTimer();
+                blockInflaterTimer.start();
                 final Boolean blockIsCached;
                 final Block block;
                 {
@@ -132,6 +139,8 @@ public class ChainValidationModule {
                         blockIsCached = false;
                     }
                 }
+                blockInflaterTimer.stop();
+                System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
                 final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);

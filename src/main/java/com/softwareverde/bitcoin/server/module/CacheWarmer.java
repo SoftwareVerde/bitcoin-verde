@@ -18,8 +18,6 @@ import com.softwareverde.util.timer.NanoTimer;
 
 public class CacheWarmer {
     public void warmUpCache(final MasterDatabaseManagerCache masterDatabaseManagerCache, final DatabaseConnectionFactory databaseConnectionFactory) {
-        final Runtime runtime = Runtime.getRuntime();
-
         try (final LocalDatabaseManagerCache localDatabaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache);
                 final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection()) {
 
