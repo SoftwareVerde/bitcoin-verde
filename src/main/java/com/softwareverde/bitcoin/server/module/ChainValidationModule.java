@@ -62,12 +62,12 @@ public class ChainValidationModule {
         mainThread.setPriority(Thread.MAX_PRIORITY);
 
         final Database database = _environment.getDatabase();
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        // final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (
             final DatabaseConnection databaseConnection = database.newConnection();
-            final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)
+            final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache(); // new LocalDatabaseManagerCache(masterDatabaseManagerCache)
         ) {
 
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
@@ -153,6 +153,9 @@ public class ChainValidationModule {
                 if ( (! blockIsCached) && (_blockCache != null) ) {
                     _blockCache.cacheBlock(block, blockHeight);
                 }
+
+                databaseManagerCache.log();
+                databaseManagerCache.resetLog();
 
                 nextBlockHash = null;
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, blockId);

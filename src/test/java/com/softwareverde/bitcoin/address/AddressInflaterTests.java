@@ -41,15 +41,17 @@ public class AddressInflaterTests {
 
     @Test
     public void foo() {
-        final int count = (1024 * 1024 * 20);
+        final int count = (1024 * 1024 * 100);
         final NanoTimer nanoTimer = new NanoTimer();
 
         final Integer[] objectArray = new Integer[count];
         final ImmutableListBuilder<Integer> immutableListBuilder = new ImmutableListBuilder<Integer>(count);
 
         for (int i = 0; i < count; ++i) {
-            objectArray[i] = (int) (Math.random() * Integer.MAX_VALUE);
-            immutableListBuilder.add((int) (Math.random() * Integer.MAX_VALUE));
+            // objectArray[i] = (int) (Math.random() * Integer.MAX_VALUE);
+            // immutableListBuilder.add((int) (Math.random() * Integer.MAX_VALUE));
+            objectArray[i] = i;
+            immutableListBuilder.add(i);
         }
 
         final List<Integer> objectList = immutableListBuilder.build();
@@ -67,7 +69,7 @@ public class AddressInflaterTests {
                 }
             }
             nanoTimer.stop();
-            System.out.println(aboveHalfCount + " - Object Array: " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            System.out.println(aboveHalfCount + " - Java Array: " + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
 
         {
@@ -80,7 +82,7 @@ public class AddressInflaterTests {
                 }
             }
             nanoTimer.stop();
-            System.out.println(aboveHalfCount + " - Object List: " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            System.out.println(aboveHalfCount + " - Constable/JavaArray List: " + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
 
         {
@@ -93,7 +95,7 @@ public class AddressInflaterTests {
                 }
             }
             nanoTimer.stop();
-            System.out.println(aboveHalfCount + " - Object ArrayList: " + nanoTimer.getMillisecondsElapsed() + "ms.");
+            System.out.println(aboveHalfCount + " - Constable ArrayList: " + nanoTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 }

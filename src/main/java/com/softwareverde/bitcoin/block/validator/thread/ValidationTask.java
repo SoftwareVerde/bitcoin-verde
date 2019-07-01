@@ -6,8 +6,10 @@ import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
+import com.softwareverde.util.timer.MilliTimer;
 
 class ValidationTask<T, S> implements Runnable {
+    protected final String _name;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
     protected final TaskHandler<T, S> _taskHandler;
     protected final List<T> _list;
@@ -27,7 +29,8 @@ class ValidationTask<T, S> implements Runnable {
         _didEncounterError.value = false;
     }
 
-    public ValidationTask(final FullNodeDatabaseManagerFactory databaseManagerFactory, final List<T> list, final TaskHandler<T, S> taskHandler) {
+    public ValidationTask(final String name, final FullNodeDatabaseManagerFactory databaseManagerFactory, final List<T> list, final TaskHandler<T, S> taskHandler) {
+        _name = name;
         _databaseManagerFactory = databaseManagerFactory;
         _list = list;
         _taskHandler = taskHandler;
@@ -49,6 +52,8 @@ class ValidationTask<T, S> implements Runnable {
     public void run() {
         _reset();
 
+        final MilliTimer batchTimer = new MilliTimer();
+        batchTimer.start();
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             _taskHandler.init(databaseManager);
 
@@ -68,6 +73,9 @@ class ValidationTask<T, S> implements Runnable {
                 _isFinished.value = true;
                 _isFinished.notifyAll();
             }
+
+            batchTimer.stop();
+            Logger.log(_name + " completed batch. " + _startIndex + " - " + (_startIndex + _itemCount - 1) + ". " + _itemCount + " in " + batchTimer.getMillisecondsElapsed() + "ms.");
         }
     }
 
