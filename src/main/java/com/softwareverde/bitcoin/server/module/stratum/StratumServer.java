@@ -19,9 +19,9 @@ import com.softwareverde.bitcoin.server.stratum.message.RequestMessage;
 import com.softwareverde.bitcoin.server.stratum.message.ResponseMessage;
 import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockResult;
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
-import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskFactory;
+import com.softwareverde.bitcoin.server.stratum.task.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -58,6 +58,8 @@ public class StratumServer {
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
     protected final DatabaseConnectionPool _databaseConnectionPool;
+    protected final BlockDeflater _blockDeflater;
+    protected final StratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
 
     protected final PrivateKey _privateKey;
 
@@ -70,7 +72,7 @@ public class StratumServer {
 
     protected final ReentrantReadWriteLock.WriteLock _mineBlockTaskWriteLock;
     protected final ReentrantReadWriteLock.ReadLock _mineBlockTaskReadLock;
-    protected StratumMineBlockTaskFactory _stratumMineBlockTaskFactory;
+    protected ConfigurableStratumMineBlockTaskBuilder _stratumMineBlockTaskBuilder;
     protected StratumMineBlockTask _currentMineBlockTask = null;
     protected final ConcurrentHashMap<Long, StratumMineBlockTask> _mineBlockTasks = new ConcurrentHashMap<Long, StratumMineBlockTask>();
 
@@ -133,8 +135,8 @@ public class StratumServer {
         return null;
     }
 
-    protected Block _assemblePrototypeBlock(final StratumMineBlockTaskFactory stratumMineBlockTaskFactory) {
-        final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
+    protected Block _assemblePrototypeBlock(final StratumMineBlockTaskBuilder stratumMineBlockTaskBuilder) {
+        final StratumMineBlockTask mineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
         final String zeroes = Sha256Hash.EMPTY_HASH.toString();
         final String stratumNonce = zeroes.substring(0, (4 * 2));
         final String stratumExtraNonce2 = zeroes.substring(0, (_extraNonce2ByteCount * 2));
@@ -143,7 +145,7 @@ public class StratumServer {
     }
 
     protected void _rebuildNewMiningTask() {
-        final StratumMineBlockTaskFactory stratumMineBlockTaskFactory = new StratumMineBlockTaskFactory(_totalExtraNonceByteCount);
+        final ConfigurableStratumMineBlockTaskBuilder stratumMineBlockTaskBuilder = _stratumMineBlockTaskBuilderFactory.newStratumMineBlockTaskBuilder(_totalExtraNonceByteCount);
 
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
@@ -206,21 +208,21 @@ public class StratumServer {
         // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
         final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
 
-        stratumMineBlockTaskFactory.setBlockVersion(BlockHeader.VERSION);
-        stratumMineBlockTaskFactory.setPreviousBlockHash(previousBlockHeader.getHash());
-        stratumMineBlockTaskFactory.setDifficulty(difficulty);
-        stratumMineBlockTaskFactory.setCoinbaseTransaction(coinbaseTransaction);
-        stratumMineBlockTaskFactory.setExtraNonce(_extraNonce);
-        stratumMineBlockTaskFactory.setBlockHeight(blockHeight);
+        stratumMineBlockTaskBuilder.setBlockVersion(BlockHeader.VERSION);
+        stratumMineBlockTaskBuilder.setPreviousBlockHash(previousBlockHeader.getHash());
+        stratumMineBlockTaskBuilder.setDifficulty(difficulty);
+        stratumMineBlockTaskBuilder.setCoinbaseTransaction(coinbaseTransaction);
+        stratumMineBlockTaskBuilder.setExtraNonce(_extraNonce);
+        stratumMineBlockTaskBuilder.setBlockHeight(blockHeight);
 
         for (final TransactionWithFee transaction : transactions) {
-            stratumMineBlockTaskFactory.addTransaction(transaction);
+            stratumMineBlockTaskBuilder.addTransaction(transaction);
         }
 
         if (_validatePrototypeBlockBeforeMining) {
             Boolean prototypeBlockIsValid = false;
             do {
-                final Block prototypeBlock = _assemblePrototypeBlock(stratumMineBlockTaskFactory);
+                final Block prototypeBlock = _assemblePrototypeBlock(stratumMineBlockTaskBuilder);
                 final NodeJsonRpcConnection nodeJsonRpcConnection = _getNodeJsonRpcConnection();
                 final Json validatePrototypeBlockResponse = nodeJsonRpcConnection.validatePrototypeBlock(prototypeBlock);
                 final Boolean requestWasSuccessful = validatePrototypeBlockResponse.getBoolean("wasSuccess");
@@ -235,7 +237,7 @@ public class StratumServer {
                         final String errorMessage = validationResult.getString("errorMessage");
                         Logger.log("Invalid prototype block: " + errorMessage);
 
-                        final Transaction factoryCoinbaseTransaction = stratumMineBlockTaskFactory.getCoinbaseTransaction();
+                        final Transaction factoryCoinbaseTransaction = stratumMineBlockTaskBuilder.getCoinbaseTransaction();
 
                         final Json invalidTransactions = validationResult.get("invalidTransactions");
                         for (int i = 0; i < invalidTransactions.length(); ++i) {
@@ -248,7 +250,7 @@ public class StratumServer {
                             }
 
                             Logger.log("Removing transaction from prototype block: " + transactionHash);
-                            stratumMineBlockTaskFactory.removeTransaction(transactionHash);
+                            stratumMineBlockTaskBuilder.removeTransaction(transactionHash);
                         }
                     }
                 }
@@ -258,8 +260,8 @@ public class StratumServer {
         try {
             _mineBlockTaskWriteLock.lock();
 
-            _stratumMineBlockTaskFactory = stratumMineBlockTaskFactory;
-            _currentMineBlockTask = stratumMineBlockTaskFactory.buildMineBlockTask();
+            _stratumMineBlockTaskBuilder = stratumMineBlockTaskBuilder;
+            _currentMineBlockTask = stratumMineBlockTaskBuilder.buildMineBlockTask();
             _mineBlockTasks.clear();
             _mineBlockTasks.put(_currentMineBlockTask.getId(), _currentMineBlockTask);
 
@@ -281,7 +283,7 @@ public class StratumServer {
         try {
             _mineBlockTaskWriteLock.lock();
 
-            final StratumMineBlockTask stratumMineBlockTask = _stratumMineBlockTaskFactory.buildMineBlockTask();
+            final StratumMineBlockTask stratumMineBlockTask = _stratumMineBlockTaskBuilder.buildMineBlockTask();
             _currentMineBlockTask = stratumMineBlockTask;
             _mineBlockTasks.put(stratumMineBlockTask.getId(), stratumMineBlockTask);
         }
@@ -295,7 +297,7 @@ public class StratumServer {
             _mineBlockTaskWriteLock.lock();
 
             for (final TransactionWithFee queuedTransaction : _queuedTransactions) {
-                _stratumMineBlockTaskFactory.addTransaction(queuedTransaction);
+                _stratumMineBlockTaskBuilder.addTransaction(queuedTransaction);
             }
             _queuedTransactions.clear();
 
@@ -429,9 +431,8 @@ public class StratumServer {
                 final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
                 Logger.log("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
-                final BlockDeflater blockDeflater = new BlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.log(blockDeflater.toBytes(block));
+                Logger.log(_blockDeflater.toBytes(block));
 
                 final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
                 final Json submitBlockResponse = nodeRpcConnection.submitBlock(block);
@@ -462,6 +463,25 @@ public class StratumServer {
     }
 
     public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory) {
+        this(
+            stratumProperties,
+            mainThreadPool,
+            databaseConnectionFactory,
+            new BlockDeflater(),
+            new StratumMineBlockTaskBuilderFactory() {
+                protected final TransactionDeflater _transactionDeflater = new TransactionDeflater();
+
+                @Override
+                public ConfigurableStratumMineBlockTaskBuilder newStratumMineBlockTaskBuilder(final Integer totalExtraNonceByteCount) {
+                    return new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, _transactionDeflater);
+                }
+            }
+        );
+    }
+
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory, final BlockDeflater blockDeflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+        _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
+        _blockDeflater = blockDeflater;
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
         _databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 128);
@@ -640,11 +660,11 @@ public class StratumServer {
     }
 
     public Block getPrototypeBlock() {
-        return _assemblePrototypeBlock(_stratumMineBlockTaskFactory);
+        return _assemblePrototypeBlock(_stratumMineBlockTaskBuilder);
     }
 
     public Long getBlockHeight() {
-        return _stratumMineBlockTaskFactory.getBlockHeight();
+        return _stratumMineBlockTaskBuilder.getBlockHeight();
     }
 
     public Integer getShareDifficulty() {
