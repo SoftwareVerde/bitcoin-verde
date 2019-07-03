@@ -6,7 +6,9 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
+import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -47,6 +49,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
     protected final NetworkTime _networkTime;
 
+    protected final BlockValidatorFactory _blockValidatorFactory;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
@@ -60,9 +63,27 @@ public class BlockProcessor {
     protected final Long _startTime;
 
     public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+        this(
+            databaseConnectionFactory,
+            masterDatabaseManagerCache,
+            new BlockValidatorFactory() {
+                @Override
+                public BlockValidator newBlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+                    return new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
+                }
+            },
+            transactionValidatorFactory,
+            networkTime,
+            medianBlockTime,
+            orphanedTransactionsCache
+        );
+    }
+
+    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
         _transactionValidatorFactory = transactionValidatorFactory;
+        _blockValidatorFactory = blockValidatorFactory;
 
         _medianBlockTime = medianBlockTime;
         _networkTime = networkTime;

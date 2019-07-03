@@ -41,6 +41,7 @@ import com.softwareverde.bitcoin.wallet.utxo.SpendableTransactionOutput;
 import com.softwareverde.bloomfilter.BloomFilter;
 import com.softwareverde.bloomfilter.MutableBloomFilter;
 import com.softwareverde.constable.list.List;
+import com.softwareverde.constable.list.immutable.ImmutableList;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.io.Logger;
@@ -860,6 +861,30 @@ public class Wallet {
         return amount;
     }
 
+    public synchronized Long getBalance(final PublicKey publicKey) {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
+        final Address address = addressInflater.fromPublicKey(publicKey);
+
+        long amount = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            if (! spendableTransactionOutput.isSpent()) {
+                final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+                final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                final Address outputAddress = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+
+                if ( Util.areEqual(address, outputAddress) || Util.areEqual(compressedAddress, outputAddress) ) {
+                    amount += transactionOutput.getAmount();
+                }
+            }
+        }
+        return amount;
+    }
+
     public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
@@ -921,5 +946,9 @@ public class Wallet {
         }
 
         return null;
+    }
+
+    public synchronized List<PublicKey> getPublicKeys() {
+        return new ImmutableList<PublicKey>(_privateKeys.keySet());
     }
 }

@@ -20,6 +20,7 @@ import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTask;
 import com.softwareverde.bitcoin.server.stratum.task.StratumMineBlockTaskBuilderCore;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionDeflater;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -45,6 +46,7 @@ public class TestBlockDataStratumMiner {
     public void run() {
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
+        final TransactionInflater transactionInflater = new TransactionInflater();
         final AddressInflater addressInflater = new AddressInflater();
 
         final PrivateKey coinbasePrivateKey = PrivateKey.createNewKey();
@@ -58,7 +60,7 @@ public class TestBlockDataStratumMiner {
 
         final Difficulty difficulty = Difficulty.BASE_DIFFICULTY;
 
-        final Transaction coinbaseTransaction = Transaction.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
+        final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, StratumMiner.totalExtraNonceByteCount, address, BlockHeader.calculateBlockReward(blockHeight));
 
         final MutableList<Transaction> transactions = new MutableList<Transaction>();
 
