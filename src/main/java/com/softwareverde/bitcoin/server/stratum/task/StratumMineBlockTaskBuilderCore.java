@@ -10,11 +10,9 @@ import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.transaction.coinbase.CoinbaseTransaction;
 import com.softwareverde.bitcoin.transaction.coinbase.MutableCoinbaseTransaction;
-import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
-import com.softwareverde.constable.list.List;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.type.time.SystemTime;
@@ -22,7 +20,7 @@ import com.softwareverde.util.type.time.SystemTime;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-public class StratumMineBlockTaskFactory {
+public class StratumMineBlockTaskBuilderCore implements ConfigurableStratumMineBlockTaskBuilder {
     final static Object _mutex = new Object();
     private static Long _nextId = 1L;
     protected static Long getNextId() {
@@ -34,12 +32,12 @@ public class StratumMineBlockTaskFactory {
     }
 
     protected final SystemTime _systemTime = new SystemTime();
+    protected final TransactionDeflater _transactionDeflater;
 
     protected final ConcurrentHashMap<Sha256Hash, TransactionWithFee> _transactionsWithFee = new ConcurrentHashMap<Sha256Hash, TransactionWithFee>();
     protected final CanonicalMutableBlock _prototypeBlock = new CanonicalMutableBlock();
     protected final Integer _totalExtraNonceByteCount;
 
-    protected List<String> _merkleTreeBranches; // Little-endian merkle tree (intermediary) branch hashes...
     protected String _extraNonce1;
     protected String _coinbaseTransactionHead;
     protected String _coinbaseTransactionTail;
@@ -52,9 +50,8 @@ public class StratumMineBlockTaskFactory {
         try {
             _prototypeBlockWriteLock.lock();
 
-            final TransactionDeflater transactionDeflater = new TransactionDeflater();
             final FragmentedBytes coinbaseTransactionParts;
-            coinbaseTransactionParts = transactionDeflater.fragmentTransaction(coinbaseTransaction);
+            coinbaseTransactionParts = _transactionDeflater.fragmentTransaction(coinbaseTransaction);
 
             // NOTE: _coinbaseTransactionHead contains the unlocking script. This script contains two items:
             //  1. The Coinbase Message (ex: "/Mined via Bitcoin-Verde v0.0.1/")
@@ -88,31 +85,26 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
-    public StratumMineBlockTaskFactory(final Integer totalExtraNonceByteCount) {
-        _totalExtraNonceByteCount = totalExtraNonceByteCount;
+    protected void _initPrototypeBlock() {
         _prototypeBlock.addTransaction(new MutableTransaction());
 
         // NOTE: Actual nonce and timestamp are updated later within the MineBlockTask...
         _prototypeBlock.setTimestamp(0L);
         _prototypeBlock.setNonce(0L);
+    }
+
+    public StratumMineBlockTaskBuilderCore(final Integer totalExtraNonceByteCount, final TransactionDeflater transactionDeflater) {
+        _totalExtraNonceByteCount = totalExtraNonceByteCount;
+        _transactionDeflater = transactionDeflater;
 
         final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock();
         _prototypeBlockReadLock = readWriteLock.readLock();
         _prototypeBlockWriteLock = readWriteLock.writeLock();
+
+        _initPrototypeBlock();
     }
 
-    public void setBlockVersion(final String stratumBlockVersion) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            final Long blockVersion = ByteUtil.bytesToLong(HexUtil.hexStringToByteArray(stratumBlockVersion));
-            _prototypeBlock.setVersion(blockVersion);
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
+    @Override
     public void setBlockVersion(final Long blockVersion) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -124,19 +116,7 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
-    public void setPreviousBlockHash(final String stratumPreviousBlockHash) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(BitcoinUtil.reverseEndianString(StratumUtil.swabHexString(stratumPreviousBlockHash)));
-            _prototypeBlock.setPreviousBlockHash(previousBlockHash);
-
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
+    @Override
     public void setPreviousBlockHash(final Sha256Hash previousBlockHash) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -148,26 +128,12 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
-    public void setExtraNonce(final String stratumExtraNonce) {
-        _extraNonce1 = stratumExtraNonce;
-    }
-
+    @Override
     public void setExtraNonce(final ByteArray extraNonce) {
         _extraNonce1 = HexUtil.toHexString(extraNonce.getBytes());
     }
 
-    public void setDifficulty(final String stratumDifficulty) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            final Difficulty difficulty = Difficulty.decode(HexUtil.hexStringToByteArray(stratumDifficulty));
-            _prototypeBlock.setDifficulty(difficulty);
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
+    @Override
     public void setDifficulty(final Difficulty difficulty) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -179,18 +145,7 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
-    // ViaBTC provides the merkleTreeBranches as little-endian byte strings.
-    public void setMerkleTreeBranches(final List<String> merkleTreeBranches) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            _merkleTreeBranches = merkleTreeBranches.asConst();
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
+    @Override
     public void addTransaction(final TransactionWithFee transactionWithFee) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -213,10 +168,12 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
+    @Override
     public CoinbaseTransaction getCoinbaseTransaction() {
         return _prototypeBlock.getCoinbaseTransaction();
     }
 
+    @Override
     public void removeTransaction(final Sha256Hash transactionHash) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -244,6 +201,7 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
+    @Override
     public void clearTransactions() {
         try {
             _prototypeBlockWriteLock.lock();
@@ -257,27 +215,17 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
-    public void setCoinbaseTransaction(final String stratumCoinbaseTransactionHead, final String stratumCoinbaseTransactionTail) {
-        try {
-            _prototypeBlockWriteLock.lock();
-
-            _coinbaseTransactionHead = stratumCoinbaseTransactionHead;
-            _coinbaseTransactionTail = stratumCoinbaseTransactionTail;
-        }
-        finally {
-            _prototypeBlockWriteLock.unlock();
-        }
-    }
-
+    @Override
     public void setCoinbaseTransaction(final Transaction coinbaseTransaction) {
         _setCoinbaseTransaction(coinbaseTransaction);
     }
 
+    @Override
     public StratumMineBlockTask buildMineBlockTask() {
         try {
             _prototypeBlockReadLock.lock();
 
-            final ByteArray id = MutableByteArray.wrap(ByteUtil.integerToBytes(StratumMineBlockTaskFactory.getNextId()));
+            final ByteArray id = MutableByteArray.wrap(ByteUtil.integerToBytes(StratumMineBlockTaskBuilderCore.getNextId()));
             return new StratumMineBlockTask(id, _prototypeBlock, _coinbaseTransactionHead, _coinbaseTransactionTail, _extraNonce1);
         }
         finally {
@@ -285,6 +233,7 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
+    @Override
     public void setBlockHeight(final Long blockHeight) {
         try {
             _prototypeBlockWriteLock.lock();
@@ -296,6 +245,7 @@ public class StratumMineBlockTaskFactory {
         }
     }
 
+    @Override
     public Long getBlockHeight() {
         try {
             _prototypeBlockReadLock.lock();

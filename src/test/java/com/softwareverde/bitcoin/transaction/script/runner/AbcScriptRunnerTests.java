@@ -6,9 +6,7 @@ import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
-import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
@@ -461,8 +459,8 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(419328L, context.getBlockHeight())); // Enable Bip112...
             }
             if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("DERSIG") || flagsString.contains("LOW_S")) ) {
-            // if ( (i > 1000) && (flagsString.contains("STRICTENC") || flagsString.contains("LOW_S")) ) {
                 context.setBlockHeight(Math.max(478559L, context.getBlockHeight())); // Enable BIP55...
+                context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
             }
             if (flagsString.contains("NULLFAIL") || flagsString.contains("SIGHASH_FORKID")) {
                 context.setBlockHeight(Math.max(504032L, context.getBlockHeight())); // Enable BCH HF...
@@ -492,7 +490,7 @@ public class AbcScriptRunnerTests {
                 failCount += 1;
                 System.out.println("FAILED: " + i);
                 System.out.println("Expected: " + expectedResult + " Actual: " + wasValid);
-                break;
+                // break;
             }
         }
 

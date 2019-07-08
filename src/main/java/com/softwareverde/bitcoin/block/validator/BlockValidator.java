@@ -48,7 +48,7 @@ public class BlockValidator {
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
-    protected Long _trustedBlockHeight = 0L;
+    protected Long _trustedBlockHeight = DO_NOT_TRUST_BLOCKS;
 
     protected BlockValidationResult _validateTransactions(final Block block, final BlockchainSegmentId blockchainSegmentId, final Long blockHeight) {
         final Thread currentThread = Thread.currentThread();

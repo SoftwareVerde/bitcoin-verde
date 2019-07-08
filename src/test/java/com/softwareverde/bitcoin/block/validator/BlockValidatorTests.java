@@ -37,6 +37,7 @@ import com.softwareverde.bitcoin.test.IntegrationTest;
 import com.softwareverde.bitcoin.test.TransactionTestUtil;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
+import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.signer.*;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidator;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
@@ -92,6 +93,7 @@ public class BlockValidatorTests extends IntegrationTest {
     }
 
     private void _storeBlocks(final int blockCount, final Long timestamp) throws Exception {
+        final TransactionInflater transactionInflater = new TransactionInflater();
         try (final FullNodeDatabaseManager databaseManager = _fullNodeDatabaseManagerFactory.newDatabaseManager()) {
             final BlockInflater blockInflater = new BlockInflater();
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
@@ -111,7 +113,7 @@ public class BlockValidatorTests extends IntegrationTest {
                     final BlockHeader blockHeader = blockHeaderDatabaseManager.getBlockHeader(blockId);
                     final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(1);
                     final AddressInflater addressInflater = new AddressInflater();
-                    listBuilder.add(Transaction.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
+                    listBuilder.add(transactionInflater.createCoinbaseTransaction(blockHeight, "Fake Block", addressInflater.fromPrivateKey(_privateKey), 50 * Transaction.SATOSHIS_PER_BITCOIN));
                     block = new MutableBlock(blockHeader, listBuilder.build());
 
                     block.setPreviousBlockHash(mostRecentBlockHash);

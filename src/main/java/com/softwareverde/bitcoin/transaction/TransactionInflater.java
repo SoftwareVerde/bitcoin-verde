@@ -1,9 +1,12 @@
 package com.softwareverde.bitcoin.transaction;
 
+import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
+import com.softwareverde.bitcoin.transaction.input.TransactionInput;
 import com.softwareverde.bitcoin.transaction.input.TransactionInputInflater;
 import com.softwareverde.bitcoin.transaction.locktime.ImmutableLockTime;
 import com.softwareverde.bitcoin.transaction.output.MutableTransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -44,7 +47,7 @@ public class TransactionInflater {
         return transaction;
     }
 
-    public void _debugBytes(final ByteArrayReader byteArrayReader) {
+    public void debugBytes(final ByteArrayReader byteArrayReader) {
         Logger.log("Version: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
 
         {
@@ -69,23 +72,37 @@ public class TransactionInflater {
         Logger.log("LockTime: " + HexUtil.toHexString(byteArrayReader.readBytes(4)));
     }
 
-    public MutableTransaction fromBytes(final ByteArrayReader byteArrayReader) {
+    public Transaction fromBytes(final ByteArrayReader byteArrayReader) {
         if (byteArrayReader == null) { return null; }
 
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public MutableTransaction fromBytes(final byte[] bytes) {
+    public Transaction fromBytes(final byte[] bytes) {
         if (bytes == null) { return null; }
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
     }
 
-    public MutableTransaction fromBytes(final ByteArray bytes) {
+    public Transaction fromBytes(final ByteArray bytes) {
         if (bytes == null) { return null; }
 
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
         return _fromByteArrayReader(byteArrayReader);
+    }
+
+    public Transaction createCoinbaseTransaction(final Long blockHeight, final String coinbaseMessage, final Address address, final Long satoshis) {
+        final MutableTransaction coinbaseTransaction = new MutableTransaction();
+        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInput(blockHeight, coinbaseMessage));
+        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
+        return coinbaseTransaction;
+    }
+
+    public Transaction createCoinbaseTransactionWithExtraNonce(final Long blockHeight, final String coinbaseMessage, final Integer extraNonceByteCount, final Address address, final Long satoshis) {
+        final MutableTransaction coinbaseTransaction = new MutableTransaction();
+        coinbaseTransaction.addTransactionInput(TransactionInput.createCoinbaseTransactionInputWithExtraNonce(blockHeight, coinbaseMessage, extraNonceByteCount));
+        coinbaseTransaction.addTransactionOutput(TransactionOutput.createPayToAddressTransactionOutput(address, satoshis));
+        return coinbaseTransaction;
     }
 }

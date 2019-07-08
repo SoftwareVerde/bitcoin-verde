@@ -27,7 +27,26 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         void onNewTransaction(Transaction transaction, Long fee);
     }
 
+    public static class InflaterManager {
+        public final BlockHeaderInflater blockHeaderInflater;
+        public final BlockDeflater blockDeflater;
+        public final TransactionInflater transactionInflater;
+        public final TransactionDeflater transactionDeflater;
+
+        public InflaterManager(final BlockHeaderInflater blockHeaderInflater, final BlockDeflater blockDeflater, final TransactionInflater transactionInflater, final TransactionDeflater transactionDeflater) {
+            this.blockHeaderInflater = blockHeaderInflater;
+            this.blockDeflater = blockDeflater;
+            this.transactionInflater = transactionInflater;
+            this.transactionDeflater = transactionDeflater;
+        }
+    }
+
     public static final Long RPC_DURATION_TIMEOUT_MS = 30000L;
+
+    protected final BlockHeaderInflater _blockHeaderInflater;
+    protected final BlockDeflater _blockDeflater;
+    protected final TransactionInflater _transactionInflater;
+    protected final TransactionDeflater _transactionDeflater;
 
     protected final JsonSocket _jsonSocket;
     protected final Object _newMessageNotifier = new Object();
@@ -84,22 +103,59 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool) {
-        java.net.Socket socket = null;
-        try {
-            socket = new java.net.Socket(hostname, port);
-        }
-        catch (final Exception exception) {
-            Logger.log(exception);
+        this(
+            hostname,
+            port,
+            threadPool,
+            new InflaterManager(
+                new BlockHeaderInflater(),
+                new BlockDeflater(),
+                new TransactionInflater(),
+                new TransactionDeflater()
+            )
+        );
+    }
+
+    public NodeJsonRpcConnection(final String hostname, final Integer port, final ThreadPool threadPool, final InflaterManager inflaterManager) {
+        _blockHeaderInflater = inflaterManager.blockHeaderInflater;
+        _blockDeflater = inflaterManager.blockDeflater;
+        _transactionInflater = inflaterManager.transactionInflater;
+        _transactionDeflater = inflaterManager.transactionDeflater;
+
+        final java.net.Socket javaSocket;
+        {
+            java.net.Socket socket = null;
+            try { socket = new java.net.Socket(hostname, port); }
+            catch (final Exception exception) { Logger.log(exception); }
+            javaSocket = socket;
         }
 
-        _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
+        _jsonSocket = ((javaSocket != null) ? new JsonSocket(javaSocket, threadPool) : null);
 
         if (_jsonSocket != null) {
             _jsonSocket.setMessageReceivedCallback(_onNewMessageCallback);
         }
     }
 
-    public NodeJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool) {
+    public NodeJsonRpcConnection(final java.net.Socket javaSocket, final ThreadPool threadPool) {
+        this(
+            javaSocket,
+            threadPool,
+            new InflaterManager(
+                new BlockHeaderInflater(),
+                new BlockDeflater(),
+                new TransactionInflater(),
+                new TransactionDeflater()
+            )
+        );
+    }
+
+    public NodeJsonRpcConnection(final java.net.Socket socket, final ThreadPool threadPool, final InflaterManager inflaterManager) {
+        _blockHeaderInflater = inflaterManager.blockHeaderInflater;
+        _blockDeflater = inflaterManager.blockDeflater;
+        _transactionInflater = inflaterManager.transactionInflater;
+        _transactionDeflater = inflaterManager.transactionDeflater;
+
         _jsonSocket = ((socket != null) ? new JsonSocket(socket, threadPool) : null);
 
         if (_jsonSocket != null) {
@@ -294,9 +350,6 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         final Json upgradeResponseJson = _executeJsonRequest(registerHookRpcJson);
         if (! upgradeResponseJson.getBoolean("wasSuccess")) { return false; }
 
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-        final TransactionInflater transactionInflater = new TransactionInflater();
-
         _jsonSocket.setMessageReceivedCallback(new Runnable() {
             @Override
             public void run() {
@@ -308,7 +361,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                 switch (objectType) {
                     case "BLOCK": {
                         final String objectData = json.getString("object");
-                        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
+                        final BlockHeader blockHeader = _blockHeaderInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (blockHeader == null) {
                             Logger.log("Error inflating block: " + objectData);
                             return;
@@ -319,7 +372,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
 
                     case "TRANSACTION": {
                         final String objectData = json.getString("object");
-                        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
+                        final Transaction transaction = _transactionInflater.fromBytes(HexUtil.hexStringToByteArray(objectData));
                         if (transaction == null) {
                             Logger.log("Error inflating transaction: " + objectData);
                             return;
@@ -332,7 +385,7 @@ public class NodeJsonRpcConnection implements AutoCloseable {
                         final Json object = json.get("object");
                         final String transactionData = object.getString("transactionData");
                         final Long fee = object.getLong("transactionFee");
-                        final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
+                        final Transaction transaction = _transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
                         if (transaction == null) {
                             Logger.log("Error inflating transaction: " + transactionData);
                             return;
@@ -352,10 +405,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json validatePrototypeBlock(final Block block) {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-
         final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
+        rpcParametersJson.put("blockData", _blockDeflater.toBytes(block));
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "POST");
@@ -366,10 +417,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitTransaction(final Transaction transaction) {
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
-
         final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("transactionData", transactionDeflater.toBytes(transaction));
+        rpcParametersJson.put("transactionData", _transactionDeflater.toBytes(transaction));
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "POST");
@@ -380,10 +429,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json submitBlock(final Block block) {
-        final BlockDeflater blockDeflater = new BlockDeflater();
-
         final Json rpcParametersJson = new Json();
-        rpcParametersJson.put("blockData", blockDeflater.toBytes(block));
+        rpcParametersJson.put("blockData", _blockDeflater.toBytes(block));
 
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "POST");
