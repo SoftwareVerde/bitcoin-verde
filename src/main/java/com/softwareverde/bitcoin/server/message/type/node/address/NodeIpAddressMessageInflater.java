@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.message.type.node.address;
 
+import com.softwareverde.bitcoin.inflater.ProtocolMessageInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -7,10 +8,14 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.util.bytearray.Endian;
 
 public class NodeIpAddressMessageInflater extends BitcoinProtocolMessageInflater {
+    protected final NodeIpAddressInflater _nodeIpAddressInflater;
+
+    public NodeIpAddressMessageInflater(final ProtocolMessageInflaters protocolMessageInflaters) {
+        _nodeIpAddressInflater = protocolMessageInflaters.getNodeIpAddressInflater();
+    }
 
     @Override
     public BitcoinNodeIpAddressMessage fromBytes(final byte[] bytes) {
-        final NodeIpAddressInflater nodeIpAddressInflater = new NodeIpAddressInflater();
         final int networkAddressByteCount = BitcoinNodeIpAddress.BYTE_COUNT_WITH_TIMESTAMP;
 
         final BitcoinNodeIpAddressMessage nodeIpAddressMessage = new BitcoinNodeIpAddressMessage();
@@ -24,7 +29,7 @@ public class NodeIpAddressMessageInflater extends BitcoinProtocolMessageInflater
 
         for (int i=0; i<networkAddressCount; ++i) {
             final byte[] networkAddressBytes = byteArrayReader.readBytes(networkAddressByteCount, Endian.BIG);
-            final BitcoinNodeIpAddress nodeIpAddress = nodeIpAddressInflater.fromBytes(networkAddressBytes);
+            final BitcoinNodeIpAddress nodeIpAddress = _nodeIpAddressInflater.fromBytes(networkAddressBytes);
             nodeIpAddressMessage._nodeIpAddresses.add(nodeIpAddress);
         }
 

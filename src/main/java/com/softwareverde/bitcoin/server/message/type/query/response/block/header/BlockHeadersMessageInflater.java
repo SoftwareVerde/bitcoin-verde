@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.message.type.query.response.block.heade
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCountInflater;
+import com.softwareverde.bitcoin.inflater.ExtendedBlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -11,6 +12,12 @@ import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.io.Logger;
 
 public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
+
+    protected final BlockHeaderWithTransactionCountInflater _blockHeaderInflater;
+
+    public BlockHeadersMessageInflater(final ExtendedBlockHeaderInflaters blockHeaderInflaters) {
+        _blockHeaderInflater = blockHeaderInflaters.getBlockHeaderWithTransactionCountInflater();
+    }
 
     @Override
     public BlockHeadersMessage fromBytes(final byte[] bytes) {
@@ -29,9 +36,9 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final Integer bytesRequired = ( blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
-        final BlockHeaderWithTransactionCountInflater blockHeaderInflater = new BlockHeaderWithTransactionCountInflater(); // NOTE: The BlockHeaders message always appends a zero variable-sized-integer to represent the TransactionCount.
-        for (int i=0; i<blockHeaderCount; ++i) {
-            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
+        // NOTE: The BlockHeaders message always appends a zero variable-sized-integer to represent the TransactionCount.
+        for (int i = 0; i < blockHeaderCount; ++i) {
+            final BlockHeader blockHeader = _blockHeaderInflater.fromBytes(byteArrayReader);
             if (blockHeader == null) { return null; }
 
             blockHeadersResponseMessage._blockHeaders.add(blockHeader);

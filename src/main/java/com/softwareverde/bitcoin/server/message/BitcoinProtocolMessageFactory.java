@@ -1,5 +1,10 @@
 package com.softwareverde.bitcoin.server.message;
 
+import com.softwareverde.bitcoin.CoreInflater;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
+import com.softwareverde.bitcoin.inflater.ExtendedBlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.ProtocolMessageInflaters;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeaderInflater;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
@@ -43,21 +48,21 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
     protected final BitcoinProtocolMessageHeaderInflater _protocolMessageHeaderParser;
     protected final Map<MessageType, BitcoinProtocolMessageInflater> _commandInflaterMap = new HashMap<MessageType, BitcoinProtocolMessageInflater>();
 
-    protected void _defineInflaters() {
-        _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new BitcoinSynchronizeVersionMessageInflater());
+    protected <T extends ProtocolMessageInflaters & BlockInflaters & ExtendedBlockHeaderInflaters & TransactionInflaters> void _defineInflaters(final T masterInflater) {
+        _commandInflaterMap.put(MessageType.SYNCHRONIZE_VERSION, new BitcoinSynchronizeVersionMessageInflater(masterInflater));
         _commandInflaterMap.put(MessageType.ACKNOWLEDGE_VERSION, new BitcoinAcknowledgeVersionMessageInflater());
         _commandInflaterMap.put(MessageType.PING, new BitcoinPingMessageInflater());
         _commandInflaterMap.put(MessageType.PONG, new BitcoinPongMessageInflater());
-        _commandInflaterMap.put(MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater());
+        _commandInflaterMap.put(MessageType.NODE_ADDRESSES, new NodeIpAddressMessageInflater(masterInflater));
         _commandInflaterMap.put(MessageType.REQUEST_BLOCK_HEADERS, new RequestBlockHeadersMessageInflater());
-        _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater());
+        _commandInflaterMap.put(MessageType.BLOCK_HEADERS, new BlockHeadersMessageInflater(masterInflater));
         _commandInflaterMap.put(MessageType.QUERY_BLOCKS, new QueryBlocksMessageInflater());
         _commandInflaterMap.put(MessageType.QUERY_UNCONFIRMED_TRANSACTIONS, new QueryUnconfirmedTransactionsMessageInflater());
         _commandInflaterMap.put(MessageType.ERROR, new ErrorMessageInflater());
         _commandInflaterMap.put(MessageType.NOT_FOUND, new NotFoundResponseMessageInflater());
         _commandInflaterMap.put(MessageType.INVENTORY, new InventoryMessageInflater());
-        _commandInflaterMap.put(MessageType.BLOCK, new BlockMessageInflater());
-        _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater());
+        _commandInflaterMap.put(MessageType.BLOCK, new BlockMessageInflater(masterInflater));
+        _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater(masterInflater));
         _commandInflaterMap.put(MessageType.MERKLE_BLOCK, new MerkleBlockMessageInflater());
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
@@ -90,11 +95,11 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
 
     public BitcoinProtocolMessageFactory() {
         _protocolMessageHeaderParser = new BitcoinProtocolMessageHeaderInflater();
-        _defineInflaters();
+        _defineInflaters(new CoreInflater());
     }
 
-    public BitcoinProtocolMessageFactory(final BitcoinProtocolMessageHeaderInflater bitcoinProtocolMessageHeaderInflater) {
-        _protocolMessageHeaderParser = bitcoinProtocolMessageHeaderInflater;
-        _defineInflaters();
+    public <T extends ProtocolMessageInflaters & BlockInflaters> BitcoinProtocolMessageFactory(final T inflater) {
+        _protocolMessageHeaderParser = inflater.getBitcoinProtocolMessageHeaderInflater();
+        _defineInflaters(inflater);
     }
 }

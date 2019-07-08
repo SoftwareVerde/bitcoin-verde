@@ -5,12 +5,22 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.ImmutableBlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeInflater;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.MerkleTreeInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageInflater;
 import com.softwareverde.bitcoin.server.message.header.BitcoinProtocolMessageHeader;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class MerkleBlockMessageInflater extends BitcoinProtocolMessageInflater {
+
+    protected final BlockHeaderInflater _blockHeaderInflater;
+    protected final PartialMerkleTreeInflater _partialMerkleTreeInflater;
+
+    public <T extends BlockHeaderInflaters & MerkleTreeInflaters> MerkleBlockMessageInflater(final T composedInflater) {
+        _blockHeaderInflater = composedInflater.getBlockHeaderInflater();
+        _partialMerkleTreeInflater = composedInflater.getPartialMerkleTreeInflater();
+    }
 
     @Override
     public MerkleBlockMessage fromBytes(final byte[] bytes) {
@@ -20,12 +30,10 @@ public class MerkleBlockMessageInflater extends BitcoinProtocolMessageInflater {
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.MERKLE_BLOCK);
         if (protocolMessageHeader == null) { return null; }
 
-        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-        final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
+        final BlockHeader blockHeader = _blockHeaderInflater.fromBytes(byteArrayReader);
         if (blockHeader == null) { return null; }
 
-        final PartialMerkleTreeInflater partialMerkleTreeInflater = new PartialMerkleTreeInflater();
-        final PartialMerkleTree partialMerkleTree = partialMerkleTreeInflater.fromBytes(byteArrayReader);
+        final PartialMerkleTree partialMerkleTree = _partialMerkleTreeInflater.fromBytes(byteArrayReader);
 
         if (partialMerkleTree == null) { return null; }
 
