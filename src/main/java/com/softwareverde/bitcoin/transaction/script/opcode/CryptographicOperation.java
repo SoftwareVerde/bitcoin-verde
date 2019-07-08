@@ -85,22 +85,24 @@ public class CryptographicOperation extends SubTypedOperation {
         return transactionSigner.isSignatureValid(signatureContext, publicKey, scriptSignature);
     }
 
+    // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding)
     protected static Boolean validateStrictSignatureEncoding(final ScriptSignature scriptSignature) {
-        { // Enforce SCRIPT_VERIFY_STRICTENC... (https://github.com/bitcoincashorg/bitcoincash.org/blob/master/spec/uahf-technical-spec.md) (BitcoinXT: src/script/interpreter.cpp ::IsValidSignatureEncoding)
-            if (scriptSignature == null) { return false; }
+        if (scriptSignature == null) { return false; }
 
-            final HashType hashType = scriptSignature.getHashType();
-            if (hashType == null) { return false; }
+        final HashType hashType = scriptSignature.getHashType();
+        if (hashType == null) { return false; }
 
-            if (hashType.getMode() == null) { return false; }
-            if (! hashType.isBitcoinCashType()) { return false; }
-        }
+        if (hashType.getMode() == null) { return false; }
+        if (! hashType.isBitcoinCashType()) { return false; }
 
-        { // Enforce LOW_S Signature Encoding... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
-            final Signature signature = scriptSignature.getSignature();
-            final Boolean isCanonical = signature.isCanonical();
-            if (! isCanonical) { return false; }
-        }
+        return true;
+    }
+
+    // Enforce LOW_S Signature Encoding... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#low_s)
+    protected static Boolean validateCanonicalSignatureEncoding(final ScriptSignature scriptSignature) {
+        final Signature signature = scriptSignature.getSignature();
+        final Boolean isCanonical = signature.isCanonical();
+        if (! isCanonical) { return false; }
 
         return true;
     }
@@ -125,8 +127,13 @@ public class CryptographicOperation extends SubTypedOperation {
             final ScriptSignature scriptSignature = signatureValue.asScriptSignature();
 
             if (Buip55.isEnabled(blockHeight)) {
-                final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(scriptSignature);
+                final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature);
                 if (! meetsStrictEncodingStandard) { return false; }
+            }
+
+            if (HF20171113.isEnabled(blockHeight)) {
+                final Boolean signatureIsCanonical = CryptographicOperation.validateCanonicalSignatureEncoding(scriptSignature);
+                if (! signatureIsCanonical) { return false; }
             }
 
             if (scriptSignature != null) {
@@ -225,7 +232,7 @@ public class CryptographicOperation extends SubTypedOperation {
             boolean signaturesHaveMatchedPublicKeys = true;
             int nextPublicKeyIndex = 0;
             for (int i = 0; i < signatureCount; ++i) {
-                final ScriptSignature signature = signatures.get(i);
+                final ScriptSignature scriptSignature = signatures.get(i);
 
                 boolean signatureHasPublicKeyMatch = false;
                 for (int j = nextPublicKeyIndex; j < publicKeyCount; ++j) {
@@ -235,12 +242,17 @@ public class CryptographicOperation extends SubTypedOperation {
                     final boolean signatureIsValid;
                     {
                         if (Buip55.isEnabled(blockHeight)) {
-                            final Boolean meetsStrictEncodingStandard = validateStrictSignatureEncoding(signature);
+                            final Boolean meetsStrictEncodingStandard = CryptographicOperation.validateStrictSignatureEncoding(scriptSignature);
                             if (! meetsStrictEncodingStandard) { return false; }
                         }
 
-                        if (signature != null) {
-                            signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, signature, bytesToRemoveFromScript);
+                        if (HF20171113.isEnabled(blockHeight)) {
+                            final Boolean signatureIsCanonical = CryptographicOperation.validateCanonicalSignatureEncoding(scriptSignature);
+                            if (! signatureIsCanonical) { return false; }
+                        }
+
+                        if (scriptSignature != null) {
+                            signatureIsValid = CryptographicOperation.checkSignature(context, publicKey, scriptSignature, bytesToRemoveFromScript);
                         }
                         else {
                             signatureIsValid = false; // NOTE: An invalid scriptSignature is permitted, and just simply fails...
