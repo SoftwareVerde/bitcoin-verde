@@ -10,6 +10,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCacheCore;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -54,7 +55,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
     public void should_synchronize_pending_blocks() throws Exception {
         // Setup
         try (final DatabaseConnectionFactory databaseConnectionFactory = _database.getDatabaseConnectionFactory();
-             final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCache();
+             final MasterDatabaseManagerCache masterCache = new MasterDatabaseManagerCacheCore();
              final DatabaseManagerCache databaseCache = new ReadOnlyLocalDatabaseManagerCache(masterCache);
              final DatabaseConnection databaseConnection = databaseConnectionFactory.newConnection();
              final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseCache);
