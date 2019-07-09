@@ -1,11 +1,13 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.Environment;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.configuration.BitcoinProperties;
@@ -245,6 +247,8 @@ public class NodeModule {
     public NodeModule(final BitcoinProperties bitcoinProperties, final Environment environment) {
         final Thread mainThread = Thread.currentThread();
 
+        final MasterInflater masterInflater = new CoreInflater();
+
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
@@ -350,7 +354,7 @@ public class NodeModule {
         { // Initialize the BlockCache...
             if (bitcoinProperties.isBlockCacheEnabled()) {
                 final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
-                blockCache = new BlockCache(blockCacheDirectory);
+                blockCache = new BlockCache(blockCacheDirectory, masterInflater);
             }
             else {
                 blockCache = null;
@@ -668,7 +672,7 @@ public class NodeModule {
                 statisticsContainer.averageTransactionsPerSecond = blockProcessor.getAverageTransactionsPerSecondContainer();
             }
 
-            final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool);
+            final NodeRpcHandler rpcSocketServerHandler = new NodeRpcHandler(statisticsContainer, _rpcThreadPool, masterInflater);
             {
                 final ShutdownHandler shutdownHandler = new ShutdownHandler(mainThread, _blockHeaderDownloader, _blockDownloader, _blockchainBuilder, synchronizationStatusHandler);
                 final NodeHandler nodeHandler = new NodeHandler(_bitcoinNodeManager, _nodeInitializer);

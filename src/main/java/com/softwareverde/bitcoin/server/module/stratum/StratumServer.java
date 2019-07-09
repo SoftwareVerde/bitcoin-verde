@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.stratum;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -9,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
@@ -21,7 +23,6 @@ import com.softwareverde.bitcoin.server.stratum.message.server.MinerSubmitBlockR
 import com.softwareverde.bitcoin.server.stratum.socket.StratumServerSocket;
 import com.softwareverde.bitcoin.server.stratum.task.*;
 import com.softwareverde.bitcoin.transaction.Transaction;
-import com.softwareverde.bitcoin.transaction.TransactionDeflater;
 import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.transaction.TransactionWithFee;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
@@ -54,13 +55,11 @@ public class StratumServer {
 
     protected static final Boolean PROXY_VIABTC = false;
 
+    protected final MasterInflater _masterInflater;
     protected final StratumProperties _stratumProperties;
     protected final StratumServerSocket _stratumServerSocket;
     protected final MainThreadPool _threadPool;
     protected final DatabaseConnectionPool _databaseConnectionPool;
-    protected final BlockDeflater _blockDeflater;
-    protected final TransactionInflater _transactionInflater;
-    protected final TransactionDeflater _transactionDeflater;
     protected final StratumMineBlockTaskBuilderFactory _stratumMineBlockTaskBuilderFactory;
 
     protected final PrivateKey _privateKey;
@@ -127,7 +126,7 @@ public class StratumServer {
         try {
             final Socket socket = new Socket(bitcoinRpcUrl, bitcoinRpcPort);
             if (socket.isConnected()) {
-                return new NodeJsonRpcConnection(socket, _threadPool);
+                return new NodeJsonRpcConnection(socket, _threadPool, _masterInflater);
             }
         }
         catch (final Exception exception) {
@@ -151,12 +150,13 @@ public class StratumServer {
 
         final String coinbaseMessage = BitcoinConstants.getCoinbaseMessage();
 
-        final AddressInflater addressInflater = new AddressInflater();
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.compressedFromPrivateKey(_privateKey);
 
         final BlockHeader previousBlockHeader;
         {
-            final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
+            final BlockHeaderInflater blockHeaderInflater = _masterInflater.getBlockHeaderInflater();
             final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
             final Json blockHeadersResponseJson = nodeRpcConnection.getBlockHeaders(1, true);
             final Json blockHeadersJson = blockHeadersResponseJson.get("blockHeaders");
@@ -196,7 +196,7 @@ public class StratumServer {
                 final Json transactionWithFeeJsonObject = unconfirmedTransactionsJson.get(i);
                 final String transactionData = transactionWithFeeJsonObject.getString("transactionData");
                 final Long transactionFee = transactionWithFeeJsonObject.getLong("transactionFee");
-                final Transaction transaction = _transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
+                final Transaction transaction = transactionInflater.fromBytes(HexUtil.hexStringToByteArray(transactionData));
 
                 final TransactionWithFee transactionWithFee = new TransactionWithFee(transaction, transactionFee);
 
@@ -207,7 +207,7 @@ public class StratumServer {
         }
 
         // NOTE: Coinbase is mutated by the StratumMineTaskFactory to include the Transaction Fees...
-        final Transaction coinbaseTransaction = _transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
+        final Transaction coinbaseTransaction = transactionInflater.createCoinbaseTransactionWithExtraNonce(blockHeight, coinbaseMessage, _totalExtraNonceByteCount, address, blockReward);
 
         stratumMineBlockTaskBuilder.setBlockVersion(BlockHeader.VERSION);
         stratumMineBlockTaskBuilder.setPreviousBlockHash(previousBlockHeader.getHash());
@@ -429,11 +429,12 @@ public class StratumServer {
                 socketConnection.write(new JsonProtocolMessage(newRequestMessage));
             }
             else if (blockHeader.isValid()) {
-                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
                 Logger.log("Valid Block: " + blockHeaderDeflater.toBytes(blockHeader));
 
+                final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
                 final Block block = mineBlockTask.assembleBlock(stratumNonce, stratumExtraNonce2, stratumTimestamp);
-                Logger.log(_blockDeflater.toBytes(block));
+                Logger.log(blockDeflater.toBytes(block));
 
                 final NodeJsonRpcConnection nodeRpcConnection = _getNodeJsonRpcConnection();
                 final Json submitBlockResponse = nodeRpcConnection.submitBlock(block);
@@ -467,40 +468,34 @@ public class StratumServer {
         this(
             stratumProperties,
             mainThreadPool,
-            new BlockDeflater(),
-            new TransactionInflater(),
-            new TransactionDeflater(),
+            new CoreInflater(),
             databaseConnectionFactory
         );
     }
 
-    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final BlockDeflater blockDeflater, final TransactionInflater transactionInflater, final TransactionDeflater transactionDeflater, final DatabaseConnectionFactory databaseConnectionFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final MasterInflater masterInflater, final DatabaseConnectionFactory databaseConnectionFactory) {
         this(
             stratumProperties,
             mainThreadPool,
             databaseConnectionFactory,
-            blockDeflater,
-            transactionInflater,
-            transactionDeflater,
+            masterInflater,
             new StratumMineBlockTaskBuilderFactory() {
                 @Override
                 public ConfigurableStratumMineBlockTaskBuilder newStratumMineBlockTaskBuilder(final Integer totalExtraNonceByteCount) {
-                    return new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, transactionDeflater);
+                    return new StratumMineBlockTaskBuilderCore(totalExtraNonceByteCount, masterInflater.getTransactionDeflater());
                 }
             }
         );
     }
 
-    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory, final BlockDeflater blockDeflater, final TransactionInflater transactionInflater, final TransactionDeflater transactionDeflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
+    public StratumServer(final StratumProperties stratumProperties, final MainThreadPool mainThreadPool, final DatabaseConnectionFactory databaseConnectionFactory, final MasterInflater masterInflater, final StratumMineBlockTaskBuilderFactory stratumMineBlockTaskBuilderFactory) {
         _stratumMineBlockTaskBuilderFactory = stratumMineBlockTaskBuilderFactory;
-        _blockDeflater = blockDeflater;
-        _transactionDeflater = transactionDeflater;
-        _transactionInflater = transactionInflater;
+        _masterInflater = masterInflater;
         _stratumProperties = stratumProperties;
         _threadPool = mainThreadPool;
         _databaseConnectionPool = new DatabaseConnectionPool(databaseConnectionFactory, 128);
 
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
         _privateKey = PrivateKey.createNewKey();
         Logger.log("Private Key: " + _privateKey);

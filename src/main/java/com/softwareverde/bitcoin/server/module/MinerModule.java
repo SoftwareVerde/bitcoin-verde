@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -8,6 +9,7 @@ import com.softwareverde.bitcoin.block.MutableBlock;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.miner.GpuSha256;
 import com.softwareverde.bitcoin.miner.Miner;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
@@ -26,6 +28,7 @@ public class MinerModule {
         System.err.println(errorMessage);
     }
 
+    protected final MasterInflater _masterInflater;
     protected final String _previousBlockHashString;
     protected final String _base58CheckAddress;
     protected final Integer _cpuThreadCount;
@@ -33,6 +36,7 @@ public class MinerModule {
     protected final GpuSha256 _gpuSha256;
 
     public MinerModule(final String previousBlockHashString, final String base58CheckAddress, final Integer cpuThreadCount, final Integer gpuThreadCount, final GpuSha256 gpuSha256) {
+        _masterInflater = new CoreInflater();
         _previousBlockHashString = previousBlockHashString;
         _base58CheckAddress = base58CheckAddress;
         _cpuThreadCount = cpuThreadCount;
@@ -43,7 +47,7 @@ public class MinerModule {
     public void run() {
         try {
             final Sha256Hash previousBlockHash = Sha256Hash.fromHexString(_previousBlockHashString);
-            final AddressInflater addressInflater = new AddressInflater();
+            final AddressInflater addressInflater = _masterInflater.getAddressInflater();
 
             final Address address = addressInflater.fromBase58Check(_base58CheckAddress);
             if (address == null) {
@@ -81,10 +85,10 @@ public class MinerModule {
                 prototypeBlock.addTransaction(coinbaseTransaction);
             }
 
-            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount, _gpuSha256);
+            final Miner miner = new Miner(_cpuThreadCount, _gpuThreadCount, _gpuSha256, _masterInflater);
             final Block block = miner.mineBlock(prototypeBlock);
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
             Logger.log(block.getHash());
             Logger.log(blockDeflater.toBytes(block));
         }

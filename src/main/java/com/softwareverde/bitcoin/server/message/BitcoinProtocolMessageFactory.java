@@ -92,7 +92,7 @@ public class BitcoinProtocolMessageFactory implements ProtocolMessageFactory {
         _commandInflaterMap.put(MessageType.TRANSACTION, new TransactionMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.MERKLE_BLOCK, new MerkleBlockMessageInflater(_masterInflater, _masterInflater));
         _commandInflaterMap.put(MessageType.ENABLE_NEW_BLOCKS_VIA_HEADERS, new NewBlocksViaHeadersMessageInflater());
-        _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater());
+        _commandInflaterMap.put(MessageType.REQUEST_DATA, new RequestDataMessageInflater(_masterInflater));
         _commandInflaterMap.put(MessageType.ENABLE_COMPACT_BLOCKS, new EnableCompactBlocksMessageInflater());
         _commandInflaterMap.put(MessageType.REQUEST_EXTRA_THIN_BLOCK, new RequestExtraThinBlockMessageInflater(_masterInflater, _masterInflater));
         _commandInflaterMap.put(MessageType.EXTRA_THIN_BLOCK, new ExtraThinBlockMessageInflater(_masterInflater, _masterInflater));

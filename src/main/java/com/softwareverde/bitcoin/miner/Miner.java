@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.miner;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.ImmutableBlock;
@@ -9,6 +10,7 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderInflater;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.input.MutableTransactionInput;
 import com.softwareverde.bitcoin.transaction.script.ScriptBuilder;
@@ -27,15 +29,21 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Miner {
     protected final Container<Boolean> hasBeenFound = new Container<Boolean>(false);
 
+    protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final GpuSha256 _gpuSha256;
     protected final Integer _cpuThreadCount;
     protected final Integer _gpuThreadCount;
     protected Boolean _shouldMutateTimestamp = true;
 
     public Miner(final Integer cpuThreadCount, final Integer gpuThreadCount, final GpuSha256 gpuSha256) {
+        this(cpuThreadCount, gpuThreadCount, gpuSha256, new CoreInflater());
+    }
+
+    public Miner(final Integer cpuThreadCount, final Integer gpuThreadCount, final GpuSha256 gpuSha256, final BlockHeaderInflaters blockHeaderInflaters) {
         _cpuThreadCount = cpuThreadCount;
         _gpuThreadCount = gpuThreadCount;
         _gpuSha256 = gpuSha256;
+        _blockHeaderInflaters = blockHeaderInflaters;
     }
 
     public void setShouldMutateTimestamp(final Boolean shouldMutateTimestamp) {
@@ -83,8 +91,8 @@ public class Miner {
                         final int hashesPerIteration = _gpuSha256.getMaxBatchSize();
 
                         int mutationCount = 0;
-                        final BlockHeaderInflater blockHeaderInflater = new BlockHeaderInflater();
-                        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                        final BlockHeaderInflater blockHeaderInflater = _blockHeaderInflaters.getBlockHeaderInflater();
+                        final BlockHeaderDeflater blockHeaderDeflater = _blockHeaderInflaters.getBlockHeaderDeflater();
 
                         final MutableBlock mutableBlock = new MutableBlock(prototypeBlock);
                         final Difficulty difficulty = mutableBlock.getDifficulty();

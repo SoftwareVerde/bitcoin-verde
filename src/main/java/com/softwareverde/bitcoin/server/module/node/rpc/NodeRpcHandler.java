@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.rpc;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.address.Address;
 import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.block.Block;
@@ -11,6 +12,7 @@ import com.softwareverde.bitcoin.block.header.ImmutableBlockHeader;
 import com.softwareverde.bitcoin.block.header.difficulty.Difficulty;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.MasterInflater;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
@@ -129,6 +131,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
     }
 
+    protected final MasterInflater _masterInflater;
     protected final ThreadPool _threadPool;
     protected final Container<Float> _averageBlocksPerSecond;
     protected final Container<Float> _averageBlockHeadersPerSecond;
@@ -175,10 +178,15 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     protected QueryBlockchainHandler _queryBlockchainHandler = null;
 
     public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool) {
+        this(statisticsContainer, threadPool, new CoreInflater());
+    }
+
+    public NodeRpcHandler(final StatisticsContainer statisticsContainer, final ThreadPool threadPool, final MasterInflater masterInflater) {
         _averageBlockHeadersPerSecond = statisticsContainer.averageBlockHeadersPerSecond;
         _averageBlocksPerSecond = statisticsContainer.averageBlocksPerSecond;
         _averageTransactionsPerSecond = statisticsContainer.averageTransactionsPerSecond;
         _threadPool = threadPool;
+        _masterInflater = masterInflater;
     }
 
     // Requires GET: [blockHeight], [maxBlockCount=10], [rawFormat=0]
@@ -219,7 +227,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
 
             for (final BlockHeader blockHeader : blockHeaders) {
                 if (shouldReturnRawBlockData) {
-                    final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                    final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
                     final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
                     blockHeadersJson.add(blockData);
                 }
@@ -285,7 +293,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawBlockData) {
-            final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+            final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
             final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
             response.put("block", blockData);
         }
@@ -348,7 +356,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawBlockData) {
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _masterInflater.getBlockDeflater();
             final ByteArray blockData = blockDeflater.toBytes(block);
             response.put("block", blockData);
         }
@@ -406,7 +414,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         if (shouldReturnRawTransactionData) {
-            final TransactionDeflater transactionDeflater = new TransactionDeflater();
+            final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
             final ByteArray transactionData = transactionDeflater.toBytes(transaction);
             response.put("transaction", HexUtil.toHexString(transactionData.getBytes()));
         }
@@ -482,7 +490,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         if (shouldReturnRawTransactionData) {
             final List<TransactionWithFee> transactions = dataHandler.getUnconfirmedTransactionsWithFees();
             for (final TransactionWithFee unconfirmedTransaction : transactions) {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                 final ByteArray transactionData = transactionDeflater.toBytes(unconfirmedTransaction.transaction);
 
                 final Json unconfirmedTransactionJson = new Json();
@@ -584,7 +592,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
@@ -617,7 +625,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         }
 
         final String addressString = parameters.getString("address");
-        final AddressInflater addressInflater = new AddressInflater();
+        final AddressInflater addressInflater = _masterInflater.getAddressInflater();
         final Address address = addressInflater.fromBase58Check(addressString);
 
         if (address == null) {
@@ -839,7 +847,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final TransactionInflater transactionInflater = new TransactionInflater();
+        final TransactionInflater transactionInflater = _masterInflater.getTransactionInflater();
         final Transaction transaction = transactionInflater.fromBytes(transactionBytes);
         if (transaction == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid Transaction");
@@ -870,7 +878,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockBytes);
         if (block == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid Block");
@@ -901,7 +909,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             return;
         }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _masterInflater.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockBytes);
         if (block == null) {
             response.put(ERROR_MESSAGE_KEY, "Invalid Block");
@@ -1025,7 +1033,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final LazyProtocolMessage lazyRawDataProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+                final BlockHeaderDeflater blockHeaderDeflater = _masterInflater.getBlockHeaderDeflater();
                 final ByteArray blockData = blockHeaderDeflater.toBytes(blockHeader);
 
                 final Json objectJson = new Json();
@@ -1092,7 +1100,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         final LazyProtocolMessage lazyRawProtocolMessage = new LazyProtocolMessage() {
             @Override
             protected ProtocolMessage _createProtocolMessage() {
-                final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                 final ByteArray transactionBytes = transactionDeflater.toBytes(transaction);
 
                 final Json json = new Json();
@@ -1108,7 +1116,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
             lazyRawProtocolMessageWithFee = new LazyProtocolMessage() {
                 @Override
                 protected ProtocolMessage _createProtocolMessage() {
-                    final TransactionDeflater transactionDeflater = new TransactionDeflater();
+                    final TransactionDeflater transactionDeflater = _masterInflater.getTransactionDeflater();
                     final ByteArray transactionData = transactionDeflater.toBytes(transaction);
 
                     final Json transactionJson = new Json();
