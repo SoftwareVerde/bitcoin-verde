@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.block.merkleroot;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.MerkleBlock;
@@ -62,7 +63,8 @@ public class PartialMerkleTreeTests {
 
         bitcoinNode.connect();
 
-        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage();
+        final CoreInflater coreInflater = new CoreInflater();
+        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage(coreInflater);
         bloomFilterMessage.setBloomFilter(bloomFilter);
         bitcoinNode.queueMessage(bloomFilterMessage);
 
@@ -195,7 +197,8 @@ public class PartialMerkleTreeTests {
 
         bitcoinNode.connect();
 
-        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage();
+        final CoreInflater coreInflater = new CoreInflater();
+        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage(coreInflater);
         bloomFilterMessage.setBloomFilter(bloomFilter);
         bitcoinNode.queueMessage(bloomFilterMessage);
 

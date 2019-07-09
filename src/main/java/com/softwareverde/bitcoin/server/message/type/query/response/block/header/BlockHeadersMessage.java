@@ -2,6 +2,7 @@ package com.softwareverde.bitcoin.server.message.type.query.response.block.heade
 
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.request.header.RequestBlockHeadersMessage;
@@ -13,10 +14,12 @@ import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class BlockHeadersMessage extends BitcoinProtocolMessage {
+    protected final BlockHeaderInflaters _blockHeaderInflaters;
     protected final MutableList<BlockHeader> _blockHeaders = new MutableList<BlockHeader>();
 
-    public BlockHeadersMessage() {
+    public BlockHeadersMessage(final BlockHeaderInflaters blockHeaderInflaters) {
         super(MessageType.BLOCK_HEADERS);
+        _blockHeaderInflaters = blockHeaderInflaters;
     }
 
     public void addBlockHeader(final BlockHeader blockHeader) {
@@ -41,7 +44,7 @@ public class BlockHeadersMessage extends BitcoinProtocolMessage {
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(blockHeaderCountBytes);
 
-        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        final BlockHeaderDeflater blockHeaderDeflater = _blockHeaderInflaters.getBlockHeaderDeflater();
         for (int i=0; i<blockHeaderCount; ++i) {
             final BlockHeader blockHeader = _blockHeaders.get(i);
             byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(blockHeader));

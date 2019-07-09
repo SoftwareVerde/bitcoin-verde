@@ -8,21 +8,22 @@ import com.softwareverde.bitcoin.transaction.TransactionInflater;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 
 public class TransactionMessageInflater extends BitcoinProtocolMessageInflater {
-    protected final TransactionInflater _transactionInflater;
+    protected final TransactionInflaters _transactionInflaters;
 
     public TransactionMessageInflater(final TransactionInflaters transactionInflaters) {
-        _transactionInflater = transactionInflaters.getTransactionInflater();
+        _transactionInflaters = transactionInflaters;
     }
 
     @Override
     public TransactionMessage fromBytes(final byte[] bytes) {
-        final TransactionMessage transactionMessage = new TransactionMessage();
+        final TransactionMessage transactionMessage = new TransactionMessage(_transactionInflaters);
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.TRANSACTION);
         if (protocolMessageHeader == null) { return null; }
 
-        transactionMessage._transaction = _transactionInflater.fromBytes(byteArrayReader);
+        final TransactionInflater transactionInflater = _transactionInflaters.getTransactionInflater();
+        transactionMessage._transaction = transactionInflater.fromBytes(byteArrayReader);
 
         return transactionMessage;
     }

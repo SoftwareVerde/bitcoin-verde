@@ -13,15 +13,15 @@ import com.softwareverde.io.Logger;
 
 public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater {
 
-    protected final BlockHeaderWithTransactionCountInflater _blockHeaderInflater;
+    protected final ExtendedBlockHeaderInflaters _blockHeaderInflaters;
 
     public BlockHeadersMessageInflater(final ExtendedBlockHeaderInflaters blockHeaderInflaters) {
-        _blockHeaderInflater = blockHeaderInflaters.getBlockHeaderWithTransactionCountInflater();
+        _blockHeaderInflaters = blockHeaderInflaters;
     }
 
     @Override
     public BlockHeadersMessage fromBytes(final byte[] bytes) {
-        final BlockHeadersMessage blockHeadersResponseMessage = new BlockHeadersMessage();
+        final BlockHeadersMessage blockHeadersResponseMessage = new BlockHeadersMessage(_blockHeaderInflaters);
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK_HEADERS);
@@ -36,9 +36,11 @@ public class BlockHeadersMessageInflater extends BitcoinProtocolMessageInflater 
         final Integer bytesRequired = ( blockHeaderCount * (BlockHeaderInflater.BLOCK_HEADER_BYTE_COUNT + 1) );
         if (byteArrayReader.remainingByteCount() < bytesRequired) { return null; }
 
+        final BlockHeaderWithTransactionCountInflater blockHeaderInflater = _blockHeaderInflaters.getBlockHeaderWithTransactionCountInflater();
+
         // NOTE: The BlockHeaders message always appends a zero variable-sized-integer to represent the TransactionCount.
         for (int i = 0; i < blockHeaderCount; ++i) {
-            final BlockHeader blockHeader = _blockHeaderInflater.fromBytes(byteArrayReader);
+            final BlockHeader blockHeader = blockHeaderInflater.fromBytes(byteArrayReader);
             if (blockHeader == null) { return null; }
 
             blockHeadersResponseMessage._blockHeaders.add(blockHeader);

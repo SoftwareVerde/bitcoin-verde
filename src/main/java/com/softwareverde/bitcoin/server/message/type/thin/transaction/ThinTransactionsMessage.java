@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.message.type.thin.transaction;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.TransactionInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -14,12 +15,14 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
 public class ThinTransactionsMessage extends BitcoinProtocolMessage {
+    protected final TransactionInflaters _transactionInflaters;
 
     protected Sha256Hash _blockHash;
     protected List<Transaction> _transactions = new MutableList<Transaction>(0);
 
-    public ThinTransactionsMessage() {
+    public ThinTransactionsMessage(final TransactionInflaters transactionInflaters) {
         super(MessageType.THIN_TRANSACTIONS);
+        _transactionInflaters = transactionInflaters;
     }
 
     public Sha256Hash getBlockHash() {
@@ -40,7 +43,7 @@ public class ThinTransactionsMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final TransactionDeflater transactionDeflater = new TransactionDeflater();
+        final TransactionDeflater transactionDeflater = _transactionInflaters.getTransactionDeflater();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
 

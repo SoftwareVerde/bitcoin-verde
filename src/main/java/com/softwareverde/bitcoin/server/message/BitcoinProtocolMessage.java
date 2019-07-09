@@ -8,7 +8,6 @@ import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
-import com.softwareverde.network.socket.BinaryPacketFormat;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import com.softwareverde.util.bytearray.Endian;
 
@@ -19,7 +18,8 @@ import com.softwareverde.util.bytearray.Endian;
  */
 
 public abstract class BitcoinProtocolMessage implements ProtocolMessage {
-    public static final BinaryPacketFormat BINARY_PACKET_FORMAT = new BinaryPacketFormat(ByteArray.fromHexString(BitcoinConstants.getNetMagicNumber()), new BitcoinProtocolMessageHeaderInflater(), new BitcoinProtocolMessageFactory());
+    public static final BitcoinProtocolMessageFactory PROTOCOL_MESSAGE_FACTORY = new BitcoinProtocolMessageFactory();
+    public static final BitcoinBinaryPacketFormat BINARY_PACKET_FORMAT = new BitcoinBinaryPacketFormat(ByteArray.fromHexString(BitcoinConstants.getNetMagicNumber()), PROTOCOL_MESSAGE_FACTORY.getProtocolMessageHeaderParser(), PROTOCOL_MESSAGE_FACTORY);
 
     protected static final Integer CHECKSUM_BYTE_COUNT = 4;
 
@@ -38,7 +38,7 @@ public abstract class BitcoinProtocolMessage implements ProtocolMessage {
     protected final MessageType _command;
 
     public BitcoinProtocolMessage(final MessageType command) {
-        _magicNumber = BINARY_PACKET_FORMAT.magicNumber;
+        _magicNumber = BINARY_PACKET_FORMAT.getMagicNumber();
         _command = command;
     }
 

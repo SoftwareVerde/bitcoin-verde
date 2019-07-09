@@ -414,7 +414,7 @@ public class NodeModule {
             final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
             {
                 properties.databaseManagerFactory = databaseManagerFactory;
-                properties.nodeFactory = new BitcoinNodeFactory(nodeThreadPoolFactory, localNodeFeatures);
+                properties.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, nodeThreadPoolFactory, localNodeFeatures);
                 properties.maxNodeCount = maxPeerCount;
                 properties.networkTime = _mutableNetworkTime;
                 properties.nodeInitializer = _nodeInitializer;

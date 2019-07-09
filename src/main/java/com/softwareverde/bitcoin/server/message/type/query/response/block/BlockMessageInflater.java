@@ -16,7 +16,7 @@ public class BlockMessageInflater extends BitcoinProtocolMessageInflater {
 
     @Override
     public BlockMessage fromBytes(final byte[] bytes) {
-        final BlockMessage blockMessage = new BlockMessage();
+        final BlockMessage blockMessage = new BlockMessage(_blockInflaters);
         final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
 
         final BitcoinProtocolMessageHeader protocolMessageHeader = _parseHeader(byteArrayReader, MessageType.BLOCK);

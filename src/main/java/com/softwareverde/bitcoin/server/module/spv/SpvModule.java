@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.ReadOnlyLocalDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -557,7 +558,7 @@ public class SpvModule {
             final BitcoinNodeManager.Properties properties = new BitcoinNodeManager.Properties();
             {
                 properties.databaseManagerFactory = databaseManagerFactory;
-                properties.nodeFactory = new BitcoinNodeFactory(threadPoolFactory, localNodeFeatures);
+                properties.nodeFactory = new BitcoinNodeFactory(BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPoolFactory, localNodeFeatures);
                 properties.maxNodeCount = maxPeerCount;
                 properties.networkTime = _mutableNetworkTime;
                 properties.nodeInitializer = _nodeInitializer;

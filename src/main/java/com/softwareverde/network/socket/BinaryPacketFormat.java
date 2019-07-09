@@ -6,13 +6,25 @@ import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
 import com.softwareverde.network.p2p.message.ProtocolMessageHeaderInflater;
 
 public class BinaryPacketFormat implements Const {
-    public final ByteArray magicNumber;
-    public final ProtocolMessageHeaderInflater protocolMessageHeaderInflater;
-    public final ProtocolMessageFactory protocolMessageFactory;
+    protected final ByteArray _magicNumber;
+    protected final ProtocolMessageHeaderInflater _protocolMessageHeaderInflater;
+    protected final ProtocolMessageFactory _protocolMessageFactory;
 
     public BinaryPacketFormat(final ByteArray magicNumber, final ProtocolMessageHeaderInflater protocolMessageHeaderInflater, final ProtocolMessageFactory protocolMessageFactory) {
-        this.magicNumber = magicNumber;
-        this.protocolMessageHeaderInflater = protocolMessageHeaderInflater;
-        this.protocolMessageFactory = protocolMessageFactory;
+        _magicNumber = magicNumber;
+        _protocolMessageHeaderInflater = protocolMessageHeaderInflater;
+        _protocolMessageFactory = protocolMessageFactory;
+    }
+
+    public ByteArray getMagicNumber() {
+        return _magicNumber;
+    }
+
+    public ProtocolMessageHeaderInflater getProtocolMessageHeaderInflater() {
+        return _protocolMessageHeaderInflater;
+    }
+
+    public ProtocolMessageFactory getProtocolMessageFactory() {
+        return _protocolMessageFactory;
     }
 }
