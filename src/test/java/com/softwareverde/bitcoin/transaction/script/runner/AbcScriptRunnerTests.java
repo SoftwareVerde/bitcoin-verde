@@ -36,6 +36,10 @@ import org.junit.Test;
 public class AbcScriptRunnerTests {
     static {
         BitcoinConstants.setTransactionVersion(1L);
+
+        BitcoinReflectionUtil.setVolatile(ScriptSignature.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setVolatile(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", true);
+        BitcoinReflectionUtil.setVolatile(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
     }
 
     public static class FakeMedianBlockTime implements MedianBlockTime {
