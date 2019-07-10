@@ -11,13 +11,11 @@ public abstract class SleepyService {
         Status getStatus();
     }
 
-    private final Object _threadMutex = new Object();
-
+    private final Object _monitor = new Object();
     private final Runnable _coreRunnable;
     private final StatusMonitor _statusMonitor;
 
-    private Boolean _isShuttingDown = false;
-    private Boolean _shouldRestart = false;
+    private volatile Boolean _shouldRestart = false;
     private Thread _thread = null;
 
     private void _startThread() {
@@ -32,63 +30,76 @@ public abstract class SleepyService {
 
     protected void _loop() {
         final Thread thread = Thread.currentThread();
-        do {
-            _shouldRestart = false;
-
-            while (! thread.isInterrupted()) {
+        while (! thread.isInterrupted()) {
+            if (_shouldRestart) {
+                _shouldRestart = false;
                 try {
-                    final Boolean shouldContinue = _run();
+                    _onStart();
+                    while (! thread.isInterrupted()) {
+                        try {
+                            final Boolean shouldContinue = _run();
 
-                    if (! shouldContinue) {
-                        break;
+                            if (! shouldContinue) {
+                                break;
+                            }
+                        }
+                        catch (final Exception exception) {
+                            Logger.log(exception);
+                            break;
+                        }
                     }
                 }
                 catch (final Exception exception) {
                     Logger.log(exception);
-                    break;
+                }
+                _onSleep();
+            }
+
+            while ( (! _shouldRestart) && (! thread.isInterrupted()) ) {
+                try {
+                    synchronized (_monitor) {
+                        _monitor.wait();
+                    }
+                }
+                catch (final InterruptedException exception) {
+                    thread.interrupt();
                 }
             }
-        } while ((_shouldRestart) && (! thread.isInterrupted()));
+        }
     }
 
     protected SleepyService() {
         _statusMonitor = new StatusMonitor() {
             @Override
             public Status getStatus() {
-                synchronized (_threadMutex) {
-                    if ( (_thread == null) || (_thread.isInterrupted()) ) {
-                        return Status.SLEEPING;
-                    }
-                    return Status.ACTIVE;
+                if ( (! _shouldRestart) || _thread.isInterrupted() ) {
+                    return Status.SLEEPING;
                 }
+                return Status.ACTIVE;
             }
         };
 
         _coreRunnable = new Runnable() {
             @Override
             public void run() {
-                try {
-                    _onStart();
-                    _loop();
-                }
-                catch (final Exception exception) {
-                    Logger.log("Unable to run " + this.getClass().getSimpleName());
-                    Logger.log(exception);
-                }
+                final Thread thread = Thread.currentThread();
+                while (! thread.isInterrupted()) {
+                    try {
+                        _loop();
+                    }
+                    catch (final Exception exception) {
+                        Logger.log("Exception encountered in " + this.getClass().getSimpleName());
+                        Logger.log(exception);
 
-                try {
-                    _onSleep();
-                }
-                catch (final Exception exception) {
-                    Logger.log("Failure in _onSleep for " + this.getClass().getSimpleName());
-                    Logger.log(exception);
-                }
-                finally {
-                    synchronized (_threadMutex) {
-                        _thread = null;
-
-                        if (_shouldRestart) {
-                            _startThread();
+                        if (! thread.isInterrupted()) {
+                            try {
+                                synchronized (_monitor) {
+                                    _monitor.wait(1000);
+                                }
+                            }
+                            catch (final Exception ignored) {
+                                thread.interrupt();
+                            }
                         }
                     }
                 }
@@ -96,41 +107,31 @@ public abstract class SleepyService {
         };
     }
 
-    public void start() {
-        synchronized (_threadMutex) {
-            _isShuttingDown = false;
+    public synchronized void start() {
+        _shouldRestart = true;
 
-            if (_thread == null) {
-                _startThread();
-            }
+        _startThread();
+    }
+
+    public synchronized void wakeUp() {
+        _shouldRestart = true;
+
+        synchronized (_monitor) {
+            _monitor.notify();
         }
     }
 
-    public void wakeUp() {
-        synchronized (_threadMutex) {
-            _shouldRestart = true;
-            if ( (_thread == null) && (! _isShuttingDown) ) {
-                _startThread();
-            }
-        }
-    }
-
-    public void stop() {
-        final Thread thread;
-        synchronized (_threadMutex) {
-            _isShuttingDown = true;
-
+    public synchronized void stop() {
+        if (_thread != null) {
             _shouldRestart = false;
-            thread = _thread;
-            _thread = null;
-        }
 
-        if (thread != null) {
-            thread.interrupt();
+            _thread.interrupt();
             try {
-                thread.join(10000L);
+                _thread.join(10000L);
             }
-            catch (final InterruptedException exception) { }
+            catch (final InterruptedException ignored) { }
+
+            _thread = null;
         }
     }
 

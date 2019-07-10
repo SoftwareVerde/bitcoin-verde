@@ -268,8 +268,8 @@ public class SpvModule {
     public SpvModule(final Environment environment, final SeedNodeProperties[] seedNodes, final Wallet wallet) {
         _seedNodes = seedNodes;
         _wallet = wallet;
-        final Integer maxPeerCount = 8; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
-        _mainThreadPool = new MainThreadPool(Math.max(maxPeerCount * 8, 256), 10000L);
+        final Integer maxPeerCount = 5; // (bitcoinProperties.skipNetworking() ? 0 : bitcoinProperties.getMaxPeerCount());
+        _mainThreadPool = new MainThreadPool(Math.min(maxPeerCount * 8, 256), 5000L);
 
         _mainThreadPool.setShutdownCallback(new Runnable() {
             @Override
@@ -336,7 +336,9 @@ public class SpvModule {
         final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
-                return new ThreadPoolThrottle(64, _mainThreadPool);
+                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(64, _mainThreadPool);
+                threadPoolThrottle.start();
+                return threadPoolThrottle;
             }
         };
 
