@@ -5,16 +5,19 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.type.time.SystemTime;
 
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
     public static final Integer MAX_QUEUE_SIZE = 10000;
 
     protected final SystemTime _systemTime = new SystemTime();
     protected final ConcurrentLinkedQueue<Runnable> _queue = new ConcurrentLinkedQueue<Runnable>();
+    protected final AtomicInteger _queueSize = new AtomicInteger(0);
     protected final ThreadPool _threadPool;
     protected final Integer _maxSubmissionsPerSecond;
     protected Long _lastLogStatement = 0L;
-    protected Long _droppedSubmissionsCount = 0L;
+    protected final AtomicLong _droppedSubmissionsCount = new AtomicLong(0);
 
     public ThreadPoolThrottle(final Integer maxSubmissionsPerSecond, final ThreadPool threadPool) {
         _maxSubmissionsPerSecond = maxSubmissionsPerSecond;
@@ -29,6 +32,8 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
         final Runnable runnable = _queue.poll();
         if (runnable == null) { return false; }
 
+        _queueSize.decrementAndGet();
+
         _threadPool.execute(runnable);
 
         try {
@@ -39,15 +44,17 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
             return false;
         }
 
-        if (_queue.size() > (_maxSubmissionsPerSecond * 10)) {
+        // Log when the queue exceeds the max submissions per second...
+        if (_queueSize.get() > _maxSubmissionsPerSecond) {
+            // Only log once every 5 seconds to prevent spam...
             final Long now = System.currentTimeMillis();
             if (now - _lastLogStatement > 5000L) {
-                Logger.log("ThreadPoolThrottle is " + (_queue.size() / _maxSubmissionsPerSecond) + " seconds behind.");
+                Logger.log("ThreadPoolThrottle is " + (_queueSize.get() / _maxSubmissionsPerSecond) + " seconds behind.");
                 _lastLogStatement = now;
             }
         }
 
-        return (! _queue.isEmpty());
+        return (_queueSize.get() > 0);
     }
 
     @Override
@@ -55,16 +62,18 @@ public class ThreadPoolThrottle extends SleepyService implements ThreadPool {
 
     @Override
     public void execute(final Runnable runnable) {
-        if (_queue.size() >= MAX_QUEUE_SIZE) {
-            if (_droppedSubmissionsCount % _maxSubmissionsPerSecond == 0) {
+        if (_queueSize.get() >= MAX_QUEUE_SIZE) {
+            if (_droppedSubmissionsCount.get() % _maxSubmissionsPerSecond == 0) {
                 Logger.log("ThreadPoolThrottle: Exceeded max queue size. " + _droppedSubmissionsCount);
             }
 
-            _droppedSubmissionsCount += 1L;
+            _droppedSubmissionsCount.incrementAndGet();
             return;
         }
 
         _queue.offer(runnable);
+        _queueSize.incrementAndGet();
+
         this.wakeUp();
     }
 }
