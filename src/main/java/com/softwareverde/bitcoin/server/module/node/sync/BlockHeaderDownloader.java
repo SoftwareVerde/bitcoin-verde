@@ -23,7 +23,7 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class BlockHeaderDownloader extends SleepyService {
-    public static final Long MAX_TIMEOUT_MS = 300000L;
+    public static final Long MAX_TIMEOUT_MS = (30L * 1000L); // 30 Seconds...
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
