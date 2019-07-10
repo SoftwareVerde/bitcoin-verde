@@ -4,6 +4,8 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactoryCore;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -679,7 +681,8 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
+                final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
+                final BlockValidator blockValidator = blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
                 final DataHandler dataHandler = new DataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, blockCache);
 
                 final MetadataHandler metadataHandler = new MetadataHandler(databaseManagerFactory);

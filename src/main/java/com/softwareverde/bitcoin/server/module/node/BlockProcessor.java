@@ -4,10 +4,7 @@ import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
-import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
-import com.softwareverde.bitcoin.block.validator.BlockValidator;
-import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
+import com.softwareverde.bitcoin.block.validator.*;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -83,12 +80,7 @@ public class BlockProcessor {
             databaseManagerFactory,
             masterDatabaseManagerCache,
             blockInflaters,
-            new BlockValidatorFactory() {
-                @Override
-                public BlockValidator newBlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-                    return new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
-                }
-            },
+            new BlockValidatorFactoryCore(),
             transactionValidatorFactory,
             networkTime,
             medianBlockTime,
@@ -208,7 +200,7 @@ public class BlockProcessor {
                 try (final DatabaseConnectionPool readUncommittedDatabaseConnectionPool = new DatabaseConnectionPool(readUncommittedDatabaseConnectionFactory, _maxThreadCount)) {
                     final FullNodeDatabaseManagerFactory databaseManagerFactory = _databaseManagerFactory.newDatabaseManagerFactory(readUncommittedDatabaseConnectionPool, localDatabaseManagerCache);
 
-                    final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
+                    final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, _transactionValidatorFactory, _networkTime, _medianBlockTime);
                     blockValidator.setMaxThreadCount(_maxThreadCount);
                     blockValidator.setTrustedBlockHeight(_trustedBlockHeight);
                     blockValidator.setShouldLogValidBlocks(true);

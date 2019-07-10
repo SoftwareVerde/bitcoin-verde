@@ -5,6 +5,7 @@ import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockValidationResult;
 import com.softwareverde.bitcoin.block.validator.BlockValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -37,12 +38,14 @@ import com.softwareverde.util.timer.MilliTimer;
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
+    protected final BlockValidatorFactory _blockValidatorFactory;
     protected final Sha256Hash _startingBlockHash;
     protected final BlockCache _blockCache;
 
-    public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
+    public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash, final BlockValidatorFactory blockValidatorFactory) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
+        _blockValidatorFactory = blockValidatorFactory;
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
 
@@ -84,7 +87,7 @@ public class ChainValidationModule {
             final FullNodeDatabaseManagerFactory databaseManagerFactory = new FullNodeDatabaseManagerFactory(readUncommittedDatabaseConnectionFactory, databaseManagerCache);
             final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
 
-            final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
+            final BlockValidator blockValidator = _blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
             blockValidator.setShouldLogValidBlocks(true);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
