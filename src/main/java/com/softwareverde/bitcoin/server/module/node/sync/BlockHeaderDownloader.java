@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
+import com.softwareverde.bitcoin.block.validator.BlockValidatorFactory;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
@@ -27,6 +28,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
+    private final BlockValidatorFactory _blockValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final BlockDownloadRequester _blockDownloadRequester;
     protected final ThreadPool _threadPool;
@@ -115,7 +117,7 @@ public class BlockHeaderDownloader extends SleepyService {
             return false;
         }
 
-        final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
+        final BlockHeaderValidator blockValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
         final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
         final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
 
@@ -183,7 +185,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 }
             }
 
-            final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
+            final BlockHeaderValidator blockValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
 
             TransactionUtil.startTransaction(databaseConnection);
             final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
@@ -258,9 +260,10 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.log("Stored Block Headers: " + firstBlockHeader.getHash() + " - " + _lastBlockHash + " (" + storeHeadersTimer.getMillisecondsElapsed() + "ms)");
     }
 
-    public BlockHeaderDownloader(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+    public BlockHeaderDownloader(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeManager nodeManager, final BlockValidatorFactory blockValidatorFactory, final MutableMedianBlockTime medianBlockTime, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _databaseManagerFactory = databaseManagerFactory;
         _nodeManager = nodeManager;
+        _blockValidatorFactory = blockValidatorFactory;
         _medianBlockTime = medianBlockTime;
         _blockDownloadRequester = blockDownloadRequester;
         _timer = new MilliTimer();

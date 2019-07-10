@@ -163,7 +163,7 @@ public class BlockProcessor {
                             return null;
                         }
 
-                        final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
+                        final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
                         final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block);
                         if (! blockHeaderValidationResponse.isValid) {
                             Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");

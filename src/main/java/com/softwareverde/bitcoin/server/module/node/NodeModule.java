@@ -458,8 +458,10 @@ public class NodeModule {
 
         final BlockDownloadRequester blockDownloadRequester = new BlockDownloadRequesterCore(databaseManagerFactory, _blockDownloader, _bitcoinNodeManager);
 
+        final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
+
         { // Initialize BlockHeaderDownloader...
-            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);
+            _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockValidatorFactory, medianBlockHeaderTime, blockDownloadRequester, _mainThreadPool);
         }
 
         { // Initialize BlockchainBuilder...
@@ -681,7 +683,6 @@ public class NodeModule {
                 final QueryAddressHandler queryAddressHandler = new QueryAddressHandler(databaseManagerFactory);
                 final ThreadPoolInquisitor threadPoolInquisitor = new ThreadPoolInquisitor(_mainThreadPool);
 
-                final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
                 final BlockValidator blockValidator = blockValidatorFactory.newBlockValidator(databaseManagerFactory, transactionValidatorFactory, _mutableNetworkTime, medianBlockTime);
                 final DataHandler dataHandler = new DataHandler(databaseManagerFactory, _transactionDownloader, _blockDownloader, blockValidator, blockCache);
 
