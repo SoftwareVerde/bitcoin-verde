@@ -1,7 +1,9 @@
 package com.softwareverde.bitcoin.server.module.stratum.rpc;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.configuration.StratumProperties;
 import com.softwareverde.bitcoin.server.module.stratum.api.endpoint.StratumDataHandler;
 import com.softwareverde.concurrent.pool.MainThreadPool;
@@ -18,6 +20,7 @@ public class StratumRpcServer {
     protected final JsonSocketServer _jsonRpcSocketServer;
     protected final MainThreadPool _rpcThreadPool;
     protected final StratumDataHandler _stratumDataHandler;
+    protected final BlockInflaters _blockInflaters;
 
     // Requires GET:    [rawFormat=0]
     // Requires POST:
@@ -33,7 +36,7 @@ public class StratumRpcServer {
         final Boolean shouldReturnRawBlockData = parameters.getBoolean("rawFormat");
 
         if (shouldReturnRawBlockData) {
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final ByteArray blockData = blockDeflater.toBytes(prototypeBlock);
             response.put("block", blockData);
         }
@@ -46,8 +49,18 @@ public class StratumRpcServer {
     }
 
     public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool) {
+        this(
+            stratumProperties,
+            stratumDataHandler,
+            rpcThreadPool,
+            new CoreInflater()
+        );
+    }
+
+    public StratumRpcServer(final StratumProperties stratumProperties, final StratumDataHandler stratumDataHandler, final MainThreadPool rpcThreadPool, final BlockInflaters blockInflaters) {
         _rpcThreadPool = rpcThreadPool;
         _stratumDataHandler = stratumDataHandler;
+        _blockInflaters = blockInflaters;
 
         final Integer rpcPort = stratumProperties.getRpcPort();
         if (rpcPort > 0) {

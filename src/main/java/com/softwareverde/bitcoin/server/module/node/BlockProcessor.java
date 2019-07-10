@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockDeflater;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -11,6 +12,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTimeWithBlocks;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
@@ -49,6 +51,7 @@ public class BlockProcessor {
     protected final Container<Float> _averageTransactionsPerSecond = new Container<Float>(0F);
     protected final NetworkTime _networkTime;
 
+    protected final BlockInflaters _blockInflaters;
     protected final BlockValidatorFactory _blockValidatorFactory;
     protected final DatabaseConnectionFactory _databaseConnectionFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
@@ -66,12 +69,7 @@ public class BlockProcessor {
         this(
             databaseConnectionFactory,
             masterDatabaseManagerCache,
-            new BlockValidatorFactory() {
-                @Override
-                public BlockValidator newBlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
-                    return new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
-                }
-            },
+            new CoreInflater(),
             transactionValidatorFactory,
             networkTime,
             medianBlockTime,
@@ -79,9 +77,28 @@ public class BlockProcessor {
         );
     }
 
-    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
+        this(
+                databaseConnectionFactory,
+                masterDatabaseManagerCache,
+                blockInflaters,
+                new BlockValidatorFactory() {
+                    @Override
+                    public BlockValidator newBlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+                        return new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
+                    }
+                },
+                transactionValidatorFactory,
+                networkTime,
+                medianBlockTime,
+                orphanedTransactionsCache
+        );
+    }
+
+    public BlockProcessor(final DatabaseConnectionFactory databaseConnectionFactory, final MasterDatabaseManagerCache masterDatabaseManagerCache, final BlockInflaters blockInflaters, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MutableMedianBlockTime medianBlockTime, final OrphanedTransactionsCache orphanedTransactionsCache) {
         _databaseConnectionFactory = databaseConnectionFactory;
         _masterDatabaseManagerCache = masterDatabaseManagerCache;
+        _blockInflaters = blockInflaters;
         _transactionValidatorFactory = transactionValidatorFactory;
         _blockValidatorFactory = blockValidatorFactory;
 
@@ -215,7 +232,7 @@ public class BlockProcessor {
 
             final Long blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-            final BlockDeflater blockDeflater = new BlockDeflater();
+            final BlockDeflater blockDeflater = _blockInflaters.getBlockDeflater();
             final Integer byteCount = blockDeflater.getByteCount(block);
             blockHeaderDatabaseManager.setBlockByteCount(blockId, byteCount);
 

@@ -1,5 +1,6 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
+import com.softwareverde.bitcoin.CoreInflater;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockHasher;
 import com.softwareverde.bitcoin.block.BlockId;
@@ -7,6 +8,7 @@ import com.softwareverde.bitcoin.block.BlockInflater;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.inflater.BlockInflaters;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.BlockProcessor;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
@@ -32,12 +34,14 @@ import com.softwareverde.util.Util;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
+
         void onNewBlock(Long blockHeight, Block block);
     }
 
     protected final ThreadPool _threadPool;
     protected final BitcoinNodeManager _bitcoinNodeManager;
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final BlockInflaters _blockInflaters;
     protected final BlockProcessor _blockProcessor;
     protected final BlockDownloader.StatusMonitor _downloadStatusMonitor;
     protected final BlockDownloadRequester _blockDownloadRequester;
@@ -50,7 +54,7 @@ public class BlockchainBuilder extends SleepyService {
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
 
         if (block != null) {
@@ -98,7 +102,7 @@ public class BlockchainBuilder extends SleepyService {
         final ByteArray blockData = pendingBlock.getData();
         if (blockData == null) { return false; }
 
-        final BlockInflater blockInflater = new BlockInflater();
+        final BlockInflater blockInflater = _blockInflaters.getBlockInflater();
         final Block block = blockInflater.fromBytes(blockData);
         if (block == null) { return false; }
 
@@ -241,8 +245,21 @@ public class BlockchainBuilder extends SleepyService {
     }
 
     public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
+        this(
+            bitcoinNodeManager,
+            databaseManagerFactory,
+            new CoreInflater(),
+            blockProcessor,
+            downloadStatusMonitor,
+            blockDownloadRequester,
+            threadPool
+        );
+    }
+
+    public BlockchainBuilder(final BitcoinNodeManager bitcoinNodeManager, final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockInflaters blockInflaters, final BlockProcessor blockProcessor, final BlockDownloader.StatusMonitor downloadStatusMonitor, final BlockDownloadRequester blockDownloadRequester, final ThreadPool threadPool) {
         _bitcoinNodeManager = bitcoinNodeManager;
         _databaseManagerFactory = databaseManagerFactory;
+        _blockInflaters = blockInflaters;
         _blockProcessor = blockProcessor;
         _downloadStatusMonitor = downloadStatusMonitor;
         _blockDownloadRequester = blockDownloadRequester;
