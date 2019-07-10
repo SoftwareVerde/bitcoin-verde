@@ -335,7 +335,9 @@ public class SpvModule {
         final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
             @Override
             public ThreadPool newThreadPool() {
-                return new ThreadPoolThrottle(64, _mainThreadPool);
+                final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(64, _mainThreadPool);
+                threadPoolThrottle.start();
+                return threadPoolThrottle;
             }
         };
 
