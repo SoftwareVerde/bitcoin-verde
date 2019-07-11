@@ -36,10 +36,6 @@ import org.junit.Test;
 public class AbcScriptRunnerTests {
     static {
         BitcoinConstants.setTransactionVersion(1L);
-
-        BitcoinReflectionUtil.setVolatile(ScriptSignature.class, "SCHNORR_IS_ENABLED", true);
-        BitcoinReflectionUtil.setVolatile(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", true);
-        BitcoinReflectionUtil.setVolatile(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
     }
 
     public static class FakeMedianBlockTime implements MedianBlockTime {
@@ -259,9 +255,9 @@ public class AbcScriptRunnerTests {
 
     @After
     public void teardown() {
-        BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
     }
 
     @Test
@@ -479,9 +475,9 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
 
-            BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
-            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", flagsString.contains("NULLFAIL"));
-            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", flagsString.contains("NULLFAIL"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
             // 1530

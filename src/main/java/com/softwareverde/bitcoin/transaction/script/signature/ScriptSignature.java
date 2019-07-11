@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.secp256k1.signature.EmptySignature;
 import com.softwareverde.bitcoin.secp256k1.signature.SchnorrSignature;
 import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.script.signature.hashtype.HashType;
 import com.softwareverde.bitcoin.util.bytearray.ByteArrayReader;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -11,8 +12,6 @@ import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class ScriptSignature {
-    public static final Boolean SCHNORR_IS_ENABLED = true;
-
     /**
      * Returns a ScriptSignature (Secp25k1 Signature and HashType) from the provided bytes.
      *  The ScriptSignatureContext is used to determine the appropriate Schnorr signature byte count (64 bytes with 1 optional byte for HashType).
@@ -39,7 +38,7 @@ public class ScriptSignature {
         final HashType hashType;
         final Signature signature;
         final ByteArray extraBytes;
-        if ( (SCHNORR_IS_ENABLED) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
+        if ( (BitcoinConstants.areSchnorrSignaturesEnabled()) && (bytes.getByteCount() == schnorrScriptSignatureByteCount) ) {
             if (scriptSignatureContext == ScriptSignatureContext.CHECK_DATA_SIGNATURE) { // Schnorr CheckDataSignatures do not have a HashType...
                 signature = SchnorrSignature.fromBytes(bytes);
                 hashType = null;
@@ -56,7 +55,7 @@ public class ScriptSignature {
             final ByteArrayReader byteArrayReader = new ByteArrayReader(bytes);
             signature = Secp256k1Signature.fromBytes(byteArrayReader);
 
-            if (SCHNORR_IS_ENABLED) {
+            if (BitcoinConstants.areSchnorrSignaturesEnabled()) {
                 final int signatureByteCount = (bytes.getByteCount() - byteArrayReader.remainingByteCount());
                 // 64-byte (+1 hashType) signatures are not allowed within ECDSA signature contexts when Schnorr signatures are enabled...
                 if (signatureByteCount == SchnorrSignature.BYTE_COUNT) { return null; }

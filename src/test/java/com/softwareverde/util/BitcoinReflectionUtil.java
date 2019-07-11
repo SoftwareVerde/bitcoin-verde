@@ -12,7 +12,7 @@ public class BitcoinReflectionUtil extends ReflectionUtil {
         Class<?> clazz = objectClass;
         do {
             try {
-                final Field field = clazz.getField(memberName);
+                final Field field = clazz.getDeclaredField(memberName);
                 field.setAccessible(true);
 
                 final Field modifiersField = Field.class.getDeclaredField("modifiers");
