@@ -36,7 +36,6 @@ public class BitwiseOperation extends SubTypedOperation {
 
     @Override
     public Boolean applyTo(final Stack stack, final ControlState controlState, final MutableContext context) {
-        // Meh.
         if (! _opcode.isEnabled()) {
             Logger.log("NOTICE: Opcode is disabled: " + _opcode);
             return false;

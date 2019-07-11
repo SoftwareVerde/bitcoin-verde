@@ -11,16 +11,25 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class InvalidOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_INVALID;
 
-    protected static InvalidOperation fromBytes(final ByteArrayReader byteArrayReader) {
+    protected static InvalidOperation fromBytes(final ByteArrayReader byteArrayReader, final Boolean failIfPresent) {
         if (! byteArrayReader.hasBytes()) { return null; }
 
         final byte opcodeByte = byteArrayReader.readByte();
 
-        return new InvalidOperation(opcodeByte);
+        return new InvalidOperation(opcodeByte, failIfPresent);
     }
 
-    protected InvalidOperation(final byte value) {
+    protected final Boolean _failIfPresent;
+
+    protected InvalidOperation(final byte value, final Boolean failIfPresent) {
         super(value, TYPE, null);
+        _failIfPresent = failIfPresent;
+    }
+
+    @Override
+    public Boolean failIfPresent() {
+        if (_failIfPresent) { return true; }
+        return super.failIfPresent();
     }
 
     @Override

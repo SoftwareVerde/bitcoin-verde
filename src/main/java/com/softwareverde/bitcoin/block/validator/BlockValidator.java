@@ -25,7 +25,7 @@ import com.softwareverde.bitcoin.transaction.script.unlocking.UnlockingScript;
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFactory;
 import com.softwareverde.concurrent.pool.MainThreadPool;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.immutable.ImmutableArrayListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
@@ -57,7 +57,8 @@ public class BlockValidator {
         final Map<Sha256Hash, Transaction> queuedTransactionOutputs = new HashMap<Sha256Hash, Transaction>();
         { // Remove the coinbase transaction and create a lookup map for transaction outputs...
             final List<Transaction> fullTransactionList = block.getTransactions();
-            final ImmutableListBuilder<Transaction> listBuilder = new ImmutableListBuilder<Transaction>(fullTransactionList.getSize());
+            final int transactionCount = (fullTransactionList.getSize() - 1);
+            final ImmutableArrayListBuilder<Transaction> listBuilder = new ImmutableArrayListBuilder<Transaction>(transactionCount);
             int transactionIndex = 0;
             for (final Transaction transaction : fullTransactionList) {
                 if (transactionIndex > 0) {
@@ -71,41 +72,50 @@ public class BlockValidator {
             transactions = listBuilder.build();
         }
 
-        final TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureTaskHandlerFactory = new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
+        final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
+        threadPool.setThreadPriority(currentThread.getPriority());
+
+        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>("Expenditures", threadPool, _databaseManagerFactory);
+        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>() {
             @Override
             public TaskHandler<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> newInstance() {
                 return new TotalExpenditureTaskHandler(queuedTransactionOutputs);
             }
-        };
+        });
 
-        final TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskHandlerFactory = new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
+        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>("Validation", threadPool, _databaseManagerFactory);
+        transactionValidationTaskSpawner.setTaskHandlerFactory(new TaskHandlerFactory<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>() {
             @Override
             public TaskHandler<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> newInstance() {
                 return new TransactionValidationTaskHandler(_transactionValidatorFactory, blockchainSegmentId, blockHeight, _networkTime, _medianBlockTime);
             }
-        };
+        });
 
-        final int threadCount = Math.max((_maxThreadCount / 2), 1);
-
-        final MainThreadPool threadPool = new MainThreadPool(_maxThreadCount, 1000L);
-        threadPool.setThreadPriority(currentThread.getPriority());
-
-        final ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult> totalExpenditureValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TotalExpenditureTaskHandler.ExpenditureResult>(threadPool, _databaseManagerFactory);
-        totalExpenditureValidationTaskSpawner.setTaskHandlerFactory(totalExpenditureTaskHandlerFactory);
-        totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
-
-        if (threadCount == 1) {
-            totalExpenditureValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
-            if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
+        final int threadCount;
+        final boolean executeBothTasksAsynchronously;
+        {
+            final int transactionCount = transactions.getSize();
+            if (transactionCount > 512) {
+                executeBothTasksAsynchronously = false;
+                threadCount = Math.max(_maxThreadCount, 1);
+            }
+            else {
+                executeBothTasksAsynchronously = true;
+                threadCount = Math.max((_maxThreadCount / 2), 1);
+            }
         }
 
-        final ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult> transactionValidationTaskSpawner = new ParallelledTaskSpawner<Transaction, TransactionValidationTaskHandler.TransactionValidationResult>(threadPool, _databaseManagerFactory);
-        transactionValidationTaskSpawner.setTaskHandlerFactory(transactionValidationTaskHandlerFactory);
-
-        transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
-
-        if (threadCount == 1) {
+        if (executeBothTasksAsynchronously) {
+            transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
+            totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
+        }
+        else {
+            transactionValidationTaskSpawner.executeTasks(transactions, threadCount);
             transactionValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
+            if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
+
+            totalExpenditureValidationTaskSpawner.executeTasks(transactions, threadCount);
+            totalExpenditureValidationTaskSpawner.waitForResults(); // Wait for the results synchronously when the threadCount is one...
             if (currentThread.isInterrupted()) { return BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred during single-threaded invocation...
         }
 
@@ -180,6 +190,8 @@ public class BlockValidator {
         final List<TransactionValidationTaskHandler.TransactionValidationResult> unlockedInputsResults = transactionValidationTaskSpawner.waitForResults();
         if (currentThread.isInterrupted()) { BlockValidationResult.invalid("Validation aborted."); } // Bail out if an abort occurred...
         if (unlockedInputsResults == null) { return BlockValidationResult.invalid("An internal error occurred during InputsValidatorTask."); }
+
+        threadPool.stop();
 
         final MutableList<Sha256Hash> invalidTransactions = new MutableList<Sha256Hash>();
 

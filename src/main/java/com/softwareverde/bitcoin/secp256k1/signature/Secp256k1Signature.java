@@ -29,6 +29,8 @@ public class Secp256k1Signature implements Signature {
     }
 
     protected static byte[] _toDerEncodedInteger(final ByteArray byteArray) {
+        if (byteArray.isEmpty()) { return new byte[0]; }
+
         final boolean firstByteHasSignBit = (ByteUtil.byteToInteger(byteArray.getByte(0)) > 0x7F);
         if (firstByteHasSignBit) {
             final byte[] bytes = new byte[1 + byteArray.getByteCount()];
@@ -98,10 +100,30 @@ public class Secp256k1Signature implements Signature {
     protected final ByteArray _r;
     protected final ByteArray _s;
 
-    protected Boolean _isCanonical() {
+    protected static Boolean isMinimallyEncoded(final ByteArray byteArray) {
+        if (byteArray.getByteCount() < 2) { return true; }
+        if ( (byteArray.getByte(0) == 0x00) && ((byteArray.getByte(1) & (byte) 0x80) == 0) ) { return false; }
+
+        return true;
+    }
+
+    protected static Boolean isLowS(final BigInteger s) {
         final BigInteger halfCurveOrder = curveN.shiftRight(1);
-        final BigInteger s = new BigInteger(1, _s.getBytes());
         return (s.compareTo(halfCurveOrder) <= 0);
+    }
+
+    protected Boolean _isCanonical() {
+        if (_r.getByteCount() == 0) { return false; }
+        final BigInteger r = new BigInteger(1, _r.getBytes());
+        if (r.compareTo(BigInteger.ZERO) < 0) { return false; } // R must be positive...
+        if (! Secp256k1Signature.isMinimallyEncoded(_r)) { return false; }
+
+        if (_s.getByteCount() == 0) { return false; }
+        final BigInteger s = new BigInteger(1, _s.getBytes());
+        if (s.compareTo(BigInteger.ZERO) < 0) { return false; } // S must be positive...
+        if (! Secp256k1Signature.isMinimallyEncoded(_s)) { return false; }
+
+        return Secp256k1Signature.isLowS(s);
     }
 
     private Secp256k1Signature(final MutableByteArray r, final MutableByteArray s) {
@@ -160,9 +182,21 @@ public class Secp256k1Signature implements Signature {
     public Signature asCanonical() {
         if (_isCanonical()) { return this; }
 
+        final BigInteger r = new BigInteger(1, _r.getBytes());
         final BigInteger s = new BigInteger(1, _s.getBytes());
-        final BigInteger newS = curveN.subtract(s);
-        return new Secp256k1Signature(_r.getBytes(), newS.toByteArray());
+        final BigInteger newS;
+         if (! Secp256k1Signature.isLowS(s)) {
+            newS = curveN.subtract(s);
+        }
+        else {
+            newS = s;
+        }
+        return new Secp256k1Signature(r.toByteArray(), newS.toByteArray());
+    }
+
+    @Override
+    public Boolean isEmpty() {
+        return false;
     }
 
     @Override

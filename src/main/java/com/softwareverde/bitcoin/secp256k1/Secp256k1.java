@@ -128,13 +128,19 @@ public class Secp256k1 {
     }
 
     public static byte[] decompressPoint(byte[] encodedPublicKeyPoint) {
-        final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
+        try {
+            final ECPoint decodedPoint = CURVE.decodePoint(encodedPublicKeyPoint);
 
-        final ECPoint normalizedPoint = decodedPoint.normalize();
-        final BigInteger x = normalizedPoint.getXCoord().toBigInteger();
-        final BigInteger y = normalizedPoint.getYCoord().toBigInteger();
-        final ECPoint decompressedPoint = CURVE.createPoint(x, y);
-        return decompressedPoint.getEncoded(false);
+            final ECPoint normalizedPoint = decodedPoint.normalize();
+            final BigInteger x = normalizedPoint.getXCoord().toBigInteger();
+            final BigInteger y = normalizedPoint.getYCoord().toBigInteger();
+            final ECPoint decompressedPoint = CURVE.createPoint(x, y);
+            return decompressedPoint.getEncoded(false);
+        }
+        catch (final Exception exception) {
+            Logger.log(exception);
+            return null;
+        }
     }
 
     protected Secp256k1() { }

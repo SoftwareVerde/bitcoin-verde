@@ -682,7 +682,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     }
 
     @Override
-    public void removeFromUnconfirmedTransaction(final TransactionId transactionId) throws DatabaseException {
+    public void removeFromUnconfirmedTransactions(final TransactionId transactionId) throws DatabaseException {
         _deleteFromUnconfirmedTransactions(transactionId);
     }
 

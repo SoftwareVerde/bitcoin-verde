@@ -30,8 +30,8 @@ public enum Opcode {
     END_IF                              (0x68),
     VERIFY                              (0x69),
     RETURN                              (0x6A),
-    IF_VERSION                          (0x65, false),
-    IF_NOT_VERSION                      (0x66, false),
+    IF_VERSION                          (0x65, false, true),
+    IF_NOT_VERSION                      (0x66, false, true),
 
     // STACK
     POP_TO_ALT_STACK                    (0x6B),
@@ -49,17 +49,17 @@ public enum Opcode {
     // STRING
     CONCATENATE                         (0x7E),
     SPLIT                               (0x7F),
-    DECODE_NUMBER                       (0x80),
+    NUMBER_TO_BYTES                     (0x80),
     ENCODE_NUMBER                       (0x81),
-    STRING_PUSH_LENGTH                  (0x82),
+    PUSH_1ST_BYTE_COUNT                 (0x82),
 
     // BITWISE
-    BITWISE_INVERT                      (0x83),
+    BITWISE_INVERT                      (0x83, false, true),
     BITWISE_AND                         (0x84),
     BITWISE_OR                          (0x85),
     BITWISE_XOR                         (0x86),
-    SHIFT_LEFT                          (0x98),
-    SHIFT_RIGHT                         (0x99),
+    SHIFT_LEFT                          (0x98, false, true),
+    SHIFT_RIGHT                         (0x99, false, true),
 
 
     // COMPARISON
@@ -80,14 +80,14 @@ public enum Opcode {
     // ARITHMETIC
     ADD_ONE                             (0x8B),
     SUBTRACT_ONE                        (0x8C),
-    MULTIPLY_BY_TWO                     (0x8D, false),
-    DIVIDE_BY_TWO                       (0x8E, false),
+    MULTIPLY_BY_TWO                     (0x8D, false, true),
+    DIVIDE_BY_TWO                       (0x8E, false, true),
     NEGATE                              (0x8F),
     ABSOLUTE_VALUE                      (0x90),
     NOT                                 (0x91),
     ADD                                 (0x93),
     SUBTRACT                            (0x94),
-    MULTIPLY                            (0x95),
+    MULTIPLY                            (0x95, false, true),
     DIVIDE                              (0x96),
     MODULUS                             (0x97),
     MIN                                 (0xA3),
@@ -104,9 +104,10 @@ public enum Opcode {
     CHECK_MULTISIGNATURE                (0xAE),
     CHECK_MULTISIGNATURE_THEN_VERIFY    (0xAF),
 
-    CODE_SEPARATOR                      (0xAB), //  CODE_SEPARATOR's intended use was to designate where signed-content is supposed to begin (rendering parts of the script mutable).
-                                                //  Its benefit seems rare and borderline useless, and is likely a security risk.
-                                                //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
+    // CODE_SEPARATOR's intended use was to designate where signed-content is supposed to begin (rendering parts of the script mutable).
+    //  Its benefit seems rare and borderline useless, and is likely a security risk.
+    //  https://bitcoin.stackexchange.com/questions/34013/what-is-op-codeseparator-used-for
+    CODE_SEPARATOR                      (0xAB),
 
     CHECK_DATA_SIGNATURE                (0xBA),
     CHECK_DATA_SIGNATURE_THEN_VERIFY    (0xBB),
@@ -124,6 +125,7 @@ public enum Opcode {
 
     ; // END ENUMS
 
+    private final boolean _failIfPresent;
     private final boolean _isEnabled;
     private final int _minValue;
     private final int _maxValue;
@@ -132,30 +134,49 @@ public enum Opcode {
         _minValue = base;
         _maxValue = base;
         _isEnabled = true;
+        _failIfPresent = false;
     }
 
     Opcode(final int base, final boolean isEnabled) {
         _minValue = base;
         _maxValue = base;
         _isEnabled = isEnabled;
+        _failIfPresent = false;
+    }
+
+    Opcode(final int base, final boolean isEnabled, final boolean failIfPresent) {
+        _minValue = base;
+        _maxValue = base;
+        _isEnabled = isEnabled;
+        _failIfPresent = failIfPresent;
     }
 
     Opcode(final int minValue, final int maxValue) {
         _minValue = minValue;
         _maxValue = maxValue;
         _isEnabled = true;
+        _failIfPresent = false;
     }
 
     Opcode(final int minValue, final int maxValue, final boolean isEnabled) {
         _minValue = minValue;
         _maxValue = maxValue;
         _isEnabled = isEnabled;
+        _failIfPresent = false;
+    }
+
+    Opcode(final int minValue, final int maxValue, final boolean isEnabled, final boolean failIfPresent) {
+        _minValue = minValue;
+        _maxValue = maxValue;
+        _isEnabled = isEnabled;
+        _failIfPresent = failIfPresent;
     }
 
     public boolean isEnabled() { return _isEnabled; }
     public byte getValue() { return (byte) _minValue; }
     public int getMinValue() { return _minValue; }
     public int getMaxValue() { return _maxValue; }
+    public boolean failIfPresent() { return _failIfPresent; }
 
     public boolean matchesByte(byte b) {
         final int bValue = ByteUtil.byteToInteger(b);

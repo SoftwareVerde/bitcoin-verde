@@ -14,8 +14,10 @@ import com.softwareverde.bitcoin.server.database.Database;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.module.node.BlockCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.blockchain.BlockchainDatabaseManager;
@@ -30,27 +32,42 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.MutableNetworkTime;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 
 public class ChainValidationModule {
     protected final BitcoinProperties _bitcoinProperties;
     protected final Environment _environment;
     protected final Sha256Hash _startingBlockHash;
+    protected final BlockCache _blockCache;
 
     public ChainValidationModule(final BitcoinProperties bitcoinProperties, final Environment environment, final String startingBlockHash) {
         _bitcoinProperties = bitcoinProperties;
         _environment = environment;
 
         _startingBlockHash = Util.coalesce(Sha256Hash.fromHexString(startingBlockHash), BlockHeader.GENESIS_BLOCK_HASH);
+
+        { // Initialize the BlockCache...
+            if (bitcoinProperties.isBlockCacheEnabled()) {
+                final String blockCacheDirectory = (bitcoinProperties.getDataDirectory() + "/" + BitcoinProperties.DATA_CACHE_DIRECTORY_NAME);
+                _blockCache = new BlockCache(blockCacheDirectory);
+            }
+            else {
+                _blockCache = null;
+            }
+        }
     }
 
     public void run() {
+        final Thread mainThread = Thread.currentThread();
+        mainThread.setPriority(Thread.MAX_PRIORITY);
+
         final Database database = _environment.getDatabase();
-        final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
+        // final MasterDatabaseManagerCache masterDatabaseManagerCache = _environment.getMasterDatabaseManagerCache();
 
         Sha256Hash nextBlockHash = _startingBlockHash;
         try (
             final DatabaseConnection databaseConnection = database.newConnection();
-            final DatabaseManagerCache databaseManagerCache = new LocalDatabaseManagerCache(masterDatabaseManagerCache)
+            final DatabaseManagerCache databaseManagerCache = new DisabledDatabaseManagerCache(); // new LocalDatabaseManagerCache(masterDatabaseManagerCache)
         ) {
 
             final FullNodeDatabaseManager databaseManager = new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
@@ -69,7 +86,7 @@ public class ChainValidationModule {
 
             final BlockValidator blockValidator = new BlockValidator(databaseManagerFactory, transactionValidatorFactory, networkTime, medianBlockTime);
             blockValidator.setMaxThreadCount(_bitcoinProperties.getMaxThreadCount());
-            blockValidator.setShouldLogValidBlocks(false);
+            blockValidator.setShouldLogValidBlocks(true);
             blockValidator.setTrustedBlockHeight(BlockValidator.DO_NOT_TRUST_BLOCKS);
 
             final BlockchainSegmentId headBlockchainSegmentId = blockchainDatabaseManager.getHeadBlockchainSegmentId();
@@ -103,7 +120,27 @@ public class ChainValidationModule {
                     Logger.log(percentComplete + "% complete. " + blockHeight + " of " + maxBlockHeight + " - " + blockHash + " ("+ String.format("%.2f", blocksPerSecond) +" bps) (" + String.format("%.2f", transactionsPerSecond) + " tps) ("+ StringUtil.formatNumberString(secondsElapsed) +" seconds)");
                 }
 
-                final Block block = blockDatabaseManager.getBlock(blockId, true);
+                final MilliTimer blockInflaterTimer = new MilliTimer();
+                blockInflaterTimer.start();
+                final Boolean blockIsCached;
+                final Block block;
+                {
+                    Block cachedBlock = null;
+                    if (_blockCache != null) {
+                        cachedBlock = _blockCache.getCachedBlock(blockHash, blockHeight);
+                    }
+
+                    if (cachedBlock != null) {
+                        block = cachedBlock;
+                        blockIsCached = true;
+                    }
+                    else {
+                        block = blockDatabaseManager.getBlock(blockId, true);
+                        blockIsCached = false;
+                    }
+                }
+                blockInflaterTimer.stop();
+                System.out.println("Block Inflation: " +  block.getHash() + " " + blockInflaterTimer.getMillisecondsElapsed() + "ms");
 
                 validatedTransactionCount += blockDatabaseManager.getTransactionCount(blockId);
                 final BlockValidationResult blockValidationResult = blockValidator.validateBlock(blockId, block);
@@ -112,6 +149,13 @@ public class ChainValidationModule {
                     Logger.error("Invalid block found: " + blockHash + "(" + blockValidationResult.errorMessage + ")");
                     break;
                 }
+
+                if ( (! blockIsCached) && (_blockCache != null) ) {
+                    _blockCache.cacheBlock(block, blockHeight);
+                }
+
+                databaseManagerCache.log();
+                databaseManagerCache.resetLog();
 
                 nextBlockHash = null;
                 final BlockId nextBlockId = blockHeaderDatabaseManager.getChildBlockId(headBlockchainSegmentId, blockId);

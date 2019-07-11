@@ -201,6 +201,8 @@ public class AddressInflater {
             payloadBytes = MutableByteArray.wrap(BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(0, checksumStartCharacterIndex)));
             checksum = MutableByteArray.wrap(BitcoinUtil.base32StringToBytes(base32WithoutPrefix.substring(checksumStartCharacterIndex)));
         }
+        if (payloadBytes == null) { return null; }
+        if (checksum == null) { return null; }
 
         final byte version = payloadBytes.getByte(0);
         if ((version & 0x80) != 0x00) { return null; } // The version byte's most significant bit must be 0...

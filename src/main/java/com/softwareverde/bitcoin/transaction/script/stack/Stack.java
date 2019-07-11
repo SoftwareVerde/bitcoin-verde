@@ -9,6 +9,7 @@ public class Stack {
     protected final List<Value> _values = new LinkedList<Value>();
     protected Boolean _didOverflow = false;
 
+    protected Integer _maxItemCount = Integer.MAX_VALUE;
     protected Stack _altStack = null;
 
     protected Value _peak(final Integer index) {
@@ -31,11 +32,18 @@ public class Stack {
     public Stack(final Stack stack) {
         _values.addAll(stack._values);
         _didOverflow = stack._didOverflow;
-        _altStack = stack._altStack;
+        _maxItemCount = stack._maxItemCount;
+        _altStack = ((stack._altStack != null) ? new Stack(stack._altStack) : null);
     }
 
     public void push(final Value value) {
         if (value == null) {
+            _didOverflow = true;
+            return;
+        }
+
+        final int totalItemCount = (_values.size() + (_altStack != null ? _altStack.getSize() : 0));
+        if (totalItemCount >= _maxItemCount) {
             _didOverflow = true;
             return;
         }
@@ -81,7 +89,7 @@ public class Stack {
     }
 
     public Value pop(final Integer index) {
-        if (index >= _values.size()) {
+        if ( (index < 0) || (index >= _values.size()) ) {
             _didOverflow = true;
             return OVERFLOW_VALUE;
         }
@@ -92,6 +100,24 @@ public class Stack {
     public Value popFromAltStack(final Integer index) {
         _initAltStack();
         return _altStack.pop(index);
+    }
+
+    /**
+     * Removes all items from the primary stack.
+     *  The altStack is not affected.
+     */
+    public void clearStack() {
+        _values.clear();
+    }
+
+    /**
+     * Removes all items from the alt stack.
+     *  The primary stack is not affected.
+     */
+    public void clearAltStack() {
+        if (_altStack != null) {
+            _altStack.clearStack();
+        }
     }
 
     public Boolean isEmpty() {
@@ -116,7 +142,21 @@ public class Stack {
         if (_altStack != null) {
             if (_altStack.didOverflow()) { return true; }
         }
+
         return (_didOverflow);
+    }
+
+    /**
+     * Sets the maximum number of items allowed within the stack.
+     *  Exceeding this value results in push operations to be ignored, and overflows the stack.
+     *  This value includes the size of the stack and its altStack.
+     */
+    public void setMaxItemCount(final Integer maxItemCount) {
+        _maxItemCount = maxItemCount;
+    }
+
+    public Integer getMaxItemCount() {
+        return _maxItemCount;
     }
 
     @Override

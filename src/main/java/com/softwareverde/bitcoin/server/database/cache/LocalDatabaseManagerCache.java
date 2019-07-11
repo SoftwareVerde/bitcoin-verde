@@ -105,7 +105,7 @@ public class LocalDatabaseManagerCache implements DatabaseManagerCache {
 
     // TRANSACTION OUTPUT ID CACHE -------------------------------------------------------------------------------------
 
-    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", HashMapCache.DISABLED_CACHE_SIZE);
+    protected final HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId> _transactionOutputIdCache = new HashMapCache<CachedTransactionOutputIdentifier, TransactionOutputId>("TransactionOutputId", 1048576);
 
     @Override
     public void cacheTransactionOutputId(final TransactionId transactionId, final Integer transactionOutputIndex, final TransactionOutputId transactionOutputId) {

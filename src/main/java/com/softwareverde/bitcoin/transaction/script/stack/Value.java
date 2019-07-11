@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.transaction.locktime.ImmutableSequenceNumber;
 import com.softwareverde.bitcoin.transaction.locktime.LockTime;
 import com.softwareverde.bitcoin.transaction.locktime.SequenceNumber;
 import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignature;
+import com.softwareverde.bitcoin.transaction.script.signature.ScriptSignatureContext;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.constable.Const;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -208,8 +209,8 @@ public class Value extends ImmutableByteArray implements Const {
         return new ImmutableSequenceNumber(ByteUtil.bytesToLong(ByteUtil.reverseEndian(_bytes)));
     }
 
-    public ScriptSignature asScriptSignature() {
-        return ScriptSignature.fromBytes(this);
+    public ScriptSignature asScriptSignature(final ScriptSignatureContext scriptSignatureContext) {
+        return ScriptSignature.fromBytes(this, scriptSignatureContext);
     }
 
     public PublicKey asPublicKey() {
