@@ -50,16 +50,16 @@ public class Secp256k1 {
     }
 
     protected static Boolean _verifySignatureViaBouncyCastle(final Signature signature, final PublicKey publicKey, final byte[] message) {
-        final ECPublicKeyParameters publicKeyParameters;
-        {
-            final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey.getBytes());
-            publicKeyParameters = new ECPublicKeyParameters(publicKeyPoint, Secp256k1.CURVE_DOMAIN);
-        }
-
-        final ECDSASigner signer = new ECDSASigner();
-        signer.init(false, publicKeyParameters);
-
         try {
+            final ECPublicKeyParameters publicKeyParameters;
+            {
+                final ECPoint publicKeyPoint = Secp256k1.CURVE.decodePoint(publicKey.getBytes());
+                publicKeyParameters = new ECPublicKeyParameters(publicKeyPoint, Secp256k1.CURVE_DOMAIN);
+            }
+
+            final ECDSASigner signer = new ECDSASigner();
+            signer.init(false, publicKeyParameters);
+
             return signer.verifySignature(message, new BigInteger(1, signature.getR().getBytes()), new BigInteger(1, signature.getS().getBytes()));
         }
         catch (final Exception exception) {

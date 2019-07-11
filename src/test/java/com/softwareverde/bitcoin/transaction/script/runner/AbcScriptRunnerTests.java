@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,13 +32,10 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 public class AbcScriptRunnerTests {
-    static {
-        BitcoinConstants.setTransactionVersion(1L);
-    }
-
     public static class FakeMedianBlockTime implements MedianBlockTime {
         protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
 
@@ -253,11 +251,32 @@ public class AbcScriptRunnerTests {
         return scriptInflater.fromBytes(byteArrayBuilder.build());
     }
 
+    protected static Boolean originalNativeSecp256k1Value = null;
+
+    @Before
+    public void setup() {
+        if (AbcScriptRunnerTests.originalNativeSecp256k1Value == null) {
+            AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
+        }
+
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
+    }
+
     @After
     public void teardown() {
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
         BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+
+        BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
     }
 
     @Test
@@ -279,7 +298,7 @@ public class AbcScriptRunnerTests {
         final Json testVectors = Json.parse(IoUtil.getResource("/abc_test_vectors.json"));
 
         final MutableTransaction transactionBeingSpent = new MutableTransaction();
-        transactionBeingSpent.setVersion(Transaction.VERSION);
+        transactionBeingSpent.setVersion(1L);
         transactionBeingSpent.setLockTime(LockTime.MIN_TIMESTAMP);
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
@@ -302,7 +321,7 @@ public class AbcScriptRunnerTests {
         }
 
         final MutableTransaction transaction = new MutableTransaction();
-        transaction.setVersion(Transaction.VERSION);
+        transaction.setVersion(1L);
         transaction.setLockTime(LockTime.MIN_TIMESTAMP);
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
         {
@@ -474,12 +493,11 @@ public class AbcScriptRunnerTests {
             BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            // 1530
 
             executedCount += 1;
 
             final boolean expectedResult = Util.areEqual("OK", expectedResultString);
-            // Assert.assertEquals(expectedResult, wasValid);
+
             if (! Util.areEqual(expectedResult, wasValid)) {
                 failCount += 1;
                 System.out.println("FAILED: " + i);
