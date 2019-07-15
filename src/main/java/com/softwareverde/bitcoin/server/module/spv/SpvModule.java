@@ -617,6 +617,8 @@ public class SpvModule {
             _bitcoinNodeManager.setBloomFilter(bloomFilter);
         }
 
+        _loadDownloadedTransactionsIntoWallet();
+
         _isInitialized = true;
         synchronized (_initPin) {
             _initPin.notifyAll();
@@ -634,8 +636,6 @@ public class SpvModule {
     public void loop() {
         _waitForInit();
         _setStatus(Status.ONLINE);
-
-        _loadDownloadedTransactionsIntoWallet();
 
         if ( (! _bitcoinNodeManager.hasBloomFilter()) && (_wallet.hasPrivateKeys()) ) {
             final MutableBloomFilter bloomFilter = _wallet.generateBloomFilter();
