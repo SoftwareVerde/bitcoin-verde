@@ -886,6 +886,44 @@ public class Wallet {
         return amount;
     }
 
+    public synchronized Long getBalance(final PublicKey publicKey, final SlpTokenId slpTokenId) {
+        final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+
+        final AddressInflater addressInflater = new AddressInflater();
+        final Address compressedAddress = addressInflater.compressedFromPublicKey(publicKey);
+        final Address address = addressInflater.fromPublicKey(publicKey);
+
+        long amount = 0L;
+        for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {
+            if (! spendableTransactionOutput.isSpent()) {
+                final TransactionOutputIdentifier transactionOutputIdentifier = spendableTransactionOutput.getIdentifier();
+
+                final TransactionOutput transactionOutput = spendableTransactionOutput.getTransactionOutput();
+                final LockingScript lockingScript = transactionOutput.getLockingScript();
+
+                final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
+                final Address outputAddress = scriptPatternMatcher.extractAddress(scriptType, lockingScript);
+
+                if ( (! Util.areEqual(address, outputAddress)) && (! Util.areEqual(compressedAddress, outputAddress)) ) { continue; }
+
+                if (slpTokenId == null) { // If the slpTokenId is null then only sum its BCH value.
+                    amount += transactionOutput.getAmount();
+                }
+                else {
+                    // If the slpTokenId is provided but does not match the Transaction's SlpTokenId ignore the amount.
+                    // Otherwise, ensure retrieve its token balance.
+
+                    final SlpTokenId transactionTokenId = _getSlpTokenId(transactionOutputIdentifier);
+                    if (! Util.areEqual(slpTokenId, transactionTokenId)) { continue; }
+
+                    final Long slpTokenAmount = _getSlpTokenAmount(transactionOutputIdentifier);
+                    amount += slpTokenAmount;
+                }
+            }
+        }
+        return amount;
+    }
+
     public synchronized Long getSlpTokenBalance(final SlpTokenId tokenId) {
         long amount = 0L;
         for (final SpendableTransactionOutput spendableTransactionOutput : _transactionOutputs.values()) {

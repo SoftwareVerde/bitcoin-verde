@@ -16,6 +16,10 @@ public class BitcoinConstants {
     protected static String USER_AGENT;
     protected static String COINBASE_MESSAGE;
 
+    protected static Boolean SCHNORR_IS_ENABLED;
+    protected static Boolean FAIL_ON_BAD_SIGNATURE;
+    protected static Boolean REQUIRE_BITCOIN_CASH_FORK_ID;
+
     static {
         final String defaultBlockHash = "000000000019D6689C085AE165831E934FF763AE46A2A6C172B3F1B60A8CE26F";
         final String defaultNetMagicNumber = "E8F3E1E3";
@@ -32,6 +36,10 @@ public class BitcoinConstants {
         PROTOCOL_VERSION = Util.parseInt(System.getProperty("PROTOCOL_VERSION", defaultProtocolVersion.toString()), defaultProtocolVersion);
         USER_AGENT = System.getProperty("USER_AGENT", defaultUserAgent);
         COINBASE_MESSAGE = System.getProperty("COINBASE_MESSAGE", coinbaseMessage);
+
+        SCHNORR_IS_ENABLED = true;
+        FAIL_ON_BAD_SIGNATURE = true;
+        REQUIRE_BITCOIN_CASH_FORK_ID = true;
     }
 
     public static String getGenesisBlockHash() {
@@ -130,6 +138,20 @@ public class BitcoinConstants {
         }
 
         COINBASE_MESSAGE = coinbaseMessage;
+    }
+
+    public static Boolean areSchnorrSignaturesEnabled() {
+        return SCHNORR_IS_ENABLED;
+    }
+
+    // Aka the "NULLFAIL" flag.
+    public static Boolean immediatelyFailOnNonEmptyInvalidSignatures() {
+        return FAIL_ON_BAD_SIGNATURE;
+    }
+
+    // Aka the "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID" flags.
+    public static Boolean requireBitcoinCashForkId() {
+        return REQUIRE_BITCOIN_CASH_FORK_ID;
     }
 
     protected BitcoinConstants() { }

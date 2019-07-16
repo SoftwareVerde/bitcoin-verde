@@ -10,7 +10,7 @@ import org.junit.Test;
 public class PendingRequestsManagerTests {
 
     @Test
-    public void should_trigger_failure_after_timeout() {
+    public void should_trigger_failure_after_timeout() throws Exception {
         // Setup
         final FakeSystemTime systemTime = new FakeSystemTime();
         final MainThreadPool threadPool = new MainThreadPool(1, 1L);
@@ -35,6 +35,7 @@ public class PendingRequestsManagerTests {
         // Action
         systemTime.advanceTimeInMilliseconds(PendingRequestsManager.TIMEOUT_MS + 1L);
         pendingRequestsManager.start();
+        Thread.sleep(100L); // Pause enough time for the thread to start...
         pendingRequestsManager.stop(); // SleepyService::stop waits for the thread to complete...
 
         // Assert

@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.runner;
 import com.softwareverde.bitcoin.chain.time.ImmutableMedianBlockTime;
 import com.softwareverde.bitcoin.chain.time.MedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.jni.NativeSecp256k1;
 import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.MutableTransaction;
 import com.softwareverde.bitcoin.transaction.Transaction;
@@ -31,13 +32,10 @@ import com.softwareverde.util.Util;
 import com.softwareverde.util.bytearray.ByteArrayBuilder;
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 public class AbcScriptRunnerTests {
-    static {
-        BitcoinConstants.setTransactionVersion(1L);
-    }
-
     public static class FakeMedianBlockTime implements MedianBlockTime {
         protected Long _medianBlockTime = MedianBlockTime.GENESIS_BLOCK_TIMESTAMP;
 
@@ -253,11 +251,32 @@ public class AbcScriptRunnerTests {
         return scriptInflater.fromBytes(byteArrayBuilder.build());
     }
 
+    protected static Boolean originalNativeSecp256k1Value = null;
+
+    @Before
+    public void setup() {
+        if (AbcScriptRunnerTests.originalNativeSecp256k1Value == null) {
+            AbcScriptRunnerTests.originalNativeSecp256k1Value = NativeSecp256k1.isEnabled();
+        }
+
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setVolatile(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setVolatile(NativeSecp256k1.class, "_libraryLoadedCorrectly", true);
+
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", false);
+    }
+
     @After
     public void teardown() {
-        BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", true);
-        BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", true);
+        BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", true);
+
+        BitcoinReflectionUtil.setStaticValue(NativeSecp256k1.class, "_libraryLoadedCorrectly", AbcScriptRunnerTests.originalNativeSecp256k1Value);
     }
 
     @Test
@@ -279,7 +298,7 @@ public class AbcScriptRunnerTests {
         final Json testVectors = Json.parse(IoUtil.getResource("/abc_test_vectors.json"));
 
         final MutableTransaction transactionBeingSpent = new MutableTransaction();
-        transactionBeingSpent.setVersion(Transaction.VERSION);
+        transactionBeingSpent.setVersion(1L);
         transactionBeingSpent.setLockTime(LockTime.MIN_TIMESTAMP);
         { // TransactionInput...
             final MutableTransactionInput transactionInput = new MutableTransactionInput();
@@ -302,7 +321,7 @@ public class AbcScriptRunnerTests {
         }
 
         final MutableTransaction transaction = new MutableTransaction();
-        transaction.setVersion(Transaction.VERSION);
+        transaction.setVersion(1L);
         transaction.setLockTime(LockTime.MIN_TIMESTAMP);
         final MutableTransactionInput transactionInput = new MutableTransactionInput();
         {
@@ -388,25 +407,19 @@ public class AbcScriptRunnerTests {
                 }
 
                 final int[] skippedTestIndices = new int[] {
-                    1189, 1190, 1191, 1192, 1193, 1196, 1197, // The test harness has no viable way to turn off NULLFAIL while enabling CHECKDATASIG...
-                    1201, // Requires CHECKDATASIG with STRICTENC disabled...
-                    1267, // Has an invalid public key...  Not sure why script is supposed to abort...
-                    1275, // Signature R is negative, with DERSIG flag enabled...  Unsure why this wouldn't fail...
-                    1287, // 2nd Public key is not strictly encoded but STRICTENC is set...
-                    1307, 1312, // Uses a non-BCH hashType after the BCH HF...
-                    1315, // Attempts to require that no forkId is set if ForkId is enabled, but ForkId is always enabled in practice.
+                    1203, // Requires CHECKDATASIG with STRICTENC disabled...
+                    1317, // Attempts to require that no forkId is set if ForkId is enabled, but ForkId is always enabled in practice.
 
                     // Tests are specific to the ABC feature-flag mechanisms.
                     // Bitcoin Verde does not implement the same feature-flags mechanism as ABC, and therefore STRICTENC cannot be disabled with CHECKDATASIG.
                     // In practice, STRICTENC is always enabled when CHECKDATASIG is enabled.
                     // Example tests include attempting to allow invalid signature (High S), or bad DER signature, in combination with CHECKDATASIG and now LOW_S/STRICTENC/etc flags.
-                    1322, 1324, 1326, 1328, 1333, 1334, 1336, 1338,
-                    1352, 1354, 1356, 1358, 1364, 1366, 1368,
+                    1324, 1326, 1328, 1330, 1336, 1338, 1340,
+                    1354, 1356, 1358, 1360, 1366, 1368, 1370,
 
                     // Tests are schnorr signatures with STRICTENC, but also does not use Bitcoin Cash HashType...
-                    1377, 1378, 1379, 1380, 1387, 1388, 1389,
-                    1530, 1531, 1532, 1534, 1536, // Attempts to mix DERSIG/NULLFAIL/STRICTENC/NULLDUMMY flags in unsupported combinations...
-                    1539, 1541, // Cannot disable FORKID without STRICTENC...
+                    1532, 1533, 1534, 1536, 1538, // Attempts to mix DERSIG/NULLFAIL/STRICTENC/NULLDUMMY flags in unsupported combinations...
+                    1541, 1543, // Cannot disable FORKID without STRICTENC...
                 };
                 for (final int skippedTestIndex : skippedTestIndices) {
                     if (i == skippedTestIndex) {
@@ -475,17 +488,16 @@ public class AbcScriptRunnerTests {
                 context.setBlockHeight(Math.max(556767L, context.getBlockHeight()));
             }
 
-            BitcoinReflectionUtil.setStaticValue(ScriptSignature.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
-            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "FAIL_ON_BAD_SIGNATURE_ENABLED", flagsString.contains("NULLFAIL"));
-            BitcoinReflectionUtil.setStaticValue(CryptographicOperation.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "SCHNORR_IS_ENABLED", flagsString.contains("SCHNORR"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "FAIL_ON_BAD_SIGNATURE", flagsString.contains("NULLFAIL"));
+            BitcoinReflectionUtil.setStaticValue(BitcoinConstants.class, "REQUIRE_BITCOIN_CASH_FORK_ID", flagsString.contains("SIGHASH_FORKID"));
 
             final boolean wasValid = scriptRunner.runScript(lockingScript, unlockingScript, context);
-            // 1530
 
             executedCount += 1;
 
             final boolean expectedResult = Util.areEqual("OK", expectedResultString);
-            // Assert.assertEquals(expectedResult, wasValid);
+
             if (! Util.areEqual(expectedResult, wasValid)) {
                 failCount += 1;
                 System.out.println("FAILED: " + i);

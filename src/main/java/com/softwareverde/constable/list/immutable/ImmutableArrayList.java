@@ -80,7 +80,13 @@ public class ImmutableArrayList<T> implements List<T>, Const {
 
     @Override
     public int indexOf(final T item) {
-        return 0;
+        for (int i = 0; i < _items.length; ++i) {
+            if (Util.areEqual(_items[i], item)) {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     @Override

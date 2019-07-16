@@ -785,6 +785,10 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
         for (final Row row : rows) {
             final BlockId blockId = BlockId.wrap(row.getLong("id"));
 
+            if (blockchainSegmentId == null) {
+                return blockId;
+            }
+
             final Boolean blockIsConnectedToChain = _isBlockConnectedToChain(blockId, blockchainSegmentId, BlockRelationship.ANY);
             if (blockIsConnectedToChain) {
                 return blockId;
