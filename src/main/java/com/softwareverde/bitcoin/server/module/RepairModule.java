@@ -102,7 +102,9 @@ public class RepairModule {
             final ThreadPoolFactory threadPoolFactory = new ThreadPoolFactory() {
                 @Override
                 public ThreadPool newThreadPool() {
-                    return new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
+                    final ThreadPoolThrottle threadPoolThrottle = new ThreadPoolThrottle(bitcoinProperties.getMaxMessagesPerSecond(), _threadPool);
+                    threadPoolThrottle.start();
+                    return threadPoolThrottle;
                 }
             };
 
