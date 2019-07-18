@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.header.difficulty.work.ChainWork;
 import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
@@ -203,6 +204,11 @@ public class BlockHeaderDownloader extends SleepyService {
             final BatchedBlockHeaders batchedBlockHeaders = new BatchedBlockHeaders(blockHeaders.getSize());
 
             final BlockId firstBlockHeaderId = blockIds.get(0);
+
+            final BlockId parentBlockId = blockHeaderDatabaseManager.getAncestorBlockId(firstBlockHeaderId, 1);
+            final ChainWork currentChainWork = blockHeaderDatabaseManager.getChainWork(parentBlockId);
+            batchedBlockHeaders.setCurrentChainWork(currentChainWork);
+
             long validationBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockHeaderId);
             for (final BlockHeader blockHeader : blockHeaders) {
                 batchedBlockHeaders.put(validationBlockHeight, blockHeader);
