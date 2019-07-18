@@ -6,8 +6,12 @@ import com.softwareverde.bitcoin.server.module.node.database.node.BitcoinNodeDat
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.ip.Ip;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class BanFilter {
+    protected static final Long MISBEHAVING_TIME_SPAN = (60L * 60L);
+
+    protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManagerFactory _databaseManagerFactory;
 
     public BanFilter(final DatabaseManagerFactory databaseManagerFactory) {
@@ -18,7 +22,9 @@ public class BanFilter {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            return nodeDatabaseManager.isBanned(ip);
+            final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - MISBEHAVING_TIME_SPAN);
+
+            return nodeDatabaseManager.isBanned(ip, sinceTimestamp);
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -30,7 +36,9 @@ public class BanFilter {
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BitcoinNodeDatabaseManager nodeDatabaseManager = databaseManager.getNodeDatabaseManager();
 
-            final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip);
+            final Long sinceTimestamp = (_systemTime.getCurrentTimeInSeconds() - MISBEHAVING_TIME_SPAN);
+
+            final Integer failedConnectionCount = nodeDatabaseManager.getFailedConnectionCountForIp(ip, sinceTimestamp);
             return (failedConnectionCount >= BitcoinNodeManager.BanCriteria.FAILED_CONNECTION_ATTEMPT_COUNT);
         }
         catch (final DatabaseException exception) {

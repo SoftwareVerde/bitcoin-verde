@@ -104,9 +104,9 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
                     .setParameter(port)
             );
 
-            if (rows.isEmpty()) {
-                final Long now = _systemTime.getCurrentTimeInSeconds();
+            final Long now = _systemTime.getCurrentTimeInSeconds();
 
+            if (rows.isEmpty()) {
                 databaseConnection.executeSql(
                     new Query("INSERT INTO nodes (host_id, port, first_seen_timestamp, last_seen_timestamp, user_agent) VALUES (?, ?, ?, ?, ?)")
                         .setParameter(hostId)
@@ -121,7 +121,8 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
                 final Long nodeId = row.getLong("id");
 
                 databaseConnection.executeSql(
-                    new Query("UPDATE nodes SET connection_count = (connection_count + 1) WHERE id = ?")
+                    new Query("UPDATE nodes SET connection_count = (connection_count + 1), last_seen_timestamp = ? WHERE id = ?")
+                        .setParameter(now)
                         .setParameter(nodeId)
                 );
             }
@@ -280,6 +281,21 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         return row.getInteger("failed_connection_count");
     }
 
+    @Override
+    public Integer getFailedConnectionCountForIp(final Ip ip, final Long sinceTimestamp) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT SUM(nodes.connection_count) AS failed_connection_count FROM nodes INNER JOIN hosts ON hosts.id = nodes.host_id WHERE hosts.host = ? AND nodes.last_handshake_timestamp IS NULL AND nodes.last_seen_timestamp >= ? GROUP BY hosts.id")
+                .setParameter(ip)
+                .setParameter(sinceTimestamp)
+        );
+        if (rows.isEmpty()) { return 0; }
+
+        final Row row = rows.get(0);
+        return row.getInteger("failed_connection_count");
+    }
+
     /**
      * Marks all nodes at the Node's ip as banned/unbanned--regardless of their port.
      */
@@ -317,6 +333,24 @@ public class SpvBitcoinNodeDatabaseManager implements BitcoinNodeDatabaseManager
         final java.util.List<Row> rows = databaseConnection.query(
             new Query("SELECT is_banned FROM hosts WHERE host = ?")
                 .setParameter(ip)
+        );
+
+        if (rows.isEmpty()) { return false; }
+
+        final Row row = rows.get(0);
+        final Boolean isBanned = row.getBoolean("is_banned");
+
+        return isBanned;
+    }
+
+    @Override
+    public Boolean isBanned(final Ip ip, final Long sinceTimestamp) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT is_banned FROM hosts WHERE host = ? AND banned_timestamp >= ?")
+                .setParameter(ip)
+                .setParameter(sinceTimestamp)
         );
 
         if (rows.isEmpty()) { return false; }

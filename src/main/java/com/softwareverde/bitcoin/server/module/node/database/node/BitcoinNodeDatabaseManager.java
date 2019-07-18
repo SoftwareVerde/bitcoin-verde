@@ -19,6 +19,8 @@ public interface BitcoinNodeDatabaseManager {
     List<BitcoinNodeIpAddress> findNodes(List<NodeFeatures.Feature> requiredFeatures, Integer maxCount) throws DatabaseException;
     List<BitcoinNodeIpAddress> findNodes(Integer maxCount) throws DatabaseException;
     Integer getFailedConnectionCountForIp(Ip ip) throws DatabaseException;
+    Integer getFailedConnectionCountForIp(Ip ip, Long sinceTimestamp) throws DatabaseException;
     void setIsBanned(Ip ip, Boolean isBanned) throws DatabaseException;
     Boolean isBanned(Ip ip) throws DatabaseException;
+    Boolean isBanned(Ip ip, final Long sinceTimestamp) throws DatabaseException;
 }
