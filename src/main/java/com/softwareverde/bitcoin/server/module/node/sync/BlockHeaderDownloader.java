@@ -28,7 +28,7 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
-    private final BlockValidatorFactory _blockValidatorFactory;
+    protected final BlockValidatorFactory _blockValidatorFactory;
     protected final MutableMedianBlockTime _medianBlockTime;
     protected final BlockDownloadRequester _blockDownloadRequester;
     protected final ThreadPool _threadPool;

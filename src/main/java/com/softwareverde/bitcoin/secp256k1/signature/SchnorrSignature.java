@@ -2,7 +2,6 @@ package com.softwareverde.bitcoin.secp256k1.signature;
 
 import com.softwareverde.bitcoin.util.ByteUtil;
 import com.softwareverde.constable.bytearray.ByteArray;
-import com.softwareverde.constable.bytearray.ImmutableByteArray;
 import com.softwareverde.constable.bytearray.MutableByteArray;
 
 public class SchnorrSignature implements Signature {

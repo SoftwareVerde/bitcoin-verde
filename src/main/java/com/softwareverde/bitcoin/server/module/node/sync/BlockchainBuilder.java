@@ -34,7 +34,6 @@ import com.softwareverde.util.Util;
 
 public class BlockchainBuilder extends SleepyService {
     public interface NewBlockProcessedCallback {
-
         void onNewBlock(Long blockHeight, Block block);
     }
 
