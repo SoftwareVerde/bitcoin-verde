@@ -555,6 +555,8 @@ public class SpvModule {
                 }
             };
 
+            nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
             _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
 
