@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.server.module.node.sync;
 import com.softwareverde.bitcoin.block.Block;
 import com.softwareverde.bitcoin.block.BlockId;
 import com.softwareverde.bitcoin.block.header.BlockHeader;
+import com.softwareverde.bitcoin.block.validator.BatchedBlockHeaders;
 import com.softwareverde.bitcoin.block.validator.BlockHeaderValidator;
 import com.softwareverde.bitcoin.chain.time.MutableMedianBlockTime;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
@@ -14,7 +15,6 @@ import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
 import com.softwareverde.concurrent.pool.ThreadPool;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
-import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
@@ -22,6 +22,8 @@ import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.type.time.SystemTime;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BlockHeaderDownloader extends SleepyService {
     public static final Long MAX_TIMEOUT_MS = (15L * 1000L); // 15 Seconds...
@@ -37,6 +39,7 @@ public class BlockHeaderDownloader extends SleepyService {
     protected final Container<Float> _averageBlockHeadersPerSecond = new Container<Float>(0F);
 
     protected final Object _headersDownloadedPin = new Object();
+    protected final AtomicBoolean _isProcessingHeaders = new AtomicBoolean(false);
     protected final Object _genesisBlockPin = new Object();
     protected Boolean _hasGenesisBlock = false;
 
@@ -190,21 +193,27 @@ public class BlockHeaderDownloader extends SleepyService {
             final BlockHeaderValidator blockValidator = new BlockHeaderValidator(databaseManager, _nodeManager.getNetworkTime(), _medianBlockTime);
 
             TransactionUtil.startTransaction(databaseConnection);
+
             final List<BlockId> blockIds = blockHeaderDatabaseManager.insertBlockHeaders(blockHeaders, _maxHeaderBatchSize);
-            if (blockIds == null) {
+            if ( (blockIds == null) || (blockIds.isEmpty()) ) {
                 TransactionUtil.rollbackTransaction(databaseConnection);
                 return false;
             }
 
-            for (final BlockHeader blockHeader : blockHeaders) {
-                final Sha256Hash blockHash = blockHeader.getHash();
+            final BatchedBlockHeaders batchedBlockHeaders = new BatchedBlockHeaders(blockHeaders.getSize());
 
-                final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeader(blockHeader);
-                if (!blockHeaderValidationResponse.isValid) {
-                    Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage + " (" + blockHash + ")");
-                    TransactionUtil.rollbackTransaction(databaseConnection);
-                    return false;
-                }
+            final BlockId firstBlockHeaderId = blockIds.get(0);
+            long validationBlockHeight = blockHeaderDatabaseManager.getBlockHeight(firstBlockHeaderId);
+            for (final BlockHeader blockHeader : blockHeaders) {
+                batchedBlockHeaders.put(validationBlockHeight, blockHeader);
+                validationBlockHeight += 1L;
+            }
+
+            final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockValidator.validateBlockHeaders(batchedBlockHeaders);
+            if (! blockHeaderValidationResponse.isValid) {
+                Logger.log("Invalid BlockHeader: " + blockHeaderValidationResponse.errorMessage);
+                TransactionUtil.rollbackTransaction(databaseConnection);
+                return false;
             }
 
             final BlockId lastBlockId = blockIds.get(blockIds.getSize() - 1);
@@ -225,33 +234,29 @@ public class BlockHeaderDownloader extends SleepyService {
         Logger.log("DOWNLOADED BLOCK HEADERS: "+ firstBlockHeader.getHash() + " + " + blockHeaders.getSize());
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final Boolean headersAreValid = _validateAndStoreBlockHeaders(blockHeaders, databaseManager);
+            if (! headersAreValid) { return; }
+
             for (final BlockHeader blockHeader : blockHeaders) {
                 final Sha256Hash blockHash = blockHeader.getHash();
 
-                final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
-                final Boolean blockAlreadyExists = blockHeaderDatabaseManager.blockHeaderExists(blockHash);
-                if (! blockAlreadyExists) {
-                    final Boolean blockHeaderWasStored = _validateAndStoreBlockHeader(blockHeader, databaseManager);
-                    if (! blockHeaderWasStored) { continue; }
-
-                    _threadPool.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (_blockDownloadRequester != null) {
-                                _blockDownloadRequester.requestBlock(blockHeader);
-                            }
+                _threadPool.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (_blockDownloadRequester != null) {
+                            _blockDownloadRequester.requestBlock(blockHeader);
                         }
-                    });
-
-                    _blockHeaderCount += 1L;
-                    _timer.stop();
-                    final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
-                    _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
-                }
+                    }
+                });
 
                 _lastBlockHash = blockHash;
                 _lastBlockHeader = blockHeader;
             }
+
+            _blockHeaderCount += blockHeaders.getSize();
+            _timer.stop();
+            final Long millisecondsElapsed = _timer.getMillisecondsElapsed();
+            _averageBlockHeadersPerSecond.value = ( (_blockHeaderCount.floatValue() / millisecondsElapsed) * 1000L );
         }
         catch (final DatabaseException exception) {
             Logger.log(exception);
@@ -274,40 +279,25 @@ public class BlockHeaderDownloader extends SleepyService {
         _downloadBlockHeadersCallback = new BitcoinNodeManager.DownloadBlockHeadersCallback() {
             @Override
             public void onResult(final List<BlockHeader> blockHeaders) {
-                final int blockHeadersCount = blockHeaders.getSize();
+                if (! _isProcessingHeaders.compareAndSet(false, true)) { return; }
 
-                int lastBatchIndex = 0;
-                while (lastBatchIndex < blockHeadersCount) {
-
-                    final List<BlockHeader> blockHeadersBatch;
-                    {
-                        if (_maxHeaderBatchSize >= blockHeadersCount) {
-                            blockHeadersBatch = blockHeaders;
-                            lastBatchIndex = blockHeadersCount;
-                        }
-                        else {
-                            final MutableList<BlockHeader> batch = new MutableList<BlockHeader>(_maxHeaderBatchSize);
-                            for (int i = 0; i < _maxHeaderBatchSize; ++i) {
-                                if (lastBatchIndex >= blockHeadersCount) { break; }
-
-                                final BlockHeader blockHeader = blockHeaders.get(lastBatchIndex);
-                                batch.add(blockHeader);
-                                lastBatchIndex += 1;
-                            }
-                            blockHeadersBatch = batch;
-                        }
-                    }
-
-                    _processBlockHeaders(blockHeadersBatch);
+                try {
+                    _processBlockHeaders(blockHeaders);
 
                     final Runnable newBlockHeaderAvailableCallback = _newBlockHeaderAvailableCallback;
                     if (newBlockHeaderAvailableCallback != null) {
                         _threadPool.execute(newBlockHeaderAvailableCallback);
                     }
                 }
+                finally {
+                    _isProcessingHeaders.set(false);
+                    synchronized (_isProcessingHeaders) {
+                        _isProcessingHeaders.notifyAll();
+                    }
 
-                synchronized (_headersDownloadedPin) {
-                    _headersDownloadedPin.notifyAll();
+                    synchronized (_headersDownloadedPin) {
+                        _headersDownloadedPin.notifyAll();
+                    }
                 }
             }
 
@@ -362,14 +352,28 @@ public class BlockHeaderDownloader extends SleepyService {
             final MilliTimer timer = new MilliTimer();
             timer.start();
 
+            final boolean didTimeout;
+
             try { _headersDownloadedPin.wait(MAX_TIMEOUT_MS); }
             catch (final InterruptedException exception) { return false; }
 
-            timer.stop();
-            if (timer.getMillisecondsElapsed() >= MAX_TIMEOUT_MS) {
+            // If the _headersDownloadedPin timed out because processing the headers took too long, wait for the processing to complete and then consider it a success.
+            synchronized (_isProcessingHeaders) {
+                if (_isProcessingHeaders.get()) {
+                    try { _isProcessingHeaders.wait(); }
+                    catch (final InterruptedException exception) { return false; }
+
+                    didTimeout = false;
+                }
+                else {
+                    timer.stop();
+                    didTimeout = (timer.getMillisecondsElapsed() >= MAX_TIMEOUT_MS);
+                }
+            }
+
+            if (didTimeout) {
                 // The lastBlockHeader may be null when first starting.
-                // If the first batch fails, then allow for the Downloader to sleep, regardless of minBlockHeight.
-                if (_lastBlockHeader == null) { return false; }
+                if (_lastBlockHeader == null) { return true; }
 
                 // Don't sleep after a timeout while the most recent block timestamp is less than the minBlockTimestamp...
                 return (_lastBlockHeader.getTimestamp() < _minBlockTimestamp);

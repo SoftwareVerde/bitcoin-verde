@@ -13,7 +13,10 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
+import com.softwareverde.util.timer.MilliTimer;
 import com.softwareverde.util.timer.NanoTimer;
+
+import java.util.HashMap;
 
 public class BlockHeaderValidator {
     public static class BlockHeaderValidationResponse {
@@ -58,13 +61,10 @@ public class BlockHeaderValidator {
         }
     }
 
-    protected BlockHeaderValidationResponse _validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
+    protected BlockHeaderValidationResponse _validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight, final BatchedBlockHeaders batchedBlockHeaders) {
         if (! blockHeader.isValid()) {
             return BlockHeaderValidationResponse.invalid("Block header is invalid.");
         }
-
-        final NanoTimer validateBlockTimer = new NanoTimer();
-        validateBlockTimer.start();
 
         { // Validate Block Timestamp...
             final Long blockTime = blockHeader.getTimestamp();
@@ -96,7 +96,7 @@ public class BlockHeaderValidator {
         }
 
         { // Validate block (calculated) difficulty...
-            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseManager);
+            final DifficultyCalculator difficultyCalculator = new DifficultyCalculator(_databaseManager, batchedBlockHeaders);
             final Difficulty calculatedRequiredDifficulty = difficultyCalculator.calculateRequiredDifficulty(blockHeader);
             if (calculatedRequiredDifficulty == null) {
                 return BlockHeaderValidationResponse.invalid("Unable to calculate required difficulty for block: " + blockHeader.getHash());
@@ -107,9 +107,6 @@ public class BlockHeaderValidator {
                 return BlockHeaderValidationResponse.invalid("Invalid difficulty for block " + blockHeader.getHash() + ". Required: " + calculatedRequiredDifficulty.encode() + " Found: " + blockHeader.getDifficulty().encode());
             }
         }
-
-        validateBlockTimer.stop();
-        // Logger.log("Validated Block Header in "+ (validateBlockTimer.getMillisecondsElapsed()) + "ms.");
 
         return BlockHeaderValidationResponse.valid();
     }
@@ -134,10 +131,20 @@ public class BlockHeaderValidator {
             return BlockHeaderValidationResponse.invalid("An internal error occurred.");
         }
 
-        return _validateBlockHeader(blockHeader, blockHeight);
+        return _validateBlockHeader(blockHeader, blockHeight, null);
+    }
+
+    public BlockHeaderValidationResponse validateBlockHeaders(final BatchedBlockHeaders batchedBlockHeaders) {
+        for (long blockHeight = batchedBlockHeaders.getStartingBlockHeight(); blockHeight < batchedBlockHeaders.getEndBlockHeight(); blockHeight += 1L) {
+            final BlockHeader blockHeader = batchedBlockHeaders.getBlockHeader(blockHeight);
+            final BlockHeaderValidationResponse blockHeaderValidationResponse = _validateBlockHeader(blockHeader, blockHeight, batchedBlockHeaders);
+            if (! blockHeaderValidationResponse.isValid) { return blockHeaderValidationResponse; }
+        }
+
+        return BlockHeaderValidationResponse.valid();
     }
 
     public BlockHeaderValidationResponse validateBlockHeader(final BlockHeader blockHeader, final Long blockHeight) {
-        return _validateBlockHeader(blockHeader, blockHeight);
+        return _validateBlockHeader(blockHeader, blockHeight, null);
     }
 }

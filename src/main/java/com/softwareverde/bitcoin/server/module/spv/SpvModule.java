@@ -577,7 +577,7 @@ public class SpvModule {
 
         { // Initialize BlockHeaderDownloader...
             _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, medianBlockHeaderTime, null, _mainThreadPool);
-            _blockHeaderDownloader.setMaxHeaderBatchSize(256);
+            _blockHeaderDownloader.setMaxHeaderBatchSize(100);
             _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
 
