@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.secp256k1.Schnorr;
 import com.softwareverde.bitcoin.secp256k1.Secp256k1;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
+import com.softwareverde.bitcoin.server.main.BitcoinConstants;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
 import com.softwareverde.bitcoin.transaction.script.Script;
@@ -31,9 +32,6 @@ import com.softwareverde.util.bytearray.ByteArrayReader;
 public class CryptographicOperation extends SubTypedOperation {
     public static final Type TYPE = Type.OP_CRYPTOGRAPHIC;
     public static final Integer MAX_MULTI_SIGNATURE_PUBLIC_KEY_COUNT = 20;
-
-    public static final Boolean FAIL_ON_BAD_SIGNATURE_ENABLED = true; // "NULLFAIL"
-    public static final Boolean REQUIRE_BITCOIN_CASH_FORK_ID = true; // "SIGHASH_FORKID" / "SCRIPT_ENABLE_SIGHASH_FORKID"
 
     public static final CryptographicOperation RIPEMD_160                       = new CryptographicOperation(Opcode.RIPEMD_160.getValue(),                          Opcode.RIPEMD_160);
     public static final CryptographicOperation SHA_1                            = new CryptographicOperation(Opcode.SHA_1.getValue(),                               Opcode.SHA_1);
@@ -101,7 +99,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (hashType.getMode() == null) { return false; }
             if (hashType.hasUnknownFlags()) { return false; }
 
-            if (REQUIRE_BITCOIN_CASH_FORK_ID) {
+            if (BitcoinConstants.requireBitcoinCashForkId()) {
                 if (! hashType.isBitcoinCashType()) { return false; }
             }
         }
@@ -197,7 +195,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signatureIsValid) { return false; }
         }
         else {
-            if (FAIL_ON_BAD_SIGNATURE_ENABLED) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (BitcoinConstants.immediatelyFailOnNonEmptyInvalidSignatures()) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if (HF20171113.isEnabled(blockHeight)) {
                     if ((! signatureIsValid) && (! signatureValue.isEmpty())) { return false; }
                 }
@@ -336,7 +334,7 @@ public class CryptographicOperation extends SubTypedOperation {
             if (! signaturesAreValid) { return false; }
         }
         else {
-            if (FAIL_ON_BAD_SIGNATURE_ENABLED) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
+            if (BitcoinConstants.immediatelyFailOnNonEmptyInvalidSignatures()) { // Enforce NULLFAIL... (https://github.com/bitcoin/bips/blob/master/bip-0146.mediawiki#nullfail)
                 if (HF20171113.isEnabled(blockHeight)) {
                     if ((! signaturesAreValid) && (! allSignaturesWereEmpty)) { return false; }
                 }
@@ -394,7 +392,7 @@ public class CryptographicOperation extends SubTypedOperation {
             signatureIsValid = false;
         }
 
-        if (FAIL_ON_BAD_SIGNATURE_ENABLED) {
+        if (BitcoinConstants.immediatelyFailOnNonEmptyInvalidSignatures()) {
             if ( (! signatureIsValid) && (! signatureValue.isEmpty()) ) { return false; } // Enforce NULLFAIL...
         }
 

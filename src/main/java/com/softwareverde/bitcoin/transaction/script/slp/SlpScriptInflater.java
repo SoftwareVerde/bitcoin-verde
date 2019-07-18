@@ -74,7 +74,7 @@ public class SlpScriptInflater {
         return _getScriptType(lockingScript);
     }
 
-    public static Sha256Hash getTokenId(final LockingScript lockingScript) {
+    public static SlpTokenId getTokenId(final LockingScript lockingScript) {
         if (! _matchesSlpFormat(lockingScript)) { return null; }
         return _getTokenId(lockingScript);
     }

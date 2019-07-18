@@ -22,10 +22,12 @@ import com.softwareverde.io.Logger;
 import com.softwareverde.util.Container;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+import com.softwareverde.util.type.time.SystemTime;
 
 public class BlockHeaderDownloader extends SleepyService {
-    public static final Long MAX_TIMEOUT_MS = 300000L;
+    public static final Long MAX_TIMEOUT_MS = (15L * 1000L); // 15 Seconds...
 
+    protected final SystemTime _systemTime = new SystemTime();
     protected final DatabaseManagerFactory _databaseManagerFactory;
     protected final BitcoinNodeManager _nodeManager;
     protected final BlockValidatorFactory _blockValidatorFactory;
@@ -44,6 +46,8 @@ public class BlockHeaderDownloader extends SleepyService {
 
     protected Long _blockHeight = 0L;
     protected Sha256Hash _lastBlockHash = BlockHeader.GENESIS_BLOCK_HASH;
+    protected BlockHeader _lastBlockHeader = null;
+    protected Long _minBlockTimestamp = (_systemTime.getCurrentTimeInSeconds() - 3600L); // Default to an hour ago...
     protected Long _blockHeaderCount = 0L;
 
     protected Runnable _newBlockHeaderAvailableCallback = null;
@@ -248,6 +252,7 @@ public class BlockHeaderDownloader extends SleepyService {
                 }
 
                 _lastBlockHash = blockHash;
+                _lastBlockHeader = blockHeader;
             }
         }
         catch (final DatabaseException exception) {
@@ -364,7 +369,14 @@ public class BlockHeaderDownloader extends SleepyService {
             catch (final InterruptedException exception) { return false; }
 
             timer.stop();
-            if (timer.getMillisecondsElapsed() >= MAX_TIMEOUT_MS) { return false; }
+            if (timer.getMillisecondsElapsed() >= MAX_TIMEOUT_MS) {
+                // The lastBlockHeader may be null when first starting.
+                // If the first batch fails, then allow for the Downloader to sleep, regardless of minBlockHeight.
+                if (_lastBlockHeader == null) { return false; }
+
+                // Don't sleep after a timeout while the most recent block timestamp is less than the minBlockTimestamp...
+                return (_lastBlockHeader.getTimestamp() < _minBlockTimestamp);
+            }
         }
 
         return true;
@@ -375,6 +387,15 @@ public class BlockHeaderDownloader extends SleepyService {
 
     public void setNewBlockHeaderAvailableCallback(final Runnable newBlockHeaderAvailableCallback) {
         _newBlockHeaderAvailableCallback = newBlockHeaderAvailableCallback;
+    }
+
+    /**
+     * Sets the minimum expected block timestamp (in seconds).
+     *  The BlockHeaderDownloader will not go to sleep (unless interrupted) before its most recent blockHeader's
+     *  timestamp is at least the minBlockTimestamp.
+     */
+    public void setMinBlockTimestamp(final Long minBlockTimestampInSeconds) {
+        _minBlockTimestamp = minBlockTimestampInSeconds;
     }
 
     public Container<Float> getAverageBlockHeadersPerSecondContainer() {

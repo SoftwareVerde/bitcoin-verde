@@ -413,6 +413,8 @@ public class NodeModule {
                 }
             };
 
+            nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
             _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
 

@@ -64,7 +64,7 @@ public class QueryBlocksMessage extends BitcoinProtocolMessage {
         final byte[] blockHeaderCountBytes = ByteUtil.variableLengthIntegerToBytes(blockHeaderCount);
         final byte[] blockHeaderHashesBytes = new byte[blockHeaderHashByteCount * blockHeaderCount];
 
-        for (int i=0; i<blockHeaderCount; ++i) {
+        for (int i = 0; i < blockHeaderCount; ++i) {
             final Sha256Hash blockHeaderHash = _blockHeaderHashes.get(_blockHeaderHashes.getSize() - i - 1);
             final int startIndex = (blockHeaderHashByteCount * i);
             ByteUtil.setBytes(blockHeaderHashesBytes, blockHeaderHash.getBytes(), startIndex);

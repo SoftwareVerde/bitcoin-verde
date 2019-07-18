@@ -555,6 +555,8 @@ public class SpvModule {
                 }
             };
 
+            nodeInitializerProperties.binaryPacketFormat = BitcoinProtocolMessage.BINARY_PACKET_FORMAT;
+
             _nodeInitializer = new NodeInitializer(nodeInitializerProperties);
         }
 
@@ -582,6 +584,7 @@ public class SpvModule {
             final BlockValidatorFactory blockValidatorFactory = new BlockValidatorFactoryCore();
             _blockHeaderDownloader = new BlockHeaderDownloader(databaseManagerFactory, _bitcoinNodeManager, blockValidatorFactory, medianBlockHeaderTime, null, _mainThreadPool);
             _blockHeaderDownloader.setMaxHeaderBatchSize(256);
+            _blockHeaderDownloader.setMinBlockTimestamp(_systemTime.getCurrentTimeInSeconds());
         }
 
         final LocalDatabaseManagerCache localDatabaseCache = new LocalDatabaseManagerCache(_masterDatabaseManagerCache);
@@ -621,6 +624,8 @@ public class SpvModule {
             _bitcoinNodeManager.setBloomFilter(bloomFilter);
         }
 
+        _loadDownloadedTransactionsIntoWallet();
+
         _isInitialized = true;
         synchronized (_initPin) {
             _initPin.notifyAll();
@@ -638,8 +643,6 @@ public class SpvModule {
     public void loop() {
         _waitForInit();
         _setStatus(Status.ONLINE);
-
-        _loadDownloadedTransactionsIntoWallet();
 
         if ( (! _bitcoinNodeManager.hasBloomFilter()) && (_wallet.hasPrivateKeys()) ) {
             final MutableBloomFilter bloomFilter = _wallet.generateBloomFilter();

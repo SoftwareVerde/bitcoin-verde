@@ -84,14 +84,4 @@ public class PendingRequestsManager<NODE> extends SleepyService {
         }
         _pendingRequests.clear();
     }
-
-    @Override
-    public void start() {
-        super.start();
-    }
-
-    @Override
-    public void stop() {
-        super.stop();
-    }
 }
