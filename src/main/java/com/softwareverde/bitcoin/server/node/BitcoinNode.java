@@ -12,7 +12,9 @@ import com.softwareverde.bitcoin.callback.Callback;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.State;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.clear.ClearTransactionBloomFilterMessage;
 import com.softwareverde.bitcoin.server.message.type.bloomfilter.set.SetTransactionBloomFilterMessage;
@@ -256,6 +258,7 @@ public class BitcoinNode extends Node {
     protected final Map<Sha256Hash, Set<DownloadExtraThinBlockCallback>> _downloadExtraThinBlockRequests = new HashMap<Sha256Hash, Set<DownloadExtraThinBlockCallback>>();
     protected final Map<Sha256Hash, Set<DownloadThinTransactionsCallback>> _downloadThinTransactionsRequests = new HashMap<Sha256Hash, Set<DownloadThinTransactionsCallback>>();
 
+    protected final BitcoinProtocolMessageFactory _protocolMessageFactory;
     protected final LocalNodeFeatures _localNodeFeatures;
 
     protected Boolean _announceNewBlocksViaHeadersIsEnabled = false;
@@ -282,12 +285,12 @@ public class BitcoinNode extends Node {
 
     @Override
     protected PingMessage _createPingMessage() {
-        return new BitcoinPingMessage();
+        return _protocolMessageFactory.newPingMessage();
     }
 
     @Override
     protected PongMessage _createPongMessage(final PingMessage pingMessage) {
-        final BitcoinPongMessage pongMessage = new BitcoinPongMessage();
+        final BitcoinPongMessage pongMessage = _protocolMessageFactory.newPongMessage();
         pongMessage.setNonce(pingMessage.getNonce());
         return pongMessage;
     }
@@ -348,7 +351,7 @@ public class BitcoinNode extends Node {
 
     @Override
     protected SynchronizeVersionMessage _createSynchronizeVersionMessage() {
-        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = new BitcoinSynchronizeVersionMessage();
+        final BitcoinSynchronizeVersionMessage synchronizeVersionMessage = _protocolMessageFactory.newSynchronizeVersionMessage();
 
         final NodeFeatures nodeFeatures = _localNodeFeatures.getNodeFeatures();
         synchronizeVersionMessage.setNodeFeatures(nodeFeatures);
@@ -373,12 +376,12 @@ public class BitcoinNode extends Node {
 
     @Override
     protected AcknowledgeVersionMessage _createAcknowledgeVersionMessage(final SynchronizeVersionMessage synchronizeVersionMessage) {
-        return new BitcoinAcknowledgeVersionMessage();
+        return _protocolMessageFactory.newAcknowledgeVersionMessage();
     }
 
     @Override
     protected NodeIpAddressMessage _createNodeIpAddressMessage() {
-        return new BitcoinNodeIpAddressMessage();
+        return _protocolMessageFactory.newNodeIpAddressMessage();
     }
 
     protected void _initConnection() {
@@ -483,24 +486,29 @@ public class BitcoinNode extends Node {
     }
 
     public BitcoinNode(final String host, final Integer port, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
-        super(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool);
-        _localNodeFeatures = localNodeFeatures;
-
-        _defineRoutes();
-        _initConnection();
+        this(host, port, BitcoinProtocolMessage.BINARY_PACKET_FORMAT, threadPool, localNodeFeatures);
     }
 
-    public BitcoinNode(final String host, final Integer port, final BinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
+    public BitcoinNode(final String host, final Integer port, final BitcoinBinaryPacketFormat binaryPacketFormat, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(host, port, binaryPacketFormat, threadPool);
         _localNodeFeatures = localNodeFeatures;
 
+        _protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
+
         _defineRoutes();
         _initConnection();
     }
 
+    /**
+     * Constructs a BitcoinNode from an already-connected BinarySocket.
+     *  The BinarySocket must have been created with a BitcoinProtocolMessageFactory.
+     */
     public BitcoinNode(final BinarySocket binarySocket, final ThreadPool threadPool, final LocalNodeFeatures localNodeFeatures) {
         super(binarySocket, threadPool);
         _localNodeFeatures = localNodeFeatures;
+
+        final BinaryPacketFormat binaryPacketFormat = _connection.getBinaryPacketFormat();
+        _protocolMessageFactory = (BitcoinProtocolMessageFactory) binaryPacketFormat.getProtocolMessageFactory();
 
         _defineRoutes();
         _initConnection();
@@ -866,7 +874,7 @@ public class BitcoinNode extends Node {
         if (requestPeersHandler == null) { return; }
 
         final List<BitcoinNodeIpAddress> connectedPeers = requestPeersHandler.getConnectedPeers();
-        final BitcoinNodeIpAddressMessage nodeIpAddressMessage = new BitcoinNodeIpAddressMessage();
+        final BitcoinNodeIpAddressMessage nodeIpAddressMessage = _protocolMessageFactory.newNodeIpAddressMessage();
         for (final BitcoinNodeIpAddress nodeIpAddress : connectedPeers) {
             nodeIpAddressMessage.addAddress(nodeIpAddress);
         }
@@ -907,31 +915,31 @@ public class BitcoinNode extends Node {
     }
 
     protected void _queryForBlockHashesAfter(final Sha256Hash blockHash) {
-        final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+        final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         queryBlocksMessage.addBlockHash(blockHash);
         _queueMessage(queryBlocksMessage);
     }
 
     protected void _requestBlock(final Sha256Hash blockHash) {
-        final RequestDataMessage requestDataMessage = new RequestDataMessage();
+        final RequestDataMessage requestDataMessage = _protocolMessageFactory.newRequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.BLOCK, blockHash));
         _queueMessage(requestDataMessage);
     }
 
     protected void _requestMerkleBlock(final Sha256Hash blockHash) {
-        final RequestDataMessage requestDataMessage = new RequestDataMessage();
+        final RequestDataMessage requestDataMessage = _protocolMessageFactory.newRequestDataMessage();
         requestDataMessage.addInventoryItem(new InventoryItem(InventoryItemType.MERKLE_BLOCK, blockHash));
 
         final MutableList<BitcoinProtocolMessage> messages = new MutableList<BitcoinProtocolMessage>(2);
         messages.add(requestDataMessage);
-        messages.add(new BitcoinPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
+        messages.add(_protocolMessageFactory.newPingMessage()); // A ping message is sent to ensure the remote node responds with a non-transaction message (Pong) to close out the MerkleBlockMessage transmission.
         _queueMessages(messages);
     }
 
     protected void _requestThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
         final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.COMPACT_BLOCK, blockHash);
 
-        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = new RequestExtraThinBlockMessage();
+        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = _protocolMessageFactory.newRequestExtraThinBlockMessage();
         requestExtraThinBlockMessage.setInventoryItem(inventoryItem);
         requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
 
@@ -941,7 +949,7 @@ public class BitcoinNode extends Node {
     protected void _requestExtraThinBlock(final Sha256Hash blockHash, final BloomFilter knownTransactionsFilter) {
         final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.EXTRA_THIN_BLOCK, blockHash);
 
-        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = new RequestExtraThinBlockMessage();
+        final RequestExtraThinBlockMessage requestExtraThinBlockMessage = _protocolMessageFactory.newRequestExtraThinBlockMessage();
         requestExtraThinBlockMessage.setInventoryItem(inventoryItem);
         requestExtraThinBlockMessage.setBloomFilter(knownTransactionsFilter);
 
@@ -949,7 +957,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _requestThinTransactions(final Sha256Hash blockHash, final List<ByteArray> transactionShortHashes) {
-        final RequestExtraThinTransactionsMessage requestThinTransactionsMessage = new RequestExtraThinTransactionsMessage();
+        final RequestExtraThinTransactionsMessage requestThinTransactionsMessage = _protocolMessageFactory.newRequestExtraThinTransactionsMessage();
         requestThinTransactionsMessage.setBlockHash(blockHash);
         requestThinTransactionsMessage.setTransactionShortHashes(transactionShortHashes);
 
@@ -957,7 +965,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes) {
-        final RequestBlockHeadersMessage requestBlockHeadersMessage = new RequestBlockHeadersMessage();
+        final RequestBlockHeadersMessage requestBlockHeadersMessage = _protocolMessageFactory.newRequestBlockHeadersMessage();
         for (final Sha256Hash blockHash : blockHashes) {
             requestBlockHeadersMessage.addBlockHeaderHash(blockHash);
         }
@@ -965,7 +973,7 @@ public class BitcoinNode extends Node {
     }
 
     protected void _requestTransactions(final List<Sha256Hash> transactionHashes) {
-        final RequestDataMessage requestTransactionMessage = new RequestDataMessage();
+        final RequestDataMessage requestTransactionMessage = _protocolMessageFactory.newRequestDataMessage();
         for (final Sha256Hash transactionHash: transactionHashes) {
             requestTransactionMessage.addInventoryItem(new InventoryItem(InventoryItemType.TRANSACTION, transactionHash));
         }
@@ -973,7 +981,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlockFinder(final List<Sha256Hash> blockHashes) {
-        final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+        final QueryBlocksMessage queryBlocksMessage = _protocolMessageFactory.newQueryBlocksMessage();
         for (final Sha256Hash blockHash : blockHashes) {
             queryBlocksMessage.addBlockHash(blockHash);
         }
@@ -982,7 +990,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitTransaction(final Transaction transaction) {
-        final TransactionMessage transactionMessage = new TransactionMessage();
+        final TransactionMessage transactionMessage = _protocolMessageFactory.newTransactionMessage();
         transactionMessage.setTransaction(transaction);
         _queueMessage(transactionMessage);
     }
@@ -1041,7 +1049,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitTransactionHashes(final List<Sha256Hash> transactionHashes) {
-        final InventoryMessage inventoryMessage = new InventoryMessage();
+        final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash transactionHash : transactionHashes) {
             final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.TRANSACTION, transactionHash);
             inventoryMessage.addInventoryItem(inventoryItem);
@@ -1051,7 +1059,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlockHashes(final List<Sha256Hash> blockHashes) {
-        final InventoryMessage inventoryMessage = new InventoryMessage();
+        final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         for (final Sha256Hash blockHash : blockHashes) {
             final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, blockHash);
             inventoryMessage.addInventoryItem(inventoryItem);
@@ -1061,7 +1069,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlockHeader(final BlockHeader blockHeader, final Integer transactionCount) {
-        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+        final BlockHeadersMessage blockHeadersMessage = _protocolMessageFactory.newBlockHeadersMessage();
 
         final BlockHeaderWithTransactionCount blockHeaderWithTransactionCount = new ImmutableBlockHeaderWithTransactionCount(blockHeader, transactionCount);
         blockHeadersMessage.addBlockHeader(blockHeaderWithTransactionCount);
@@ -1070,19 +1078,19 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlockHeader(final BlockHeaderWithTransactionCount blockHeader) {
-        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+        final BlockHeadersMessage blockHeadersMessage = _protocolMessageFactory.newBlockHeadersMessage();
         blockHeadersMessage.addBlockHeader(blockHeader);
         _queueMessage(blockHeadersMessage);
     }
 
     public void setBloomFilter(final BloomFilter bloomFilter) {
-        final SetTransactionBloomFilterMessage bloomFilterMessage = new SetTransactionBloomFilterMessage();
+        final SetTransactionBloomFilterMessage bloomFilterMessage = _protocolMessageFactory.newSetTransactionBloomFilterMessage();
         bloomFilterMessage.setBloomFilter(bloomFilter);
         _queueMessage(bloomFilterMessage);
     }
 
     public void transmitBlockHeaders(final List<BlockHeader> blockHeaders) {
-        final BlockHeadersMessage blockHeadersMessage = new BlockHeadersMessage();
+        final BlockHeadersMessage blockHeadersMessage = _protocolMessageFactory.newBlockHeadersMessage();
         for (final BlockHeader blockHeader : blockHeaders) {
             blockHeadersMessage.addBlockHeader(blockHeader);
         }
@@ -1090,7 +1098,7 @@ public class BitcoinNode extends Node {
     }
 
     public void transmitBlock(final Block block) {
-        final BlockMessage blockMessage = new BlockMessage();
+        final BlockMessage blockMessage = _protocolMessageFactory.newBlockMessage();
         blockMessage.setBlock(block);
         _queueMessage(blockMessage);
     }
@@ -1100,7 +1108,7 @@ public class BitcoinNode extends Node {
         if (bloomFilter == null) {
             // NOTE: When a MerkleBlock is requested without a BloomFilter set, Bitcoin XT sends a MerkleBlock w/ BloomFilter.MATCH_ALL.
             Logger.log("NOTICE: Attempting to Transmit MerkleBlock when no BloomFilter is available.");
-            final BlockMessage blockMessage = new BlockMessage();
+            final BlockMessage blockMessage = _protocolMessageFactory.newBlockMessage();
             blockMessage.setBlock(block);
             _queueMessage(blockMessage);
         }
@@ -1111,7 +1119,7 @@ public class BitcoinNode extends Node {
             //  3. Finally, since the receiving node has no way to determine if the transaction stream is complete, a ping message is sent to interrupt the flow.
             final MutableList<ProtocolMessage> messages = new MutableList<ProtocolMessage>();
 
-            final MerkleBlockMessage merkleBlockMessage = new MerkleBlockMessage();
+            final MerkleBlockMessage merkleBlockMessage = _protocolMessageFactory.newMerkleBlockMessage();
             merkleBlockMessage.setBlockHeader(block);
             merkleBlockMessage.setPartialMerkleTree(block.getPartialMerkleTree(bloomFilter));
             messages.add(merkleBlockMessage);
@@ -1128,7 +1136,7 @@ public class BitcoinNode extends Node {
             for (final Transaction transaction : transactions) {
                 final Boolean transactionMatches = transactionBloomFilterMatcher.shouldInclude(transaction);
                 if (transactionMatches) {
-                    final TransactionMessage transactionMessage = new TransactionMessage();
+                    final TransactionMessage transactionMessage = _protocolMessageFactory.newTransactionMessage();
                     transactionMessage.setTransaction(transaction);
                     messages.add(transactionMessage);
                 }
@@ -1268,14 +1276,14 @@ public class BitcoinNode extends Node {
 
     // https://en.bitcoin.it/wiki/Satoshi_Client_Block_Exchange#Batch_Continue_Mechanism
     public void transmitBatchContinueHash(final Sha256Hash headBlockHash) {
-        final InventoryMessage inventoryMessage = new InventoryMessage();
+        final InventoryMessage inventoryMessage = _protocolMessageFactory.newInventoryMessage();
         final InventoryItem inventoryItem = new InventoryItem(InventoryItemType.BLOCK, headBlockHash);
         inventoryMessage.addInventoryItem(inventoryItem);
         _queueMessage(inventoryMessage);
     }
 
     public void getAddressBlocks(final List<Address> addresses) {
-        final QueryAddressBlocksMessage queryAddressBlocksMessage = new QueryAddressBlocksMessage();
+        final QueryAddressBlocksMessage queryAddressBlocksMessage = _protocolMessageFactory.newQueryAddressBlocksMessage();
         for (final Address address : addresses) {
             queryAddressBlocksMessage.addAddress(address);
         }

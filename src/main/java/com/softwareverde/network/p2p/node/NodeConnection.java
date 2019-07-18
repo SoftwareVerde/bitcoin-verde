@@ -392,6 +392,10 @@ public class NodeConnection {
         return Ip.fromHostName(_host);
     }
 
+    public BinaryPacketFormat getBinaryPacketFormat() {
+        return _binaryPacketFormat;
+    }
+
     @Override
     public String toString() {
         return _toString();

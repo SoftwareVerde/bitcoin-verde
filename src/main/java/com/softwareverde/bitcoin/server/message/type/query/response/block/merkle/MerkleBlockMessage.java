@@ -5,6 +5,8 @@ import com.softwareverde.bitcoin.block.header.BlockHeaderDeflater;
 import com.softwareverde.bitcoin.block.header.BlockHeaderWithTransactionCount;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTree;
 import com.softwareverde.bitcoin.block.merkleroot.PartialMerkleTreeDeflater;
+import com.softwareverde.bitcoin.inflater.BlockHeaderInflaters;
+import com.softwareverde.bitcoin.inflater.MerkleTreeInflaters;
 import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessage;
 import com.softwareverde.bitcoin.server.message.type.MessageType;
 import com.softwareverde.constable.bytearray.ByteArray;
@@ -13,11 +15,16 @@ import com.softwareverde.util.bytearray.ByteArrayBuilder;
 
 public class MerkleBlockMessage extends BitcoinProtocolMessage {
 
+    protected final BlockHeaderInflaters _blockHeaderInflaters;
+    protected final MerkleTreeInflaters _merkleTreeInflaters;
+
     protected BlockHeaderWithTransactionCount _blockHeader;
     protected PartialMerkleTree _partialMerkleTree;
 
-    public MerkleBlockMessage() {
+    public MerkleBlockMessage(final BlockHeaderInflaters blockHeaderInflaters, final MerkleTreeInflaters merkleTreeInflaters) {
         super(MessageType.MERKLE_BLOCK);
+        _blockHeaderInflaters = blockHeaderInflaters;
+        _merkleTreeInflaters = merkleTreeInflaters;
     }
 
     public BlockHeaderWithTransactionCount getBlockHeader() {
@@ -41,7 +48,7 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
 
     @Override
     protected ByteArray _getPayload() {
-        final BlockHeaderDeflater blockHeaderDeflater = new BlockHeaderDeflater();
+        final BlockHeaderDeflater blockHeaderDeflater = _blockHeaderInflaters.getBlockHeaderDeflater();
 
         final ByteArrayBuilder byteArrayBuilder = new ByteArrayBuilder();
         byteArrayBuilder.appendBytes(blockHeaderDeflater.toBytes(_blockHeader));
@@ -49,7 +56,7 @@ public class MerkleBlockMessage extends BitcoinProtocolMessage {
         // NOTE: TransactionCount is handled by the PartialMerkleTreeDeflater...
         // byteArrayBuilder.appendBytes(ByteUtil.integerToBytes(_blockHeader.getTransactionCount()), Endian.LITTLE);
 
-        final PartialMerkleTreeDeflater partialMerkleTreeDeflater = new PartialMerkleTreeDeflater();
+        final PartialMerkleTreeDeflater partialMerkleTreeDeflater = _merkleTreeInflaters.getPartialMerkleTreeDeflater();
         final ByteArray partialMerkleTreeBytes = partialMerkleTreeDeflater.toBytes(_partialMerkleTree);
         byteArrayBuilder.appendBytes(partialMerkleTreeBytes);
 

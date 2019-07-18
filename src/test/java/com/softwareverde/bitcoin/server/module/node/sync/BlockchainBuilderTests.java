@@ -87,7 +87,7 @@ public class BlockchainBuilderTests extends IntegrationTest {
                 final OrphanedTransactionsCache orphanedTransactionsCache = new OrphanedTransactionsCache(databaseCache);
 
                 final TransactionValidatorFactory transactionValidatorFactory = new TransactionValidatorFactory();
-                final BlockProcessor blockProcessor = new BlockProcessor(databaseConnectionFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache);
+                final BlockProcessor blockProcessor = new BlockProcessor(databaseManagerFactory, masterCache, transactionValidatorFactory, networkTime, medianBlockTime, orphanedTransactionsCache);
                 final SleepyService.StatusMonitor blockDownloaderStatusMonitor = new SleepyService.StatusMonitor() {
                     @Override
                     public SleepyService.Status getStatus() {
@@ -117,8 +117,14 @@ public class BlockchainBuilderTests extends IntegrationTest {
 
 class FakeBitcoinNodeManager extends BitcoinNodeManager {
 
+    private static Properties _createFakeProperties() {
+        final Properties properties = new Properties();
+        properties.maxNodeCount = 0;
+        return properties;
+    }
+
     public FakeBitcoinNodeManager() {
-        super(null, null, 0, null, null, null, null, null, null, null, null);
+        super(_createFakeProperties());
     }
 
     @Override

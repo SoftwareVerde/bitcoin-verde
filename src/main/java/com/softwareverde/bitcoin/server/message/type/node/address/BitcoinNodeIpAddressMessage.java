@@ -52,7 +52,7 @@ public class BitcoinNodeIpAddressMessage extends BitcoinProtocolMessage implemen
             addressesByteCount += networkAddressBytes.length;
         }
 
-        for (int i=0; i<networkAddressCount; ++i) {
+        for (int i = 0; i < networkAddressCount; ++i) {
             final byte[] networkAddressBytes = addressesBytes.get(i);
             final int writeIndex = (networkAddressByteCount * i);
             ByteUtil.setBytes(networkAddressesBytes, networkAddressBytes, writeIndex);

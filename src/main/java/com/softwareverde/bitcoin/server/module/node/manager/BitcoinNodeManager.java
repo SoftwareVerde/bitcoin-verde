@@ -10,6 +10,8 @@ import com.softwareverde.bitcoin.block.thin.AssembleThinBlockResult;
 import com.softwareverde.bitcoin.block.thin.ThinBlockAssembler;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.SynchronizationStatus;
+import com.softwareverde.bitcoin.server.message.BitcoinBinaryPacketFormat;
+import com.softwareverde.bitcoin.server.message.BitcoinProtocolMessageFactory;
 import com.softwareverde.bitcoin.server.message.type.node.address.BitcoinNodeIpAddress;
 import com.softwareverde.bitcoin.server.message.type.node.feature.LocalNodeFeatures;
 import com.softwareverde.bitcoin.server.message.type.node.feature.NodeFeatures;
@@ -285,23 +287,14 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
     }
 
     public BitcoinNodeManager(final Properties properties) {
-        this(
-            properties.databaseManagerFactory, properties.nodeFactory, properties.maxNodeCount, properties.networkTime,
-            properties.nodeInitializer, properties.banFilter, properties.memoryPoolEnquirer,
-            properties.synchronizationStatusHandler, properties.threadPool, properties.threadPoolFactory,
-            properties.localNodeFeatures
-        );
-    }
-
-    public BitcoinNodeManager(final DatabaseManagerFactory databaseManagerFactory, final BitcoinNodeFactory nodeFactory, final Integer maxNodeCount, final MutableNetworkTime networkTime, final NodeInitializer nodeInitializer, final BanFilter banFilter, final MemoryPoolEnquirer memoryPoolEnquirer, final SynchronizationStatus synchronizationStatusHandler, final ThreadPool threadPool, final ThreadPoolFactory threadPoolFactory, final LocalNodeFeatures localNodeFeatures) {
-        super(maxNodeCount, nodeFactory, networkTime, threadPool);
-        _databaseManagerFactory = databaseManagerFactory;
-        _nodeInitializer = nodeInitializer;
-        _banFilter = banFilter;
-        _memoryPoolEnquirer = memoryPoolEnquirer;
-        _synchronizationStatusHandler = synchronizationStatusHandler;
-        _threadPoolFactory = threadPoolFactory;
-        _localNodeFeatures = localNodeFeatures;
+        super(properties.maxNodeCount, properties.nodeFactory, properties.networkTime, properties.threadPool);
+        _databaseManagerFactory = properties.databaseManagerFactory;
+        _nodeInitializer = properties.nodeInitializer;
+        _banFilter = properties.banFilter;
+        _memoryPoolEnquirer = properties.memoryPoolEnquirer;
+        _synchronizationStatusHandler = properties.synchronizationStatusHandler;
+        _threadPoolFactory = properties.threadPoolFactory;
+        _localNodeFeatures = properties.localNodeFeatures;
     }
 
     protected void _requestBlockHeaders(final List<Sha256Hash> blockHashes, final DownloadBlockHeadersCallback callback) {
@@ -357,6 +350,9 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
         final List<NodeId> connectedNodes = new MutableList<NodeId>(_nodes.keySet());
         if (connectedNodes.isEmpty()) { return; }
 
+        final BitcoinBinaryPacketFormat binaryPacketFormat = _nodeInitializer.getBinaryPacketFormat();
+        final BitcoinProtocolMessageFactory protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
+
         final MutableList<QueryBlocksMessage> queryBlocksMessages = new MutableList<QueryBlocksMessage>();
 
         try (final DatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
@@ -366,7 +362,7 @@ public class BitcoinNodeManager extends NodeManager<BitcoinNode> {
 
             int messagesWithoutStopBeforeHashes = 0;
             for (final Tuple<Sha256Hash, Sha256Hash> inventoryHash : inventoryPlan) {
-                final QueryBlocksMessage queryBlocksMessage = new QueryBlocksMessage();
+                final QueryBlocksMessage queryBlocksMessage = protocolMessageFactory.newQueryBlocksMessage();
                 queryBlocksMessage.addBlockHash(inventoryHash.first);
                 queryBlocksMessage.setStopBeforeBlockHash(inventoryHash.second);
 

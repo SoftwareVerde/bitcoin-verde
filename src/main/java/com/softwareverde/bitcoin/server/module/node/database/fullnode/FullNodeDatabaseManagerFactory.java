@@ -4,6 +4,7 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.DisabledDatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManagerFactory;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.util.Util;
@@ -29,6 +30,12 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     }
 
     @Override
+    public FullNodeDatabaseManager newDatabaseManager(final DatabaseManagerCache databaseManagerCache) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseConnectionFactory.newConnection();
+        return new FullNodeDatabaseManager(databaseConnection, databaseManagerCache);
+    }
+
+    @Override
     public DatabaseConnectionFactory getDatabaseConnectionFactory() {
         return _databaseConnectionFactory;
     }
@@ -36,5 +43,10 @@ public class FullNodeDatabaseManagerFactory implements DatabaseManagerFactory {
     @Override
     public DatabaseManagerCache getDatabaseManagerCache() {
         return _databaseManagerCache;
+    }
+
+    @Override
+    public FullNodeDatabaseManagerFactory newDatabaseManagerFactory(final DatabaseConnectionPool databaseConnectionPool, final DatabaseManagerCache databaseManagerCache) {
+        return new FullNodeDatabaseManagerFactory(databaseConnectionPool, databaseManagerCache);
     }
 }

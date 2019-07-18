@@ -1,5 +1,6 @@
 package com.softwareverde.network.socket;
 
+import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.p2p.message.ProtocolMessage;
 import com.softwareverde.network.p2p.message.ProtocolMessageFactory;
@@ -29,13 +30,14 @@ public class PacketBuffer extends ByteBuffer {
     }
 
     public PacketBuffer(final BinaryPacketFormat binaryPacketFormat) {
-        final int magicNumberByteCount = binaryPacketFormat.magicNumber.getByteCount();
+        final ByteArray magicNumber = binaryPacketFormat.getMagicNumber();
+        final int magicNumberByteCount = magicNumber.getByteCount();
         _mainNetMagicNumberByteCount = magicNumberByteCount;
         _packetStartingBytesBuffer = new byte[magicNumberByteCount];
-        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(binaryPacketFormat.magicNumber.getBytes());
+        _reversedMainNetMagicNumber = ByteUtil.reverseEndian(magicNumber.getBytes());
 
-        _protocolMessageHeaderInflater = binaryPacketFormat.protocolMessageHeaderInflater;
-        _protocolMessageFactory = binaryPacketFormat.protocolMessageFactory;
+        _protocolMessageHeaderInflater = binaryPacketFormat.getProtocolMessageHeaderInflater();
+        _protocolMessageFactory = binaryPacketFormat.getProtocolMessageFactory();
     }
 
     public boolean hasMessage() {

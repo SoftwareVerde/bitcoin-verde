@@ -40,11 +40,12 @@ import java.util.Map;
 public class BlockValidator {
     public static final Long DO_NOT_TRUST_BLOCKS = -1L;
 
-    protected final NetworkTime _networkTime;
-    protected final MedianBlockTimeWithBlocks _medianBlockTime;
-    protected final SystemTime _systemTime = new SystemTime();
     protected final FullNodeDatabaseManagerFactory _databaseManagerFactory;
+    protected final BlockValidatorFactory _blockValidatorFactory;
     protected final TransactionValidatorFactory _transactionValidatorFactory;
+    protected final SystemTime _systemTime = new SystemTime();
+    protected final MedianBlockTimeWithBlocks _medianBlockTime;
+    protected final NetworkTime _networkTime;
 
     protected Boolean _shouldLogValidBlocks = true;
     protected Integer _maxThreadCount = 4;
@@ -271,7 +272,7 @@ public class BlockValidator {
 
             blockHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
 
-            final BlockHeaderValidator blockHeaderValidator = new BlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
+            final BlockHeaderValidator blockHeaderValidator = _blockValidatorFactory.newBlockHeaderValidator(databaseManager, _networkTime, _medianBlockTime);
             final BlockHeaderValidator.BlockHeaderValidationResponse blockHeaderValidationResponse = blockHeaderValidator.validateBlockHeader(block, blockHeight);
             if (! blockHeaderValidationResponse.isValid) {
                 return BlockValidationResult.invalid(blockHeaderValidationResponse.errorMessage);
@@ -315,7 +316,18 @@ public class BlockValidator {
     }
 
     public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
+        this(
+            databaseManagerFactory,
+            new BlockValidatorFactoryCore(),
+            transactionValidatorFactory,
+            networkTime,
+            medianBlockTime
+        );
+    }
+
+    public BlockValidator(final FullNodeDatabaseManagerFactory databaseManagerFactory, final BlockValidatorFactory blockValidatorFactory, final TransactionValidatorFactory transactionValidatorFactory, final NetworkTime networkTime, final MedianBlockTimeWithBlocks medianBlockTime) {
         _databaseManagerFactory = databaseManagerFactory;
+        _blockValidatorFactory = blockValidatorFactory;
         _transactionValidatorFactory = transactionValidatorFactory;
         _networkTime = networkTime;
         _medianBlockTime = medianBlockTime;
