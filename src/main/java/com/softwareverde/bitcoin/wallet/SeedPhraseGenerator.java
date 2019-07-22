@@ -173,4 +173,8 @@ public class SeedPhraseGenerator {
             return null;
         }
     }
+
+    public List<String> getSeedWords() {
+        return _seedWords;
+    }
 }
