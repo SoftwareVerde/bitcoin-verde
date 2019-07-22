@@ -801,6 +801,15 @@ public class Wallet {
         return _cachedBloomFilter;
     }
 
+    public synchronized boolean hasTransaction(final Sha256Hash transactionHash) {
+        return _transactions.containsKey(transactionHash);
+    }
+
+    public synchronized Transaction getTransaction(final Sha256Hash transactionHash) {
+        final Transaction transaction = _transactions.get(transactionHash);
+        return transaction;
+    }
+
     public synchronized SpendableTransactionOutput getTransactionOutput(final TransactionOutputIdentifier transactionOutputIdentifier) {
         return _transactionOutputs.get(transactionOutputIdentifier);
     }
