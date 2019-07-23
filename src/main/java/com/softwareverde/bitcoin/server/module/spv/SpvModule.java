@@ -221,6 +221,9 @@ public class SpvModule {
     protected void _shutdown() {
         _setStatus(Status.SHUTTING_DOWN);
 
+        Logger.log("[Stopping MerkleBlock Downloader]");
+        _merkleBlockDownloader.shutdown();
+
         Logger.log("[Stopping Header Downloader]");
         _blockHeaderDownloader.stop();
 

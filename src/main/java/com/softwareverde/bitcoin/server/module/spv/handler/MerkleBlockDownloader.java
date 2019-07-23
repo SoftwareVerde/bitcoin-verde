@@ -13,6 +13,7 @@ import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseMana
 import com.softwareverde.bitcoin.server.module.node.database.spv.SpvDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.spv.SpvTransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.manager.BitcoinNodeManager;
+import com.softwareverde.bitcoin.server.module.node.manager.RequestBabysitter;
 import com.softwareverde.bitcoin.server.node.BitcoinNode;
 import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
@@ -30,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Sequentially downloads merkleBlocks received via SpvBlockInventoryMessageCallback::onResult.
- *  Failed blocks are not retried.
+ *  Failed blocks are retried 3 times immediately, and up to 21 times total.
  */
 public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessageCallback {
     public interface Downloader {
@@ -46,6 +47,8 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
     protected final Downloader _merkleBlockDownloader;
     protected final ConcurrentLinkedQueue<Sha256Hash> _queuedBlockHashes = new ConcurrentLinkedQueue<Sha256Hash>();
     protected final AtomicBoolean _blockIsInFlight = new AtomicBoolean(false);
+
+    protected final RequestBabysitter _requestBabysitter = new RequestBabysitter();
 
     protected Runnable _merkleBlockProcessedCallback = null;
     protected DownloadCompleteCallback _downloadCompleteCallback = null;
@@ -124,7 +127,12 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             return true;
         }
 
+        /**
+         * Returns true if the block download should continue from the normal download mechanism.
+         */
         protected synchronized Boolean _onFailure(final Sha256Hash merkleBlockHash) {
+            try { Thread.sleep(5000L); } catch (final InterruptedException exception) { return false; }
+
             final Long now = _systemTime.getCurrentTimeInMilliSeconds();
             ConcurrentLinkedDeque<Long> failedDownloadTimestamps = _failedDownloadTimes.get(merkleBlockHash);
             if (failedDownloadTimestamps == null) {
@@ -133,18 +141,26 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
             }
             failedDownloadTimestamps.add(now);
 
+            int totalFailureCount = 0;
             int recentFailureCount = 0;
-            if (failedDownloadTimestamps.size() > 3) {
-                for (final Long failedTimestamp : failedDownloadTimestamps) {
-                    if (now - failedTimestamp > 30000L) {
-                        recentFailureCount += 1;
-                    }
+            for (final Long failedTimestamp : failedDownloadTimestamps) {
+                if (now - failedTimestamp > 30000L) {
+                    recentFailureCount += 1;
                 }
+                totalFailureCount += 1;
             }
 
-            if (recentFailureCount < 3) {
-                _merkleBlockDownloader.requestMerkleBlock(merkleBlockHash, this);
+            if (recentFailureCount <= 3) {
+                Logger.log("Retrying Merkle: " + merkleBlockHash);
+                _requestMerkleBlock(merkleBlockHash);
                 return false;
+            }
+
+            if (totalFailureCount <= 21) {
+                // TODO: Does sequential-ness matter?
+                // Add the block to the back of the stack and try again later...
+                Logger.log("Will Try Merkle Later: " + merkleBlockHash);
+                _queuedBlockHashes.add(merkleBlockHash);
             }
 
             return true;
@@ -197,7 +213,41 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
         }
     }
 
+    public static class WatchedRequest extends RequestBabysitter.WatchedRequest implements BitcoinNodeManager.DownloadMerkleBlockCallback {
+        protected final Sha256Hash _blockHash;
+        protected final BitcoinNodeManager.DownloadMerkleBlockCallback _callback;
+
+        public WatchedRequest(final Sha256Hash blockHash, final BitcoinNodeManager.DownloadMerkleBlockCallback downloadMerkleBlockCallback) {
+            _blockHash = blockHash;
+            _callback = downloadMerkleBlockCallback;
+        }
+
+        @Override
+        public void onResult(final BitcoinNode.MerkleBlockParameters result) {
+            if (! this.onWatchEnded()) { return; }
+            _callback.onResult(result);
+        }
+
+        @Override
+        protected void onExpiration() {
+            _callback.onFailure(_blockHash);
+        }
+
+        @Override
+        public void onFailure(final Sha256Hash blockHash) {
+            if (! this.onWatchEnded()) { return; }
+            _callback.onFailure(blockHash);
+        }
+    }
+
+    protected void _requestMerkleBlock(final Sha256Hash blockHash) {
+        final WatchedRequest watchedRequest = new WatchedRequest(blockHash, _onMerkleBlockDownloaded);
+        _requestBabysitter.watch(watchedRequest, 15L);
+        _merkleBlockDownloader.requestMerkleBlock(blockHash, watchedRequest);
+    }
+
     protected synchronized void _downloadNextMerkleBlock() {
+        // Logger.log("_downloadNextMerkleBlock");
         if (_isPaused.get()) { return; }
         if (! _blockIsInFlight.compareAndSet(false, true)) { return; }
 
@@ -214,7 +264,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
                 }
 
                 if (! blockDatabaseManager.hasTransactions(blockHash)) {
-                    _merkleBlockDownloader.requestMerkleBlock(blockHash, _onMerkleBlockDownloaded);
+                    _requestMerkleBlock(blockHash);
                     return;
                 }
             }
@@ -247,6 +297,7 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
 
     public void start() {
         // if (! _isPaused.compareAndSet(true, false)) { return; }
+        _requestBabysitter.start();
         _isPaused.set(false);
         _downloadNextMerkleBlock();
     }
@@ -274,5 +325,9 @@ public class MerkleBlockDownloader implements BitcoinNode.SpvBlockInventoryMessa
 
     public Boolean isRunning() {
         return _blockIsInFlight.get();
+    }
+
+    public void shutdown() {
+        _requestBabysitter.stop();
     }
 }

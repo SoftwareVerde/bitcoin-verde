@@ -85,7 +85,7 @@ public class SlpScriptBuilder {
         lockingScript.addOperation(PushOperation.pushBytes(SlpScriptType.LOKAD_ID));            // Lokad Id (Static Value)
         lockingScript.addOperation(PushOperation.pushBytes(SlpScriptType.TOKEN_TYPE));          // Token Type (Static Value)
         lockingScript.addOperation(PushOperation.pushBytes(SlpScriptType.SEND.getBytes()));     // Script Type (Static Value)
-        lockingScript.addOperation(PushOperation.pushBytes(slpSendScript.getTokenId()));       // Token id
+        lockingScript.addOperation(PushOperation.pushBytes(slpSendScript.getTokenId()));        // Token id
 
         for (int i = 1; i < SlpSendScript.MAX_OUTPUT_COUNT; ++i) {
             final Long amount = slpSendScript.getAmount(i);
