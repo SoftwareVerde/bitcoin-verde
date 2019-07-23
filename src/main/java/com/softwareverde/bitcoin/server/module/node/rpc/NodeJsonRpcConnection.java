@@ -195,6 +195,17 @@ public class NodeJsonRpcConnection implements AutoCloseable {
         return _executeJsonRequest(rpcRequestJson);
     }
 
+    public Json getBlockHeight(final Sha256Hash blockHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash.toString());
+
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEIGHT");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
     public Json getBlockchainMetadata() {
         final Json rpcRequestJson = new Json();
         {

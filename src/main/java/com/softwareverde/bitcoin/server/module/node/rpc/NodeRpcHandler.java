@@ -83,10 +83,12 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
         Long getBlockHeight();
 
         Long getBlockHeaderTimestamp();
-        Long getBlockTimestamp();
 
+        Long getBlockTimestamp();
         BlockHeader getBlockHeader(Long blockHeight);
+
         BlockHeader getBlockHeader(Sha256Hash blockHash);
+        Long getBlockHeaderHeight(final Sha256Hash blockHash);
 
         Block getBlock(Long blockHeight);
         Block getBlock(Sha256Hash blockHash);
@@ -432,19 +434,29 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
     }
 
     // Requires GET:
-    protected void _queryBlockHeight(final Json response) {
+    protected void _queryBlockHeight(final Json parameters, final Json response) {
         final DataHandler dataHandler = _dataHandler;
         if (dataHandler == null) {
             response.put(ERROR_MESSAGE_KEY, "Operation not supported.");
             return;
         }
 
-        final Long blockHeight = dataHandler.getBlockHeight();
-        final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight();
+        if (parameters.hasKey("hash")) {
+            final String blockHashString = parameters.getString("hash");
+            final Sha256Hash blockHash = Sha256Hash.fromHexString(blockHashString);
+            final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight(blockHash);
 
-        response.put("blockHeight", blockHeight);
-        response.put("blockHeaderHeight", blockHeaderHeight);
-        response.put(WAS_SUCCESS_KEY, 1);
+            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
+        else {
+            final Long blockHeight = dataHandler.getBlockHeight();
+            final Long blockHeaderHeight = dataHandler.getBlockHeaderHeight();
+
+            response.put("blockHeight", blockHeight);
+            response.put("blockHeaderHeight", blockHeaderHeight);
+            response.put(WAS_SUCCESS_KEY, 1);
+        }
     }
 
     // Requires GET:
@@ -1204,7 +1216,7 @@ public class NodeRpcHandler implements JsonSocketServer.SocketConnectedCallback 
                             } break;
 
                             case "BLOCK_HEIGHT": {
-                                _queryBlockHeight(response);
+                                _queryBlockHeight(parameters, response);
                             } break;
 
                             case "DIFFICULTY": {
