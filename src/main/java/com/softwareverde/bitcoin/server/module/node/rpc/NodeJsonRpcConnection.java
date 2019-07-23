@@ -48,7 +48,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     protected Boolean _isUpgradedToHook = false;
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
-        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to hook-upgraded socket."); }
+        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
+        if (! _jsonSocket.isConnected()) { throw new RuntimeException("Attempted to invoke Json request to a closed socket."); }
 
         _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         _jsonSocket.beginListening();
