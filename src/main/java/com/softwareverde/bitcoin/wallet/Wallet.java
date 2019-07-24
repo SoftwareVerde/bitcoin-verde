@@ -376,7 +376,7 @@ public class Wallet {
     }
 
     protected Transaction _createSignedTransaction(final List<PaymentAmount> paymentAmounts, final List<SpendableTransactionOutput> transactionOutputsToSpend, final LockingScript opReturnScript) {
-        if (paymentAmounts.isEmpty()) { return null; }
+        if ( paymentAmounts.isEmpty() && (opReturnScript == null) ) { return null; }
         if (transactionOutputsToSpend == null) { return null; }
 
         final MutableTransaction transaction = new MutableTransaction();
@@ -499,7 +499,7 @@ public class Wallet {
             totalAmountSelected += transactionOutput.getAmount();
         }
 
-        final boolean includedChangeOutput;
+        final boolean shouldIncludeChangeOutput;
         final MutableList<PaymentAmount> paymentAmountsWithChange = new MutableList<PaymentAmount>(paymentAmounts.getSize() + 1);
         {
             paymentAmountsWithChange.addAll(paymentAmounts);
@@ -507,13 +507,13 @@ public class Wallet {
             final Long changeAmount = (totalAmountSelected - totalPaymentAmount - feesContainer.value);
             if (changeAddress != null) {
                 final Long dustThreshold = _calculateDustThreshold(BYTES_PER_TRANSACTION_OUTPUT, changeAddress.isCompressed());
-                includedChangeOutput = (changeAmount >= dustThreshold);
+                shouldIncludeChangeOutput = (changeAmount >= dustThreshold);
             }
             else {
-                includedChangeOutput = false;
+                shouldIncludeChangeOutput = false;
             }
 
-            if (includedChangeOutput) {
+            if (shouldIncludeChangeOutput) {
                 // Check paymentAmountsWithChange for an existing output using the change address...
                 Integer changePaymentAmountIndex = null;
                 for (int i = 0; i < paymentAmountsWithChange.getSize(); ++i) {
@@ -544,7 +544,7 @@ public class Wallet {
             }
         }
 
-        Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (includedChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
+        Logger.log("Creating Transaction. Spending " + transactionOutputsToSpend.getSize() + " UTXOs. Creating " + paymentAmountsWithChange.getSize() + " UTXOs. Sending " + totalPaymentAmount + ". Spending " + feesContainer.value + " in fees. " + (shouldIncludeChangeOutput ? ((totalAmountSelected - totalPaymentAmount - feesContainer.value) + " in change.") : ""));
 
         final Transaction signedTransaction = _createSignedTransaction(paymentAmountsWithChange, transactionOutputsToSpend, opReturnScript);
         if (signedTransaction == null) { return null; }
