@@ -48,7 +48,8 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     protected Boolean _isUpgradedToHook = false;
 
     protected Json _executeJsonRequest(final Json rpcRequestJson) {
-        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to hook-upgraded socket."); }
+        if (_isUpgradedToHook) { throw new RuntimeException("Attempted to invoke Json request to a hook-upgraded socket."); }
+        if (! _jsonSocket.isConnected()) { throw new RuntimeException("Attempted to invoke Json request to a closed socket."); }
 
         _jsonSocket.write(new JsonProtocolMessage(rpcRequestJson));
         _jsonSocket.beginListening();
@@ -188,6 +189,17 @@ public class NodeJsonRpcConnection implements AutoCloseable {
     }
 
     public Json getBlockHeight() {
+        final Json rpcRequestJson = new Json();
+        rpcRequestJson.put("method", "GET");
+        rpcRequestJson.put("query", "BLOCK_HEIGHT");
+
+        return _executeJsonRequest(rpcRequestJson);
+    }
+
+    public Json getBlockHeaderHeight(final Sha256Hash blockHash) {
+        final Json rpcParametersJson = new Json();
+        rpcParametersJson.put("hash", blockHash.toString());
+
         final Json rpcRequestJson = new Json();
         rpcRequestJson.put("method", "GET");
         rpcRequestJson.put("query", "BLOCK_HEIGHT");

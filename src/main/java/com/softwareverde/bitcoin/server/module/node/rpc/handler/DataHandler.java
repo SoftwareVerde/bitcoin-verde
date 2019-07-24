@@ -193,6 +193,21 @@ public class DataHandler implements NodeRpcHandler.DataHandler {
     }
 
     @Override
+    public Long getBlockHeaderHeight(final Sha256Hash blockHash) {
+        try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
+            final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
+
+            final BlockId blockId = blockHeaderDatabaseManager.getBlockHeaderId(blockHash);
+            final Long blockHeaderHeight = blockHeaderDatabaseManager.getBlockHeight(blockId);
+            return blockHeaderHeight;
+        }
+        catch (final DatabaseException exception) {
+            Logger.log(exception);
+            return null;
+        }
+    }
+
+    @Override
     public Block getBlock(final Long blockHeight) {
         try (final FullNodeDatabaseManager databaseManager = _databaseManagerFactory.newDatabaseManager()) {
             final BlockHeaderDatabaseManager blockHeaderDatabaseManager = databaseManager.getBlockHeaderDatabaseManager();
