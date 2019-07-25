@@ -434,6 +434,8 @@ public class Wallet {
                 if (transactionOutputTokenAmount == null) { return null; }
 
                 totalAmount += transactionOutputTokenAmount;
+
+                configuration.transactionOutputIdentifiersToSpend.add(transactionOutputIdentifier);
             }
             preselectedTokenAmount = totalAmount;
         }
