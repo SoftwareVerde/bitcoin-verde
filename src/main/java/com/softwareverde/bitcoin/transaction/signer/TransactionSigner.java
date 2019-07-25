@@ -323,7 +323,7 @@ public class TransactionSigner {
 
         final MutableTransaction mutableTransaction = new MutableTransaction(signatureContext.getTransaction());
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
-        final Signature signature = Secp256k1.sign(privateKey.getBytes(), bytesToSign);
+        final Signature signature = Secp256k1.sign(privateKey, bytesToSign);
         final ScriptSignature scriptSignature = new ScriptSignature(signature, signatureContext.getHashType());
 
         final List<TransactionInput> transactionInputs = mutableTransaction.getTransactionInputs();
@@ -354,7 +354,7 @@ public class TransactionSigner {
 
     public ScriptSignature createSignature(final SignatureContext signatureContext, final PrivateKey privateKey) {
         final byte[] bytesToSign = _getBytesForSigning(signatureContext);
-        final Signature signature = Secp256k1.sign(privateKey.getBytes(), bytesToSign);
+        final Signature signature = Secp256k1.sign(privateKey, bytesToSign);
         return new ScriptSignature(signature, signatureContext.getHashType());
     }
 

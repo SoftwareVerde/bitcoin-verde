@@ -14,14 +14,14 @@ public class Secp256k1Tests {
     @Test
     public void should_create_and_verify_signature_bouncy_castle() {
         long elapsed = 0L;
-        for (int i=0; i<128; ++i) {
+        for (int i = 0; i < 128; ++i) {
             // Setup
             final PrivateKey privateKey = PrivateKey.createNewKey();
             final PublicKey publicKey = privateKey.getPublicKey();
             final byte[] message = StringUtil.stringToBytes("I am a little teapot." + i);
 
             // Action
-            final Signature signature = Secp256k1.sign(privateKey.getBytes(), message);
+            final Signature signature = Secp256k1.sign(privateKey, message);
             long start = System.currentTimeMillis();
             final Boolean signatureIsValid = Secp256k1._verifySignatureViaBouncyCastle(signature, publicKey, message);
             elapsed += System.currentTimeMillis() - start;
@@ -36,7 +36,7 @@ public class Secp256k1Tests {
     @Test
     public void should_create_and_verify_signature_native() throws Exception {
         long elapsed = 0L;
-        for (int i=0; i<128; ++i) {
+        for (int i = 0; i < 128; ++i) {
             // Setup
             final PrivateKey privateKey = PrivateKey.createNewKey();
             final PublicKey publicKey = privateKey.getPublicKey();
@@ -45,7 +45,7 @@ public class Secp256k1Tests {
             final byte[] message = BitcoinUtil.sha256(StringUtil.stringToBytes("I am a little teapot." + i));
 
             // Action
-            final Signature signature = Secp256k1.sign(privateKey.getBytes(), message);
+            final Signature signature = Secp256k1.sign(privateKey, message);
             long start = System.currentTimeMillis();
             final Boolean signatureIsValid = NativeSecp256k1.verify(message, signature.encode().getBytes(), publicKey.getBytes());
             elapsed += System.currentTimeMillis() - start;
@@ -65,7 +65,7 @@ public class Secp256k1Tests {
         final byte[] message = BitcoinUtil.sha256(StringUtil.stringToBytes("I am a little teapot."));
 
         // Action
-        final Signature signature = Secp256k1.sign(privateKey.getBytes(), message);
+        final Signature signature = Secp256k1.sign(privateKey, message);
         final Boolean signatureIsValid = Secp256k1.verifySignature(signature, publicKey, message);
 
         // Assert

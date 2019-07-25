@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.secp256k1;
 
 import com.softwareverde.bitcoin.jni.NativeSecp256k1;
+import com.softwareverde.bitcoin.secp256k1.key.PrivateKey;
 import com.softwareverde.bitcoin.secp256k1.key.PublicKey;
 import com.softwareverde.bitcoin.secp256k1.signature.Secp256k1Signature;
 import com.softwareverde.bitcoin.secp256k1.signature.Signature;
@@ -89,10 +90,14 @@ public class Secp256k1 {
         return _verifySignatureViaBouncyCastle(signature, publicKey, message);
     }
 
-    public static Signature sign(final byte[] privateKey, final byte[] message) {
+    /**
+     * Signs the message with the provided PrivateKey.
+     *  The `message` variable is not hashed internally; therefore `message` should likely be a hash of the full message.
+     */
+    public static Signature sign(final PrivateKey privateKey, final byte[] message) {
         final ECPrivateKeyParameters privateKeyParameters;
         {
-            final BigInteger privateKeyBigInteger = new BigInteger(1, privateKey);
+            final BigInteger privateKeyBigInteger = new BigInteger(1, privateKey.getBytes());
             privateKeyParameters = new ECPrivateKeyParameters(privateKeyBigInteger, Secp256k1.CURVE_DOMAIN);
         }
 
