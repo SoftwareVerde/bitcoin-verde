@@ -62,6 +62,46 @@ public class AddressInflater {
         return MutableByteArray.wrap(checksumPayload.build());
     }
 
+    protected Address _fromBase58Check(final String base58CheckString, final Boolean isCompressed) {
+        final byte[] bytesWithPrefixWithChecksum;
+
+        try {
+            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
+        }
+        catch (final Exception exception) {
+            return null;
+        }
+
+        if (bytesWithPrefixWithChecksum.length < (Address.PREFIX_BYTE_COUNT + Address.CHECKSUM_BYTE_COUNT)) { return null; }
+
+        final byte[] bytesWithoutPrefixAndWithoutChecksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, Address.PREFIX_BYTE_COUNT, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT - Address.PREFIX_BYTE_COUNT);
+
+        final byte prefix = bytesWithPrefixWithChecksum[0];
+
+        final byte[] checksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT, Address.CHECKSUM_BYTE_COUNT);
+
+        final byte[] calculatedChecksum = Address._calculateChecksum(prefix, bytesWithoutPrefixAndWithoutChecksum);
+
+        final Boolean checksumIsValid = (ByteUtil.areEqual(calculatedChecksum, checksum));
+        if (! checksumIsValid) { return null; }
+
+        switch (prefix) {
+            case Address.PREFIX: {
+                if (isCompressed) {
+                    return new CompressedAddress(bytesWithoutPrefixAndWithoutChecksum);
+                }
+                else {
+                    return new Address(bytesWithoutPrefixAndWithoutChecksum);
+                }
+            }
+            case PayToScriptHashAddress.PREFIX: { return new PayToScriptHashAddress(bytesWithoutPrefixAndWithoutChecksum); }
+            default: {
+                Logger.log("NOTICE: Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
+                return null;
+            }
+        }
+    }
+
     /**
      * Creates a checksum as 5-bit integers for byteArray.
      *  byteArray should be formatted as an array of 5-bit integers.
@@ -126,37 +166,16 @@ public class AddressInflater {
     }
 
     public Address fromBase58Check(final String base58CheckString) {
-        final byte[] bytesWithPrefixWithChecksum;
+        return _fromBase58Check(base58CheckString, false);
+    }
 
-        try {
-            bytesWithPrefixWithChecksum = BitcoinUtil.base58StringToBytes(base58CheckString);
-        }
-        catch (final Exception exception) {
-            return null;
-        }
-
-        if (bytesWithPrefixWithChecksum.length < (Address.PREFIX_BYTE_COUNT + Address.CHECKSUM_BYTE_COUNT)) { return null; }
-
-        final byte[] bytesWithoutPrefixAndWithoutChecksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, Address.PREFIX_BYTE_COUNT, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT - Address.PREFIX_BYTE_COUNT);
-
-        final byte prefix = bytesWithPrefixWithChecksum[0];
-
-        final byte[] checksum = ByteUtil.copyBytes(bytesWithPrefixWithChecksum, bytesWithPrefixWithChecksum.length - Address.CHECKSUM_BYTE_COUNT, Address.CHECKSUM_BYTE_COUNT);
-
-        final byte[] calculatedChecksum = Address._calculateChecksum(prefix, bytesWithoutPrefixAndWithoutChecksum);
-
-        final Boolean checksumIsValid = (ByteUtil.areEqual(calculatedChecksum, checksum));
-        if (! checksumIsValid) { return null; }
-
-        switch (prefix) {
-            case Address.PREFIX: { return new Address(bytesWithoutPrefixAndWithoutChecksum); }
-            // case CompressedAddress.PREFIX: { return new CompressedAddress(bytesWithoutPrefixAndWithoutChecksum); }
-            case PayToScriptHashAddress.PREFIX: { return new PayToScriptHashAddress(bytesWithoutPrefixAndWithoutChecksum); }
-            default: {
-                Logger.log("NOTICE: Unknown Address Prefix: 0x"+ HexUtil.toHexString(new byte[] { prefix }));
-                return null;
-            }
-        }
+    /**
+     * Returns a CompressedAddress from the base58CheckString.
+     *  NOTE: Validation that the string is actually derived from a compressed PublicKey is impossible,
+     *  therefore, only use this function if the sourced string is definitely a compressed PublicKey.
+     */
+    public Address compressedFromBase58Check(final String base58CheckString) {
+        return _fromBase58Check(base58CheckString, true);
     }
 
     public Address fromBase32Check(final String base32String) {
