@@ -217,7 +217,7 @@ public class SlpScriptInflater {
             slpCommitScript.setMerkleRoot(merkleRoot);
         }
 
-        { // Merkle Root...
+        { // Merkle Tree Data Url...
             final PushOperation operation = (PushOperation) operations.get(8);
             final ByteArray value = operation.getValue();
             final String merkleTreeUrl = StringUtil.bytesToString(value.getBytes());
