@@ -1,11 +1,16 @@
 package com.softwareverde.bitcoin.transaction.script.slp;
 
+import com.softwareverde.bitcoin.hash.sha256.MutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
+import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
 import com.softwareverde.bitcoin.transaction.script.opcode.Opcode;
 import com.softwareverde.bitcoin.transaction.script.opcode.Operation;
 import com.softwareverde.bitcoin.transaction.script.opcode.PushOperation;
+import com.softwareverde.bitcoin.transaction.script.slp.commit.MutableSlpCommitScript;
+import com.softwareverde.bitcoin.transaction.script.slp.commit.SlpCommitScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.MutableSlpGenesisScript;
 import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
 import com.softwareverde.bitcoin.transaction.script.slp.mint.MutableSlpMintScript;
@@ -173,5 +178,53 @@ public class SlpScriptInflater {
         }
 
         return slpSendScript;
+    }
+
+    public SlpCommitScript commitScriptFromScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (! Util.areEqual(SlpScriptType.COMMIT, slpScriptType)) { return null; }
+
+        final SlpTokenId tokenId = _getTokenId(lockingScript);
+        if (tokenId == null) { return null; }
+
+        final MutableSlpCommitScript slpCommitScript = new MutableSlpCommitScript();
+        slpCommitScript.setTokenId(tokenId);
+
+        final List<Operation> operations = lockingScript.getOperations();
+        if (operations.getSize() < 9) { return null; }
+
+        { // Block Hash...
+            final PushOperation operation = (PushOperation) operations.get(5);
+            final ByteArray value = operation.getValue();
+            final Sha256Hash blockHash = MutableSha256Hash.wrap(value.getBytes());
+            if (blockHash == null) { return null; }
+            slpCommitScript.setBlockHash(blockHash);
+        }
+
+        { // Block Height...
+            final PushOperation operation = (PushOperation) operations.get(6);
+            final ByteArray value = operation.getValue();
+            final Long blockHeight = ByteUtil.bytesToLong(value.getBytes());
+            slpCommitScript.setBlockHeight(blockHeight);
+        }
+
+        { // Merkle Root...
+            final PushOperation operation = (PushOperation) operations.get(7);
+            final ByteArray value = operation.getValue();
+            final MerkleRoot merkleRoot = MutableMerkleRoot.wrap(value.getBytes());
+            if (merkleRoot == null) { return null; }
+            slpCommitScript.setMerkleRoot(merkleRoot);
+        }
+
+        { // Merkle Root...
+            final PushOperation operation = (PushOperation) operations.get(8);
+            final ByteArray value = operation.getValue();
+            final String merkleTreeUrl = StringUtil.bytesToString(value.getBytes());
+            if (merkleTreeUrl == null) { return null; }
+            slpCommitScript.setMerkleTreeUrl(merkleTreeUrl);
+        }
+
+        return slpCommitScript;
     }
 }

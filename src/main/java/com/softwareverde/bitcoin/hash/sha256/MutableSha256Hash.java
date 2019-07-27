@@ -13,6 +13,14 @@ public class MutableSha256Hash extends MutableHash implements Sha256Hash {
         return new MutableSha256Hash(bytes);
     }
 
+    public static MutableSha256Hash copyOf(final byte[] bytes) {
+        if (bytes.length != BYTE_COUNT) {
+            Logger.log("NOTICE: Unable to wrap bytes as hash. Invalid byte count: "+ bytes.length);
+            return null;
+        }
+        return new MutableSha256Hash(ByteUtil.copyBytes(bytes));
+    }
+
     protected MutableSha256Hash(final byte[] bytes) {
         super(bytes);
     }

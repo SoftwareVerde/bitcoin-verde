@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.slp.send;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.constable.Constable;
 
-public interface SlpSendScript extends Constable<ImmutableSlpSendScript> {
+public interface SlpSendScript extends SlpScript, Constable<ImmutableSlpSendScript> {
     Integer MAX_OUTPUT_COUNT = 20;
 
     SlpTokenId getTokenId();

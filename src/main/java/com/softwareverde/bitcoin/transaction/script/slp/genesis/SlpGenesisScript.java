@@ -1,10 +1,11 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
 
-public interface SlpGenesisScript extends Constable<ImmutableSlpGenesisScript> {
+public interface SlpGenesisScript extends SlpScript, Constable<ImmutableSlpGenesisScript> {
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
     String getTokenAbbreviation();

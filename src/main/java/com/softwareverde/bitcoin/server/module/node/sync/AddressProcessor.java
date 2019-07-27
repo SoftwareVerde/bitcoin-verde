@@ -6,6 +6,7 @@ import com.softwareverde.bitcoin.server.module.node.database.address.AddressData
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
@@ -51,19 +52,29 @@ public class AddressProcessor extends SleepyService {
 
                 final List<LockingScript> lockingScripts = transactionOutputDatabaseManager.getLockingScripts(lockingScriptIds);
 
+                final List<TransactionId> slpTokenTransactionIds;
                 final List<ScriptType> scriptTypes;
                 {
+                    final ImmutableListBuilder<TransactionId> slpTokenTransactionIdsBuilder = new ImmutableListBuilder<TransactionId>();
                     final ImmutableListBuilder<ScriptType> scriptTypesBuilder = new ImmutableListBuilder<ScriptType>(lockingScriptCount);
-                    for (final LockingScript lockingScript : lockingScripts) {
+
+                    for (int i = 0; i < lockingScriptCount; ++i) {
+                        final LockingScriptId lockingScriptId = lockingScriptIds.get(i);
+                        final LockingScript lockingScript = lockingScripts.get(i);
+
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         scriptTypesBuilder.add(scriptType);
+
+                        final TransactionId slpTokenTransactionId = transactionOutputDatabaseManager.getSlpTokenIdTransactionId(lockingScriptId, lockingScript);
+                        slpTokenTransactionIdsBuilder.add(slpTokenTransactionId);
                     }
                     scriptTypes = scriptTypesBuilder.build();
+                    slpTokenTransactionIds = slpTokenTransactionIdsBuilder.build();
                 }
 
                 final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
 
-                transactionOutputDatabaseManager.setLockingScriptTypes(lockingScriptIds, scriptTypes, addressIds);
+                transactionOutputDatabaseManager.setLockingScriptTypes(lockingScriptIds, scriptTypes, addressIds, slpTokenTransactionIds);
             }
             TransactionUtil.commitTransaction(databaseConnection);
             processTimer.stop();

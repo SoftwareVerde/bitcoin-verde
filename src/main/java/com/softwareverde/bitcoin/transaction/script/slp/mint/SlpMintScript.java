@@ -1,9 +1,10 @@
 package com.softwareverde.bitcoin.transaction.script.slp.mint;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.constable.Constable;
 
-public interface SlpMintScript extends Constable<ImmutableSlpMintScript> {
+public interface SlpMintScript extends SlpScript, Constable<ImmutableSlpMintScript> {
     Integer RECEIVER_TRANSACTION_OUTPUT_INDEX = 1;
 
     SlpTokenId getTokenId();

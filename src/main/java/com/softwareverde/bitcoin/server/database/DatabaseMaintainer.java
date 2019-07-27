@@ -30,6 +30,7 @@ public class DatabaseMaintainer {
         listBuilder.add("locking_scripts");
         listBuilder.add("unlocking_scripts");
         listBuilder.add("address_processor_queue");
+        listBuilder.add("slp_processor_queue");
         listBuilder.add("hosts");
         listBuilder.add("nodes");
         listBuilder.add("node_features");

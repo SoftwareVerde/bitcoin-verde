@@ -160,6 +160,7 @@ CREATE TABLE script_types (
     UNIQUE KEY script_types_uq (type)
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 INSERT INTO script_types (id, type) VALUES (1, 'UNKNOWN'), (2, 'CUSTOM_SCRIPT'), (3, 'PAY_TO_PUBLIC_KEY'), (4, 'PAY_TO_PUBLIC_KEY_HASH'), (5, 'PAY_TO_SCRIPT_HASH');
+INSERT INTO script_types (id, type) VALUES (6, 'SLP_GENESIS_SCRIPT'), (7, 'SLP_SEND_SCRIPT'), (8, 'SLP_MINT_SCRIPT'), (9, 'SLP_COMMIT_SCRIPT');
 
 CREATE TABLE locking_scripts (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -167,11 +168,13 @@ CREATE TABLE locking_scripts (
     script_type_id INT UNSIGNED NOT NULL,
     script BLOB NOT NULL,
     address_id INT UNSIGNED,
+    slp_transaction_id INT UNSIGNED,
     PRIMARY KEY (id),
     UNIQUE KEY locking_scripts_uq (transaction_output_id),
     FOREIGN KEY locking_scripts_type_id_fk (script_type_id) REFERENCES script_types (id),
     FOREIGN KEY locking_scripts_output_id_fk (transaction_output_id) REFERENCES transaction_outputs (id) ON DELETE CASCADE,
-    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id)
+    FOREIGN KEY locking_scripts_address_id_fk (address_id) REFERENCES addresses (id),
+    FOREIGN KEY locking_scripts_slp_tx_id_fk (slp_transaction_id) REFERENCES transactions (id),
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE unlocking_scripts (
@@ -189,6 +192,14 @@ CREATE TABLE address_processor_queue (
     PRIMARY KEY (id),
     UNIQUE KEY address_processor_queue_uq (locking_script_id),
     FOREIGN KEY address_processor_queue_fk (locking_script_id) REFERENCES locking_scripts (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
+
+CREATE TABLE slp_processor_queue (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    locking_script_id INT UNSIGNED NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY slp_processor_queue_uq (locking_script_id),
+    FOREIGN KEY slp_processor_queue_fk (locking_script_id) REFERENCES locking_scripts (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=UTF8MB4;
 
 CREATE TABLE hosts (
