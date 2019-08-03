@@ -425,6 +425,7 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final Row row = rows.get(0);
         final Long version = row.getLong("version");
         final LockTime lockTime = new ImmutableLockTime(row.getLong("lock_time"));
+        final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
 
         final List<TransactionInputId> transactionInputIds;
         final List<TransactionOutputId> transactionOutputIds;
@@ -440,12 +441,22 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionInputIds = transactionInputDatabaseManager.getTransactionInputIds(transactionId);
             for (final TransactionInputId transactionInputId : transactionInputIds) {
                 final TransactionInput transactionInput = transactionInputDatabaseManager.getTransactionInput(transactionInputId);
+                if (transactionInput == null) {
+                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    return null;
+                }
+
                 mutableTransaction.addTransactionInput(transactionInput);
             }
 
             transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
             for (final TransactionOutputId transactionOutputId : transactionOutputIds) {
                 final TransactionOutput transactionOutput = transactionOutputDatabaseManager.getTransactionOutput(transactionOutputId);
+                if (transactionOutput == null) {
+                    Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
+                    return null;
+                }
+
                 mutableTransaction.addTransactionOutput(transactionOutput);
             }
 
@@ -453,7 +464,6 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
             transactionHash = transaction.getHash();
 
             { // Validate inflated transaction hash...
-                final Sha256Hash expectedTransactionHash = Sha256Hash.fromHexString(row.getString("hash"));
                 if (! Util.areEqual(expectedTransactionHash, transactionHash)) {
                     Logger.log("ERROR: Error inflating transaction: " + expectedTransactionHash);
                     return null;
