@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.server.module.node.sync;
 
 import com.softwareverde.bitcoin.address.AddressId;
+import com.softwareverde.bitcoin.constable.util.ConstUtil;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -23,11 +24,14 @@ import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
+import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
+
+import java.util.HashMap;
 
 public class AddressProcessor extends SleepyService {
     public static final Integer BATCH_SIZE = 4096;
@@ -64,6 +68,7 @@ public class AddressProcessor extends SleepyService {
 
                 final List<LockingScript> lockingScripts = transactionOutputDatabaseManager.getLockingScripts(lockingScriptIds);
 
+                final HashMap<TransactionId, MutableList<TransactionOutputId>> slpTransactionOutputs = new HashMap<TransactionId, MutableList<TransactionOutputId>>();
                 final List<TransactionId> slpTokenTransactionIds;
                 final List<ScriptType> scriptTypes;
                 {
@@ -104,12 +109,20 @@ public class AddressProcessor extends SleepyService {
                                                 final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if (generatorOutputIndex >= transactionOutputIds.getSize()) {
+                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getSize())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {
-                                                    final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
-                                                    transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                    { // Mark the Receiving Output as an SLP Output...
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(SlpGenesisScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
+                                                        ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
+                                                    }
+
+                                                    if (generatorOutputIndex != null) {
+                                                        // Mark the Mint Baton Output as an SLP Output...
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                        ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
+                                                    }
                                                 }
                                             } break;
 
@@ -118,12 +131,20 @@ public class AddressProcessor extends SleepyService {
                                                 final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
-                                                if (generatorOutputIndex >= transactionOutputIds.getSize()) {
+                                                if ( (generatorOutputIndex != null) && (generatorOutputIndex >= transactionOutputIds.getSize())) {
                                                     slpTransactionIsValid = false;
                                                 }
                                                 else {
-                                                    final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
-                                                    transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                    { // Mark the Receiving Output as an SLP Output...
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(SlpMintScript.RECEIVER_TRANSACTION_OUTPUT_INDEX);
+                                                        ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
+                                                    }
+
+                                                    if (generatorOutputIndex != null) {
+                                                        // Mark the Mint Baton Output as an SLP Output...
+                                                        final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                        ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
+                                                    }
                                                 }
                                             } break;
 
@@ -136,7 +157,7 @@ public class AddressProcessor extends SleepyService {
                                                     final Long slpAmount = Util.coalesce(slpSendScript.getAmount(slpTransactionOutputIndex));
 
                                                     if (slpAmount > 0L) {
-                                                        transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                        ConstUtil.addToListMap(slpTokenTransactionId, siblingTransactionOutputId, slpTransactionOutputs);
                                                     }
 
                                                     slpTransactionOutputIndex += 1;
@@ -162,6 +183,11 @@ public class AddressProcessor extends SleepyService {
                 final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
 
                 transactionOutputDatabaseManager.setLockingScriptTypes(lockingScriptIds, scriptTypes, addressIds, slpTokenTransactionIds);
+
+                for (final TransactionId slpGenesisTransactionId : slpTransactionOutputs.keySet()) {
+                    final List<TransactionOutputId> transactionOutputIds = slpTransactionOutputs.get(slpGenesisTransactionId);
+                    transactionOutputDatabaseManager.setSlpTransactionIds(slpGenesisTransactionId, transactionOutputIds);
+                }
             }
             TransactionUtil.commitTransaction(databaseConnection);
             processTimer.stop();

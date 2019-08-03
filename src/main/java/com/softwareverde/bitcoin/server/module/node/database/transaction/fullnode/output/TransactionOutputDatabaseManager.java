@@ -749,13 +749,22 @@ public class TransactionOutputDatabaseManager {
         return SlpTokenId.wrap(slpTokenId);
     }
 
-    public void setSlpTransactionId(final TransactionOutputId transactionOutputId, final TransactionId slpTokenTransactionId) throws DatabaseException {
+    public void setSlpTransactionId(final TransactionId slpTokenTransactionId, final TransactionOutputId transactionOutputId) throws DatabaseException {
         final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
 
         databaseConnection.executeSql(
             new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id = ?")
                 .setParameter(slpTokenTransactionId)
                 .setParameter(transactionOutputId)
+        );
+    }
+
+    public void setSlpTransactionIds(final TransactionId slpTokenTransactionId, final List<TransactionOutputId> transactionOutputIds) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id IN (" + DatabaseUtil.createInClause(transactionOutputIds) + ")")
+                .setParameter(slpTokenTransactionId)
         );
     }
 }
