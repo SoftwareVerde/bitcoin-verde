@@ -7,11 +7,11 @@ import com.softwareverde.bitcoin.server.database.cache.LocalDatabaseManagerCache
 import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.util.BitcoinUtil;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.NanoTimer;

@@ -3,14 +3,14 @@ package com.softwareverde.bitcoin.server.module.node.rpc.handler;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.rpc.NodeRpcHandler;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadata;
 import com.softwareverde.bitcoin.server.module.node.rpc.blockchain.BlockchainMetadataBuilder;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 
 public class QueryBlockchainHandler implements NodeRpcHandler.QueryBlockchainHandler {

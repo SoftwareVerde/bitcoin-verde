@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.database.pool;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.DatabaseConnectionFactory;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.timer.MilliTimer;
 

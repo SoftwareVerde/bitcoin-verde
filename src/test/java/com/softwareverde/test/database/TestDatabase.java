@@ -8,7 +8,7 @@ import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapp
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.mysql.MysqlDatabaseConnectionFactory;
 import com.softwareverde.database.mysql.embedded.vorburger.DB;
-import com.softwareverde.database.mysql.properties.Credentials;
+import com.softwareverde.database.properties.DatabaseCredentials;
 
 public class TestDatabase extends Database {
     public TestDatabase(final MysqlTestDatabase core) {
@@ -33,7 +33,7 @@ public class TestDatabase extends Database {
         return ((MysqlTestDatabase) _core).getDatabaseInstance();
     }
 
-    public Credentials getCredentials() {
+    public DatabaseCredentials getCredentials() {
         return ((MysqlTestDatabase) _core).getCredentials();
     }
 

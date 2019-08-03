@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.server.module.stratum.api;
 
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
 import com.softwareverde.json.Jsonable;

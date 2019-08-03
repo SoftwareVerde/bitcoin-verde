@@ -70,25 +70,7 @@ public class SlpScriptInflater {
         return SlpTokenId.copyOf(tokenIdBytes.getBytes());
     }
 
-    public static Boolean matchesSlpFormat(final LockingScript lockingScript) {
-        return _matchesSlpFormat(lockingScript);
-    }
-
-    public static SlpScriptType getScriptType(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        return _getScriptType(lockingScript);
-    }
-
-    public static SlpTokenId getTokenId(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        return _getTokenId(lockingScript);
-    }
-
-    public SlpGenesisScript genesisScriptFromScript(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
-        if (! Util.areEqual(SlpScriptType.GENESIS, slpScriptType)) { return null; }
-
+    protected static SlpGenesisScript _genesisScriptFromScript(final LockingScript lockingScript) {
         final List<Operation> operations = lockingScript.getOperations();
         if (operations.getSize() != 11) { return null; }
 
@@ -127,11 +109,7 @@ public class SlpScriptInflater {
         return slpGenesisScript;
     }
 
-    public SlpMintScript mintScriptFromScript(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
-        if (! Util.areEqual(SlpScriptType.MINT, slpScriptType)) { return null; }
-
+    protected static SlpMintScript _mintScriptFromScript(final LockingScript lockingScript) {
         final SlpTokenId tokenId = _getTokenId(lockingScript);
         if (tokenId == null) { return null; }
 
@@ -156,11 +134,7 @@ public class SlpScriptInflater {
         return slpMintScript;
     }
 
-    public SlpSendScript sendScriptFromScript(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
-        if (! Util.areEqual(SlpScriptType.SEND, slpScriptType)) { return null; }
-
+    protected static SlpSendScript _sendScriptFromScript(final LockingScript lockingScript) {
         final SlpTokenId tokenId = _getTokenId(lockingScript);
         if (tokenId == null) { return null; }
 
@@ -180,11 +154,7 @@ public class SlpScriptInflater {
         return slpSendScript;
     }
 
-    public SlpCommitScript commitScriptFromScript(final LockingScript lockingScript) {
-        if (! _matchesSlpFormat(lockingScript)) { return null; }
-        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
-        if (! Util.areEqual(SlpScriptType.COMMIT, slpScriptType)) { return null; }
-
+    protected static SlpCommitScript _commitScriptFromScript(final LockingScript lockingScript) {
         final SlpTokenId tokenId = _getTokenId(lockingScript);
         if (tokenId == null) { return null; }
 
@@ -226,5 +196,67 @@ public class SlpScriptInflater {
         }
 
         return slpCommitScript;
+    }
+
+    public static Boolean matchesSlpFormat(final LockingScript lockingScript) {
+        return _matchesSlpFormat(lockingScript);
+    }
+
+    public static SlpScriptType getScriptType(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        return _getScriptType(lockingScript);
+    }
+
+    public static SlpTokenId getTokenId(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        return _getTokenId(lockingScript);
+    }
+
+    public SlpGenesisScript genesisScriptFromScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (! Util.areEqual(SlpScriptType.GENESIS, slpScriptType)) { return null; }
+
+        return _genesisScriptFromScript(lockingScript);
+    }
+
+    public SlpMintScript mintScriptFromScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (! Util.areEqual(SlpScriptType.MINT, slpScriptType)) { return null; }
+
+        return _mintScriptFromScript(lockingScript);
+    }
+
+    public SlpSendScript sendScriptFromScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (! Util.areEqual(SlpScriptType.SEND, slpScriptType)) { return null; }
+
+        return _sendScriptFromScript(lockingScript);
+    }
+
+    public SlpCommitScript commitScriptFromScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (! Util.areEqual(SlpScriptType.COMMIT, slpScriptType)) { return null; }
+
+        return _commitScriptFromScript(lockingScript);
+    }
+
+    public SlpScript fromLockingScript(final LockingScript lockingScript) {
+        if (! _matchesSlpFormat(lockingScript)) { return null; }
+
+        final SlpScriptType slpScriptType = _getScriptType(lockingScript);
+        if (slpScriptType == null) { return null; }
+
+        switch (slpScriptType) {
+            case GENESIS: { return _genesisScriptFromScript(lockingScript); }
+            case MINT: { return _mintScriptFromScript(lockingScript); }
+            case COMMIT: { return _commitScriptFromScript(lockingScript); }
+            case SEND: { return _sendScriptFromScript(lockingScript); }
+        }
+
+        return null;
     }
 }

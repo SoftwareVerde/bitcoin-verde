@@ -3,7 +3,7 @@ package com.softwareverde.bitcoin.server.main;
 import com.softwareverde.util.Util;
 
 public class BitcoinConstants {
-    protected static final Integer DATABASE_VERSION = 1;
+    protected static final Integer DATABASE_VERSION = 2;
 
     private static final String LOCKED_ERROR_MESSAGE = "Attempting to set SystemProperty after initialization.";
     private static Boolean LOCKED = false;

@@ -11,6 +11,33 @@ public enum ScriptType {
     SLP_MINT_SCRIPT(8L),
     SLP_COMMIT_SCRIPT(9L);
 
+    public static Boolean isSlpScriptType(final ScriptType scriptType) {
+        if (scriptType == null) { return false; }
+
+        switch (scriptType) {
+            case SLP_GENESIS_SCRIPT:
+            case SLP_SEND_SCRIPT:
+            case SLP_MINT_SCRIPT:
+            case SLP_COMMIT_SCRIPT: {
+                return true;
+            }
+            default: { return false; }
+        }
+    }
+
+    public static Boolean isAddressScriptType(final ScriptType scriptType) {
+        if (scriptType == null) { return false; }
+
+        switch (scriptType) {
+            case PAY_TO_PUBLIC_KEY:
+            case PAY_TO_PUBLIC_KEY_HASH:
+            case PAY_TO_SCRIPT_HASH: {
+                return true;
+            }
+            default: { return false; }
+        }
+    }
+
     protected final ScriptTypeId _scriptTypeId;
 
     ScriptType(final Long id) {

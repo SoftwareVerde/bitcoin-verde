@@ -5,18 +5,28 @@ import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManagerFactory;
+import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.fullnode.output.TransactionOutputDatabaseManager;
+import com.softwareverde.bitcoin.transaction.Transaction;
 import com.softwareverde.bitcoin.transaction.TransactionId;
 import com.softwareverde.bitcoin.transaction.output.LockingScriptId;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutput;
+import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.bitcoin.transaction.script.ScriptPatternMatcher;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.locking.LockingScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptInflater;
+import com.softwareverde.bitcoin.transaction.script.slp.genesis.SlpGenesisScript;
+import com.softwareverde.bitcoin.transaction.script.slp.mint.SlpMintScript;
+import com.softwareverde.bitcoin.transaction.script.slp.send.SlpSendScript;
 import com.softwareverde.concurrent.service.SleepyService;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
 import com.softwareverde.database.util.TransactionUtil;
 import com.softwareverde.io.Logger;
+import com.softwareverde.util.Util;
 import com.softwareverde.util.timer.MilliTimer;
 
 public class AddressProcessor extends SleepyService {
@@ -37,9 +47,11 @@ public class AddressProcessor extends SleepyService {
             final MilliTimer processTimer = new MilliTimer();
 
             final DatabaseConnection databaseConnection = databaseManager.getDatabaseConnection();
+            final TransactionDatabaseManager transactionDatabaseManager = databaseManager.getTransactionDatabaseManager();
             final TransactionOutputDatabaseManager transactionOutputDatabaseManager = databaseManager.getTransactionOutputDatabaseManager();
             final AddressDatabaseManager addressDatabaseManager = databaseManager.getAddressDatabaseManager();
             final ScriptPatternMatcher scriptPatternMatcher = new ScriptPatternMatcher();
+            final SlpScriptInflater slpScriptInflater = new SlpScriptInflater();
 
             final int lockingScriptCount;
             processTimer.start();
@@ -65,8 +77,83 @@ public class AddressProcessor extends SleepyService {
                         final ScriptType scriptType = scriptPatternMatcher.getScriptType(lockingScript);
                         scriptTypesBuilder.add(scriptType);
 
-                        final TransactionId slpTokenTransactionId = transactionOutputDatabaseManager.getSlpTokenIdTransactionId(lockingScriptId, lockingScript);
-                        slpTokenTransactionIdsBuilder.add(slpTokenTransactionId);
+                        if (ScriptType.isSlpScriptType(scriptType)) {
+                            final TransactionId slpTokenTransactionId = transactionOutputDatabaseManager.calculateSlpTokenGenesisTransactionId(lockingScriptId, lockingScript);
+
+                            boolean slpTransactionIsValid;
+                            { // Validate SLP Transaction...
+                                // NOTE: Inflating the whole transaction is mildly costly, but typically this only happens once per SLP transaction, which is required anyway.
+                                final TransactionOutputId transactionOutputId = transactionOutputDatabaseManager.getTransactionOutputId(lockingScriptId);
+                                final TransactionId transactionId = transactionOutputDatabaseManager.getTransactionId(transactionOutputId);
+                                final Transaction transaction = transactionDatabaseManager.getTransaction(transactionId);
+                                if (transaction == null) {
+                                    slpTransactionIsValid = false;
+                                }
+                                else {
+                                    final SlpScript slpScript = slpScriptInflater.fromLockingScript(lockingScript);
+
+                                    final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+                                    final int transactionOutputCount = transactionOutputs.getSize();
+
+                                    slpTransactionIsValid = ( (slpScript != null) && (transactionOutputCount >= slpScript.getMinimumTransactionOutputCount()) );
+
+                                    if (slpTransactionIsValid) {
+                                        switch (slpScript.getType()) {
+                                            case SLP_GENESIS_SCRIPT: {
+                                                final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
+                                                final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
+
+                                                final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+                                                if (generatorOutputIndex >= transactionOutputIds.getSize()) {
+                                                    slpTransactionIsValid = false;
+                                                }
+                                                else {
+                                                    final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                    transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                }
+                                            } break;
+
+                                            case SLP_MINT_SCRIPT: {
+                                                final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
+                                                final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
+
+                                                final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+                                                if (generatorOutputIndex >= transactionOutputIds.getSize()) {
+                                                    slpTransactionIsValid = false;
+                                                }
+                                                else {
+                                                    final TransactionOutputId siblingTransactionOutputId = transactionOutputIds.get(generatorOutputIndex);
+                                                    transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                }
+                                            } break;
+
+                                            case SLP_SEND_SCRIPT: {
+                                                final SlpSendScript slpSendScript = (SlpSendScript) slpScript;
+
+                                                final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
+                                                int slpTransactionOutputIndex = 0;
+                                                for (final TransactionOutputId siblingTransactionOutputId : transactionOutputIds) {
+                                                    final Long slpAmount = Util.coalesce(slpSendScript.getAmount(slpTransactionOutputIndex));
+
+                                                    if (slpAmount > 0L) {
+                                                        transactionOutputDatabaseManager.setSlpTransactionId(siblingTransactionOutputId, slpTokenTransactionId);
+                                                    }
+
+                                                    slpTransactionOutputIndex += 1;
+                                                }
+                                            } break;
+
+                                            case SLP_COMMIT_SCRIPT: { } break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            slpTokenTransactionIdsBuilder.add(slpTransactionIsValid ? slpTokenTransactionId : null);
+                        }
+                        else {
+                            slpTokenTransactionIdsBuilder.add(null);
+                        }
                     }
                     scriptTypes = scriptTypesBuilder.build();
                     slpTokenTransactionIds = slpTokenTransactionIdsBuilder.build();

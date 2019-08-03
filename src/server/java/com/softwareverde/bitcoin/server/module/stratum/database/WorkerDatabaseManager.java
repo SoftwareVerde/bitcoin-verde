@@ -1,11 +1,11 @@
 package com.softwareverde.bitcoin.server.module.stratum.database;
 
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.security.pbkdf2.Pbkdf2Key;
 import com.softwareverde.util.Util;
 
@@ -29,12 +29,14 @@ public class WorkerDatabaseManager {
 
     public WorkerId insertWorker(final String username, final String password) throws DatabaseException {
         final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password);
+        final ByteArray keyByteArray = pbkdf2Key.getKey();
+        final ByteArray saltByteArray = pbkdf2Key.getSalt();
 
         final Long workerId = _databaseConnection.executeSql(
             new Query("INSERT INTO workers (username, password, salt, iterations) VALUES (?, ?, ?, ?)")
                 .setParameter(username)
-                .setParameter(pbkdf2Key.getKey())
-                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(keyByteArray.toString())
+                .setParameter(saltByteArray.toString())
                 .setParameter(pbkdf2Key.getIterations())
         );
 

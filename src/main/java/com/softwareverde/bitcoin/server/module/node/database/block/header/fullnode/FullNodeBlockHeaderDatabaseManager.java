@@ -16,6 +16,8 @@ import com.softwareverde.bitcoin.merkleroot.MerkleRoot;
 import com.softwareverde.bitcoin.merkleroot.MutableMerkleRoot;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
@@ -23,9 +25,7 @@ import com.softwareverde.bitcoin.server.module.node.database.blockchain.Blockcha
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
@@ -199,7 +199,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                 .setParameter(blockHeader.getMerkleRoot())
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(blockHeader.getDifficulty().encode())
+                .setParameter(blockHeader.getDifficulty())
                 .setParameter(blockHeader.getNonce())
                 .setParameter(blockId)
         );
@@ -239,7 +239,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                 .setParameter(blockHeader.getMerkleRoot())
                 .setParameter(blockHeader.getVersion())
                 .setParameter(blockHeader.getTimestamp())
-                .setParameter(difficulty.encode())
+                .setParameter(difficulty)
                 .setParameter(blockHeader.getNonce())
                 .setParameter(chainWork)
         ));
@@ -281,7 +281,7 @@ public class FullNodeBlockHeaderDatabaseManager implements BlockHeaderDatabaseMa
                 batchedInsertQuery.setParameter(blockHeader.getMerkleRoot());
                 batchedInsertQuery.setParameter(blockHeader.getVersion());
                 batchedInsertQuery.setParameter(blockHeader.getTimestamp());
-                batchedInsertQuery.setParameter(difficulty.encode());
+                batchedInsertQuery.setParameter(difficulty);
                 batchedInsertQuery.setParameter(blockHeader.getNonce());
                 batchedInsertQuery.setParameter(chainWork);
 

@@ -8,6 +8,7 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -20,8 +21,7 @@ import com.softwareverde.bitcoin.transaction.output.TransactionOutputId;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.HexUtil;
 import com.softwareverde.util.IoUtil;
@@ -144,7 +144,7 @@ public class TransactionTestUtil {
                         .setParameter(1L)
                         .setParameter(newTransactionOutputId)
                         .setParameter(new byte[0])
-                        .setParameter(null)
+                        .setParameter(Query.NULL)
                 );
             }
         }

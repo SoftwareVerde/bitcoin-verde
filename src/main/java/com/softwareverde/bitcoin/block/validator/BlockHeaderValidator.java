@@ -13,10 +13,6 @@ import com.softwareverde.database.DatabaseException;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.NetworkTime;
 import com.softwareverde.util.Util;
-import com.softwareverde.util.timer.MilliTimer;
-import com.softwareverde.util.timer.NanoTimer;
-
-import java.util.HashMap;
 
 public class BlockHeaderValidator {
     public static class BlockHeaderValidationResponse {

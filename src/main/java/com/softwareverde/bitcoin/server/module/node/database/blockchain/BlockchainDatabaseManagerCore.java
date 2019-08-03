@@ -6,14 +6,14 @@ import com.softwareverde.bitcoin.chain.segment.BlockchainSegment;
 import com.softwareverde.bitcoin.chain.segment.BlockchainSegmentId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.DatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.util.Util;
 
 public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager {
@@ -213,7 +213,9 @@ public class BlockchainDatabaseManagerCore implements BlockchainDatabaseManager 
         }
 
         final java.util.List<Row> rows = databaseConnection.query(query);
-        if (rows.isEmpty()) { throw new DatabaseException("No blockchain segment matches returned."); }
+        if (rows.isEmpty()) {
+            throw new DatabaseException("No blockchain segment matches returned.");
+        }
 
         final Row row = rows.get(0);
         return row.getBoolean("are_connected");

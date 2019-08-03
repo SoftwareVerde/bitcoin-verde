@@ -6,6 +6,8 @@ import com.softwareverde.bitcoin.hash.sha256.ImmutableSha256Hash;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.block.BlockRelationship;
 import com.softwareverde.bitcoin.server.module.node.database.block.header.BlockHeaderDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
@@ -31,9 +33,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.json.Json;
@@ -58,6 +58,8 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected static final Long FILTER_ITEM_COUNT = 500_000_000L;
     protected static final Long FILTER_NONCE = 0L;
     protected static final Double FILTER_FALSE_POSITIVE_RATE = 0.001D;
+
+    protected static final Integer MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING = 4; // The minimum number (inclusive) of inputs/outputs required to trigger batching input/outputs of the individual transaction...
 
     public static void initializeBloomFilter(final String filename, final DatabaseConnection databaseConnection) throws DatabaseException {
         try {
@@ -170,8 +172,21 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
     protected void _insertTransactionInputs(final TransactionId transactionId, final Transaction transaction) throws DatabaseException {
         final TransactionInputDatabaseManager transactionInputDatabaseManager = _databaseManager.getTransactionInputDatabaseManager();
 
-        for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
-            transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+        final List<TransactionInput> transactionInputs = transaction.getTransactionInputs();
+        if (transactionInputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+            for (final TransactionInput transactionInput : transaction.getTransactionInputs()) {
+                transactionInputDatabaseManager.insertTransactionInput(transactionId, transactionInput);
+            }
+        }
+        else {
+            final Sha256Hash transactionHash = transaction.getHash();
+            final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(1);
+            transactionHashMap.put(transactionHash, transactionId);
+
+            final MutableList<Transaction> transactionList = new MutableList<Transaction>(1);
+            transactionList.add(transaction);
+
+            transactionInputDatabaseManager.insertTransactionInputs(transactionHashMap, transactionList);
         }
     }
 
@@ -179,8 +194,21 @@ public class FullNodeTransactionDatabaseManagerCore implements FullNodeTransacti
         final TransactionOutputDatabaseManager transactionOutputDatabaseManager = _databaseManager.getTransactionOutputDatabaseManager();
 
         final Sha256Hash transactionHash = transaction.getHash();
-        for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
-            transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
+
+        final List<TransactionOutput> transactionOutputs = transaction.getTransactionOutputs();
+        if (transactionOutputs.getSize() < MIN_INPUT_OUTPUT_COUNT_FOR_BATCHING) {
+            for (final TransactionOutput transactionOutput : transaction.getTransactionOutputs()) {
+                transactionOutputDatabaseManager.insertTransactionOutput(transactionId, transactionHash, transactionOutput);
+            }
+        }
+        else {
+            final HashMap<Sha256Hash, TransactionId> transactionHashMap = new HashMap<Sha256Hash, TransactionId>(1);
+            transactionHashMap.put(transactionHash, transactionId);
+
+            final MutableList<Transaction> transactionList = new MutableList<Transaction>(1);
+            transactionList.add(transaction);
+
+            transactionOutputDatabaseManager.insertTransactionOutputs(transactionHashMap, transactionList);
         }
     }
 

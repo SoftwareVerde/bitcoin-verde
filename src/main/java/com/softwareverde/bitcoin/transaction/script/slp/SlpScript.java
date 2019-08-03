@@ -1,3 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.slp;
 
-public interface SlpScript { }
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
+
+public interface SlpScript {
+    ScriptType getType();
+    Integer getMinimumTransactionOutputCount();
+}

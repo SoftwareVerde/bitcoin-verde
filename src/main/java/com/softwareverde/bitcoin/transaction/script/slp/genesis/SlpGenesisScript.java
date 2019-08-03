@@ -1,6 +1,7 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
+import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
@@ -39,6 +40,16 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
         _decimalCount = slpGenesisScript.getDecimalCount();
         _generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
         _tokenCount = slpGenesisScript.getTokenCount();
+    }
+
+    @Override
+    public ScriptType getType() {
+        return ScriptType.SLP_GENESIS_SCRIPT;
+    }
+
+    @Override
+    public Integer getMinimumTransactionOutputCount() {
+        return Math.max(2, (Util.coalesce(_generatorOutputIndex) + 1)); // Requires at least 1 Script Output and 1 Receiver Output...
     }
 
     @Override

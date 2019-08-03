@@ -4,7 +4,7 @@ import com.softwareverde.io.Logger;
 
 public abstract class SleepyService {
     public enum Status {
-        ACTIVE, SLEEPING
+        ACTIVE, SLEEPING, STOPPED
     }
 
     public interface StatusMonitor {
@@ -72,9 +72,15 @@ public abstract class SleepyService {
         _statusMonitor = new StatusMonitor() {
             @Override
             public Status getStatus() {
-                if ( (! _shouldRestart) || _thread.isInterrupted() ) {
+                final Thread thread = _thread;
+                if ( (thread == null) || (thread.isInterrupted()) ) {
+                    return Status.STOPPED;
+                }
+
+                if (! _shouldRestart) {
                     return Status.SLEEPING;
                 }
+
                 return Status.ACTIVE;
             }
         };

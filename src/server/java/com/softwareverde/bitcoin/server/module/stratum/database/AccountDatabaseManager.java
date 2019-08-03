@@ -5,12 +5,12 @@ import com.softwareverde.bitcoin.address.AddressInflater;
 import com.softwareverde.bitcoin.miner.pool.AccountId;
 import com.softwareverde.bitcoin.miner.pool.WorkerId;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.bytearray.ByteArray;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.security.pbkdf2.Pbkdf2Key;
 import com.softwareverde.util.Util;
 import com.softwareverde.util.type.time.SystemTime;
@@ -58,12 +58,14 @@ public class AccountDatabaseManager {
 
     public AccountId createAccount(final String email, final String password) throws DatabaseException {
         final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password);
+        final ByteArray keyByteArray = pbkdf2Key.getKey();
+        final ByteArray saltByteArray = pbkdf2Key.getSalt();
 
         final Long accountId = _databaseConnection.executeSql(
             new Query("INSERT INTO accounts (email, password, salt, iterations) VALUES (?, ?, ?, ?)")
                 .setParameter(email)
-                .setParameter(pbkdf2Key.getKey())
-                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(keyByteArray.toString())
+                .setParameter(saltByteArray.toString())
                 .setParameter(pbkdf2Key.getIterations())
         );
 
@@ -72,11 +74,13 @@ public class AccountDatabaseManager {
 
     public void setAccountPassword(final AccountId accountId, final String password) throws DatabaseException {
         final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password);
+        final ByteArray keyByteArray = pbkdf2Key.getKey();
+        final ByteArray saltByteArray = pbkdf2Key.getSalt();
 
         _databaseConnection.executeSql(
             new Query("UPDATE accounts SET password = ?, salt = ?, iterations = ? WHERE id = ?")
-                .setParameter(pbkdf2Key.getKey())
-                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(keyByteArray.toString())
+                .setParameter(saltByteArray.toString())
                 .setParameter(pbkdf2Key.getIterations())
                 .setParameter(accountId)
         );
@@ -123,13 +127,15 @@ public class AccountDatabaseManager {
 
     public WorkerId createWorker(final AccountId accountId, final String username, final String password) throws DatabaseException {
         final Pbkdf2Key pbkdf2Key = new Pbkdf2Key(password, WORKER_PASSWORD_ITERATIONS, Pbkdf2Key.generateRandomSalt(), Pbkdf2Key.DEFAULT_KEY_BIT_COUNT);
+        final ByteArray keyByteArray = pbkdf2Key.getKey();
+        final ByteArray saltByteArray = pbkdf2Key.getSalt();
 
         final Long workerId = _databaseConnection.executeSql(
             new Query("INSERT INTO workers (account_id, username, password, salt, iterations) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(accountId)
                 .setParameter(username)
-                .setParameter(pbkdf2Key.getKey())
-                .setParameter(pbkdf2Key.getSalt())
+                .setParameter(keyByteArray.toString())
+                .setParameter(saltByteArray.toString())
                 .setParameter(pbkdf2Key.getIterations())
         );
 

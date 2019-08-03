@@ -4,6 +4,9 @@ import com.softwareverde.bitcoin.address.AddressId;
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
 import com.softwareverde.bitcoin.server.database.DatabaseConnection;
 import com.softwareverde.bitcoin.server.database.cache.DatabaseManagerCache;
+import com.softwareverde.bitcoin.server.database.query.BatchedInsertQuery;
+import com.softwareverde.bitcoin.server.database.query.BatchedUpdateQuery;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.module.node.database.address.AddressDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.fullnode.FullNodeDatabaseManager;
 import com.softwareverde.bitcoin.server.module.node.database.transaction.TransactionDatabaseManager;
@@ -33,10 +36,7 @@ import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.constable.list.mutable.MutableList;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
-import com.softwareverde.database.mysql.BatchedInsertQuery;
-import com.softwareverde.database.mysql.BatchedUpdateQuery;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.database.util.DatabaseUtil;
 import com.softwareverde.io.Logger;
 import com.softwareverde.util.Util;
@@ -215,11 +215,12 @@ public class TransactionOutputDatabaseManager {
 
         final ByteArray lockingScriptByteArray = lockingScript.getBytes();
         final Long lockingScriptId = databaseConnection.executeSql(
-            new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)")
+            new Query("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?)")
                 .setParameter(scriptTypeId)
                 .setParameter(transactionOutputId)
                 .setParameter(lockingScriptByteArray.getBytes())
-                .setParameter(null)
+                .setParameter(Query.NULL) // addressId
+                .setParameter(Query.NULL) // slpTransactionId
         );
 
         databaseConnection.executeSql(
@@ -246,7 +247,7 @@ public class TransactionOutputDatabaseManager {
      *  At least `nullableTransactionId` or `nullableLockingScriptId` must be provided.
      *  For better performance, provide `nullableLockingScript` when available.
      */
-    protected TransactionId _getSlpTokenIdTransactionId(final TransactionId nullableTransactionId, final LockingScriptId nullableLockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
+    protected TransactionId _calculateSlpTokenGenesisTransactionId(final TransactionId nullableTransactionId, final LockingScriptId nullableLockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
         final LockingScript lockingScript = ( (nullableLockingScript != null) ? nullableLockingScript : _getLockingScript(nullableLockingScriptId));
         if (lockingScript == null) { return null; }
 
@@ -316,7 +317,7 @@ public class TransactionOutputDatabaseManager {
             } break;
 
             default: {
-                slpTokenTransactionId = _getSlpTokenIdTransactionId(transactionId, null, lockingScript);
+                slpTokenTransactionId = _calculateSlpTokenGenesisTransactionId(transactionId, null, lockingScript);
                 addressId = null;
             }
         }
@@ -339,7 +340,7 @@ public class TransactionOutputDatabaseManager {
             throw new DatabaseException("Attempted to insert LockingScripts without matching TransactionOutputIds.");
         }
 
-        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id) VALUES (?, ?, ?, ?)");
+        final Query batchInsertQuery = new BatchedInsertQuery("INSERT INTO locking_scripts (script_type_id, transaction_output_id, script, address_id, slp_transaction_id) VALUES (?, ?, ?, ?, ?)");
 
         // final AddressDatabaseManager addressDatabaseManager = new AddressDatabaseManager(databaseConnection, databaseManagerCache);
         // final List<AddressId> addressIds = addressDatabaseManager.storeScriptAddresses(lockingScripts);
@@ -359,7 +360,8 @@ public class TransactionOutputDatabaseManager {
             batchInsertQuery.setParameter(scriptTypeId);
             batchInsertQuery.setParameter(transactionOutputId);
             batchInsertQuery.setParameter(lockingScriptByteArray.getBytes());
-            batchInsertQuery.setParameter(null);                                // addressId
+            batchInsertQuery.setParameter(Query.NULL); // addressId
+            batchInsertQuery.setParameter(Query.NULL); // slpTransactionId
         }
 
         final Long firstLockingScriptId = databaseConnection.executeSql(batchInsertQuery);
@@ -552,7 +554,7 @@ public class TransactionOutputDatabaseManager {
         final DatabaseManagerCache databaseManagerCache = _databaseManager.getDatabaseManagerCache();
 
         final java.util.List<Row> rows = databaseConnection.query(
-            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY id ASC")
+            new Query("SELECT id FROM transaction_outputs WHERE transaction_id = ? ORDER BY `index` ASC")
                 .setParameter(transactionId)
         );
 
@@ -635,8 +637,8 @@ public class TransactionOutputDatabaseManager {
             new Query("UPDATE locking_scripts SET script_type_id = ?, address_id = ?, slp_transaction_id = ? WHERE id = ?")
                 .setParameter(scriptTypeId)
                 .setParameter(addressId)
-                .setParameter(lockingScriptId)
                 .setParameter(slpTransactionId)
+                .setParameter(lockingScriptId)
         );
 
         databaseConnection.executeSql(
@@ -665,8 +667,8 @@ public class TransactionOutputDatabaseManager {
                 new Query("UPDATE locking_scripts SET script_type_id = ?, address_id = ?, slp_transaction_id = ? WHERE id = ?")
                     .setParameter(scriptTypeId)
                     .setParameter(addressId)
-                    .setParameter(lockingScriptId)
                     .setParameter(slpTransactionId)
+                    .setParameter(lockingScriptId)
             );
         }
 
@@ -698,7 +700,62 @@ public class TransactionOutputDatabaseManager {
         return DatabaseUtil.sortMappedRows(rows, lockingScriptIds, keyMap);
     }
 
-    public TransactionId getSlpTokenIdTransactionId(final LockingScriptId lockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
-        return _getSlpTokenIdTransactionId(null, lockingScriptId, nullableLockingScript);
+    public TransactionOutputId getTransactionOutputId(final LockingScriptId lockingScriptId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, transaction_output_id FROM locking_scripts WHERE id = ?")
+                .setParameter(lockingScriptId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long transactionOutputId = row.getLong("transaction_output_id");
+        return TransactionOutputId.wrap(transactionOutputId);
+    }
+
+    public TransactionId getTransactionId(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, transaction_id FROM transaction_outputs WHERE id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final Long transactionId = row.getLong("transaction_id");
+        return TransactionId.wrap(transactionId);
+    }
+
+    public TransactionId calculateSlpTokenGenesisTransactionId(final LockingScriptId lockingScriptId, final LockingScript nullableLockingScript) throws DatabaseException {
+        return _calculateSlpTokenGenesisTransactionId(null, lockingScriptId, nullableLockingScript);
+    }
+
+    public SlpTokenId getSlpTokenId(final TransactionOutputId transactionOutputId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+        final TransactionDatabaseManager transactionDatabaseManager = _databaseManager.getTransactionDatabaseManager();
+
+        final java.util.List<Row> rows = databaseConnection.query(
+            new Query("SELECT id, slp_transaction_id FROM locking_scripts WHERE transaction_output_id = ?")
+                .setParameter(transactionOutputId)
+        );
+        if (rows.isEmpty()) { return null; }
+
+        final Row row = rows.get(0);
+        final TransactionId slpTransactionId = TransactionId.wrap(row.getLong("slp_transaction_id"));
+
+        final Sha256Hash slpTokenId = transactionDatabaseManager.getTransactionHash(slpTransactionId);
+        return SlpTokenId.wrap(slpTokenId);
+    }
+
+    public void setSlpTransactionId(final TransactionOutputId transactionOutputId, final TransactionId slpTokenTransactionId) throws DatabaseException {
+        final DatabaseConnection databaseConnection = _databaseManager.getDatabaseConnection();
+
+        databaseConnection.executeSql(
+            new Query("UPDATE locking_scripts SET slp_transaction_id = ? WHERE transaction_output_id = ?")
+                .setParameter(slpTokenTransactionId)
+                .setParameter(transactionOutputId)
+        );
     }
 }

@@ -1,9 +1,9 @@
 package com.softwareverde.bitcoin.server.database;
 
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.constable.list.List;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
 import com.softwareverde.io.Logger;
 
 public class DatabaseMaintainer {
@@ -30,7 +30,6 @@ public class DatabaseMaintainer {
         listBuilder.add("locking_scripts");
         listBuilder.add("unlocking_scripts");
         listBuilder.add("address_processor_queue");
-        listBuilder.add("slp_processor_queue");
         listBuilder.add("hosts");
         listBuilder.add("nodes");
         listBuilder.add("node_features");

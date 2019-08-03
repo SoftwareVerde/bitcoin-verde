@@ -26,6 +26,7 @@ import com.softwareverde.bitcoin.server.database.cache.MasterDatabaseManagerCach
 import com.softwareverde.bitcoin.server.database.cache.utxo.UnspentTransactionOutputCacheFactory;
 import com.softwareverde.bitcoin.server.database.cache.utxo.UtxoCount;
 import com.softwareverde.bitcoin.server.database.pool.DatabaseConnectionPool;
+import com.softwareverde.bitcoin.server.database.query.Query;
 import com.softwareverde.bitcoin.server.database.wrapper.DatabaseConnectionWrapper;
 import com.softwareverde.bitcoin.server.main.NativeUnspentTransactionOutputCache;
 import com.softwareverde.bitcoin.server.module.node.database.block.fullnode.FullNodeBlockDatabaseManager;
@@ -45,10 +46,9 @@ import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorFacto
 import com.softwareverde.bitcoin.transaction.validator.TransactionValidatorTests;
 import com.softwareverde.constable.list.immutable.ImmutableListBuilder;
 import com.softwareverde.database.DatabaseException;
-import com.softwareverde.database.Query;
-import com.softwareverde.database.Row;
 import com.softwareverde.database.mysql.MysqlDatabaseConnection;
 import com.softwareverde.database.mysql.connection.ReadUncommittedDatabaseConnectionFactory;
+import com.softwareverde.database.row.Row;
 import com.softwareverde.io.Logger;
 import com.softwareverde.network.time.ImmutableNetworkTime;
 import com.softwareverde.util.DateUtil;
