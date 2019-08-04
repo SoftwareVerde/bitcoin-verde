@@ -104,7 +104,7 @@ public class AddressProcessor extends SleepyService {
 
                                     if (slpTransactionIsValid) {
                                         switch (slpScript.getType()) {
-                                            case SLP_GENESIS_SCRIPT: {
+                                            case GENESIS: {
                                                 final SlpGenesisScript slpGenesisScript = (SlpGenesisScript) slpScript;
                                                 final Integer generatorOutputIndex = slpGenesisScript.getGeneratorOutputIndex();
 
@@ -126,7 +126,7 @@ public class AddressProcessor extends SleepyService {
                                                 }
                                             } break;
 
-                                            case SLP_MINT_SCRIPT: {
+                                            case MINT: {
                                                 final SlpMintScript slpMintScript = (SlpMintScript) slpScript;
                                                 final Integer generatorOutputIndex = slpMintScript.getGeneratorOutputIndex();
 
@@ -148,7 +148,7 @@ public class AddressProcessor extends SleepyService {
                                                 }
                                             } break;
 
-                                            case SLP_SEND_SCRIPT: {
+                                            case SEND: {
                                                 final SlpSendScript slpSendScript = (SlpSendScript) slpScript;
 
                                                 final List<TransactionOutputId> transactionOutputIds = transactionOutputDatabaseManager.getTransactionOutputIds(transactionId);
@@ -164,7 +164,7 @@ public class AddressProcessor extends SleepyService {
                                                 }
                                             } break;
 
-                                            case SLP_COMMIT_SCRIPT: { } break;
+                                            case COMMIT: { } break;
                                         }
                                     }
                                 }

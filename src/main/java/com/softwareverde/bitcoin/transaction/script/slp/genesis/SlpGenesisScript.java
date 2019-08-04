@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.slp.genesis;
 
 import com.softwareverde.bitcoin.hash.sha256.Sha256Hash;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
 
@@ -43,8 +43,8 @@ abstract class SlpGenesisScriptCore implements SlpGenesisScript {
     }
 
     @Override
-    public ScriptType getType() {
-        return ScriptType.SLP_GENESIS_SCRIPT;
+    public SlpScriptType getType() {
+        return SlpScriptType.GENESIS;
     }
 
     @Override

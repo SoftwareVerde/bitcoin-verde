@@ -3,6 +3,7 @@ package com.softwareverde.bitcoin.transaction.script.slp.mint;
 import com.softwareverde.bitcoin.slp.SlpTokenId;
 import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 import com.softwareverde.util.Util;
 
@@ -31,8 +32,8 @@ abstract class SlpMintScriptCore implements SlpMintScript {
     }
 
     @Override
-    public ScriptType getType() {
-        return ScriptType.SLP_MINT_SCRIPT;
+    public SlpScriptType getType() {
+        return SlpScriptType.MINT;
     }
 
     @Override

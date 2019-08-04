@@ -1,8 +1,8 @@
 package com.softwareverde.bitcoin.transaction.script.slp.send;
 
 import com.softwareverde.bitcoin.slp.SlpTokenId;
-import com.softwareverde.bitcoin.transaction.script.ScriptType;
 import com.softwareverde.bitcoin.transaction.script.slp.SlpScript;
+import com.softwareverde.bitcoin.transaction.script.slp.SlpScriptType;
 import com.softwareverde.constable.Constable;
 
 public interface SlpSendScript extends SlpScript, Constable<ImmutableSlpSendScript> {
@@ -27,8 +27,8 @@ abstract class SlpSendScriptCore implements SlpSendScript {
     }
 
     @Override
-    public ScriptType getType() {
-        return ScriptType.SLP_SEND_SCRIPT;
+    public SlpScriptType getType() {
+        return SlpScriptType.SEND;
     }
 
     @Override
