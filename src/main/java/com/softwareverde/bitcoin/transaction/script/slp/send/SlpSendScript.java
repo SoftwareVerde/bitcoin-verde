@@ -10,6 +10,7 @@ public interface SlpSendScript extends SlpScript, Constable<ImmutableSlpSendScri
 
     SlpTokenId getTokenId();
     Long getAmount(Integer transactionOutputIndex);
+    Long getTotalAmount();
 }
 
 abstract class SlpSendScriptCore implements SlpSendScript {
@@ -56,5 +57,18 @@ abstract class SlpSendScriptCore implements SlpSendScript {
         if (transactionOutputIndex == 0) { return null; }
 
         return _amounts[transactionOutputIndex];
+    }
+
+    @Override
+    public Long getTotalAmount() {
+        long totalAmount = 0L;
+        for (int i = 0; i < MAX_OUTPUT_COUNT; ++i) {
+            final Long amount = _amounts[i];
+            if (amount == null) { continue; }
+
+            totalAmount += amount;
+        }
+
+        return totalAmount;
     }
 }
